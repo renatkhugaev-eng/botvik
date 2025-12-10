@@ -1,8 +1,7 @@
 import "dotenv/config";
-import type { PrismaClient } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 
-async function clearData(client: PrismaClient) {
+async function clearData(client: any) {
   // Order matters because of FK constraints
   await client.answer.deleteMany();
   await client.quizSession.deleteMany();
@@ -13,7 +12,7 @@ async function clearData(client: PrismaClient) {
   await client.user.deleteMany();
 }
 
-async function createQuizWithQuestions(client: PrismaClient) {
+async function createQuizWithQuestions(client: any) {
   const quiz = await client.quiz.create({
     data: {
       title: "Трукрайм-викторина №1",
