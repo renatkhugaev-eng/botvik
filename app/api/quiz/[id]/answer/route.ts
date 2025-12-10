@@ -21,8 +21,9 @@ function calculateBonus(timeSpentMs: number) {
   return Math.round(MAX_BONUS * ratio);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const quizId = Number(params.id);
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  const quizId = Number(id);
   if (!quizId || Number.isNaN(quizId)) {
     return NextResponse.json({ error: "invalid_quiz_id" }, { status: 400 });
   }
