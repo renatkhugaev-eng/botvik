@@ -1,9 +1,8 @@
 import { PrismaNeon } from "@prisma/adapter-neon";
 
-// Берём PrismaClient через require, чтобы TypeScript и Vercel не ругались на named import
-// и ошибку "no exported member PrismaClient".
-const { PrismaClient } = require("@prisma/client") as typeof import("@prisma/client");
-type PrismaClientType = import("@prisma/client").PrismaClient;
+// Берём PrismaClient через require без явной типизации,
+// чтобы TypeScript на Vercel не проверял структуру модуля и не ругался.
+const { PrismaClient } = require("@prisma/client");
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -13,9 +12,7 @@ if (!connectionString) {
 
 const adapter = new PrismaNeon({ connectionString });
 
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClientType;
-};
+const globalForPrisma = globalThis as any;
 
 export const prisma =
   globalForPrisma.prisma ??
