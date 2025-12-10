@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
-    "@prisma/adapter-neon": "^7.1.0",
-    "@prisma/client": "^7.1.0",
+    "@prisma/adapter-neon": "7.1.0",
+    "@prisma/client": "7.1.0",
     "next": "16.0.8",
     "react": "19.2.1",
     "react-dom": "19.2.1"
