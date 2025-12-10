@@ -26,12 +26,17 @@ export async function POST(req: NextRequest) {
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) {
+    console.error("[auth/telegram] NO_BOT_TOKEN");
     return NextResponse.json({ ok: false, reason: "NO_BOT_TOKEN" }, { status: 500 });
   }
 
   const validation = validateInitData(rawInitData, botToken);
   if (!validation.ok) {
-    console.error("[auth/telegram] invalid initData", validation.reason);
+    console.error("[auth/telegram] invalid initData", {
+      reason: validation.reason,
+      initDataLength: rawInitData.length,
+      initDataPreview: rawInitData.slice(0, 80),
+    });
     return NextResponse.json({ ok: false, reason: validation.reason }, { status: 401 });
   }
 
