@@ -64,15 +64,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     quizId,
     totalQuestions: questions.length,
     totalScore: session.totalScore,
-    questions: questions.map((q) => ({
+    questions: questions.map((q: (typeof questions)[number]) => ({
       id: q.id,
       text: q.text,
       order: q.order,
-      options: q.answers.map((option) => ({
+      options: q.answers.map((option: (typeof q.answers)[number]) => ({
         id: option.id,
         text: option.text,
       })),
     })),
   });
 }
-
