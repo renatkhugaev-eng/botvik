@@ -1,19 +1,22 @@
 import "dotenv/config";
-import { prisma } from "../lib/prisma";
+import { PrismaClient } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 
-async function clearData(client: any) {
+let prisma: PrismaClient | null = null;
+
+async function clearData(prisma: PrismaClient) {
   // Order matters because of FK constraints
-  await client.answer.deleteMany();
-  await client.quizSession.deleteMany();
-  await client.answerOption.deleteMany();
-  await client.question.deleteMany();
-  await client.leaderboardEntry.deleteMany();
-  await client.quiz.deleteMany();
-  await client.user.deleteMany();
+  await prisma.answer.deleteMany();
+  await prisma.quizSession.deleteMany();
+  await prisma.answerOption.deleteMany();
+  await prisma.question.deleteMany();
+  await prisma.leaderboardEntry.deleteMany();
+  await prisma.quiz.deleteMany();
+  await prisma.user.deleteMany();
 }
 
-async function createQuizWithQuestions(client: any) {
-  const quiz = await client.quiz.create({
+async function createQuizWithQuestions(prisma: PrismaClient) {
+  const quiz = await prisma.quiz.create({
     data: {
       title: "Трукрайм-викторина №1",
       description: "Проверь, насколько хорошо ты знаешь истории серийных убийц и расследований.",
@@ -77,7 +80,7 @@ async function createQuizWithQuestions(client: any) {
   ];
 
   for (const q of questions) {
-    await client.question.create({
+    await prisma.question.create({
       data: {
         quizId: quiz.id,
         text: q.text,
@@ -101,6 +104,9 @@ async function main() {
 
   console.log("Using DATABASE_URL:", databaseUrl);
 
+  const adapter = new PrismaNeon({ connectionString: databaseUrl });
+  prisma = new PrismaClient({ adapter });
+
   await clearData(prisma);
 
   await prisma.user.create({
@@ -123,7 +129,9 @@ main()
   })
   .catch(async (e) => {
     console.error("Seeding failed", e);
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
     process.exit(1);
   });
 

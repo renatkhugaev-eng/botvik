@@ -2,6 +2,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 
 // Берём PrismaClient через require без явной типизации,
 // чтобы TypeScript на Vercel не проверял структуру модуля и не ругался.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { PrismaClient } = require("@prisma/client");
 
 const connectionString = process.env.DATABASE_URL;

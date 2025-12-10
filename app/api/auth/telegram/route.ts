@@ -12,39 +12,45 @@ type TelegramUser = {
 };
 
 export async function POST(req: NextRequest) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) {
-    return NextResponse.json({ error: "bot_token_not_configured" }, { status: 500 });
-  }
-
   let payload: { initData?: string };
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "INVALID_BODY" }, { status: 400 });
   }
 
   const rawInitData = payload?.initData ?? "";
-  if (!validateInitData(rawInitData, botToken)) {
-    return NextResponse.json({ error: "invalid_init_data" }, { status: 401 });
+  if (!rawInitData) {
+    return NextResponse.json({ ok: false, reason: "NO_INIT_DATA" }, { status: 400 });
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    return NextResponse.json({ ok: false, reason: "NO_BOT_TOKEN" }, { status: 500 });
+  }
+
+  const validation = validateInitData(rawInitData, botToken);
+  if (!validation.ok) {
+    console.error("[auth/telegram] invalid initData", validation.reason);
+    return NextResponse.json({ ok: false, reason: validation.reason }, { status: 401 });
   }
 
   const parsed = parseInitData(rawInitData);
   const userRaw = parsed["user"];
 
   if (!userRaw) {
-    return NextResponse.json({ error: "user_not_found" }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "USER_NOT_FOUND" }, { status: 400 });
   }
 
   let tgUser: TelegramUser | null = null;
   try {
     tgUser = JSON.parse(userRaw) as TelegramUser;
   } catch {
-    return NextResponse.json({ error: "user_parse_error" }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "USER_PARSE_ERROR" }, { status: 400 });
   }
 
   if (!tgUser?.id) {
-    return NextResponse.json({ error: "user_id_missing" }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "USER_ID_MISSING" }, { status: 400 });
   }
 
   const user = await prisma.user.upsert({
@@ -63,11 +69,14 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({
-    id: user.id,
-    telegramId: user.telegramId,
-    username: user.username,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    ok: true,
+    user: {
+      id: user.id,
+      telegramId: user.telegramId,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    },
   });
 }
 

@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 type TelegramWebApp = {
   WebApp?: {
     initData?: string;
+    ready?: () => void;
   };
 };
 
@@ -24,7 +25,7 @@ type MiniAppUser = {
 
 type MiniAppSession =
   | { status: "loading" }
-  | { status: "error"; error: string }
+  | { status: "error"; reason: string }
   | { status: "ready"; user: MiniAppUser };
 
 const MiniAppContext = createContext<MiniAppSession>({ status: "loading" });
@@ -37,15 +38,19 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
   const [session, setSession] = useState<MiniAppSession>({ status: "loading" });
 
   useEffect(() => {
-    const initData = window.Telegram?.WebApp?.initData;
-    if (!initData) {
-      queueMicrotask(() => setSession({ status: "error", error: "no_init_data" }));
-      return;
-    }
-
     let aborted = false;
 
     const authenticate = async () => {
+      const tg = (window as any)?.Telegram?.WebApp;
+      if (tg?.ready) tg.ready();
+
+      const initData = tg?.initData;
+      console.log("[MiniApp] initData length", initData?.length, initData?.slice?.(0, 80));
+      if (!initData) {
+        if (!aborted) setSession({ status: "error", reason: "NO_INIT_DATA" });
+        return;
+      }
+
       try {
         const res = await fetch("/api/auth/telegram", {
           method: "POST",
@@ -53,18 +58,20 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
           body: JSON.stringify({ initData }),
         });
 
-        if (!res.ok) {
-          if (!aborted) setSession({ status: "error", error: "auth_failed" });
+        const data = (await res.json()) as { ok: boolean; user?: MiniAppUser; reason?: string };
+        console.log("[MiniApp] auth response", data);
+
+        if (!res.ok || !data.ok || !data.user) {
+          if (!aborted) setSession({ status: "error", reason: data.reason ?? "AUTH_FAILED" });
           return;
         }
 
-        const data = (await res.json()) as MiniAppUser;
         if (!aborted) {
-          setSession({ status: "ready", user: data });
+          setSession({ status: "ready", user: data.user });
         }
       } catch (err) {
         console.error("Auth error", err);
-        if (!aborted) setSession({ status: "error", error: "network_error" });
+        if (!aborted) setSession({ status: "error", reason: "NETWORK_ERROR" });
       }
     };
 
@@ -89,7 +96,12 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
     if (session.status === "error") {
       return (
         <div className="flex min-h-screen items-center justify-center text-sm text-red-600">
-          Ошибка авторизации
+          <div className="text-center">
+            <div>Ошибка авторизации</div>
+            {process.env.NODE_ENV !== "production" ? (
+              <div className="mt-2 text-xs text-gray-500">Reason: {session.reason}</div>
+            ) : null}
+          </div>
         </div>
       );
     }
