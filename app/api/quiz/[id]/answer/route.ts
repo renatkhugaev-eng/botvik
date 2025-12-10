@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type AnswerRequestBody = {
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const bonus = isCorrect ? calculateBonus(timeSpentMs) : 0;
   const scoreDelta = isCorrect ? BASE_SCORE + bonus : 0;
 
-  const totalScore = await prisma.$transaction(async (tx) => {
+  const totalScore = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.answer.create({
       data: {
         sessionId,
