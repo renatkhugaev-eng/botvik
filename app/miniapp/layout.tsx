@@ -43,6 +43,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
     const authenticate = async () => {
       const tg = (window as any)?.Telegram?.WebApp;
       if (tg?.ready) tg.ready();
+      console.log("[MiniApp] Telegram WebApp present:", Boolean(tg));
 
       const initData = tg?.initData;
       console.log("[MiniApp] initData length", initData?.length, initData?.slice?.(0, 80));
