@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const result = entries.map((entry: (typeof entries)[number], idx): {
+  const result = entries.map((entry: (typeof entries)[number], idx: number): {
     place: number;
     user: { id: number; username: string | null; firstName: string | null };
     score: number;
