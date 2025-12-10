@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   const quizIdParam = req.nextUrl.searchParams.get("quizId");
   const quizId = quizIdParam ? Number(quizIdParam) : NaN;

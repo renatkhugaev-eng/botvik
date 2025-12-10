@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   const quizzes = await prisma.quiz.findMany({
     where: { isActive: true },

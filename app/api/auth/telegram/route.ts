@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseInitData, validateInitData } from "@/lib/telegram";
 
+export const runtime = "nodejs";
+
 type TelegramUser = {
   id: number;
   username?: string;
