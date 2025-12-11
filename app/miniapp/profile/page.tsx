@@ -23,6 +23,20 @@ type SummaryResponse = {
   };
 };
 
+type Friend = {
+  friendshipId: number;
+  id: number;
+  username: string | null;
+  firstName: string | null;
+  telegramId: string;
+  stats: {
+    totalScore: number;
+    gamesPlayed: number;
+    bestScore: number;
+  };
+  addedAt: string;
+};
+
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
@@ -94,7 +108,15 @@ export default function ProfilePage() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"stats" | "history">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "history" | "friends">("stats");
+  
+  // Friends
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [showAddFriend, setShowAddFriend] = useState(false);
+  const [friendUsername, setFriendUsername] = useState("");
+  const [addingFriend, setAddingFriend] = useState(false);
+  const [addFriendError, setAddFriendError] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isTouch = useIsTouchDevice();
   
@@ -145,6 +167,95 @@ export default function ProfilePage() {
     };
     load();
   }, [session]);
+
+  // Fetch friends
+  useEffect(() => {
+    if (session.status !== "ready") return;
+    
+    const loadFriends = async () => {
+      setFriendsLoading(true);
+      try {
+        const res = await fetch(`/api/friends?userId=${session.user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setFriends(data);
+        }
+      } catch (err) {
+        console.error("Failed to load friends", err);
+      } finally {
+        setFriendsLoading(false);
+      }
+    };
+    
+    loadFriends();
+  }, [session]);
+
+  // Add friend
+  const handleAddFriend = async () => {
+    if (!friendUsername.trim() || session.status !== "ready") return;
+    
+    setAddingFriend(true);
+    setAddFriendError(null);
+    
+    try {
+      const res = await fetch("/api/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session.user.id,
+          friendUsername: friendUsername.trim(),
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (data.error === "user_not_found") {
+          setAddFriendError("Пользователь не найден");
+        } else if (data.error === "already_friends") {
+          setAddFriendError("Уже в друзьях");
+        } else if (data.error === "cannot_add_self") {
+          setAddFriendError("Нельзя добавить себя");
+        } else {
+          setAddFriendError("Ошибка добавления");
+        }
+        return;
+      }
+      
+      // Reload friends list
+      const friendsRes = await fetch(`/api/friends?userId=${session.user.id}`);
+      if (friendsRes.ok) {
+        setFriends(await friendsRes.json());
+      }
+      
+      setFriendUsername("");
+      setShowAddFriend(false);
+    } catch (err) {
+      setAddFriendError("Ошибка сети");
+    } finally {
+      setAddingFriend(false);
+    }
+  };
+
+  // Remove friend
+  const handleRemoveFriend = async (friendId: number) => {
+    if (session.status !== "ready") return;
+    
+    try {
+      await fetch("/api/friends", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session.user.id,
+          friendId,
+        }),
+      });
+      
+      setFriends((prev) => prev.filter((f) => f.id !== friendId));
+    } catch (err) {
+      console.error("Failed to remove friend", err);
+    }
+  };
 
   // Animated values
   const animatedScore = useAnimatedCounter(data?.stats.totalScore ?? 0, 2000);
@@ -206,7 +317,7 @@ export default function ProfilePage() {
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={spring}
-        className="flex items-center justify-between py-3"
+        className="relative z-20 flex items-center justify-between py-3"
       >
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -219,13 +330,13 @@ export default function ProfilePage() {
         </motion.button>
         
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="flex items-center gap-2"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="flex items-center gap-2 rounded-full bg-[#0a0a0f] px-4 py-2 shadow-lg"
         >
-          <span className="text-xl">👤</span>
-          <h1 className="font-display text-[20px] font-bold text-[#1a1a2e]">Профиль</h1>
+          <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+          <span className="text-[14px] font-semibold text-white/90">Профиль</span>
         </motion.div>
         
         <div className="w-11" />
@@ -451,6 +562,7 @@ export default function ProfilePage() {
         {[
           { id: "stats" as const, label: "Статистика", icon: "📊" },
           { id: "history" as const, label: "Рекорды", icon: "🏆" },
+          { id: "friends" as const, label: "Друзья", icon: "👥" },
         ].map((tab) => (
           <motion.button
             key={tab.id}
@@ -470,6 +582,11 @@ export default function ProfilePage() {
             <span className="relative flex items-center justify-center gap-2">
               <span>{tab.icon}</span>
               {tab.label}
+              {tab.id === "friends" && friends.length > 0 && (
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-violet-500 px-1.5 text-[10px] font-bold text-white">
+                  {friends.length}
+                </span>
+              )}
             </span>
           </motion.button>
         ))}
@@ -613,7 +730,7 @@ export default function ProfilePage() {
               </motion.div>
             )}
           </motion.div>
-        ) : (
+        ) : activeTab === "history" ? (
           <motion.div
             key="history"
             initial={{ opacity: 0, x: 30 }}
@@ -682,6 +799,189 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
+          </motion.div>
+        ) : activeTab === "friends" ? (
+          <motion.div
+            key="friends"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col gap-4"
+          >
+            {/* Add Friend Button */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowAddFriend(true)}
+              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[15px] font-bold text-white shadow-lg shadow-violet-500/25"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Добавить друга
+            </motion.button>
+
+            {/* Friends List */}
+            {friendsLoading ? (
+              <div className="flex flex-col items-center py-12">
+                <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-violet-500 animate-spin" />
+                <p className="mt-4 text-[14px] text-slate-400">Загружаем друзей...</p>
+              </div>
+            ) : friends.length === 0 ? (
+              <div className="rounded-2xl bg-white p-8 shadow-lg shadow-black/5 text-center">
+                <span className="text-6xl mb-4 block">👥</span>
+                <p className="text-[16px] font-bold text-[#1a1a2e]">Пока нет друзей</p>
+                <p className="text-[14px] text-slate-400 mt-2">
+                  Добавь друга по username,<br />чтобы следить за его статистикой
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <h3 className="text-[14px] font-bold text-[#1a1a2e]">Мои друзья</h3>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {friends.map((friend, i) => {
+                    const friendName = friend.firstName ?? friend.username ?? "Друг";
+                    const friendRank = getRank(friend.stats.totalScore);
+                    
+                    return (
+                      <motion.div
+                        key={friend.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05, ...spring }}
+                        className="p-4"
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          {/* Avatar */}
+                          <div className="relative">
+                            <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
+                            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
+                              {friendName[0].toUpperCase()}
+                            </div>
+                          </div>
+                          
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[15px] font-bold text-[#1a1a2e] truncate">{friendName}</p>
+                            {friend.username && (
+                              <p className="text-[12px] text-slate-400">@{friend.username}</p>
+                            )}
+                          </div>
+                          
+                          {/* Rank badge */}
+                          <div className={`flex items-center gap-1.5 rounded-full bg-gradient-to-r ${friendRank.color} px-3 py-1`}>
+                            <span className="text-sm">{friendRank.icon}</span>
+                            <span className="text-[11px] font-bold text-white">{friendRank.level}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Stats */}
+                        <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                          <div className="text-center flex-1">
+                            <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
+                            <p className="text-[10px] text-slate-400">очков</p>
+                          </div>
+                          <div className="h-8 w-px bg-slate-200" />
+                          <div className="text-center flex-1">
+                            <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.gamesPlayed}</p>
+                            <p className="text-[10px] text-slate-400">игр</p>
+                          </div>
+                          <div className="h-8 w-px bg-slate-200" />
+                          <div className="text-center flex-1">
+                            <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.bestScore}</p>
+                            <p className="text-[10px] text-slate-400">рекорд</p>
+                          </div>
+                        </div>
+                        
+                        {/* Remove button */}
+                        <button
+                          onClick={() => handleRemoveFriend(friend.id)}
+                          className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[12px] font-semibold text-red-500 active:bg-red-100"
+                        >
+                          Удалить из друзей
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ADD FRIEND MODAL
+      ═══════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showAddFriend && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => {
+              setShowAddFriend(false);
+              setFriendUsername("");
+              setAddFriendError(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={spring}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+            >
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600">
+                  <span className="text-3xl">👥</span>
+                </div>
+                <h2 className="font-display text-[20px] font-bold text-[#1a1a2e]">Добавить друга</h2>
+                <p className="text-[14px] text-slate-400 mt-1">Введи username друга в Telegram</p>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <input
+                    type="text"
+                    value={friendUsername}
+                    onChange={(e) => {
+                      setFriendUsername(e.target.value);
+                      setAddFriendError(null);
+                    }}
+                    placeholder="@username"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-[15px] font-medium text-[#1a1a2e] outline-none transition-colors focus:border-violet-500 placeholder:text-slate-300"
+                  />
+                  {addFriendError && (
+                    <p className="mt-2 text-[13px] text-red-500">{addFriendError}</p>
+                  )}
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowAddFriend(false);
+                      setFriendUsername("");
+                      setAddFriendError(null);
+                    }}
+                    className="flex-1 rounded-xl bg-slate-100 py-3.5 text-[14px] font-semibold text-slate-600 active:bg-slate-200"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={handleAddFriend}
+                    disabled={addingFriend || !friendUsername.trim()}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 text-[14px] font-bold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
+                  >
+                    {addingFriend ? "Добавляем..." : "Добавить"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

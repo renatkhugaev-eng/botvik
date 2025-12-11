@@ -26,6 +26,13 @@ type UserStats = {
   totalScore: number;
 };
 
+type LeaderboardPosition = {
+  place: number;
+  score: number;
+  totalPlayers: number;
+  topScore: number;
+};
+
 // Animations
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 
@@ -57,6 +64,9 @@ export default function MiniAppPage() {
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
+  
+  // Leaderboard position
+  const [myPosition, setMyPosition] = useState<LeaderboardPosition | null>(null);
 
   // Fetch quizzes
   useEffect(() => {
@@ -83,6 +93,40 @@ export default function MiniAppPage() {
         setUserStats({ totalQuizzesPlayed: 0, totalScore: 0 });
       });
   }, [session]);
+
+  // Fetch leaderboard position
+  useEffect(() => {
+    if (session.status !== "ready" || quizzes.length === 0) return;
+    
+    // Get first quiz leaderboard
+    const firstQuizId = quizzes[0]?.id;
+    if (!firstQuizId) return;
+    
+    fetch(`/api/leaderboard?quizId=${firstQuizId}`)
+      .then((r) => r.json())
+      .then((entries: { place: number; user: { id: number }; score: number }[]) => {
+        const myEntry = entries.find((e) => e.user.id === session.user.id);
+        if (myEntry) {
+          setMyPosition({
+            place: myEntry.place,
+            score: myEntry.score,
+            totalPlayers: entries.length,
+            topScore: entries[0]?.score ?? 0,
+          });
+        } else if (entries.length > 0) {
+          // User not in leaderboard yet
+          setMyPosition({
+            place: 0,
+            score: 0,
+            totalPlayers: entries.length,
+            topScore: entries[0]?.score ?? 0,
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore errors
+      });
+  }, [session, quizzes]);
 
   // Check channel subscription
   const checkSubscription = useCallback(async () => {
@@ -211,13 +255,29 @@ export default function MiniAppPage() {
           ))}
         </div>
 
-        {/* Avatar — 40x40 */}
+        {/* Profile Button */}
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => router.push("/miniapp/profile")}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-[14px] font-bold text-white shadow-lg shadow-indigo-500/20"
+          className="relative flex items-center gap-2 rounded-full bg-[#0a0a0f] pl-1 pr-3 py-1 shadow-lg"
         >
-          {name[0].toUpperCase()}
+          {/* Avatar with glow ring */}
+          <div className="relative">
+            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-75 animate-spin-slow" />
+            {photoUrl ? (
+              <img 
+                src={photoUrl} 
+                alt={name}
+                className="relative h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600">
+                <span className="text-[12px] font-bold text-white">{avatarLetter}</span>
+              </div>
+            )}
+          </div>
+          {/* Label */}
+          <span className="text-[12px] font-semibold text-white/80">Профиль</span>
         </motion.button>
       </header>
 
@@ -335,6 +395,88 @@ export default function MiniAppPage() {
           </div>
         </a>
       </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          YOUR LEADERBOARD POSITION
+      ═══════════════════════════════════════════════════════════════════ */}
+      {myPosition && (
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => router.push("/miniapp/leaderboard")}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
+        >
+          {/* Glow effects */}
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
+          <div className="absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-indigo-600/15 blur-xl" />
+          
+          {/* Content */}
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Position badge */}
+              <div className="relative">
+                {myPosition.place > 0 && myPosition.place <= 3 && (
+                  <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-60 blur-sm animate-pulse" />
+                )}
+                <div className={`relative flex h-12 w-12 items-center justify-center rounded-full ${
+                  myPosition.place === 0 
+                    ? "bg-white/10 text-white/50" 
+                    : myPosition.place <= 3 
+                      ? "bg-gradient-to-br from-violet-500 to-indigo-600 text-white" 
+                      : myPosition.place <= 10 
+                        ? "bg-violet-500/20 text-violet-400"
+                        : "bg-white/10 text-white/70"
+                }`}>
+                  {myPosition.place === 0 ? (
+                    <span className="text-lg">—</span>
+                  ) : myPosition.place === 1 ? (
+                    <span className="text-xl">🥇</span>
+                  ) : myPosition.place === 2 ? (
+                    <span className="text-xl">🥈</span>
+                  ) : myPosition.place === 3 ? (
+                    <span className="text-xl">🥉</span>
+                  ) : (
+                    <span className="text-[16px] font-black">#{myPosition.place}</span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Text */}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Твоя позиция</p>
+                <p className="text-[16px] font-bold text-white">
+                  {myPosition.place === 0 
+                    ? "Ещё не в топе" 
+                    : myPosition.place <= 3 
+                      ? "В топ-3! 🔥" 
+                      : myPosition.place <= 10 
+                        ? "В топ-10!" 
+                        : `${myPosition.place} из ${myPosition.totalPlayers}`
+                  }
+                </p>
+              </div>
+            </div>
+            
+            {/* Score & Arrow */}
+            <div className="flex items-center gap-3">
+              {myPosition.place > 0 && (
+                <div className="text-right">
+                  <p className="font-display text-[20px] font-bold text-white">{myPosition.score}</p>
+                  {myPosition.place > 1 && (
+                    <p className="text-[10px] text-white/40">-{myPosition.topScore - myPosition.score} до топ-1</p>
+                  )}
+                </div>
+              )}
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+                <svg className="h-4 w-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </motion.button>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           CONTENT

@@ -16,6 +16,24 @@ model User {
   updatedAt  DateTime      @updatedAt
   sessions   QuizSession[]
   leaderboardEntries LeaderboardEntry[]
+  
+  // Friends relationships
+  friendsAdded    Friendship[] @relation("FriendshipUser")
+  friendsReceived Friendship[] @relation("FriendshipFriend")
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  friendId  Int
+  createdAt DateTime @default(now())
+  
+  user   User @relation("FriendshipUser", fields: [userId], references: [id])
+  friend User @relation("FriendshipFriend", fields: [friendId], references: [id])
+  
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
 }
 
 model Quiz {

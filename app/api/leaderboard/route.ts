@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       { score: "desc" },
       { id: "asc" },
     ],
-    take: 20,
+    take: 50,
     select: {
       score: true,
       user: {
