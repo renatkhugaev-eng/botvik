@@ -12,7 +12,6 @@ type PullToRefreshProps = {
 
 const PULL_THRESHOLD = 70;
 const MAX_PULL = 100;
-const ACTIVATION_THRESHOLD = 5; // Minimum px to start considering as pull
 
 export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -20,6 +19,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   const wrapperRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
   const startScrollTop = useRef(0);
+  const directionLocked = useRef<"up" | "down" | null>(null);
   const isActivated = useRef(false);
   
   const pullDistance = useMotionValue(0);
@@ -37,6 +37,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       
       startY.current = e.touches[0].clientY;
       startScrollTop.current = container.scrollTop;
+      directionLocked.current = null; // Reset direction lock
       isActivated.current = false;
     };
 
@@ -45,44 +46,51 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - startY.current;
-      const currentScrollTop = container.scrollTop;
       
-      // If we started scrolled down, or scrolled down during this touch, don't activate
-      if (startScrollTop.current > 0 || currentScrollTop > 0) {
+      // Lock direction on first significant movement
+      if (directionLocked.current === null && Math.abs(deltaY) > 10) {
+        directionLocked.current = deltaY > 0 ? "down" : "up";
+      }
+      
+      // If user started by scrolling content (swiping up), never allow pull-to-refresh in this gesture
+      if (directionLocked.current === "up") {
         isActivated.current = false;
         pullDistance.set(0);
         return;
       }
       
-      // If swiping up (negative), don't activate
-      if (deltaY < ACTIVATION_THRESHOLD) {
-        if (isActivated.current) {
-          pullDistance.set(0);
-          isActivated.current = false;
-        }
+      // If we started with scroll position > 0, don't allow pull
+      if (startScrollTop.current > 0) {
+        isActivated.current = false;
+        pullDistance.set(0);
         return;
       }
       
-      // We're at the top and pulling down - activate!
-      isActivated.current = true;
-      
-      // Prevent Telegram close gesture
-      e.preventDefault();
-      
-      const dampedDelta = Math.min((deltaY - ACTIVATION_THRESHOLD) * 0.5, MAX_PULL);
-      
-      // Haptic when crossing threshold
-      const prevValue = pullDistance.get();
-      if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
-        haptic.light();
+      // We're at the top AND first movement was pulling down - activate!
+      if (deltaY > 10 && directionLocked.current === "down") {
+        isActivated.current = true;
+        
+        // Prevent Telegram close gesture
+        e.preventDefault();
+        
+        const dampedDelta = Math.min((deltaY - 10) * 0.5, MAX_PULL);
+        
+        // Haptic when crossing threshold
+        const prevValue = pullDistance.get();
+        if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
+          haptic.light();
+        }
+        
+        pullDistance.set(dampedDelta);
       }
-      
-      pullDistance.set(dampedDelta);
     };
 
     const handleTouchEnd = async () => {
+      directionLocked.current = null;
+      
       if (!isActivated.current || disabled || isRefreshing) {
         isActivated.current = false;
+        pullDistance.set(0);
         return;
       }
       
