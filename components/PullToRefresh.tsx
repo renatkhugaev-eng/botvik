@@ -18,8 +18,8 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
-  const startScrollTop = useRef(0);
-  const directionLocked = useRef<"up" | "down" | null>(null);
+  const wasScrolled = useRef(false); // Was content ever scrolled in this session?
+  const touchBlocked = useRef(false); // Block pull for this touch
   const isActivated = useRef(false);
   
   const pullDistance = useMotionValue(0);
@@ -32,65 +32,72 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
     const container = containerRef.current;
     if (!wrapper || !container) return;
 
+    // Track if user ever scrolled - if yes, block pull for this touch
+    const handleScroll = () => {
+      if (container.scrollTop > 5) {
+        wasScrolled.current = true;
+      }
+    };
+
     const handleTouchStart = (e: TouchEvent) => {
       if (disabled || isRefreshing) return;
       
       startY.current = e.touches[0].clientY;
-      startScrollTop.current = container.scrollTop;
-      directionLocked.current = null; // Reset direction lock
       isActivated.current = false;
+      
+      // Block pull if: started not at top, OR was scrolled recently
+      touchBlocked.current = container.scrollTop > 0 || wasScrolled.current;
+      
+      // Reset wasScrolled only if we're at the very top
+      if (container.scrollTop === 0) {
+        wasScrolled.current = false;
+        touchBlocked.current = false;
+      }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (disabled || isRefreshing) return;
+      if (disabled || isRefreshing || touchBlocked.current) return;
       
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - startY.current;
+      const scrollTop = container.scrollTop;
       
-      // Lock direction on first significant movement
-      if (directionLocked.current === null && Math.abs(deltaY) > 10) {
-        directionLocked.current = deltaY > 0 ? "down" : "up";
-      }
-      
-      // If user started by scrolling content (swiping up), never allow pull-to-refresh in this gesture
-      if (directionLocked.current === "up") {
+      // If scrolled down at any point, block pull
+      if (scrollTop > 0) {
+        touchBlocked.current = true;
+        wasScrolled.current = true;
         isActivated.current = false;
         pullDistance.set(0);
         return;
       }
       
-      // If we started with scroll position > 0, don't allow pull
-      if (startScrollTop.current > 0) {
-        isActivated.current = false;
-        pullDistance.set(0);
-        return;
-      }
-      
-      // We're at the top AND first movement was pulling down - activate!
-      if (deltaY > 10 && directionLocked.current === "down") {
+      // Only allow pull if: at top AND pulling down AND not blocked
+      if (deltaY > 15 && scrollTop === 0 && !touchBlocked.current) {
         isActivated.current = true;
-        
-        // Prevent Telegram close gesture
         e.preventDefault();
         
-        const dampedDelta = Math.min((deltaY - 10) * 0.5, MAX_PULL);
+        const dampedDelta = Math.min((deltaY - 15) * 0.5, MAX_PULL);
         
-        // Haptic when crossing threshold
         const prevValue = pullDistance.get();
         if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
           haptic.light();
         }
         
         pullDistance.set(dampedDelta);
+      } else if (deltaY < 0) {
+        // User is trying to scroll down - block pull and allow scroll
+        touchBlocked.current = true;
+        isActivated.current = false;
+        pullDistance.set(0);
       }
     };
 
     const handleTouchEnd = async () => {
-      directionLocked.current = null;
-      
       if (!isActivated.current || disabled || isRefreshing) {
         isActivated.current = false;
-        pullDistance.set(0);
+        if (pullDistance.get() > 0) {
+          animate(pullDistance, 0, { duration: 0.2 });
+        }
         return;
       }
       
@@ -117,11 +124,13 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       }
     };
 
+    container.addEventListener("scroll", handleScroll, { passive: true });
     wrapper.addEventListener("touchstart", handleTouchStart, { passive: true });
     wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
     wrapper.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
+      container.removeEventListener("scroll", handleScroll);
       wrapper.removeEventListener("touchstart", handleTouchStart);
       wrapper.removeEventListener("touchmove", handleTouchMove);
       wrapper.removeEventListener("touchend", handleTouchEnd);
@@ -159,7 +168,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         </motion.div>
       </motion.div>
 
-      {/* Content - normal scrolling */}
+      {/* Content */}
       <motion.div
         ref={containerRef}
         className="h-full w-full overflow-y-auto overscroll-contain"
