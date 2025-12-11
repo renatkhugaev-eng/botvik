@@ -20,6 +20,12 @@ export async function POST(req: NextRequest) {
   }
 
   const rawInitData = payload?.initData ?? "";
+  const initDataPreview = rawInitData ? rawInitData.slice(0, 120) : "";
+  console.log("[auth/telegram] incoming initData", {
+    length: rawInitData.length,
+    preview: initDataPreview,
+  });
+
   if (!rawInitData) {
     return NextResponse.json({ ok: false, reason: "NO_INIT_DATA" }, { status: 400 });
   }
@@ -71,6 +77,12 @@ export async function POST(req: NextRequest) {
       firstName: tgUser.first_name ?? null,
       lastName: tgUser.last_name ?? null,
     },
+  });
+
+  console.log("[auth/telegram] ok", {
+    length: rawInitData.length,
+    userId: user.id,
+    telegramId: user.telegramId,
   });
 
   return NextResponse.json({
