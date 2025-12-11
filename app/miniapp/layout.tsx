@@ -71,7 +71,14 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
       }
 
       const initData = tg?.initData;
-      console.log("[MiniApp] initData length", initData?.length, initData?.slice?.(0, 80));
+      const initDataUnsafe = (tg as any)?.initDataUnsafe;
+      console.log("[MiniApp] initData length", initData?.length);
+      console.log("[MiniApp] initDataUnsafe", JSON.stringify(initDataUnsafe));
+
+      // If initData is empty but initDataUnsafe has user, try to use it for dev
+      if (!initData && initDataUnsafe?.user) {
+        console.log("[MiniApp] Using initDataUnsafe user directly");
+      }
 
       if (!initData) {
         if (attempts < maxAttempts) {
@@ -95,7 +102,8 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
           return;
         }
         if (!aborted) {
-          setSession({ status: "error", reason: "NO_TELEGRAM_WEBAPP" });
+          const reason = initDataUnsafe?.user ? "INIT_DATA_EMPTY_BUT_USER_EXISTS" : "NO_INIT_DATA";
+          setSession({ status: "error", reason });
         }
         return;
       }

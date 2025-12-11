@@ -38,6 +38,10 @@ const palette = [
   { bg: "from-[#2c1810] to-[#1a0f0a]", text: "text-orange-400", icon: "🔥" },
 ];
 
+// Канал для подписки
+const CHANNEL_USERNAME = "dark_bookshelf";
+const CHANNEL_URL = "https://t.me/dark_bookshelf";
+
 export default function MiniAppPage() {
   const session = useMiniAppSession();
   const router = useRouter();
@@ -48,6 +52,11 @@ export default function MiniAppPage() {
   const [startingId, setStartingId] = useState<number | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
+  
+  // Subscription check
+  const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
 
   // Fetch quizzes
   useEffect(() => {
@@ -75,9 +84,46 @@ export default function MiniAppPage() {
       });
   }, [session]);
 
+  // Check channel subscription
+  const checkSubscription = useCallback(async () => {
+    if (session.status !== "ready") return false;
+    
+    setCheckingSubscription(true);
+    try {
+      const res = await fetch("/api/check-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramUserId: session.user.telegramId }),
+      });
+      const data = await res.json();
+      setIsSubscribed(data.subscribed);
+      return data.subscribed;
+    } catch {
+      console.error("Failed to check subscription");
+      return false;
+    } finally {
+      setCheckingSubscription(false);
+    }
+  }, [session]);
+
+  // Check subscription on load
+  useEffect(() => {
+    if (session.status === "ready") {
+      checkSubscription();
+    }
+  }, [session, checkSubscription]);
+
   const handleStart = useCallback(
     async (id: number) => {
       if (session.status !== "ready") return;
+      
+      // Check subscription before starting
+      const subscribed = await checkSubscription();
+      if (!subscribed) {
+        setShowSubscribeModal(true);
+        return;
+      }
+      
       setStartError(null);
       setStartingId(id);
       try {
@@ -95,7 +141,7 @@ export default function MiniAppPage() {
         setStartingId(null);
       }
     },
-    [router, session],
+    [router, session, checkSubscription],
   );
 
   // Loading state
@@ -211,11 +257,12 @@ export default function MiniAppPage() {
               <h1 className="font-display text-[24px] font-semibold tracking-tight text-[#1a1a2e]">
                 {name}
               </h1>
-              <div className="flex h-5 items-center gap-1 rounded-full bg-blue-500/10 px-2">
-                <svg className="h-3 w-3 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-[10px] font-semibold text-blue-600">active</span>
+              <div className="flex h-5 items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-600">онлайн</span>
               </div>
             </div>
             <p className="text-[13px] text-slate-500">Раскрой тёмные тайны</p>
@@ -337,6 +384,113 @@ export default function MiniAppPage() {
       >
         🏆 Таблица лидеров
       </motion.button>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SUBSCRIPTION MODAL
+      ═══════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showSubscribeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowSubscribeModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={spring}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-br from-[#1a1a2e] via-[#2d1f3d] to-[#1a1a2e] p-6 text-center">
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm"
+                >
+                  <span className="text-4xl">🔒</span>
+                </motion.div>
+                <h2 className="font-display text-[22px] font-bold text-white">
+                  Подпишись на канал
+                </h2>
+                <p className="mt-2 text-[14px] text-white/60">
+                  Чтобы играть в викторины, нужно подписаться на наш канал
+                </p>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {/* Channel card */}
+                <div className="mb-6 flex items-center gap-4 rounded-2xl bg-slate-50 p-4">
+                  <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#2AABEE] to-[#229ED9]">
+                    <svg className="h-7 w-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-display text-[16px] font-bold text-[#1a1a2e]">Чернила и Кровь</p>
+                    <p className="text-[13px] text-slate-500">@{CHANNEL_USERNAME}</p>
+                  </div>
+                </div>
+
+                {/* Subscribe button */}
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <a
+                    href={CHANNEL_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-3 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2AABEE] to-[#229ED9] text-[16px] font-bold text-white shadow-lg shadow-blue-500/30"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                    </svg>
+                    Подписаться
+                  </a>
+                </motion.div>
+
+                {/* Check button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={checkingSubscription}
+                  onClick={async () => {
+                    const subscribed = await checkSubscription();
+                    if (subscribed) {
+                      setShowSubscribeModal(false);
+                    }
+                  }}
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] text-[16px] font-bold text-white disabled:opacity-50"
+                >
+                  {checkingSubscription ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
+                    />
+                  ) : (
+                    <>
+                      <span>✓</span>
+                      Я подписался
+                    </>
+                  )}
+                </motion.button>
+
+                {/* Close */}
+                <button
+                  onClick={() => setShowSubscribeModal(false)}
+                  className="mt-4 w-full text-center text-[14px] text-slate-400 hover:text-slate-600"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -420,8 +574,12 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
         {/* Header — Height: 24px */}
         <div className="flex h-6 items-center justify-between">
           <h2 className="font-display text-[17px] font-bold text-[#1a1a2e]">Активные</h2>
-          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[12px] font-semibold text-indigo-600">
-            {loading ? "..." : items.length} live
+          <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[12px] font-semibold text-emerald-600">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            </span>
+            {loading ? "..." : items.length} активных
           </span>
         </div>
 
