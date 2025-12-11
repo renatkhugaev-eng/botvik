@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "../layout";
+import { haptic } from "@/lib/haptic";
 
 type SummaryResponse = {
   user: {
@@ -371,7 +372,10 @@ export default function ProfilePage() {
       >
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => router.back()}
+          onClick={() => {
+            haptic.light();
+            router.back();
+          }}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-black/5 gpu-accelerated"
         >
           <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -616,7 +620,10 @@ export default function ProfilePage() {
         ].map((tab) => (
           <motion.button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              haptic.selection();
+              setActiveTab(tab.id);
+            }}
             whileTap={{ scale: 0.98 }}
             className={`relative flex-1 rounded-xl py-3.5 text-[14px] font-semibold transition-colors ${
               activeTab === tab.id ? "text-white" : "text-slate-400"
@@ -864,7 +871,10 @@ export default function ProfilePage() {
             {/* Add Friend Button */}
             <motion.button
               whileTap={{ scale: 0.98 }}
-              onClick={() => setShowAddFriend(true)}
+              onClick={() => {
+                haptic.medium();
+                setShowAddFriend(true);
+              }}
               className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[15px] font-bold text-white shadow-lg shadow-violet-500/25"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -909,13 +919,19 @@ export default function ProfilePage() {
                             </div>
                             <div className="flex gap-2">
                               <button
-                                onClick={() => handleRespondRequest(req.requestId, "accept")}
+                                onClick={() => {
+                                  haptic.success();
+                                  handleRespondRequest(req.requestId, "accept");
+                                }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white active:bg-emerald-600"
                               >
                                 ✓
                               </button>
                               <button
-                                onClick={() => handleRespondRequest(req.requestId, "decline")}
+                                onClick={() => {
+                                  haptic.light();
+                                  handleRespondRequest(req.requestId, "decline");
+                                }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white active:bg-white/30"
                               >
                                 ✕
@@ -952,7 +968,10 @@ export default function ProfilePage() {
                               <p className="text-[11px] text-slate-400">Ожидает подтверждения...</p>
                             </div>
                             <button
-                              onClick={() => handleCancelRequest(req.requestId)}
+                              onClick={() => {
+                                haptic.light();
+                                handleCancelRequest(req.requestId);
+                              }}
                               className="rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 active:bg-slate-300"
                             >
                               Отменить
@@ -1034,7 +1053,10 @@ export default function ProfilePage() {
                             </div>
                             
                             <button
-                              onClick={() => handleRemoveFriend(friend.friendshipId)}
+                              onClick={() => {
+                                haptic.warning();
+                                handleRemoveFriend(friend.friendshipId);
+                              }}
                               className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[12px] font-semibold text-red-500 active:bg-red-100"
                             >
                               Удалить из друзей
@@ -1107,6 +1129,7 @@ export default function ProfilePage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
+                      haptic.light();
                       setShowAddFriend(false);
                       setFriendUsername("");
                       setAddFriendError(null);
@@ -1117,7 +1140,10 @@ export default function ProfilePage() {
                     Отмена
                   </button>
                   <button
-                    onClick={handleAddFriend}
+                    onClick={() => {
+                      haptic.medium();
+                      handleAddFriend();
+                    }}
                     disabled={addingFriend || !friendUsername.trim()}
                     className="flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 text-[14px] font-bold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
                   >
@@ -1138,7 +1164,10 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => router.push("/miniapp")}
+        onClick={() => {
+          haptic.light();
+          router.push("/miniapp");
+        }}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[15px] font-semibold text-slate-600 shadow-lg shadow-black/5"
       >
         ← На главную

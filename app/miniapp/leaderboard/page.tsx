@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../layout";
+import { haptic } from "@/lib/haptic";
 
 type LeaderboardEntry = {
   place: number;
@@ -116,7 +117,10 @@ export default function LeaderboardPage() {
       >
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => router.back()}
+          onClick={() => {
+            haptic.light();
+            router.back();
+          }}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-black/5"
         >
           <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -180,7 +184,10 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => setShowSelect(true)}
+          onClick={() => {
+            haptic.medium();
+            setShowSelect(true);
+          }}
           className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
         >
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
@@ -225,7 +232,10 @@ export default function LeaderboardPage() {
               <div className="mb-4 flex items-center justify-between mt-4">
                 <h3 className="text-[17px] font-bold text-white">Выберите викторину</h3>
                 <button
-                  onClick={() => setShowSelect(false)}
+                  onClick={() => {
+                    haptic.light();
+                    setShowSelect(false);
+                  }}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10"
                 >
                   <svg className="h-4 w-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -238,6 +248,7 @@ export default function LeaderboardPage() {
                   <button
                     key={quiz.id}
                     onClick={() => {
+                      haptic.selection();
                       setQuizId(quiz.id);
                       setShowSelect(false);
                     }}
@@ -274,7 +285,10 @@ export default function LeaderboardPage() {
           <p className="text-[16px] font-bold text-slate-700">{error}</p>
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => router.back()}
+            onClick={() => {
+              haptic.light();
+              router.back();
+            }}
             className="mt-6 rounded-xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] px-6 py-3 text-[14px] font-semibold text-white shadow-lg"
           >
             ← Назад
@@ -300,7 +314,10 @@ export default function LeaderboardPage() {
           <p className="text-[14px] text-slate-400 mt-1">Будь первым!</p>
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => router.push("/miniapp")}
+            onClick={() => {
+              haptic.heavy();
+              router.push("/miniapp");
+            }}
             className="mt-6 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-3 text-[14px] font-bold text-white shadow-lg shadow-violet-500/25"
           >
             Играть →
@@ -577,7 +594,10 @@ export default function LeaderboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => router.push("/miniapp")}
+            onClick={() => {
+              haptic.heavy();
+              router.push("/miniapp");
+            }}
             className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[15px] font-bold text-white shadow-lg shadow-violet-500/25"
           >
             🎮 Играй и поднимайся в топ

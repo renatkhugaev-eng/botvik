@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "./layout";
+import { haptic } from "@/lib/haptic";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -225,7 +226,10 @@ export default function MiniAppPage() {
         {/* Back — 40x40 */}
         <motion.button
           whileTap={{ scale: 0.92 }}
-          onClick={() => router.push("/")}
+          onClick={() => {
+            haptic.light();
+            router.push("/");
+          }}
           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#64748b] shadow-sm"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -238,7 +242,10 @@ export default function MiniAppPage() {
           {(["participant", "creator"] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                haptic.selection();
+                setTab(t);
+              }}
               className={`relative h-7 rounded-lg px-4 text-[13px] font-semibold transition-colors ${
                 tab === t ? "text-white" : "text-zinc-400"
               }`}
@@ -258,7 +265,10 @@ export default function MiniAppPage() {
         {/* Profile Button */}
         <motion.button
           whileTap={{ scale: 0.92 }}
-          onClick={() => router.push("/miniapp/profile")}
+          onClick={() => {
+            haptic.medium();
+            router.push("/miniapp/profile");
+          }}
           className="relative flex items-center gap-2 rounded-full bg-[#0a0a0f] pl-1 pr-3 py-1 shadow-lg"
         >
           {/* Avatar with glow ring */}
@@ -404,7 +414,10 @@ export default function MiniAppPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => router.push("/miniapp/leaderboard")}
+          onClick={() => {
+            haptic.medium();
+            router.push("/miniapp/leaderboard");
+          }}
           className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
         >
           {/* Glow effects */}
@@ -517,7 +530,10 @@ export default function MiniAppPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <motion.button
         whileTap={{ scale: 0.98 }}
-        onClick={() => router.push("/miniapp/leaderboard")}
+        onClick={() => {
+          haptic.heavy();
+          router.push("/miniapp/leaderboard");
+        }}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[16px] font-semibold text-white shadow-xl shadow-black/20"
       >
         🏆 Таблица лидеров
@@ -596,9 +612,13 @@ export default function MiniAppPage() {
                   whileTap={{ scale: 0.98 }}
                   disabled={checkingSubscription}
                   onClick={async () => {
+                    haptic.medium();
                     const subscribed = await checkSubscription();
                     if (subscribed) {
+                      haptic.success();
                       setShowSubscribeModal(false);
+                    } else {
+                      haptic.warning();
                     }
                   }}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] text-[16px] font-bold text-white disabled:opacity-50"
@@ -642,6 +662,7 @@ function CreatorView() {
       {/* Create Button — Height: 56px */}
       <motion.button
         whileTap={{ scale: 0.98 }}
+        onClick={() => haptic.heavy()}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-[16px] font-semibold text-white shadow-lg shadow-indigo-500/25"
       >
         ✨ Создать викторину
@@ -776,7 +797,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       disabled={!!startingId && startingId !== q.id}
-                      onClick={() => onStart(q.id)}
+                      onClick={() => {
+                        haptic.heavy();
+                        onStart(q.id);
+                      }}
                       className={`mt-3 flex h-9 w-full items-center justify-center gap-1 rounded-xl bg-white text-[13px] font-bold ${c.text} disabled:opacity-50`}
                     >
                       {startingId === q.id ? "..." : "▶ Играть"}
@@ -1005,7 +1029,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
               transition={{ delay: 1 }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => router.push("/miniapp/leaderboard")}
+              onClick={() => {
+                haptic.medium();
+                router.push("/miniapp/leaderboard");
+              }}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[13px] font-semibold text-white"
             >
               <span>Открыть рейтинг</span>
@@ -1085,16 +1112,22 @@ function Row({
   title,
   subtitle,
   trailing,
+  onClick,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle?: string;
   trailing?: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <motion.div
       whileTap={{ scale: 0.98 }}
-      className="flex h-14 items-center gap-3 rounded-xl bg-slate-50 px-3"
+      onClick={() => {
+        haptic.light();
+        onClick?.();
+      }}
+      className="flex h-14 items-center gap-3 rounded-xl bg-slate-50 px-3 cursor-pointer"
     >
       {icon}
       <div className="flex-1 min-w-0">

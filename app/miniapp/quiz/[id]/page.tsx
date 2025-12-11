@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../../layout";
 import { AnimatePresence, motion } from "framer-motion";
+import { haptic } from "@/lib/haptic";
 
 type StartResponse = {
   sessionId: number;
@@ -120,6 +121,12 @@ export default function QuizPlayPage() {
         const data = (await res.json()) as AnswerResponse;
         setAnswerResult(data);
         setTotalScore(data.totalScore);
+        // Haptic feedback based on answer correctness
+        if (data.correct) {
+          haptic.success();
+        } else {
+          haptic.error();
+        }
       } catch (err) {
         console.error("Failed to send answer", err);
         setError("Не удалось отправить ответ");
@@ -198,13 +205,19 @@ export default function QuizPlayPage() {
           <div className="mt-4 flex gap-2">
             <button
               className="flex-1 rounded-full bg-[#22C55E] px-4 py-3 text-white font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.05)] transition-all duration-200 hover:bg-[#16A34A] active:scale-95"
-              onClick={() => router.push(`/miniapp/leaderboard?quizId=${quizId}`)}
+              onClick={() => {
+                haptic.medium();
+                router.push(`/miniapp/leaderboard?quizId=${quizId}`);
+              }}
             >
               Посмотреть лидерборд
             </button>
             <button
               className="flex-1 rounded-full border border-[#E5E7EB] bg-white px-4 py-3 text-[#111827] font-semibold transition-all duration-200 hover:bg-slate-50 active:scale-95"
-              onClick={() => router.push("/miniapp")}
+              onClick={() => {
+                haptic.light();
+                router.push("/miniapp");
+              }}
             >
               На главную
             </button>
@@ -269,7 +282,10 @@ export default function QuizPlayPage() {
                           : wrongClasses
                         : defaultClasses
                     }`}
-                    onClick={() => sendAnswer(opt.id)}
+                    onClick={() => {
+                      haptic.medium();
+                      sendAnswer(opt.id);
+                    }}
                     disabled={isAnswered || submitting}
                   >
                     <div className="flex items-center gap-3">
@@ -306,7 +322,10 @@ export default function QuizPlayPage() {
                 <div className="mt-3">
                   <button
                     className="w-full rounded-full bg-[#22C55E] px-3 py-2.5 text-white font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.05)] transition-all duration-200 hover:bg-[#16A34A] active:scale-95"
-                    onClick={goNext}
+                    onClick={() => {
+                      haptic.soft();
+                      goNext();
+                    }}
                   >
                     Дальше
                   </button>
