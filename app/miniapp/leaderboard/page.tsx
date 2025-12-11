@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { SkeletonLeaderboardEntry, SkeletonPodium } from "@/components/Skeleton";
 
 type LeaderboardEntry = {
   place: number;
@@ -96,6 +98,23 @@ export default function LeaderboardPage() {
   const rest = entries.slice(3);
   const leaderScore = entries[0]?.score ?? 0;
 
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (!quizId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/leaderboard?quizId=${quizId}`);
+      if (res.ok) {
+        const data = (await res.json()) as LeaderboardEntry[];
+        setEntries(data);
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setLoading(false);
+    }
+  }, [quizId]);
+
   // Get gradient for position
   const getPositionGradient = (place: number) => {
     if (place <= 10) return "from-violet-600 to-indigo-600";
@@ -105,6 +124,7 @@ export default function LeaderboardPage() {
   };
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="flex flex-col gap-5 pb-10">
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
@@ -295,13 +315,15 @@ export default function LeaderboardPage() {
           </motion.button>
         </motion.div>
       ) : loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="relative h-16 w-16">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 opacity-50" />
-            <div className="absolute inset-1 rounded-full bg-[#F2F2F7]" />
-            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-500 animate-spin" />
+        <div className="flex flex-col gap-4">
+          {/* Skeleton Podium */}
+          <SkeletonPodium />
+          {/* Skeleton List */}
+          <div className="flex flex-col gap-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <SkeletonLeaderboardEntry key={i} index={i} />
+            ))}
           </div>
-          <p className="text-[14px] font-medium text-slate-400 animate-pulse">Загружаем лидеров...</p>
         </div>
       ) : entries.length === 0 ? (
         <motion.div
@@ -605,5 +627,6 @@ export default function LeaderboardPage() {
         </div>
       )}
     </div>
+    </PullToRefresh>
   );
 }

@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { SkeletonProfilePage, SkeletonFriendCard } from "@/components/Skeleton";
 
 type SummaryResponse = {
   user: {
@@ -212,6 +214,24 @@ export default function ProfilePage() {
     loadFriends();
   }, [loadFriends]);
 
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (session.status !== "ready") return;
+    
+    try {
+      // Refresh profile data
+      const res = await fetch(`/api/me/summary?userId=${session.user.id}`);
+      if (res.ok) {
+        const json = (await res.json()) as SummaryResponse;
+        setData(json);
+      }
+      // Refresh friends
+      await loadFriends();
+    } catch (err) {
+      console.error("Failed to refresh", err);
+    }
+  }, [session, loadFriends]);
+
   // Add friend (send request)
   const handleAddFriend = async () => {
     if (!friendUsername.trim() || session.status !== "ready") return;
@@ -315,19 +335,7 @@ export default function ProfilePage() {
 
   // Loading
   if (loading) {
-    return (
-      <div className="flex min-h-[80vh] flex-col items-center justify-center gap-4">
-        <div className="relative h-16 w-16">
-          {/* Use CSS animation instead of Framer Motion */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 opacity-50" />
-          <div className="absolute inset-1 rounded-full bg-[#F2F2F7]" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-500 animate-spin" />
-        </div>
-        <p className="text-[14px] font-medium text-slate-400 animate-pulse">
-          Загрузка профиля...
-        </p>
-      </div>
-    );
+    return <SkeletonProfilePage />;
   }
 
   // Error
@@ -360,6 +368,7 @@ export default function ProfilePage() {
     : 0;
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="flex flex-col gap-5 pb-10">
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
@@ -885,9 +894,10 @@ export default function ProfilePage() {
 
             {/* Loading */}
             {friendsLoading ? (
-              <div className="flex flex-col items-center py-12">
-                <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-violet-500 animate-spin" />
-                <p className="mt-4 text-[14px] text-slate-400">Загружаем...</p>
+              <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden divide-y divide-slate-50">
+                {[0, 1, 2].map((i) => (
+                  <SkeletonFriendCard key={i} index={i} />
+                ))}
               </div>
             ) : (
               <>
@@ -1173,5 +1183,6 @@ export default function ProfilePage() {
         ← На главную
       </motion.button>
     </div>
+    </PullToRefresh>
   );
 }

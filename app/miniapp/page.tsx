@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "./layout";
 import { haptic } from "@/lib/haptic";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -69,15 +71,43 @@ export default function MiniAppPage() {
   // Leaderboard position
   const [myPosition, setMyPosition] = useState<LeaderboardPosition | null>(null);
 
-  // Fetch quizzes
-  useEffect(() => {
+  // Fetch all data
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    fetch("/api/quiz")
-      .then((r) => r.json())
-      .then(setQuizzes)
-      .catch(() => setError("Ошибка загрузки"))
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const quizzesRes = await fetch("/api/quiz");
+      const quizzesData = await quizzesRes.json();
+      setQuizzes(quizzesData);
+    } catch {
+      setError("Ошибка загрузки");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    await fetchData();
+    if (session.status === "ready") {
+      // Also refresh user stats
+      try {
+        const statsRes = await fetch(`/api/me/summary?userId=${session.user.id}`);
+        const data = await statsRes.json();
+        setUserStats({
+          totalQuizzesPlayed: data.stats?.totalQuizzesPlayed ?? 0,
+          totalScore: data.stats?.totalScore ?? 0,
+        });
+      } catch {
+        // Ignore
+      }
+    }
+  }, [fetchData, session]);
 
   // Fetch user stats
   useEffect(() => {
@@ -218,6 +248,7 @@ export default function MiniAppPage() {
   const avatarLetter = name.slice(0, 1).toUpperCase();
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="flex flex-col gap-6">
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER — Height: 48px
@@ -650,6 +681,7 @@ export default function MiniAppPage() {
         )}
       </AnimatePresence>
     </div>
+    </PullToRefresh>
   );
 }
 
@@ -745,8 +777,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
         {/* Carousel */}
         {loading ? (
           <div className="flex gap-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-[220px] w-[168px] flex-shrink-0 animate-pulse rounded-2xl bg-slate-200" />
+            {[1, 2, 3].map((i) => (
+              <SkeletonQuizCard key={i} />
             ))}
           </div>
         ) : error ? (
