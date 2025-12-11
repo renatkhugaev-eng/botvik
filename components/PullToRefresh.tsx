@@ -12,8 +12,8 @@ type PullToRefreshProps = {
 
 const PULL_THRESHOLD = 80;
 const MAX_PULL = 120;
-const ACTIVATION_DISTANCE = 40; // Must pull 40px before activating
-const SCROLL_COOLDOWN = 300; // ms to wait after scroll before allowing pull
+const ACTIVATION_DISTANCE = 50; // Must pull 50px before activating
+const SCROLL_COOLDOWN = 600; // ms to wait after scroll before allowing pull
 
 export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
