@@ -10,16 +10,19 @@ type PullToRefreshProps = {
   disabled?: boolean;
 };
 
-const PULL_THRESHOLD = 70;
-const MAX_PULL = 100;
+const PULL_THRESHOLD = 80;
+const MAX_PULL = 120;
+const ACTIVATION_DISTANCE = 40; // Must pull 40px before activating
+const SCROLL_COOLDOWN = 300; // ms to wait after scroll before allowing pull
 
 export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
-  const canPull = useRef(false); // Only true if started at scrollTop = 0
+  const canPull = useRef(false);
   const isPulling = useRef(false);
+  const lastScrollTime = useRef(0);
   
   const pullDistance = useMotionValue(0);
   const opacity = useTransform(pullDistance, [0, PULL_THRESHOLD], [0, 1]);
@@ -31,23 +34,33 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
     const container = containerRef.current;
     if (!wrapper || !container) return;
 
+    // Track scroll to add cooldown
+    const handleScroll = () => {
+      lastScrollTime.current = Date.now();
+    };
+
     const handleTouchStart = (e: TouchEvent) => {
       if (disabled || isRefreshing) return;
       
       startY.current = e.touches[0].clientY;
       isPulling.current = false;
       
-      // CRITICAL: Only allow pull if we start EXACTLY at the top
-      canPull.current = container.scrollTop === 0;
+      const now = Date.now();
+      const timeSinceScroll = now - lastScrollTime.current;
+      
+      // Only allow pull if:
+      // 1. At the very top (scrollTop = 0)
+      // 2. Enough time passed since last scroll (cooldown)
+      canPull.current = container.scrollTop === 0 && timeSinceScroll > SCROLL_COOLDOWN;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (disabled || isRefreshing) return;
       
-      // If we didn't start at top, don't do anything special
+      // If we can't pull, don't do anything
       if (!canPull.current) return;
       
-      // If user scrolled down during this touch, disable pull
+      // If scrolled down during this touch, disable pull
       if (container.scrollTop > 0) {
         canPull.current = false;
         isPulling.current = false;
@@ -58,12 +71,12 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - startY.current;
       
-      // Only trigger if pulling DOWN (positive deltaY) from top
-      if (deltaY > 20) {
+      // Need significant pull (40px) before activating
+      if (deltaY > ACTIVATION_DISTANCE) {
         isPulling.current = true;
-        e.preventDefault(); // Prevent any native behavior
+        e.preventDefault();
         
-        const dampedDelta = Math.min((deltaY - 20) * 0.5, MAX_PULL);
+        const dampedDelta = Math.min((deltaY - ACTIVATION_DISTANCE) * 0.4, MAX_PULL);
         
         const prevValue = pullDistance.get();
         if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
@@ -71,8 +84,9 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         }
         
         pullDistance.set(dampedDelta);
-      } else {
-        // User is trying to scroll down or hasn't pulled enough
+      } else if (deltaY < 0) {
+        // User is scrolling down, disable pull
+        canPull.current = false;
         isPulling.current = false;
         pullDistance.set(0);
       }
@@ -112,11 +126,13 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       }
     };
 
+    container.addEventListener("scroll", handleScroll, { passive: true });
     wrapper.addEventListener("touchstart", handleTouchStart, { passive: true });
     wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
     wrapper.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
+      container.removeEventListener("scroll", handleScroll);
       wrapper.removeEventListener("touchstart", handleTouchStart);
       wrapper.removeEventListener("touchmove", handleTouchMove);
       wrapper.removeEventListener("touchend", handleTouchEnd);
