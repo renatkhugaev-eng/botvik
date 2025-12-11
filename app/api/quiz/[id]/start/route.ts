@@ -26,6 +26,35 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "user_required" }, { status: 400 });
   }
 
+  const allowDevMock =
+    process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" &&
+    process.env.NODE_ENV !== "production";
+
+  const telegramId = `dev-${userId}`;
+
+  let user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user && allowDevMock) {
+    user = await prisma.user.upsert({
+      where: { telegramId },
+      update: {
+        username: "devuser",
+        firstName: "Dev",
+        lastName: "User",
+      },
+      create: {
+        telegramId,
+        username: "devuser",
+        firstName: "Dev",
+        lastName: "User",
+      },
+    });
+  }
+
+  if (!user) {
+    return NextResponse.json({ error: "user_not_found" }, { status: 404 });
+  }
+
   const quiz = await prisma.quiz.findFirst({
     where: { id: quizId, isActive: true },
   });
@@ -35,14 +64,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const existingSession = await prisma.quizSession.findFirst({
-    where: { quizId, userId, finishedAt: null },
+    where: { quizId, userId: user.id, finishedAt: null },
     orderBy: { startedAt: "desc" },
   });
 
   const session =
     existingSession ??
     (await prisma.quizSession.create({
-      data: { quizId, userId },
+      data: { quizId, userId: user.id },
     }));
 
   const questions = await prisma.question.findMany({

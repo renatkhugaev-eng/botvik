@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type LeaderboardEntry = {
@@ -78,26 +79,31 @@ export default function LeaderboardPage() {
   }, [quizId, quizzes]);
 
   return (
-    <div className="min-h-screen bg-[#F4F5FB] p-4 pb-16">
-      <div className="mb-4 flex items-center justify-between">
-        <button className="text-sm text-gray-600" onClick={() => router.push("/miniapp")}>
-          ← Назад
+    <div className="space-y-4">
+      <div className="flex items-center justify-between text-sm text-[#6B7280]">
+        <button className="inline-flex items-center gap-2 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]" onClick={() => router.back()}>
+          <span className="text-lg leading-none">←</span>
+          Назад
         </button>
-        <div className="text-base font-semibold text-gray-900">{title}</div>
-        <div className="w-12" />
+        <div className="text-base font-semibold text-[#111827] text-center flex-1">{title}</div>
+        <div className="w-10" />
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="text-base font-semibold text-gray-900">Лидерборд</div>
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-3xl border border-[#E5E7EB] bg-white p-5 text-[#111827] shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="text-xl font-semibold text-[#111827]">Лидерборд</div>
           {quizzes.length > 0 ? (
             <select
-              className="rounded-xl border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-700"
+              className="rounded-xl border border-[#E5E7EB] bg-slate-50 px-3 py-2 text-sm text-[#111827] outline-none transition-colors duration-150 hover:border-[#22C55E]"
               value={quizId ?? ""}
               onChange={(e) => setQuizId(Number(e.target.value))}
             >
               {quizzes.map((quiz) => (
-                <option key={quiz.id} value={quiz.id}>
+                <option key={quiz.id} value={quiz.id} className="bg-white text-[#111827]">
                   {quiz.title}
                 </option>
               ))}
@@ -106,36 +112,35 @@ export default function LeaderboardPage() {
         </div>
 
         {error ? (
-          <div className="text-sm text-red-600">{error}</div>
+          <div className="rounded-2xl border border-[#EF4444]/40 bg-white px-3 py-2 text-sm text-[#EF4444] shadow-[0_8px_20px_rgba(0,0,0,0.05)]">{error}</div>
         ) : loading ? (
-          <div className="text-sm text-gray-600">Загружаем таблицу лидеров…</div>
+          <div className="text-sm text-[#6B7280]">Загружаем таблицу лидеров…</div>
         ) : entries.length === 0 ? (
-          <div className="text-sm text-gray-600">Пока нет результатов</div>
+          <div className="text-sm text-[#6B7280]">Пока нет результатов</div>
         ) : (
-          <div className="flex flex-col">
+          <div className="divide-y divide-slate-100">
             {entries.map((entry) => {
               const isTop = entry.place <= 3;
+              const medal = entry.place === 1 ? "🥇" : entry.place === 2 ? "🥈" : entry.place === 3 ? "🥉" : entry.place;
               const name = entry.user.username ?? entry.user.firstName ?? `ID ${entry.user.id}`;
               return (
                 <div
                   key={`${entry.place}-${entry.user.id}`}
-                  className={`flex items-center justify-between border-b border-gray-100 py-3 text-sm last:border-b-0 ${
-                    isTop ? "font-semibold text-gray-900" : "text-gray-800"
-                  }`}
+                  className={`flex items-center justify-between py-3 text-sm ${
+                    isTop ? "font-semibold text-[#111827]" : "text-[#111827]"
+                  } ${isTop ? "bg-amber-50 rounded-2xl px-2" : ""}`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`w-6 text-center ${isTop ? "text-[#1669FF]" : "text-gray-600"}`}>
-                      {entry.place}
-                    </span>
+                    <span className={`w-7 text-center ${isTop ? "text-[#22C55E]" : "text-[#6B7280]"}`}>{medal}</span>
                     <span>{name}</span>
                   </div>
-                  <div className="text-right font-semibold text-gray-900">{entry.score}</div>
+                  <div className="text-right font-semibold text-[#111827]">{entry.score}</div>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </motion.section>
     </div>
   );
 }

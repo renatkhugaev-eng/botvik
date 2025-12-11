@@ -50,7 +50,8 @@ export function validateInitData(rawInitData: string, botToken: string): Validat
   pairs.sort();
   const dataCheckString = pairs.join("\n");
 
-  const secretKey = crypto.createHash("sha256").update(botToken).digest();
+  // For Web Apps / Mini Apps: HMAC-SHA256 with "WebAppData" as key
+  const secretKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest();
   const signature = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
 
   try {

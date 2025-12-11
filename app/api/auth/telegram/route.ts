@@ -9,6 +9,7 @@ type TelegramUser = {
   username?: string;
   first_name?: string;
   last_name?: string;
+  photo_url?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
+      photoUrl: tgUser.photo_url ?? null,
     },
   });
 }
