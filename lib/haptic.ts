@@ -5,13 +5,7 @@
  * Only works within Telegram Mini App environment
  */
 
-// Get Telegram WebApp object safely
-function getTelegramWebApp(): TelegramWebApp | null {
-  if (typeof window === "undefined") return null;
-  return (window as WindowWithTelegram).Telegram?.WebApp ?? null;
-}
-
-// Types for Telegram WebApp
+// Types for Telegram WebApp HapticFeedback
 type ImpactStyle = "light" | "medium" | "heavy" | "rigid" | "soft";
 type NotificationType = "error" | "success" | "warning";
 
@@ -21,14 +15,12 @@ interface HapticFeedback {
   selectionChanged: () => void;
 }
 
-interface TelegramWebApp {
-  HapticFeedback: HapticFeedback;
-}
-
-interface WindowWithTelegram extends Window {
-  Telegram?: {
-    WebApp?: TelegramWebApp;
-  };
+// Get Telegram WebApp HapticFeedback object safely
+function getHapticFeedback(): HapticFeedback | null {
+  if (typeof window === "undefined") return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tg = (window as any).Telegram?.WebApp;
+  return tg?.HapticFeedback ?? null;
 }
 
 /**
@@ -40,7 +32,7 @@ export const haptic = {
    * Use for: tab switches, toggles, minor selections
    */
   light: () => {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred("light");
+    getHapticFeedback()?.impactOccurred("light");
   },
 
   /**
@@ -48,7 +40,7 @@ export const haptic = {
    * Use for: button presses, card selections
    */
   medium: () => {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred("medium");
+    getHapticFeedback()?.impactOccurred("medium");
   },
 
   /**
@@ -56,7 +48,7 @@ export const haptic = {
    * Use for: confirmations, major actions, navigation
    */
   heavy: () => {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred("heavy");
+    getHapticFeedback()?.impactOccurred("heavy");
   },
 
   /**
@@ -64,7 +56,7 @@ export const haptic = {
    * Use for: soft buttons, floating elements
    */
   soft: () => {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred("soft");
+    getHapticFeedback()?.impactOccurred("soft");
   },
 
   /**
@@ -72,7 +64,7 @@ export const haptic = {
    * Use for: toggles, switches, precise controls
    */
   rigid: () => {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred("rigid");
+    getHapticFeedback()?.impactOccurred("rigid");
   },
 
   /**
@@ -80,7 +72,7 @@ export const haptic = {
    * Use for: scrolling through options, picker changes
    */
   selection: () => {
-    getTelegramWebApp()?.HapticFeedback.selectionChanged();
+    getHapticFeedback()?.selectionChanged();
   },
 
   /**
@@ -88,7 +80,7 @@ export const haptic = {
    * Use for: completed actions, achievements
    */
   success: () => {
-    getTelegramWebApp()?.HapticFeedback.notificationOccurred("success");
+    getHapticFeedback()?.notificationOccurred("success");
   },
 
   /**
@@ -96,7 +88,7 @@ export const haptic = {
    * Use for: alerts, confirmations needed
    */
   warning: () => {
-    getTelegramWebApp()?.HapticFeedback.notificationOccurred("warning");
+    getHapticFeedback()?.notificationOccurred("warning");
   },
 
   /**
@@ -104,7 +96,7 @@ export const haptic = {
    * Use for: failed actions, errors
    */
   error: () => {
-    getTelegramWebApp()?.HapticFeedback.notificationOccurred("error");
+    getHapticFeedback()?.notificationOccurred("error");
   },
 };
 
@@ -115,4 +107,3 @@ export const haptic = {
 export function useHaptic() {
   return haptic;
 }
-
