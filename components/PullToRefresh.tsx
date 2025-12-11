@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, ReactNode, useEffect } from "react";
+import { useState, useRef, ReactNode, useEffect } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 
@@ -10,16 +10,17 @@ type PullToRefreshProps = {
   disabled?: boolean;
 };
 
-const PULL_THRESHOLD = 80;
-const MAX_PULL = 120;
+const PULL_THRESHOLD = 70;
+const MAX_PULL = 100;
+const ACTIVATION_THRESHOLD = 5; // Minimum px to start considering as pull
 
 export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const isPullingRef = useRef(false);
-  const canPullRef = useRef(false); // Track if pull is allowed (started at top)
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
+  const startScrollTop = useRef(0);
+  const isActivated = useRef(false);
   
   const pullDistance = useMotionValue(0);
   const opacity = useTransform(pullDistance, [0, PULL_THRESHOLD], [0, 1]);
@@ -35,66 +36,64 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       if (disabled || isRefreshing) return;
       
       startY.current = e.touches[0].clientY;
-      
-      // Only allow pull if starting at the top
-      canPullRef.current = container.scrollTop <= 0;
-      isPullingRef.current = false;
+      startScrollTop.current = container.scrollTop;
+      isActivated.current = false;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (disabled || isRefreshing) return;
       
-      // If we didn't start at top, allow normal scrolling
-      if (!canPullRef.current) return;
-      
       const currentY = e.touches[0].clientY;
-      const diff = currentY - startY.current;
+      const deltaY = currentY - startY.current;
+      const currentScrollTop = container.scrollTop;
       
-      // If scrolling down (diff < 0), allow normal behavior
-      if (diff <= 0) {
-        if (isPullingRef.current) {
-          // Was pulling, now going back up - reset
+      // If we started scrolled down, or scrolled down during this touch, don't activate
+      if (startScrollTop.current > 0 || currentScrollTop > 0) {
+        isActivated.current = false;
+        pullDistance.set(0);
+        return;
+      }
+      
+      // If swiping up (negative), don't activate
+      if (deltaY < ACTIVATION_THRESHOLD) {
+        if (isActivated.current) {
           pullDistance.set(0);
-          isPullingRef.current = false;
+          isActivated.current = false;
         }
         return;
       }
       
-      // User is at top and pulling down - activate pull-to-refresh
-      if (container.scrollTop <= 0 && diff > 10) {
-        isPullingRef.current = true;
-        
-        // Prevent Telegram from closing the app
-        e.preventDefault();
-        
-        const dampedDiff = Math.min(diff * 0.4, MAX_PULL);
-        
-        // Haptic feedback when crossing threshold
-        const prevValue = pullDistance.get();
-        if (dampedDiff >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
-          haptic.light();
-        }
-        
-        pullDistance.set(dampedDiff);
+      // We're at the top and pulling down - activate!
+      isActivated.current = true;
+      
+      // Prevent Telegram close gesture
+      e.preventDefault();
+      
+      const dampedDelta = Math.min((deltaY - ACTIVATION_THRESHOLD) * 0.5, MAX_PULL);
+      
+      // Haptic when crossing threshold
+      const prevValue = pullDistance.get();
+      if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
+        haptic.light();
       }
+      
+      pullDistance.set(dampedDelta);
     };
 
     const handleTouchEnd = async () => {
-      if (!isPullingRef.current || disabled) {
-        canPullRef.current = false;
+      if (!isActivated.current || disabled || isRefreshing) {
+        isActivated.current = false;
         return;
       }
       
-      isPullingRef.current = false;
-      canPullRef.current = false;
-
+      isActivated.current = false;
       const currentPull = pullDistance.get();
       
-      if (currentPull >= PULL_THRESHOLD && !isRefreshing) {
+      if (currentPull >= PULL_THRESHOLD) {
         setIsRefreshing(true);
         haptic.medium();
         
-        animate(pullDistance, 60, { duration: 0.2 });
+        animate(pullDistance, 50, { duration: 0.2 });
         
         try {
           await onRefresh();
@@ -102,11 +101,11 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         } catch {
           haptic.error();
         } finally {
-          animate(pullDistance, 0, { duration: 0.3 });
+          animate(pullDistance, 0, { duration: 0.25 });
           setIsRefreshing(false);
         }
       } else {
-        animate(pullDistance, 0, { duration: 0.3 });
+        animate(pullDistance, 0, { duration: 0.25 });
       }
     };
 
@@ -122,12 +121,12 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   }, [disabled, isRefreshing, onRefresh, pullDistance]);
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-full overflow-hidden">
+    <div ref={wrapperRef} className="relative h-full w-full">
       {/* Pull indicator */}
       <motion.div 
         className="absolute left-1/2 top-0 z-50 flex -translate-x-1/2 items-center justify-center pointer-events-none"
         style={{ 
-          y: useTransform(pullDistance, [0, MAX_PULL], [-50, 30]),
+          y: useTransform(pullDistance, [0, MAX_PULL], [-40, 20]),
           opacity,
         }}
       >
@@ -136,11 +135,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
           style={{ scale }}
         >
           {isRefreshing ? (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="h-5 w-5 rounded-full border-2 border-slate-200 border-t-violet-500"
-            />
+            <div className="h-5 w-5 rounded-full border-2 border-slate-200 border-t-violet-500 animate-spin" />
           ) : (
             <motion.svg 
               className="h-5 w-5 text-violet-500" 
@@ -156,10 +151,10 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         </motion.div>
       </motion.div>
 
-      {/* Content container */}
+      {/* Content - normal scrolling */}
       <motion.div
         ref={containerRef}
-        className="h-full w-full overflow-y-auto"
+        className="h-full w-full overflow-y-auto overscroll-contain"
         style={{ y: pullDistance }}
       >
         {children}
