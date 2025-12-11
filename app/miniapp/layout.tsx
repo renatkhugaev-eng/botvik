@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import Script from "next/script";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -51,9 +52,15 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
       const initData = tg?.initData;
       console.log("[MiniApp] initData length", initData?.length, initData?.slice?.(0, 80));
 
-      if (!initData && attempts < maxAttempts) {
-        attempts += 1;
-        setTimeout(authenticate, delayMs);
+      if (!initData) {
+        if (attempts < maxAttempts) {
+          attempts += 1;
+          setTimeout(authenticate, delayMs);
+          return;
+        }
+        if (!aborted) {
+          setSession({ status: "error", reason: "NO_TELEGRAM_WEBAPP" });
+        }
         return;
       }
 
@@ -117,6 +124,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
   return (
     <MiniAppContext.Provider value={session}>
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <div className={`min-h-screen w-full ${background} flex justify-center`}>
         <div className="w-full max-w-[600px]">{content}</div>
       </div>
