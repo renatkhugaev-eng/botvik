@@ -16,6 +16,7 @@ const MAX_PULL = 120;
 export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isPullingRef = useRef(false);
+  const canPullRef = useRef(false); // Track if pull is allowed (started at top)
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
@@ -25,7 +26,6 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   const scale = useTransform(pullDistance, [0, PULL_THRESHOLD], [0.5, 1]);
   const rotate = useTransform(pullDistance, [0, PULL_THRESHOLD, MAX_PULL], [0, 180, 360]);
 
-  // Use native event listeners to be able to preventDefault
   useEffect(() => {
     const wrapper = wrapperRef.current;
     const container = containerRef.current;
@@ -33,48 +33,60 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
 
     const handleTouchStart = (e: TouchEvent) => {
       if (disabled || isRefreshing) return;
-      if (container.scrollTop > 0) return;
       
       startY.current = e.touches[0].clientY;
-      isPullingRef.current = true;
+      
+      // Only allow pull if starting at the top
+      canPullRef.current = container.scrollTop <= 0;
+      isPullingRef.current = false;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isPullingRef.current || disabled || isRefreshing) return;
+      if (disabled || isRefreshing) return;
       
-      // If user scrolled down, stop pulling
-      if (container.scrollTop > 0) {
-        pullDistance.set(0);
-        isPullingRef.current = false;
-        return;
-      }
-
+      // If we didn't start at top, allow normal scrolling
+      if (!canPullRef.current) return;
+      
       const currentY = e.touches[0].clientY;
       const diff = currentY - startY.current;
       
-      // Only pull down, not up
+      // If scrolling down (diff < 0), allow normal behavior
       if (diff <= 0) {
-        pullDistance.set(0);
+        if (isPullingRef.current) {
+          // Was pulling, now going back up - reset
+          pullDistance.set(0);
+          isPullingRef.current = false;
+        }
         return;
       }
-
-      // Prevent Telegram from closing the app
-      e.preventDefault();
       
-      const dampedDiff = Math.min(diff * 0.5, MAX_PULL);
-      
-      // Haptic feedback when crossing threshold
-      const prevValue = pullDistance.get();
-      if (dampedDiff >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
-        haptic.light();
+      // User is at top and pulling down - activate pull-to-refresh
+      if (container.scrollTop <= 0 && diff > 10) {
+        isPullingRef.current = true;
+        
+        // Prevent Telegram from closing the app
+        e.preventDefault();
+        
+        const dampedDiff = Math.min(diff * 0.4, MAX_PULL);
+        
+        // Haptic feedback when crossing threshold
+        const prevValue = pullDistance.get();
+        if (dampedDiff >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
+          haptic.light();
+        }
+        
+        pullDistance.set(dampedDiff);
       }
-      
-      pullDistance.set(dampedDiff);
     };
 
     const handleTouchEnd = async () => {
-      if (!isPullingRef.current || disabled) return;
+      if (!isPullingRef.current || disabled) {
+        canPullRef.current = false;
+        return;
+      }
+      
       isPullingRef.current = false;
+      canPullRef.current = false;
 
       const currentPull = pullDistance.get();
       
@@ -82,7 +94,6 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         setIsRefreshing(true);
         haptic.medium();
         
-        // Animate to loading position
         animate(pullDistance, 60, { duration: 0.2 });
         
         try {
@@ -91,17 +102,14 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         } catch {
           haptic.error();
         } finally {
-          // Animate back
           animate(pullDistance, 0, { duration: 0.3 });
           setIsRefreshing(false);
         }
       } else {
-        // Snap back
         animate(pullDistance, 0, { duration: 0.3 });
       }
     };
 
-    // Use passive: false to be able to preventDefault
     wrapper.addEventListener("touchstart", handleTouchStart, { passive: true });
     wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
     wrapper.addEventListener("touchend", handleTouchEnd, { passive: true });
