@@ -233,11 +233,7 @@ export default function MiniAppPage() {
         <div className="flex items-center gap-4">
           {/* Avatar with ring */}
           <div className="relative">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="absolute -inset-1 rounded-full bg-gradient-to-r from-rose-500 via-violet-500 to-indigo-500 opacity-75 blur-[2px]"
-            />
+            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-rose-500 via-violet-500 to-indigo-500 opacity-75 blur-[2px] animate-spin-slow" />
             {photoUrl ? (
               <img 
                 src={photoUrl} 
@@ -664,11 +660,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
       >
         {/* Animated gradient border */}
         <div className="absolute -inset-[1px] rounded-[24px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-75 blur-sm" />
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-          className="absolute -inset-[1px] rounded-[24px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-60"
-        />
+        <div className="absolute -inset-[1px] rounded-[24px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-60 animate-spin-medium" />
         
         {/* Main container */}
         <div className="relative overflow-hidden rounded-[24px] bg-[#0a0a0f]">

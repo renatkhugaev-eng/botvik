@@ -268,10 +268,8 @@ export default function ProfilePage() {
             onMouseLeave={handleMouseLeave}
           >
         {/* Animated conic gradient border */}
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-          className="absolute -inset-[2px] rounded-[28px]"
+        <div
+          className="absolute -inset-[2px] rounded-[28px] animate-spin-medium"
           style={{
             background: `conic-gradient(from 0deg, ${rank.accent}, #8b5cf6, #06b6d4, ${rank.accent})`,
           }}
@@ -349,20 +347,14 @@ export default function ProfilePage() {
               {/* Avatar with multiple rotating rings */}
               <div className="relative flex-shrink-0">
                 {/* Outer rotating ring */}
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="absolute -inset-3 rounded-full"
+                <div
+                  className="absolute -inset-3 rounded-full animate-spin-slow"
                   style={{
                     background: `conic-gradient(from 0deg, transparent, ${rank.accent}, transparent)`,
                   }}
                 />
                 {/* Middle counter-rotating ring */}
-                <motion.div
-                  animate={{ rotate: -360 }}
-                  transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                  className={`absolute -inset-2 rounded-full bg-gradient-to-r ${rank.color} opacity-60`}
-                />
+                <div className={`absolute -inset-2 rounded-full bg-gradient-to-r ${rank.color} opacity-60 animate-spin-medium`} style={{ animationDirection: "reverse" }} />
                 {/* Inner glow */}
                 <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${rank.color} blur-md opacity-50`} />
                 
