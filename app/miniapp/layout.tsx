@@ -178,8 +178,8 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
   return (
     <MiniAppContext.Provider value={session}>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-      <div className="flex min-h-screen w-full justify-center bg-slate-100 overflow-x-hidden">
-        <div className="w-full max-w-md px-4 pt-2 overflow-x-visible">
+      <div className="min-h-screen w-full bg-slate-100 overflow-x-hidden">
+        <div className="w-full px-3 pt-2 pb-4">
           {content}
         </div>
       </div>
