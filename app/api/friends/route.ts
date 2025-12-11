@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-// GET /api/friends?userId=X — Get user's friends with their stats
+// GET /api/friends?userId=X — Get user's friends and pending requests
 export async function GET(req: NextRequest) {
   const userIdParam = req.nextUrl.searchParams.get("userId");
   const userId = userIdParam ? Number(userIdParam) : NaN;
@@ -13,9 +13,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Get all friendships where user is either the adder or receiver
-    const friendships = await prisma.friendship.findMany({
+    // Get accepted friendships (where user is either sender or receiver)
+    const acceptedFriendships = await prisma.friendship.findMany({
       where: {
+        status: "ACCEPTED",
         OR: [
           { userId: userId },
           { friendId: userId },
@@ -23,35 +24,45 @@ export async function GET(req: NextRequest) {
       },
       include: {
         user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            telegramId: true,
-          },
+          select: { id: true, username: true, firstName: true, telegramId: true },
         },
         friend: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            telegramId: true,
-          },
+          select: { id: true, username: true, firstName: true, telegramId: true },
         },
       },
     });
 
-    // Extract friend data (the other person in each friendship)
-    const friendIds = friendships.map((f) => 
-      f.userId === userId ? f.friendId : f.userId
-    );
+    // Get pending requests sent TO this user (incoming)
+    const incomingRequests = await prisma.friendship.findMany({
+      where: {
+        friendId: userId,
+        status: "PENDING",
+      },
+      include: {
+        user: {
+          select: { id: true, username: true, firstName: true, telegramId: true },
+        },
+      },
+    });
 
-    // Get stats for all friends
+    // Get pending requests sent BY this user (outgoing)
+    const outgoingRequests = await prisma.friendship.findMany({
+      where: {
+        userId: userId,
+        status: "PENDING",
+      },
+      include: {
+        friend: {
+          select: { id: true, username: true, firstName: true, telegramId: true },
+        },
+      },
+    });
+
+    // Process accepted friends with stats
     const friendsWithStats = await Promise.all(
-      friendships.map(async (f) => {
+      acceptedFriendships.map(async (f) => {
         const friendData = f.userId === userId ? f.friend : f.user;
         
-        // Get friend's stats
         const sessions = await prisma.quizSession.findMany({
           where: { userId: friendData.id, finishedAt: { not: null } },
           select: { totalScore: true },
@@ -60,7 +71,6 @@ export async function GET(req: NextRequest) {
         const totalScore = sessions.reduce((sum, s) => sum + s.totalScore, 0);
         const gamesPlayed = sessions.length;
         
-        // Get best leaderboard position
         const bestEntry = await prisma.leaderboardEntry.findFirst({
           where: { userId: friendData.id },
           orderBy: { score: "desc" },
@@ -82,14 +92,36 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    return NextResponse.json(friendsWithStats);
+    // Process incoming requests
+    const incoming = incomingRequests.map((r) => ({
+      requestId: r.id,
+      id: r.user.id,
+      username: r.user.username,
+      firstName: r.user.firstName,
+      sentAt: r.createdAt,
+    }));
+
+    // Process outgoing requests
+    const outgoing = outgoingRequests.map((r) => ({
+      requestId: r.id,
+      id: r.friend.id,
+      username: r.friend.username,
+      firstName: r.friend.firstName,
+      sentAt: r.createdAt,
+    }));
+
+    return NextResponse.json({
+      friends: friendsWithStats,
+      incomingRequests: incoming,
+      outgoingRequests: outgoing,
+    });
   } catch (error) {
     console.error("[friends] Error fetching friends:", error);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
 
-// POST /api/friends — Add a friend by username
+// POST /api/friends — Send a friend request
 export async function POST(req: NextRequest) {
   try {
     const { userId, friendUsername } = await req.json();
@@ -116,7 +148,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cannot_add_self" }, { status: 400 });
     }
 
-    // Check if already friends
+    // Check if any friendship/request already exists
     const existing = await prisma.friendship.findFirst({
       where: {
         OR: [
@@ -127,57 +159,98 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      return NextResponse.json({ error: "already_friends" }, { status: 400 });
+      if (existing.status === "ACCEPTED") {
+        return NextResponse.json({ error: "already_friends" }, { status: 400 });
+      }
+      if (existing.status === "PENDING") {
+        // If they sent us a request, auto-accept it
+        if (existing.userId === friend.id) {
+          await prisma.friendship.update({
+            where: { id: existing.id },
+            data: { status: "ACCEPTED" },
+          });
+          return NextResponse.json({ ok: true, status: "accepted" });
+        }
+        return NextResponse.json({ error: "request_pending" }, { status: 400 });
+      }
+      if (existing.status === "DECLINED") {
+        // Update declined to pending (they can try again)
+        await prisma.friendship.update({
+          where: { id: existing.id },
+          data: { status: "PENDING", userId: userId, friendId: friend.id },
+        });
+        return NextResponse.json({ ok: true, status: "request_sent" });
+      }
     }
 
-    // Create friendship
-    const friendship = await prisma.friendship.create({
+    // Create new friend request
+    await prisma.friendship.create({
       data: {
         userId: userId,
         friendId: friend.id,
-      },
-      include: {
-        friend: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-          },
-        },
+        status: "PENDING",
       },
     });
 
     return NextResponse.json({
       ok: true,
+      status: "request_sent",
       friend: {
-        id: friendship.friend.id,
-        username: friendship.friend.username,
-        firstName: friendship.friend.firstName,
+        id: friend.id,
+        username: friend.username,
+        firstName: friend.firstName,
       },
     });
   } catch (error) {
-    console.error("[friends] Error adding friend:", error);
+    console.error("[friends] Error sending request:", error);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
 
-// DELETE /api/friends — Remove a friend
-export async function DELETE(req: NextRequest) {
+// PUT /api/friends — Accept or decline a friend request
+export async function PUT(req: NextRequest) {
   try {
-    const { userId, friendId } = await req.json();
+    const { requestId, action } = await req.json();
 
-    if (!userId || !friendId) {
+    if (!requestId || !action) {
       return NextResponse.json({ error: "missing_params" }, { status: 400 });
     }
 
-    // Delete friendship in either direction
-    await prisma.friendship.deleteMany({
-      where: {
-        OR: [
-          { userId: userId, friendId: friendId },
-          { userId: friendId, friendId: userId },
-        ],
-      },
+    if (action !== "accept" && action !== "decline") {
+      return NextResponse.json({ error: "invalid_action" }, { status: 400 });
+    }
+
+    const friendship = await prisma.friendship.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!friendship || friendship.status !== "PENDING") {
+      return NextResponse.json({ error: "request_not_found" }, { status: 404 });
+    }
+
+    await prisma.friendship.update({
+      where: { id: requestId },
+      data: { status: action === "accept" ? "ACCEPTED" : "DECLINED" },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[friends] Error updating request:", error);
+    return NextResponse.json({ error: "server_error" }, { status: 500 });
+  }
+}
+
+// DELETE /api/friends — Remove a friend or cancel request
+export async function DELETE(req: NextRequest) {
+  try {
+    const { friendshipId } = await req.json();
+
+    if (!friendshipId) {
+      return NextResponse.json({ error: "missing_params" }, { status: 400 });
+    }
+
+    await prisma.friendship.delete({
+      where: { id: friendshipId },
     });
 
     return NextResponse.json({ ok: true });
@@ -186,4 +259,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
-

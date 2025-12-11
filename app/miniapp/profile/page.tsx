@@ -37,6 +37,20 @@ type Friend = {
   addedAt: string;
 };
 
+type FriendRequest = {
+  requestId: number;
+  id: number;
+  username: string | null;
+  firstName: string | null;
+  sentAt: string;
+};
+
+type FriendsData = {
+  friends: Friend[];
+  incomingRequests: FriendRequest[];
+  outgoingRequests: FriendRequest[];
+};
+
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
@@ -112,11 +126,14 @@ export default function ProfilePage() {
   
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [friendUsername, setFriendUsername] = useState("");
   const [addingFriend, setAddingFriend] = useState(false);
   const [addFriendError, setAddFriendError] = useState<string | null>(null);
+  const [addFriendSuccess, setAddFriendSuccess] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isTouch = useIsTouchDevice();
   
@@ -169,33 +186,36 @@ export default function ProfilePage() {
   }, [session]);
 
   // Fetch friends
-  useEffect(() => {
+  const loadFriends = useCallback(async () => {
     if (session.status !== "ready") return;
     
-    const loadFriends = async () => {
-      setFriendsLoading(true);
-      try {
-        const res = await fetch(`/api/friends?userId=${session.user.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setFriends(data);
-        }
-      } catch (err) {
-        console.error("Failed to load friends", err);
-      } finally {
-        setFriendsLoading(false);
+    setFriendsLoading(true);
+    try {
+      const res = await fetch(`/api/friends?userId=${session.user.id}`);
+      if (res.ok) {
+        const data: FriendsData = await res.json();
+        setFriends(data.friends);
+        setIncomingRequests(data.incomingRequests);
+        setOutgoingRequests(data.outgoingRequests);
       }
-    };
-    
-    loadFriends();
+    } catch (err) {
+      console.error("Failed to load friends", err);
+    } finally {
+      setFriendsLoading(false);
+    }
   }, [session]);
+  
+  useEffect(() => {
+    loadFriends();
+  }, [loadFriends]);
 
-  // Add friend
+  // Add friend (send request)
   const handleAddFriend = async () => {
     if (!friendUsername.trim() || session.status !== "ready") return;
     
     setAddingFriend(true);
     setAddFriendError(null);
+    setAddFriendSuccess(null);
     
     try {
       const res = await fetch("/api/friends", {
@@ -216,20 +236,26 @@ export default function ProfilePage() {
           setAddFriendError("Уже в друзьях");
         } else if (data.error === "cannot_add_self") {
           setAddFriendError("Нельзя добавить себя");
+        } else if (data.error === "request_pending") {
+          setAddFriendError("Заявка уже отправлена");
         } else {
-          setAddFriendError("Ошибка добавления");
+          setAddFriendError("Ошибка отправки");
         }
         return;
       }
       
-      // Reload friends list
-      const friendsRes = await fetch(`/api/friends?userId=${session.user.id}`);
-      if (friendsRes.ok) {
-        setFriends(await friendsRes.json());
+      // Show success message
+      if (data.status === "accepted") {
+        setAddFriendSuccess("Вы теперь друзья! 🎉");
+      } else {
+        setAddFriendSuccess("Заявка отправлена! ✉️");
       }
       
+      // Reload friends list
+      await loadFriends();
+      
       setFriendUsername("");
-      setShowAddFriend(false);
+      setTimeout(() => setShowAddFriend(false), 1500);
     } catch (err) {
       setAddFriendError("Ошибка сети");
     } finally {
@@ -237,21 +263,43 @@ export default function ProfilePage() {
     }
   };
 
-  // Remove friend
-  const handleRemoveFriend = async (friendId: number) => {
-    if (session.status !== "ready") return;
-    
+  // Accept/Decline friend request
+  const handleRespondRequest = async (requestId: number, action: "accept" | "decline") => {
+    try {
+      await fetch("/api/friends", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action }),
+      });
+      await loadFriends();
+    } catch (err) {
+      console.error("Failed to respond to request", err);
+    }
+  };
+
+  // Cancel outgoing request
+  const handleCancelRequest = async (requestId: number) => {
     try {
       await fetch("/api/friends", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: session.user.id,
-          friendId,
-        }),
+        body: JSON.stringify({ friendshipId: requestId }),
       });
-      
-      setFriends((prev) => prev.filter((f) => f.id !== friendId));
+      await loadFriends();
+    } catch (err) {
+      console.error("Failed to cancel request", err);
+    }
+  };
+
+  // Remove friend
+  const handleRemoveFriend = async (friendshipId: number) => {
+    try {
+      await fetch("/api/friends", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ friendshipId }),
+      });
+      await loadFriends();
     } catch (err) {
       console.error("Failed to remove friend", err);
     }
@@ -582,9 +630,11 @@ export default function ProfilePage() {
             <span className="relative flex items-center justify-center gap-2">
               <span>{tab.icon}</span>
               {tab.label}
-              {tab.id === "friends" && friends.length > 0 && (
-                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-violet-500 px-1.5 text-[10px] font-bold text-white">
-                  {friends.length}
+              {tab.id === "friends" && (friends.length > 0 || incomingRequests.length > 0) && (
+                <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white ${
+                  incomingRequests.length > 0 ? "bg-red-500 animate-pulse" : "bg-violet-500"
+                }`}>
+                  {incomingRequests.length > 0 ? incomingRequests.length : friends.length}
                 </span>
               )}
             </span>
@@ -821,92 +871,167 @@ export default function ProfilePage() {
               Добавить друга
             </motion.button>
 
-            {/* Friends List */}
+            {/* Loading */}
             {friendsLoading ? (
               <div className="flex flex-col items-center py-12">
                 <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-violet-500 animate-spin" />
-                <p className="mt-4 text-[14px] text-slate-400">Загружаем друзей...</p>
-              </div>
-            ) : friends.length === 0 ? (
-              <div className="rounded-2xl bg-white p-8 shadow-lg shadow-black/5 text-center">
-                <span className="text-6xl mb-4 block">👥</span>
-                <p className="text-[16px] font-bold text-[#1a1a2e]">Пока нет друзей</p>
-                <p className="text-[14px] text-slate-400 mt-2">
-                  Добавь друга по username,<br />чтобы следить за его статистикой
-                </p>
+                <p className="mt-4 text-[14px] text-slate-400">Загружаем...</p>
               </div>
             ) : (
-              <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <h3 className="text-[14px] font-bold text-[#1a1a2e]">Мои друзья</h3>
-                </div>
-                <div className="divide-y divide-slate-50">
-                  {friends.map((friend, i) => {
-                    const friendName = friend.firstName ?? friend.username ?? "Друг";
-                    const friendRank = getRank(friend.stats.totalScore);
-                    
-                    return (
-                      <motion.div
-                        key={friend.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05, ...spring }}
-                        className="p-4"
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          {/* Avatar */}
-                          <div className="relative">
-                            <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
-                            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
-                              {friendName[0].toUpperCase()}
+              <>
+                {/* Incoming Requests */}
+                {incomingRequests.length > 0 && (
+                  <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 p-4 shadow-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-lg">📬</span>
+                      <h3 className="text-[14px] font-bold text-white">Заявки в друзья</h3>
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">
+                        {incomingRequests.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {incomingRequests.map((req) => {
+                        const reqName = req.firstName ?? req.username ?? "Пользователь";
+                        return (
+                          <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-[13px] font-bold text-white">
+                              {reqName[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-semibold text-white truncate">{reqName}</p>
+                              {req.username && <p className="text-[11px] text-white/60">@{req.username}</p>}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRespondRequest(req.requestId, "accept")}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white active:bg-emerald-600"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={() => handleRespondRequest(req.requestId, "decline")}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white active:bg-white/30"
+                              >
+                                ✕
+                              </button>
                             </div>
                           </div>
-                          
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[15px] font-bold text-[#1a1a2e] truncate">{friendName}</p>
-                            {friend.username && (
-                              <p className="text-[12px] text-slate-400">@{friend.username}</p>
-                            )}
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Outgoing Requests */}
+                {outgoingRequests.length > 0 && (
+                  <div className="rounded-2xl bg-white p-4 shadow-lg shadow-black/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-lg">📤</span>
+                      <h3 className="text-[14px] font-bold text-[#1a1a2e]">Отправленные заявки</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {outgoingRequests.map((req) => {
+                        const reqName = req.firstName ?? req.username ?? "Пользователь";
+                        return (
+                          <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[13px] font-bold text-white">
+                              {reqName[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-semibold text-[#1a1a2e] truncate">{reqName}</p>
+                              <p className="text-[11px] text-slate-400">Ожидает подтверждения...</p>
+                            </div>
+                            <button
+                              onClick={() => handleCancelRequest(req.requestId)}
+                              className="rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 active:bg-slate-300"
+                            >
+                              Отменить
+                            </button>
                           </div>
-                          
-                          {/* Rank badge */}
-                          <div className={`flex items-center gap-1.5 rounded-full bg-gradient-to-r ${friendRank.color} px-3 py-1`}>
-                            <span className="text-sm">{friendRank.icon}</span>
-                            <span className="text-[11px] font-bold text-white">{friendRank.level}</span>
-                          </div>
-                        </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Friends List */}
+                {friends.length === 0 && incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
+                  <div className="rounded-2xl bg-white p-8 shadow-lg shadow-black/5 text-center">
+                    <span className="text-6xl mb-4 block">👥</span>
+                    <p className="text-[16px] font-bold text-[#1a1a2e]">Пока нет друзей</p>
+                    <p className="text-[14px] text-slate-400 mt-2">
+                      Отправь заявку по username,<br />друг получит уведомление
+                    </p>
+                  </div>
+                ) : friends.length > 0 && (
+                  <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <h3 className="text-[14px] font-bold text-[#1a1a2e]">Мои друзья ({friends.length})</h3>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                      {friends.map((friend, i) => {
+                        const friendName = friend.firstName ?? friend.username ?? "Друг";
+                        const friendRank = getRank(friend.stats.totalScore);
                         
-                        {/* Stats */}
-                        <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
-                          <div className="text-center flex-1">
-                            <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
-                            <p className="text-[10px] text-slate-400">очков</p>
-                          </div>
-                          <div className="h-8 w-px bg-slate-200" />
-                          <div className="text-center flex-1">
-                            <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.gamesPlayed}</p>
-                            <p className="text-[10px] text-slate-400">игр</p>
-                          </div>
-                          <div className="h-8 w-px bg-slate-200" />
-                          <div className="text-center flex-1">
-                            <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.bestScore}</p>
-                            <p className="text-[10px] text-slate-400">рекорд</p>
-                          </div>
-                        </div>
-                        
-                        {/* Remove button */}
-                        <button
-                          onClick={() => handleRemoveFriend(friend.id)}
-                          className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[12px] font-semibold text-red-500 active:bg-red-100"
-                        >
-                          Удалить из друзей
-                        </button>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
+                        return (
+                          <motion.div
+                            key={friend.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.05, ...spring }}
+                            className="p-4"
+                          >
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="relative">
+                                <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
+                                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
+                                  {friendName[0].toUpperCase()}
+                                </div>
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[15px] font-bold text-[#1a1a2e] truncate">{friendName}</p>
+                                {friend.username && (
+                                  <p className="text-[12px] text-slate-400">@{friend.username}</p>
+                                )}
+                              </div>
+                              
+                              <div className={`flex items-center gap-1.5 rounded-full bg-gradient-to-r ${friendRank.color} px-3 py-1`}>
+                                <span className="text-sm">{friendRank.icon}</span>
+                                <span className="text-[11px] font-bold text-white">{friendRank.level}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                              <div className="text-center flex-1">
+                                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
+                                <p className="text-[10px] text-slate-400">очков</p>
+                              </div>
+                              <div className="h-8 w-px bg-slate-200" />
+                              <div className="text-center flex-1">
+                                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.gamesPlayed}</p>
+                                <p className="text-[10px] text-slate-400">игр</p>
+                              </div>
+                              <div className="h-8 w-px bg-slate-200" />
+                              <div className="text-center flex-1">
+                                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.bestScore}</p>
+                                <p className="text-[10px] text-slate-400">рекорд</p>
+                              </div>
+                            </div>
+                            
+                            <button
+                              onClick={() => handleRemoveFriend(friend.friendshipId)}
+                              className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[12px] font-semibold text-red-500 active:bg-red-100"
+                            >
+                              Удалить из друзей
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         ) : null}
@@ -926,6 +1051,7 @@ export default function ProfilePage() {
               setShowAddFriend(false);
               setFriendUsername("");
               setAddFriendError(null);
+              setAddFriendSuccess(null);
             }}
           >
             <motion.div
@@ -959,6 +1085,9 @@ export default function ProfilePage() {
                   {addFriendError && (
                     <p className="mt-2 text-[13px] text-red-500">{addFriendError}</p>
                   )}
+                  {addFriendSuccess && (
+                    <p className="mt-2 text-[13px] text-emerald-500 font-semibold">{addFriendSuccess}</p>
+                  )}
                 </div>
                 
                 <div className="flex gap-3">
@@ -967,6 +1096,7 @@ export default function ProfilePage() {
                       setShowAddFriend(false);
                       setFriendUsername("");
                       setAddFriendError(null);
+                      setAddFriendSuccess(null);
                     }}
                     className="flex-1 rounded-xl bg-slate-100 py-3.5 text-[14px] font-semibold text-slate-600 active:bg-slate-200"
                   >
