@@ -8,6 +8,9 @@ type TelegramWebApp = {
   WebApp?: {
     initData?: string;
     ready?: () => void;
+    disableVerticalSwipes?: () => void;
+    enableVerticalSwipes?: () => void;
+    isVerticalSwipesEnabled?: boolean;
   };
 };
 
@@ -51,6 +54,13 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
     const authenticate = async () => {
       const tg = window.Telegram?.WebApp;
       if (tg?.ready) tg.ready();
+      
+      // Disable Telegram's swipe-to-close gesture to allow normal scrolling
+      if (tg?.disableVerticalSwipes) {
+        tg.disableVerticalSwipes();
+        console.log("[MiniApp] Disabled vertical swipes");
+      }
+      
       console.log("[MiniApp] Telegram WebApp present:", Boolean(tg));
 
       // In dev we allow bypassing Telegram when explicitly enabled
