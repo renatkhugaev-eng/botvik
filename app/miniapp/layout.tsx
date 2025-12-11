@@ -39,6 +39,9 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     let aborted = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+    const delayMs = 200;
 
     const authenticate = async () => {
       const tg = (window as any)?.Telegram?.WebApp;
@@ -47,8 +50,10 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
       const initData = tg?.initData;
       console.log("[MiniApp] initData length", initData?.length, initData?.slice?.(0, 80));
-      if (!initData) {
-        if (!aborted) setSession({ status: "error", reason: "NO_INIT_DATA" });
+
+      if (!initData && attempts < maxAttempts) {
+        attempts += 1;
+        setTimeout(authenticate, delayMs);
         return;
       }
 
@@ -56,7 +61,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         const res = await fetch("/api/auth/telegram", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData }),
+          body: JSON.stringify({ initData: initData ?? "" }),
         });
 
         const data = (await res.json()) as { ok: boolean; user?: MiniAppUser; reason?: string };
