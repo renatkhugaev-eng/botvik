@@ -29,6 +29,7 @@ type Friend = {
   username: string | null;
   firstName: string | null;
   telegramId: string;
+  photoUrl: string | null;
   stats: {
     totalScore: number;
     gamesPlayed: number;
@@ -42,6 +43,7 @@ type FriendRequest = {
   id: number;
   username: string | null;
   firstName: string | null;
+  photoUrl: string | null;
   sentAt: string;
 };
 
@@ -894,9 +896,13 @@ export default function ProfilePage() {
                         const reqName = req.firstName ?? req.username ?? "Пользователь";
                         return (
                           <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-[13px] font-bold text-white">
-                              {reqName[0].toUpperCase()}
-                            </div>
+                            {req.photoUrl ? (
+                              <img src={req.photoUrl} alt={reqName} className="h-10 w-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-[13px] font-bold text-white">
+                                {reqName[0].toUpperCase()}
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="text-[14px] font-semibold text-white truncate">{reqName}</p>
                               {req.username && <p className="text-[11px] text-white/60">@{req.username}</p>}
@@ -934,9 +940,13 @@ export default function ProfilePage() {
                         const reqName = req.firstName ?? req.username ?? "Пользователь";
                         return (
                           <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[13px] font-bold text-white">
-                              {reqName[0].toUpperCase()}
-                            </div>
+                            {req.photoUrl ? (
+                              <img src={req.photoUrl} alt={reqName} className="h-10 w-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[13px] font-bold text-white">
+                                {reqName[0].toUpperCase()}
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="text-[14px] font-semibold text-[#1a1a2e] truncate">{reqName}</p>
                               <p className="text-[11px] text-slate-400">Ожидает подтверждения...</p>
@@ -982,12 +992,16 @@ export default function ProfilePage() {
                             className="p-4"
                           >
                             <div className="flex items-center gap-3 mb-3">
-                              <div className="relative">
-                                <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
-                                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
-                                  {friendName[0].toUpperCase()}
-                                </div>
+<div className="relative">
+                            <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
+                            {friend.photoUrl ? (
+                              <img src={friend.photoUrl} alt={friendName} className="relative h-12 w-12 rounded-full object-cover" />
+                            ) : (
+                              <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
+                                {friendName[0].toUpperCase()}
                               </div>
+                            )}
+                          </div>
                               
                               <div className="flex-1 min-w-0">
                                 <p className="text-[15px] font-bold text-[#1a1a2e] truncate">{friendName}</p>

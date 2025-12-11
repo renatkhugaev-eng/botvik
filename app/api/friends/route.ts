@@ -24,10 +24,10 @@ export async function GET(req: NextRequest) {
       },
       include: {
         user: {
-          select: { id: true, username: true, firstName: true, telegramId: true },
+          select: { id: true, username: true, firstName: true, telegramId: true, photoUrl: true },
         },
         friend: {
-          select: { id: true, username: true, firstName: true, telegramId: true },
+          select: { id: true, username: true, firstName: true, telegramId: true, photoUrl: true },
         },
       },
     });
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         user: {
-          select: { id: true, username: true, firstName: true, telegramId: true },
+          select: { id: true, username: true, firstName: true, telegramId: true, photoUrl: true },
         },
       },
     });
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         friend: {
-          select: { id: true, username: true, firstName: true, telegramId: true },
+          select: { id: true, username: true, firstName: true, telegramId: true, photoUrl: true },
         },
       },
     });
@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
           username: friendData.username,
           firstName: friendData.firstName,
           telegramId: friendData.telegramId,
+          photoUrl: friendData.photoUrl,
           stats: {
             totalScore,
             gamesPlayed,
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
       id: r.user.id,
       username: r.user.username,
       firstName: r.user.firstName,
+      photoUrl: r.user.photoUrl,
       sentAt: r.createdAt,
     }));
 
@@ -107,6 +109,7 @@ export async function GET(req: NextRequest) {
       id: r.friend.id,
       username: r.friend.username,
       firstName: r.friend.firstName,
+      photoUrl: r.friend.photoUrl,
       sentAt: r.createdAt,
     }));
 

@@ -71,12 +71,14 @@ export async function POST(req: NextRequest) {
       username: tgUser.username ?? null,
       firstName: tgUser.first_name ?? null,
       lastName: tgUser.last_name ?? null,
+      photoUrl: tgUser.photo_url ?? null,
     },
     create: {
       telegramId: String(tgUser.id),
       username: tgUser.username ?? null,
       firstName: tgUser.first_name ?? null,
       lastName: tgUser.last_name ?? null,
+      photoUrl: tgUser.photo_url ?? null,
     },
   });
 

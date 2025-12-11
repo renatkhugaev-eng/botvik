@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
           id: true,
           username: true,
           firstName: true,
+          photoUrl: true,
         },
       },
     },
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const result = entries.map((entry: (typeof entries)[number], idx: number): {
     place: number;
-    user: { id: number; username: string | null; firstName: string | null };
+    user: { id: number; username: string | null; firstName: string | null; photoUrl: string | null };
     score: number;
   } => ({
     place: idx + 1,
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       id: entry.user.id,
       username: entry.user.username,
       firstName: entry.user.firstName,
+      photoUrl: entry.user.photoUrl,
     },
     score: entry.score,
   }));

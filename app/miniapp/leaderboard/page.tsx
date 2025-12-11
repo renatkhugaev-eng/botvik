@@ -7,7 +7,7 @@ import { useMiniAppSession } from "../layout";
 
 type LeaderboardEntry = {
   place: number;
-  user: { id: number; username: string | null; firstName: string | null };
+  user: { id: number; username: string | null; firstName: string | null; photoUrl: string | null };
   score: number;
 };
 
@@ -363,11 +363,15 @@ export default function LeaderboardPage() {
                       >
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-slate-400 to-slate-300 opacity-50 blur-sm" />
-                          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-300 to-slate-400 ring-2 ring-white/10">
-                            <span className="text-base font-black text-white">
-                              {(top3[1].user.firstName ?? top3[1].user.username ?? "?")[0].toUpperCase()}
-                            </span>
-                          </div>
+                          {top3[1].user.photoUrl ? (
+                            <img src={top3[1].user.photoUrl} alt="" className="relative h-12 w-12 rounded-full object-cover ring-2 ring-white/10" />
+                          ) : (
+                            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-300 to-slate-400 ring-2 ring-white/10">
+                              <span className="text-base font-black text-white">
+                                {(top3[1].user.firstName ?? top3[1].user.username ?? "?")[0].toUpperCase()}
+                              </span>
+                            </div>
+                          )}
                           {top3[1].user.id === currentUserId && (
                             <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 flex items-center justify-center">
                               <span className="text-[8px] text-white">ТЫ</span>
@@ -394,11 +398,15 @@ export default function LeaderboardPage() {
                         <div className="relative mb-2">
                           <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-60 blur-md animate-pulse" />
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 animate-spin-slow" />
-                          <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 ring-2 ring-white/20">
-                            <span className="text-xl font-black text-white">
-                              {(top3[0].user.firstName ?? top3[0].user.username ?? "?")[0].toUpperCase()}
-                            </span>
-                          </div>
+                          {top3[0].user.photoUrl ? (
+                            <img src={top3[0].user.photoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white/20" />
+                          ) : (
+                            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 ring-2 ring-white/20">
+                              <span className="text-xl font-black text-white">
+                                {(top3[0].user.firstName ?? top3[0].user.username ?? "?")[0].toUpperCase()}
+                              </span>
+                            </div>
+                          )}
                           {top3[0].user.id === currentUserId && (
                             <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-violet-500 flex items-center justify-center ring-2 ring-[#0a0a0f]">
                               <span className="text-[8px] font-bold text-white">ТЫ</span>
@@ -426,11 +434,15 @@ export default function LeaderboardPage() {
                       >
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 opacity-50 blur-sm" />
-                          <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 ring-2 ring-white/10">
-                            <span className="text-sm font-black text-white">
-                              {(top3[2].user.firstName ?? top3[2].user.username ?? "?")[0].toUpperCase()}
-                            </span>
-                          </div>
+                          {top3[2].user.photoUrl ? (
+                            <img src={top3[2].user.photoUrl} alt="" className="relative h-10 w-10 rounded-full object-cover ring-2 ring-white/10" />
+                          ) : (
+                            <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 ring-2 ring-white/10">
+                              <span className="text-sm font-black text-white">
+                                {(top3[2].user.firstName ?? top3[2].user.username ?? "?")[0].toUpperCase()}
+                              </span>
+                            </div>
+                          )}
                           {top3[2].user.id === currentUserId && (
                             <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 flex items-center justify-center">
                               <span className="text-[8px] text-white">ТЫ</span>
@@ -495,8 +507,14 @@ export default function LeaderboardPage() {
                         </div>
                         
                         {/* Avatar */}
-                        <div className={`relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br ${getPositionGradient(entry.place)} text-[12px] font-bold text-white`}>
-                          {name[0].toUpperCase()}
+                        <div className="relative">
+                          {entry.user.photoUrl ? (
+                            <img src={entry.user.photoUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className={`flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br ${getPositionGradient(entry.place)} text-[12px] font-bold text-white`}>
+                              {name[0].toUpperCase()}
+                            </div>
+                          )}
                           {isMe && (
                             <div className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-violet-500 flex items-center justify-center ring-2 ring-white">
                               <span className="text-[6px] font-bold text-white">ТЫ</span>
