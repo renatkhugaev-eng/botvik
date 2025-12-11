@@ -80,3 +80,48 @@ body {
   transform: translateZ(0);
   backface-visibility: hidden;
 }
+
+.reverse {
+  animation-direction: reverse;
+}
+
+/* GPU acceleration helper - use sparingly */
+.gpu-accelerated {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Floating particles animation */
+@keyframes float {
+  0%, 100% {
+    opacity: 0;
+    transform: translateY(0) translateZ(0) scale(0.5);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-30px) translateZ(0) scale(1);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Shimmer animation for progress bars */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateZ(0);
+  }
+  100% {
+    transform: translateX(300%) translateZ(0);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+  animation-delay: 1s;
+  will-change: transform;
+}
