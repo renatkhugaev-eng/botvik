@@ -18,9 +18,8 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
-  const wasScrolled = useRef(false); // Was content ever scrolled in this session?
-  const touchBlocked = useRef(false); // Block pull for this touch
-  const isActivated = useRef(false);
+  const canPull = useRef(false); // Only true if started at scrollTop = 0
+  const isPulling = useRef(false);
   
   const pullDistance = useMotionValue(0);
   const opacity = useTransform(pullDistance, [0, PULL_THRESHOLD], [0, 1]);
@@ -32,51 +31,39 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
     const container = containerRef.current;
     if (!wrapper || !container) return;
 
-    // Track if user ever scrolled - if yes, block pull for this touch
-    const handleScroll = () => {
-      if (container.scrollTop > 5) {
-        wasScrolled.current = true;
-      }
-    };
-
     const handleTouchStart = (e: TouchEvent) => {
       if (disabled || isRefreshing) return;
       
       startY.current = e.touches[0].clientY;
-      isActivated.current = false;
+      isPulling.current = false;
       
-      // Block pull if: started not at top, OR was scrolled recently
-      touchBlocked.current = container.scrollTop > 0 || wasScrolled.current;
-      
-      // Reset wasScrolled only if we're at the very top
-      if (container.scrollTop === 0) {
-        wasScrolled.current = false;
-        touchBlocked.current = false;
-      }
+      // CRITICAL: Only allow pull if we start EXACTLY at the top
+      canPull.current = container.scrollTop === 0;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (disabled || isRefreshing || touchBlocked.current) return;
+      if (disabled || isRefreshing) return;
       
-      const currentY = e.touches[0].clientY;
-      const deltaY = currentY - startY.current;
-      const scrollTop = container.scrollTop;
+      // If we didn't start at top, don't do anything special
+      if (!canPull.current) return;
       
-      // If scrolled down at any point, block pull
-      if (scrollTop > 0) {
-        touchBlocked.current = true;
-        wasScrolled.current = true;
-        isActivated.current = false;
+      // If user scrolled down during this touch, disable pull
+      if (container.scrollTop > 0) {
+        canPull.current = false;
+        isPulling.current = false;
         pullDistance.set(0);
         return;
       }
       
-      // Only allow pull if: at top AND pulling down AND not blocked
-      if (deltaY > 15 && scrollTop === 0 && !touchBlocked.current) {
-        isActivated.current = true;
-        e.preventDefault();
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY.current;
+      
+      // Only trigger if pulling DOWN (positive deltaY) from top
+      if (deltaY > 20) {
+        isPulling.current = true;
+        e.preventDefault(); // Prevent any native behavior
         
-        const dampedDelta = Math.min((deltaY - 15) * 0.5, MAX_PULL);
+        const dampedDelta = Math.min((deltaY - 20) * 0.5, MAX_PULL);
         
         const prevValue = pullDistance.get();
         if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
@@ -84,24 +71,25 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         }
         
         pullDistance.set(dampedDelta);
-      } else if (deltaY < 0) {
-        // User is trying to scroll down - block pull and allow scroll
-        touchBlocked.current = true;
-        isActivated.current = false;
+      } else {
+        // User is trying to scroll down or hasn't pulled enough
+        isPulling.current = false;
         pullDistance.set(0);
       }
     };
 
     const handleTouchEnd = async () => {
-      if (!isActivated.current || disabled || isRefreshing) {
-        isActivated.current = false;
+      const wasPulling = isPulling.current;
+      isPulling.current = false;
+      canPull.current = false;
+      
+      if (!wasPulling || disabled || isRefreshing) {
         if (pullDistance.get() > 0) {
           animate(pullDistance, 0, { duration: 0.2 });
         }
         return;
       }
       
-      isActivated.current = false;
       const currentPull = pullDistance.get();
       
       if (currentPull >= PULL_THRESHOLD) {
@@ -124,13 +112,11 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       }
     };
 
-    container.addEventListener("scroll", handleScroll, { passive: true });
     wrapper.addEventListener("touchstart", handleTouchStart, { passive: true });
     wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
     wrapper.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
-      container.removeEventListener("scroll", handleScroll);
       wrapper.removeEventListener("touchstart", handleTouchStart);
       wrapper.removeEventListener("touchmove", handleTouchMove);
       wrapper.removeEventListener("touchend", handleTouchEnd);
@@ -171,7 +157,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       {/* Content */}
       <motion.div
         ref={containerRef}
-        className="h-full w-full overflow-y-auto overscroll-contain"
+        className="h-full w-full overflow-y-auto overscroll-none"
         style={{ y: pullDistance }}
       >
         {children}
