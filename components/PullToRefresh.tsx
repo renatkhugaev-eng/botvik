@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, ReactNode, useEffect } from "react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { useState, ReactNode } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 
 type PullToRefreshProps = {
@@ -10,174 +10,86 @@ type PullToRefreshProps = {
   disabled?: boolean;
 };
 
-const PULL_THRESHOLD = 80;
-const MAX_PULL = 120;
-const ACTIVATION_DISTANCE = 50; // Must pull 50px before activating
-const SCROLL_COOLDOWN = 600; // ms to wait after scroll before allowing pull
-
+/**
+ * Simple refresh wrapper with a floating refresh button
+ * More reliable than gesture-based pull-to-refresh in Telegram Mini Apps
+ */
 export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const startY = useRef(0);
-  const canPull = useRef(false);
-  const isPulling = useRef(false);
-  const lastScrollTime = useRef(0);
-  
-  const pullDistance = useMotionValue(0);
-  const opacity = useTransform(pullDistance, [0, PULL_THRESHOLD], [0, 1]);
-  const scale = useTransform(pullDistance, [0, PULL_THRESHOLD], [0.5, 1]);
-  const rotate = useTransform(pullDistance, [0, PULL_THRESHOLD, MAX_PULL], [0, 180, 360]);
+  const [showButton, setShowButton] = useState(false);
 
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    const container = containerRef.current;
-    if (!wrapper || !container) return;
+  const handleRefresh = async () => {
+    if (isRefreshing || disabled) return;
+    
+    setIsRefreshing(true);
+    haptic.medium();
+    
+    try {
+      await onRefresh();
+      haptic.success();
+    } catch {
+      haptic.error();
+    } finally {
+      setIsRefreshing(false);
+      setShowButton(false);
+    }
+  };
 
-    // Track scroll to add cooldown
-    const handleScroll = () => {
-      lastScrollTime.current = Date.now();
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (disabled || isRefreshing) return;
-      
-      startY.current = e.touches[0].clientY;
-      isPulling.current = false;
-      
-      const now = Date.now();
-      const timeSinceScroll = now - lastScrollTime.current;
-      
-      // Only allow pull if:
-      // 1. At the very top (scrollTop = 0)
-      // 2. Enough time passed since last scroll (cooldown)
-      canPull.current = container.scrollTop === 0 && timeSinceScroll > SCROLL_COOLDOWN;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (disabled || isRefreshing) return;
-      
-      // If we can't pull, don't do anything
-      if (!canPull.current) return;
-      
-      // If scrolled down during this touch, disable pull
-      if (container.scrollTop > 0) {
-        canPull.current = false;
-        isPulling.current = false;
-        pullDistance.set(0);
-        return;
-      }
-      
-      const currentY = e.touches[0].clientY;
-      const deltaY = currentY - startY.current;
-      
-      // Need significant pull (40px) before activating
-      if (deltaY > ACTIVATION_DISTANCE) {
-        isPulling.current = true;
-        e.preventDefault();
-        
-        const dampedDelta = Math.min((deltaY - ACTIVATION_DISTANCE) * 0.4, MAX_PULL);
-        
-        const prevValue = pullDistance.get();
-        if (dampedDelta >= PULL_THRESHOLD && prevValue < PULL_THRESHOLD) {
-          haptic.light();
-        }
-        
-        pullDistance.set(dampedDelta);
-      } else if (deltaY < 0) {
-        // User is scrolling down, disable pull
-        canPull.current = false;
-        isPulling.current = false;
-        pullDistance.set(0);
-      }
-    };
-
-    const handleTouchEnd = async () => {
-      const wasPulling = isPulling.current;
-      isPulling.current = false;
-      canPull.current = false;
-      
-      if (!wasPulling || disabled || isRefreshing) {
-        if (pullDistance.get() > 0) {
-          animate(pullDistance, 0, { duration: 0.2 });
-        }
-        return;
-      }
-      
-      const currentPull = pullDistance.get();
-      
-      if (currentPull >= PULL_THRESHOLD) {
-        setIsRefreshing(true);
-        haptic.medium();
-        
-        animate(pullDistance, 50, { duration: 0.2 });
-        
-        try {
-          await onRefresh();
-          haptic.success();
-        } catch {
-          haptic.error();
-        } finally {
-          animate(pullDistance, 0, { duration: 0.25 });
-          setIsRefreshing(false);
-        }
-      } else {
-        animate(pullDistance, 0, { duration: 0.25 });
-      }
-    };
-
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    wrapper.addEventListener("touchstart", handleTouchStart, { passive: true });
-    wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
-    wrapper.addEventListener("touchend", handleTouchEnd, { passive: true });
-
-    return () => {
-      container.removeEventListener("scroll", handleScroll);
-      wrapper.removeEventListener("touchstart", handleTouchStart);
-      wrapper.removeEventListener("touchmove", handleTouchMove);
-      wrapper.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [disabled, isRefreshing, onRefresh, pullDistance]);
+  // Show refresh button when user scrolls to top
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    setShowButton(target.scrollTop === 0);
+  };
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-full">
-      {/* Pull indicator */}
-      <motion.div 
-        className="absolute left-1/2 top-0 z-50 flex -translate-x-1/2 items-center justify-center pointer-events-none"
-        style={{ 
-          y: useTransform(pullDistance, [0, MAX_PULL], [-40, 20]),
-          opacity,
-        }}
-      >
-        <motion.div 
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg shadow-black/10"
-          style={{ scale }}
-        >
-          {isRefreshing ? (
-            <div className="h-5 w-5 rounded-full border-2 border-slate-200 border-t-violet-500 animate-spin" />
-          ) : (
-            <motion.svg 
-              className="h-5 w-5 text-violet-500" 
+    <div className="relative h-full w-full">
+      {/* Floating refresh button - appears when at top */}
+      <AnimatePresence>
+        {showButton && !isRefreshing && (
+          <motion.button
+            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            onClick={handleRefresh}
+            className="absolute left-1/2 top-2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-lg shadow-black/10 active:scale-95 transition-transform"
+          >
+            <svg 
+              className="h-4 w-4 text-violet-500" 
               fill="none" 
               viewBox="0 0 24 24" 
               stroke="currentColor" 
               strokeWidth={2.5}
-              style={{ rotate }}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-            </motion.svg>
-          )}
-        </motion.div>
-      </motion.div>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            <span className="text-[13px] font-semibold text-slate-600">Обновить</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-      {/* Content */}
-      <motion.div
-        ref={containerRef}
-        className="h-full w-full overflow-y-auto overscroll-none"
-        style={{ y: pullDistance }}
+      {/* Loading indicator */}
+      <AnimatePresence>
+        {isRefreshing && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute left-1/2 top-2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-lg shadow-black/10"
+          >
+            <div className="h-4 w-4 rounded-full border-2 border-slate-200 border-t-violet-500 animate-spin" />
+            <span className="text-[13px] font-semibold text-slate-600">Обновляем...</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Content - normal scrolling, no interference */}
+      <div 
+        className="h-full w-full overflow-y-auto"
+        onScroll={handleScroll}
       >
         {children}
-      </motion.div>
+      </div>
     </div>
   );
 }
