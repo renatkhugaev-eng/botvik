@@ -65,6 +65,23 @@ export default function QuizPlayPage() {
   const animatedScore = useMotionValue(0);
   const displayScore = useTransform(animatedScore, (v) => Math.round(v));
 
+  // Pre-calculated confetti particles for performance
+  const confettiParticles = useMemo(() => {
+    const colors = ["#8b5cf6", "#ec4899", "#22c55e", "#eab308", "#3b82f6", "#f43f5e", "#06b6d4"];
+    return Array.from({ length: 25 }, (_, i) => ({
+      id: i,
+      startX: 5 + (i * 3.6) + (Math.random() * 10 - 5),
+      color: colors[i % colors.length],
+      width: i % 3 === 0 ? 4 : 8 + (i % 4),
+      height: i % 4 === 0 ? 12 : 8,
+      isCircle: i % 5 === 0,
+      duration: 2 + (i % 3) * 0.3,
+      delay: (i % 8) * 0.05,
+      drift: (i % 2 === 0 ? 1 : -1) * (20 + (i % 5) * 15),
+      rotation: 360 + (i % 4) * 180,
+    }));
+  }, []);
+
   const currentQuestion = useMemo(
     () => (questions.length > 0 && currentIndex < questions.length ? questions[currentIndex] : null),
     [currentIndex, questions],
@@ -351,19 +368,14 @@ export default function QuizPlayPage() {
           transition={{ ...spring, delay: 0.1 }}
           className="relative overflow-hidden rounded-[32px]"
         >
-          {/* Animated rainbow border */}
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            className="absolute -inset-[2px] rounded-[32px] bg-[conic-gradient(from_0deg,#f43f5e,#8b5cf6,#3b82f6,#22c55e,#eab308,#f43f5e)]"
-          />
+          {/* Animated rainbow border - CSS optimized */}
+          <div className="absolute -inset-[2px] rounded-[32px] bg-[conic-gradient(from_0deg,#f43f5e,#8b5cf6,#3b82f6,#22c55e,#eab308,#f43f5e)] animate-spin-slow gpu-accelerated" />
           
           <div className="relative m-[2px] rounded-[30px] bg-[#0a0a0f] overflow-hidden">
-            {/* Celebratory background */}
-            <div className="absolute inset-0">
-              <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full bg-violet-600/30 blur-[80px] animate-pulse" />
-              <div className="absolute -right-20 -bottom-20 h-60 w-60 rounded-full bg-pink-600/20 blur-[80px] animate-pulse" />
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-40 w-40 rounded-full bg-yellow-500/20 blur-[60px]" />
+            {/* Celebratory background - reduced blur for mobile */}
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-violet-600/20 blur-2xl" />
+              <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-pink-600/15 blur-2xl" />
             </div>
             
             {/* Floating stars */}
@@ -434,7 +446,7 @@ export default function QuizPlayPage() {
                 className="relative mb-8"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 blur-2xl" />
-                <div className="relative inline-block rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 px-12 py-6">
+                <div className="relative inline-block rounded-3xl bg-[#15151f]/90 border border-white/10 px-12 py-6">
                   <p className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-3">Твой результат</p>
                   <motion.p
                     initial={{ scale: 0 }}
@@ -522,76 +534,49 @@ export default function QuizPlayPage() {
 
   return (
     <div className="flex flex-col gap-4">
-{/* Confetti Effect - Framer Motion for reliability */}
+{/* Confetti Effect - CSS optimized for mobile */}
       <AnimatePresence>
         {showConfetti && (
-          <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-            {[...Array(40)].map((_, i) => {
-              const colors = ["#8b5cf6", "#ec4899", "#22c55e", "#eab308", "#3b82f6", "#f43f5e", "#06b6d4"];
-              const startX = 10 + Math.random() * 80;
-              const endX = startX + (Math.random() - 0.5) * 100;
-              const size = 8 + Math.random() * 6;
-              const duration = 2 + Math.random() * 1;
-              const delay = Math.random() * 0.4;
-              const rotateEnd = 360 + Math.random() * 720;
-              
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ 
-                    opacity: 1,
-                    y: -20,
-                    x: `${startX}vw`,
-                    rotate: 0,
-                    scale: 0,
-                  }}
-                  animate={{ 
-                    opacity: [1, 1, 1, 0],
-                    y: ["0vh", "30vh", "70vh", "110vh"],
-                    x: [`${startX}vw`, `${(startX + endX) / 2}vw`, `${endX}vw`, `${endX}vw`],
-                    rotate: [0, rotateEnd / 3, rotateEnd * 0.7, rotateEnd],
-                    scale: [0, 1.2, 1, 0.8],
-                  }}
-                  transition={{ 
-                    duration: duration,
-                    delay: delay,
-                    ease: [0.25, 0.46, 0.45, 0.94],
-                    times: [0, 0.3, 0.7, 1],
-                  }}
-                  style={{
-                    position: 'absolute',
-                    width: i % 3 === 0 ? size * 0.5 : size,
-                    height: i % 4 === 0 ? size * 1.5 : size,
-                    background: colors[i % colors.length],
-                    borderRadius: i % 5 === 0 ? '50%' : '2px',
-                    boxShadow: `0 0 6px ${colors[i % colors.length]}`,
-                  }}
-                />
-              );
-            })}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 pointer-events-none z-50 overflow-hidden"
+          >
+            {confettiParticles.map((particle) => (
+              <div
+                key={particle.id}
+                className="absolute gpu-accelerated"
+                style={{
+                  left: `${particle.startX}%`,
+                  top: -20,
+                  width: particle.width,
+                  height: particle.height,
+                  background: particle.color,
+                  borderRadius: particle.isCircle ? '50%' : '2px',
+                  boxShadow: `0 0 4px ${particle.color}`,
+                  animation: `confetti-fall ${particle.duration}s ease-out ${particle.delay}s forwards`,
+                  ['--drift' as string]: `${particle.drift}px`,
+                  ['--rotation' as string]: `${particle.rotation}deg`,
+                }}
+              />
+            ))}
             
-            {/* Sparkles */}
-            {[...Array(8)].map((_, i) => (
-              <motion.div
+            {/* Sparkles - reduced */}
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
                 key={`sparkle-${i}`}
-                initial={{ opacity: 0, scale: 0, y: 100 }}
-                animate={{ 
-                  opacity: [0, 1, 1, 0],
-                  scale: [0, 1.5, 1, 0.5],
-                  y: [100, 50, 0, -50],
+                className="absolute text-xl gpu-accelerated"
+                style={{ 
+                  left: `${15 + i * 17}%`,
+                  top: '40%',
+                  animation: `sparkle-pop 1s ease-out ${i * 0.1}s forwards`,
                 }}
-                transition={{ 
-                  duration: 1.2,
-                  delay: 0.1 + i * 0.1,
-                  ease: "easeOut",
-                }}
-                className="absolute text-2xl"
-                style={{ left: `${12 + i * 11}%` }}
               >
                 ✨
-              </motion.div>
+              </div>
             ))}
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -601,8 +586,8 @@ export default function QuizPlayPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl bg-[#0a0a0f] p-4"
       >
-        {/* Background glow */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-violet-600/20 blur-3xl" />
+        {/* Background glow - optimized */}
+        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-violet-600/15 blur-xl" />
         <div className="absolute -bottom-10 -left-10 w-24 h-24 rounded-full bg-indigo-600/15 blur-2xl" />
         
         <div className="relative flex items-center justify-between">
@@ -634,38 +619,28 @@ export default function QuizPlayPage() {
           
           {/* Timer */}
           <div className="flex items-center gap-3">
-            <div>
-              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest text-right">Время</p>
-              <motion.p 
-                key={timeLeft}
-                initial={{ scale: 1.2 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.15 }}
-                className={`text-xl font-black tabular-nums leading-tight text-right ${
-                  isUrgent ? "text-red-400" : isWarning ? "text-amber-400" : "text-emerald-400"
-                }`}
-              >
+            <div className="text-right">
+              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Время</p>
+              <p className={`text-xl font-black tabular-nums leading-tight ${
+                isUrgent ? "text-red-400" : isWarning ? "text-amber-400" : "text-emerald-400"
+              }`}>
                 {timeLeft}s
-              </motion.p>
+              </p>
             </div>
-            <motion.div 
-              animate={isUrgent ? { scale: [1, 1.1, 1] } : {}}
-              transition={{ duration: 0.4, repeat: isUrgent ? Infinity : 0 }}
-              className="relative"
-            >
-              {/* Timer ring background */}
-              <div className={`absolute inset-0 rounded-xl blur-md transition-all duration-500 ${
+            <div className={`relative flex-shrink-0 w-11 h-11 ${isUrgent ? "animate-pulse" : ""}`}>
+              {/* Timer ring background - use CSS instead of motion */}
+              <div className={`absolute inset-0 rounded-xl blur-md transition-colors duration-300 ${
                 isUrgent ? "bg-red-500/40" : isWarning ? "bg-amber-500/30" : "bg-emerald-500/20"
               }`} />
-              <div className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-500 ${
+              <div className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors duration-300 ${
                 isUrgent 
                   ? "bg-gradient-to-br from-red-500 to-rose-600" 
                   : isWarning 
                     ? "bg-gradient-to-br from-amber-500 to-orange-600"
                     : "bg-gradient-to-br from-emerald-500 to-green-600"
               }`}>
-                {/* Progress ring */}
-                <svg className="absolute inset-1 -rotate-90" viewBox="0 0 36 36">
+                {/* Progress ring - optimized */}
+                <svg className="absolute inset-1 -rotate-90 gpu-accelerated" viewBox="0 0 36 36">
                   <circle
                     cx="18" cy="18" r="16"
                     fill="none"
@@ -679,64 +654,42 @@ export default function QuizPlayPage() {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeDasharray={`${timerProgress} 100`}
-                    className="transition-all duration-1000 ease-linear"
+                    style={{ transition: "stroke-dasharray 1s linear" }}
                   />
                 </svg>
-                <span className="relative text-sm font-bold text-white">
+                <span className="relative text-sm">
                   {isUrgent ? "🔥" : "⏱"}
                 </span>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
         
-        {/* Progress bar */}
+        {/* Progress bar - CSS optimized */}
         <div className="relative mt-4 h-1.5 rounded-full bg-white/10 overflow-hidden">
-          <motion.div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500"
-            initial={{ width: 0 }}
-            animate={{ width: `${((currentIndex) / questions.length) * 100}%` }}
-            transition={{ duration: 0.5 }}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out gpu-accelerated"
+            style={{ width: `${((currentIndex) / questions.length) * 100}%` }}
           />
-          {/* Shimmer */}
-          <motion.div
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-            className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-          />
+          {/* Shimmer - CSS animation */}
+          <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer gpu-accelerated" />
         </div>
       </motion.div>
 
-      {/* Streak indicator */}
+      {/* Streak indicator - CSS optimized */}
       <AnimatePresence>
         {streak >= 2 && !answerResult && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="flex justify-center -mt-2"
           >
-            <div className="relative">
-              {/* Glow */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 to-red-500 blur-lg opacity-40" />
-              <div className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-5 py-2 shadow-lg shadow-orange-500/30">
-                <motion.span
-                  animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity }}
-                  className="text-xl"
-                >
-                  🔥
-                </motion.span>
-                <span className="font-black text-white">{streak} подряд!</span>
-                <motion.span
-                  animate={{ scale: [1, 1.3, 1], rotate: [0, -10, 10, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
-                  className="text-xl"
-                >
-                  🔥
-                </motion.span>
-              </div>
+            <div className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-5 py-2 shadow-lg shadow-orange-500/30">
+              <span className="text-xl animate-bounce-subtle">🔥</span>
+              <span className="font-black text-white">{streak} подряд!</span>
+              <span className="text-xl animate-bounce-subtle" style={{ animationDelay: "0.15s" }}>🔥</span>
             </div>
           </motion.div>
         )}
@@ -754,15 +707,11 @@ export default function QuizPlayPage() {
             style={{ transformStyle: "preserve-3d", perspective: 1000 }}
             className="relative"
           >
-            {/* Card glow */}
-            <div className="absolute -inset-1 rounded-[28px] bg-gradient-to-r from-violet-500/50 via-purple-500/50 to-pink-500/50 blur-xl opacity-50" />
+            {/* Card glow - reduced for mobile */}
+            <div className="absolute -inset-1 rounded-[28px] bg-gradient-to-r from-violet-500/30 via-purple-500/30 to-pink-500/30 blur-lg opacity-40" />
             
-            {/* Animated border */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="absolute -inset-[1px] rounded-[28px] bg-[conic-gradient(from_0deg,#8b5cf6,#ec4899,#8b5cf6)] opacity-60"
-            />
+            {/* Animated border - CSS optimized */}
+            <div className="absolute -inset-[1px] rounded-[28px] bg-[conic-gradient(from_0deg,#8b5cf6,#ec4899,#8b5cf6)] opacity-60 animate-spin-slow gpu-accelerated" />
             
             <div className="relative overflow-hidden rounded-[27px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1025]">
               {/* Question number badge */}
@@ -774,9 +723,9 @@ export default function QuizPlayPage() {
                 </div>
               </div>
               
-              {/* Background effects */}
-              <div className="absolute -left-32 -top-32 h-64 w-64 rounded-full bg-violet-600/20 blur-[80px]" />
-              <div className="absolute -right-32 -bottom-32 h-64 w-64 rounded-full bg-pink-600/15 blur-[80px]" />
+              {/* Background effects - optimized for mobile */}
+              <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full bg-violet-600/15 blur-2xl" />
+              <div className="absolute -right-16 -bottom-16 h-32 w-32 rounded-full bg-pink-600/10 blur-2xl" />
               
               <div className="relative p-6 pt-5">
                 {/* Category */}
@@ -957,27 +906,28 @@ export default function QuizPlayPage() {
                         {/* Score Breakdown - only for correct answers */}
                         {answerResult.correct && answerResult.breakdown && (
                           <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.2 }}
                             className="mt-3 pt-3 border-t border-white/10"
                           >
-                            <div className="flex justify-between text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="text-white/40">Базовые:</span>
-                                <span className="text-white font-semibold">+{answerResult.breakdown.base}</span>
+                            <div className="grid grid-cols-3 gap-1 text-xs text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="text-white/40 text-[10px]">Базовые</span>
+                                <span className="text-white font-bold">+{answerResult.breakdown.base}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-white/40">⚡ Скорость:</span>
-                                <span className={`font-semibold ${answerResult.breakdown.timeBonus > 30 ? "text-green-400" : answerResult.breakdown.timeBonus > 0 ? "text-yellow-400" : "text-white/30"}`}>
+                              <div className="flex flex-col items-center">
+                                <span className="text-white/40 text-[10px]">⚡ Скорость</span>
+                                <span className={`font-bold ${answerResult.breakdown.timeBonus > 30 ? "text-green-400" : answerResult.breakdown.timeBonus > 0 ? "text-yellow-400" : "text-white/30"}`}>
                                   +{answerResult.breakdown.timeBonus}
                                 </span>
                               </div>
-                              {answerResult.breakdown.streakBonus > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-white/40">🔥 Серия:</span>
-                                  <span className="text-orange-400 font-semibold">+{answerResult.breakdown.streakBonus}</span>
-                                </div>
-                              )}
+                              <div className="flex flex-col items-center">
+                                <span className="text-white/40 text-[10px]">🔥 Серия</span>
+                                <span className={`font-bold ${answerResult.breakdown.streakBonus > 0 ? "text-orange-400" : "text-white/30"}`}>
+                                  +{answerResult.breakdown.streakBonus}
+                                </span>
+                              </div>
                             </div>
                           </motion.div>
                         )}

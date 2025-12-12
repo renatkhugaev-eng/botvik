@@ -161,6 +161,22 @@ body {
   will-change: transform;
 }
 
+/* Subtle bounce for icons */
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: scale(1) translateZ(0);
+  }
+  50% {
+    transform: scale(1.15) translateZ(0);
+  }
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 0.8s ease-in-out infinite;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    HYPER-REALISTIC CONFETTI 2025 - GPU OPTIMIZED
 ═══════════════════════════════════════════════════════════════════ */
