@@ -518,7 +518,7 @@ export default function QuizPlayPage() {
               haptic.medium();
               router.push("/miniapp");
             }}
-            className="h-14 rounded-2xl bg-white/10 backdrop-blur-sm text-white/80 font-semibold hover:bg-white/15 transition-colors"
+            className="h-14 rounded-2xl bg-[#1a1a2e] border-2 border-violet-500/50 text-white font-bold text-lg active:bg-[#252545] transition-colors shadow-lg"
           >
             ← На главную
           </motion.button>
@@ -618,8 +618,8 @@ export default function QuizPlayPage() {
           </div>
           
           {/* Timer */}
-          <div className="flex items-center gap-3">
-            <div className="text-right">
+          <div className="flex items-center gap-2">
+            <div className="text-right min-w-[45px]">
               <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Время</p>
               <p className={`text-xl font-black tabular-nums leading-tight ${
                 isUrgent ? "text-red-400" : isWarning ? "text-amber-400" : "text-emerald-400"
@@ -627,37 +627,35 @@ export default function QuizPlayPage() {
                 {timeLeft}s
               </p>
             </div>
-            <div className={`relative flex-shrink-0 w-11 h-11 ${isUrgent ? "animate-pulse" : ""}`}>
-              {/* Timer ring background - use CSS instead of motion */}
-              <div className={`absolute inset-0 rounded-xl blur-md transition-colors duration-300 ${
-                isUrgent ? "bg-red-500/40" : isWarning ? "bg-amber-500/30" : "bg-emerald-500/20"
-              }`} />
-              <div className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors duration-300 ${
+            <div className={`relative flex-shrink-0 ${isUrgent ? "animate-pulse" : ""}`}>
+              {/* Timer box with ring */}
+              <div className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors duration-300 ${
                 isUrgent 
                   ? "bg-gradient-to-br from-red-500 to-rose-600" 
                   : isWarning 
                     ? "bg-gradient-to-br from-amber-500 to-orange-600"
                     : "bg-gradient-to-br from-emerald-500 to-green-600"
               }`}>
-                {/* Progress ring - optimized */}
-                <svg className="absolute inset-1 -rotate-90 gpu-accelerated" viewBox="0 0 36 36">
+                {/* Progress ring - centered */}
+                <svg className="absolute w-9 h-9 -rotate-90" viewBox="0 0 36 36">
                   <circle
-                    cx="18" cy="18" r="16"
+                    cx="18" cy="18" r="15"
                     fill="none"
                     stroke="rgba(255,255,255,0.2)"
-                    strokeWidth="2"
+                    strokeWidth="2.5"
                   />
                   <circle
-                    cx="18" cy="18" r="16"
+                    cx="18" cy="18" r="15"
                     fill="none"
                     stroke="white"
-                    strokeWidth="2"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
-                    strokeDasharray={`${timerProgress} 100`}
+                    strokeDasharray={`${timerProgress * 0.94} 100`}
+                    className="gpu-accelerated"
                     style={{ transition: "stroke-dasharray 1s linear" }}
                   />
                 </svg>
-                <span className="relative text-sm">
+                <span className="relative text-sm z-10">
                   {isUrgent ? "🔥" : "⏱"}
                 </span>
               </div>
@@ -700,12 +698,11 @@ export default function QuizPlayPage() {
         {currentQuestion && (
           <motion.div
             key={currentQuestion.id}
-            initial={{ opacity: 0, rotateY: 90, scale: 0.8 }}
-            animate={{ opacity: 1, rotateY: 0, scale: 1 }}
-            exit={{ opacity: 0, rotateY: -90, scale: 0.8 }}
-            transition={{ duration: 0.4, type: "spring", stiffness: 100 }}
-            style={{ transformStyle: "preserve-3d", perspective: 1000 }}
-            className="relative"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="relative gpu-accelerated"
           >
             {/* Card glow - reduced for mobile */}
             <div className="absolute -inset-1 rounded-[28px] bg-gradient-to-r from-violet-500/30 via-purple-500/30 to-pink-500/30 blur-lg opacity-40" />
@@ -766,10 +763,13 @@ export default function QuizPlayPage() {
                     return (
                       <motion.button
                         key={opt.id}
-                        initial={{ opacity: 0, x: 30 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.2 + idx * 0.08, ...spring }}
-                        whileHover={!isAnswered ? { scale: 1.02, x: 5 } : undefined}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ 
+                          delay: 0.1 + idx * 0.05,
+                          duration: 0.2,
+                          ease: "easeOut"
+                        }}
                         whileTap={!isAnswered ? { scale: 0.98 } : undefined}
                         onClick={() => {
                           if (!isAnswered && !submitting) {
@@ -778,32 +778,29 @@ export default function QuizPlayPage() {
                           }
                         }}
                         disabled={isAnswered || submitting}
-                        className={`relative w-full overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
+                        className={`relative w-full overflow-hidden rounded-2xl p-4 text-left transition-colors duration-200 ${
                           isAnswered && isSelected
                             ? isCorrect
                               ? "ring-2 ring-green-400 bg-green-500/20"
                               : "ring-2 ring-red-400 bg-red-500/20"
                             : isAnswered
                               ? "opacity-40 bg-white/5"
-                              : "bg-white/5 hover:bg-white/10"
+                              : "bg-white/5 active:bg-white/10"
                         }`}
                       >
-                        {/* Hover gradient */}
-                        {!isAnswered && (
-                          <div className={`absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r ${colors[idx]} transition-opacity`} />
-                        )}
                         
                         {/* Result icon */}
                         <AnimatePresence>
                           {isAnswered && isSelected && (
                             <motion.div
-                              initial={{ scale: 0, rotate: -180 }}
-                              animate={{ scale: 1, rotate: 0 }}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ duration: 0.15, ease: "easeOut" }}
                               className={`absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center ${
                                 isCorrect 
                                   ? "bg-gradient-to-r from-green-500 to-emerald-500" 
                                   : "bg-gradient-to-r from-red-500 to-rose-500"
-                              } shadow-lg`}
+                              }`}
                             >
                               <span className="text-white text-xl font-bold">
                                 {isCorrect ? "✓" : "✕"}
@@ -842,14 +839,13 @@ export default function QuizPlayPage() {
                 <AnimatePresence>
                   {answerResult && (
                     <motion.div
-                      initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
                       className="mt-6"
                     >
                       {/* Feedback */}
-                      <motion.div
-                        initial={{ x: selectedOption === -1 ? 0 : answerResult.correct ? -20 : 20 }}
-                        animate={{ x: 0 }}
+                      <div
                         className={`rounded-2xl p-5 mb-4 ${
                           selectedOption === -1
                             ? "bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30"
@@ -860,13 +856,9 @@ export default function QuizPlayPage() {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <motion.span
-                              animate={selectedOption === -1 ? { scale: [1, 1.2, 1] } : { rotate: [0, 10, -10, 0] }}
-                              transition={{ duration: 0.5, repeat: selectedOption === -1 ? 2 : 0 }}
-                              className="text-4xl"
-                            >
+                            <span className="text-4xl">
                               {selectedOption === -1 ? "⏰" : answerResult.correct ? "🎉" : "💡"}
-                            </motion.span>
+                            </span>
                             <div>
                               <p className={`text-lg font-bold ${
                                 selectedOption === -1 
@@ -887,10 +879,7 @@ export default function QuizPlayPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <motion.p
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className={`text-3xl font-black ${
+                            <p className={`text-3xl font-black ${
                                 selectedOption === -1
                                   ? "text-orange-400"
                                   : answerResult.correct 
@@ -899,7 +888,7 @@ export default function QuizPlayPage() {
                               }`}
                             >
                               {selectedOption === -1 ? "0" : `+${answerResult.scoreDelta}`}
-                            </motion.p>
+                            </p>
                           </div>
                         </div>
                         
@@ -931,23 +920,21 @@ export default function QuizPlayPage() {
                             </div>
                           </motion.div>
                         )}
-                      </motion.div>
+                      </div>
 
                       {/* Next button - hidden on timeout (auto-advance) */}
                       {selectedOption !== -1 && (
                         <motion.button
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.15 }}
                           whileTap={{ scale: 0.97 }}
                           onClick={goNext}
                           disabled={submitting}
-                          className="relative w-full h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg overflow-hidden shadow-2xl shadow-violet-500/30 disabled:opacity-50"
+                          className="relative w-full h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg overflow-hidden shadow-lg disabled:opacity-50"
                         >
-                          <motion.div
-                            animate={{ x: ["-200%", "200%"] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
-                          />
+                          {/* Shimmer - CSS */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shimmer" />
                           <span className="relative flex items-center justify-center gap-2">
                             {currentIndex + 1 >= questions.length ? (
                               <>🏁 Завершить викторину</>
