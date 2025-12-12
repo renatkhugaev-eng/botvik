@@ -857,11 +857,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
         className="relative overflow-hidden"
       >
         {/* Animated gradient border */}
-        <div className="absolute -inset-[1px] rounded-[24px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-75 blur-sm" />
-        <div className="absolute -inset-[1px] rounded-[24px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-60 animate-spin-medium" />
+        <div className="absolute -inset-[1px] rounded-[20px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-75 blur-sm" />
+        <div className="absolute -inset-[1px] rounded-[20px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-60 animate-spin-medium" />
         
         {/* Main container */}
-        <div className="relative overflow-hidden rounded-[24px] bg-[#0a0a0f]">
+        <div className="relative overflow-hidden rounded-[20px] bg-[#0a0a0f]">
           {/* Animated mesh gradient background */}
           <div className="absolute inset-0">
             <motion.div
