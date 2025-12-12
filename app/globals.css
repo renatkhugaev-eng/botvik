@@ -19,6 +19,17 @@
   }
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

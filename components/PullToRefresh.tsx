@@ -109,7 +109,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   }, [disabled, isRefreshing, onRefresh, pullDistance]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full overflow-hidden">
       {/* Pull indicator */}
       <AnimatePresence>
         {(pullDistance.get() > 0 || isRefreshing) && (
@@ -143,7 +143,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
       {/* Content */}
       <div 
         ref={containerRef}
-        className="h-full w-full overflow-y-auto"
+        className="h-full w-full overflow-y-auto overscroll-none touch-pan-y"
       >
         {children}
       </div>
