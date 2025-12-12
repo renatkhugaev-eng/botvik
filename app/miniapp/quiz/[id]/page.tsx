@@ -51,9 +51,9 @@ export default function QuizPlayPage() {
   const [correctCount, setCorrectCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [timeoutTriggered, setTimeoutTriggered] = useState(false);
+  const [timeoutHandled, setTimeoutHandled] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const questionStartTime = useRef<number>(Date.now());
+  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Animated score
   const animatedScore = useMotionValue(0);
@@ -66,15 +66,17 @@ export default function QuizPlayPage() {
 
   const progress = questions.length > 0 ? ((currentIndex) / questions.length) * 100 : 0;
 
-  // Timer effect
+  // Timer effect - reset on new question
   useEffect(() => {
     if (loading || finished || answerResult || !currentQuestion) return;
     
+    // Reset for new question
     setTimeLeft(QUESTION_TIME);
+    setTimeoutHandled(false);
+    
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          // Time's up - auto submit wrong
           clearInterval(timerRef.current!);
           return 0;
         }
@@ -85,7 +87,65 @@ export default function QuizPlayPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentIndex, loading, finished, answerResult, currentQuestion]);
+  }, [currentIndex, loading, finished, currentQuestion]); // removed answerResult to prevent reset
+
+  // Handle timeout - when timer reaches 0
+  useEffect(() => {
+    // Skip if already handled, or if user answered, or other conditions
+    if (timeLeft !== 0 || timeoutHandled || loading || finished || answerResult || !currentQuestion) return;
+    
+    // Mark as handled immediately
+    setTimeoutHandled(true);
+    
+    // Time's up!
+    haptic.error();
+    setStreak(0);
+    
+    // Show timeout feedback
+    setAnswerResult({ correct: false, scoreDelta: 0, totalScore });
+    setSelectedOption(-1); // -1 = timeout marker
+    
+    // Auto-advance after 2 seconds - use ref to prevent cleanup from cancelling
+    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
+    autoAdvanceRef.current = setTimeout(() => {
+      const nextIndex = currentIndex + 1;
+      
+      // Reset states
+      setAnswerResult(null);
+      setSelectedOption(null);
+      
+      if (nextIndex >= questions.length) {
+        // Finish quiz
+        if (sessionId) {
+          fetch(`/api/quiz/${quizId}/finish`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              setTotalScore(data.totalScore);
+              setFinished(true);
+              haptic.heavy();
+            })
+            .catch(console.error);
+        } else {
+          setFinished(true);
+        }
+      } else {
+        setCurrentIndex(nextIndex);
+      }
+    }, 2000);
+    
+    // Don't clear on cleanup - let it run
+  }, [timeLeft, timeoutHandled, loading, finished, answerResult, currentQuestion, currentIndex, questions.length, sessionId, quizId, totalScore]);
+  
+  // Cleanup auto-advance on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
+    };
+  }, []);
 
   // Animate score changes
   useEffect(() => {
@@ -138,9 +198,11 @@ export default function QuizPlayPage() {
 
   const sendAnswer = useCallback(
     async (optionId: number) => {
-      if (!currentQuestion || !sessionId) return;
+      if (!currentQuestion || !sessionId || timeoutHandled) return;
       if (timerRef.current) clearInterval(timerRef.current);
       
+      // Prevent timeout from triggering
+      setTimeoutHandled(true);
       setSubmitting(true);
       setAnswerResult(null);
       setSelectedOption(optionId);
@@ -453,66 +515,78 @@ export default function QuizPlayPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Ultra-smooth CSS Confetti */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {[...Array(60)].map((_, i) => {
-            const colors = [
-              "#8b5cf6", "#a78bfa", "#ec4899", "#f472b6", 
-              "#22c55e", "#4ade80", "#eab308", "#facc15",
-              "#3b82f6", "#60a5fa", "#f43f5e", "#06b6d4",
-            ];
-            const left = 5 + Math.random() * 90;
-            const size = 6 + Math.random() * 8;
-            const delay = Math.random() * 0.4;
-            const duration = 2.5 + Math.random() * 1;
-            const rotation = Math.random() * 360;
-            const drift = -100 + Math.random() * 200;
-            const isCircle = Math.random() > 0.6;
+{/* Confetti Effect - Framer Motion for reliability */}
+      <AnimatePresence>
+        {showConfetti && (
+          <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+            {[...Array(40)].map((_, i) => {
+              const colors = ["#8b5cf6", "#ec4899", "#22c55e", "#eab308", "#3b82f6", "#f43f5e", "#06b6d4"];
+              const startX = 10 + Math.random() * 80;
+              const endX = startX + (Math.random() - 0.5) * 100;
+              const size = 8 + Math.random() * 6;
+              const duration = 2 + Math.random() * 1;
+              const delay = Math.random() * 0.4;
+              const rotateEnd = 360 + Math.random() * 720;
+              
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ 
+                    opacity: 1,
+                    y: -20,
+                    x: `${startX}vw`,
+                    rotate: 0,
+                    scale: 0,
+                  }}
+                  animate={{ 
+                    opacity: [1, 1, 1, 0],
+                    y: ["0vh", "30vh", "70vh", "110vh"],
+                    x: [`${startX}vw`, `${(startX + endX) / 2}vw`, `${endX}vw`, `${endX}vw`],
+                    rotate: [0, rotateEnd / 3, rotateEnd * 0.7, rotateEnd],
+                    scale: [0, 1.2, 1, 0.8],
+                  }}
+                  transition={{ 
+                    duration: duration,
+                    delay: delay,
+                    ease: [0.25, 0.46, 0.45, 0.94],
+                    times: [0, 0.3, 0.7, 1],
+                  }}
+                  style={{
+                    position: 'absolute',
+                    width: i % 3 === 0 ? size * 0.5 : size,
+                    height: i % 4 === 0 ? size * 1.5 : size,
+                    background: colors[i % colors.length],
+                    borderRadius: i % 5 === 0 ? '50%' : '2px',
+                    boxShadow: `0 0 6px ${colors[i % colors.length]}`,
+                  }}
+                />
+              );
+            })}
             
-            return (
-              <div
-                key={i}
-                className="absolute gpu-accelerated"
-                style={{
-                  left: `${left}%`,
-                  top: -20,
-                  width: isCircle ? size : size * 0.6,
-                  height: size,
-                  background: colors[i % colors.length],
-                  borderRadius: isCircle ? "50%" : "2px",
-                  boxShadow: `0 0 ${size/2}px ${colors[i % colors.length]}40`,
-                  animation: `confetti-fall ${duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}s forwards`,
-                  transform: `rotate(${rotation}deg)`,
-                  ["--drift" as string]: `${drift}px`,
-                  ["--rotation" as string]: `${720 + Math.random() * 720}deg`,
+            {/* Sparkles */}
+            {[...Array(8)].map((_, i) => (
+              <motion.div
+                key={`sparkle-${i}`}
+                initial={{ opacity: 0, scale: 0, y: 100 }}
+                animate={{ 
+                  opacity: [0, 1, 1, 0],
+                  scale: [0, 1.5, 1, 0.5],
+                  y: [100, 50, 0, -50],
                 }}
-              />
-            );
-          })}
-          
-          {/* Sparkle emojis */}
-          {[...Array(12)].map((_, i) => {
-            const left = 15 + Math.random() * 70;
-            const delay = 0.1 + Math.random() * 0.3;
-            
-            return (
-              <div
-                key={`spark-${i}`}
-                className="absolute text-xl gpu-accelerated"
-                style={{
-                  left: `${left}%`,
-                  top: "20%",
-                  animation: `sparkle-pop 1.2s ease-out ${delay}s forwards`,
-                  opacity: 0,
+                transition={{ 
+                  duration: 1.2,
+                  delay: 0.1 + i * 0.1,
+                  ease: "easeOut",
                 }}
+                className="absolute text-2xl"
+                style={{ left: `${12 + i * 11}%` }}
               >
                 ✨
-              </div>
-            );
-          })}
-        </div>
-      )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Premium Header Bar */}
       <motion.div
@@ -818,31 +892,41 @@ export default function QuizPlayPage() {
                     >
                       {/* Feedback */}
                       <motion.div
-                        initial={{ x: answerResult.correct ? -20 : 20 }}
+                        initial={{ x: selectedOption === -1 ? 0 : answerResult.correct ? -20 : 20 }}
                         animate={{ x: 0 }}
                         className={`rounded-2xl p-5 mb-4 ${
-                          answerResult.correct
-                            ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30"
-                            : "bg-gradient-to-r from-red-500/20 to-rose-500/20 border border-red-500/30"
+                          selectedOption === -1
+                            ? "bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30"
+                            : answerResult.correct
+                              ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30"
+                              : "bg-gradient-to-r from-red-500/20 to-rose-500/20 border border-red-500/30"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <motion.span
-                              animate={{ rotate: [0, 10, -10, 0] }}
-                              transition={{ duration: 0.5 }}
+                              animate={selectedOption === -1 ? { scale: [1, 1.2, 1] } : { rotate: [0, 10, -10, 0] }}
+                              transition={{ duration: 0.5, repeat: selectedOption === -1 ? 2 : 0 }}
                               className="text-4xl"
                             >
-                              {answerResult.correct ? "🎉" : "💡"}
+                              {selectedOption === -1 ? "⏰" : answerResult.correct ? "🎉" : "💡"}
                             </motion.span>
                             <div>
                               <p className={`text-lg font-bold ${
-                                answerResult.correct ? "text-green-400" : "text-red-400"
+                                selectedOption === -1 
+                                  ? "text-orange-400" 
+                                  : answerResult.correct 
+                                    ? "text-green-400" 
+                                    : "text-red-400"
                               }`}>
-                                {answerResult.correct ? "Верно!" : "Неверно"}
+                                {selectedOption === -1 ? "Время вышло!" : answerResult.correct ? "Верно!" : "Неверно"}
                               </p>
                               <p className="text-sm text-white/50">
-                                {answerResult.correct ? "Отличная работа!" : "Не сдавайся!"}
+                                {selectedOption === -1 
+                                  ? "Переход к следующему..." 
+                                  : answerResult.correct 
+                                    ? "Отличная работа!" 
+                                    : "Не сдавайся!"}
                               </p>
                             </div>
                           </div>
@@ -851,37 +935,43 @@ export default function QuizPlayPage() {
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
                               className={`text-3xl font-black ${
-                                answerResult.correct ? "text-green-400" : "text-white/30"
+                                selectedOption === -1
+                                  ? "text-orange-400"
+                                  : answerResult.correct 
+                                    ? "text-green-400" 
+                                    : "text-white/30"
                               }`}
                             >
-                              +{answerResult.scoreDelta}
+                              {selectedOption === -1 ? "0" : `+${answerResult.scoreDelta}`}
                             </motion.p>
                           </div>
                         </div>
                       </motion.div>
 
-                      {/* Next button */}
-                      <motion.button
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={goNext}
-                        disabled={submitting}
-                        className="relative w-full h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg overflow-hidden shadow-2xl shadow-violet-500/30 disabled:opacity-50"
-                      >
-                        <motion.div
-                          animate={{ x: ["-200%", "200%"] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
-                        />
-                        <span className="relative flex items-center justify-center gap-2">
-                          {currentIndex + 1 >= questions.length ? (
-                            <>🏁 Завершить викторину</>
-                          ) : (
-                            <>Следующий вопрос →</>
-                          )}
-                        </span>
-                      </motion.button>
+                      {/* Next button - hidden on timeout (auto-advance) */}
+                      {selectedOption !== -1 && (
+                        <motion.button
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={goNext}
+                          disabled={submitting}
+                          className="relative w-full h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg overflow-hidden shadow-2xl shadow-violet-500/30 disabled:opacity-50"
+                        >
+                          <motion.div
+                            animate={{ x: ["-200%", "200%"] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+                          />
+                          <span className="relative flex items-center justify-center gap-2">
+                            {currentIndex + 1 >= questions.length ? (
+                              <>🏁 Завершить викторину</>
+                            ) : (
+                              <>Следующий вопрос →</>
+                            )}
+                          </span>
+                        </motion.button>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
