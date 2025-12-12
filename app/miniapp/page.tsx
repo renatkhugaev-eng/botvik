@@ -854,11 +854,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
         animate={{ opacity: 1, y: 0, rotateX: 0 }}
         transition={{ ...spring, duration: 0.8 }}
         style={{ perspective: 1000 }}
-        className="relative overflow-hidden"
+        className="relative"
       >
-        {/* Animated gradient border */}
-        <div className="absolute -inset-[1px] rounded-[20px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-75 blur-sm" />
-        <div className="absolute -inset-[1px] rounded-[20px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-60 animate-spin-medium" />
+        {/* Animated spinning border */}
+        <div className="absolute -inset-[2px] rounded-[22px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-60 blur-md" />
+        <div className="absolute -inset-[2px] rounded-[22px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-70 animate-spin-medium" />
         
         {/* Main container */}
         <div className="relative overflow-hidden rounded-[20px] bg-[#0a0a0f]">

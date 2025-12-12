@@ -19,6 +19,13 @@ export async function POST(req: NextRequest) {
   try {
     const { telegramUserId } = await req.json();
 
+    // В dev режиме пропускаем проверку подписки
+    const allowDevMock = process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true";
+    if (allowDevMock && process.env.NODE_ENV !== "production") {
+      console.log("[check-subscription] DEV MODE - skipping subscription check");
+      return NextResponse.json({ subscribed: true, status: "dev-mock", channel: REQUIRED_CHANNEL });
+    }
+
     if (!telegramUserId) {
       return NextResponse.json({ subscribed: false, error: "NO_USER_ID" }, { status: 400 });
     }
@@ -26,6 +33,10 @@ export async function POST(req: NextRequest) {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) {
       console.error("[check-subscription] NO_BOT_TOKEN");
+      // В dev без токена тоже пропускаем
+      if (process.env.NODE_ENV !== "production") {
+        return NextResponse.json({ subscribed: true, status: "no-token-dev", channel: REQUIRED_CHANNEL });
+      }
       return NextResponse.json({ subscribed: false, error: "SERVER_ERROR" }, { status: 500 });
     }
 

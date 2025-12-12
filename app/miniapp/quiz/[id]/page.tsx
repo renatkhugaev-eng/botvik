@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../../layout";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 
 type StartResponse = {
@@ -25,6 +25,9 @@ type AnswerResponse = {
   totalScore: number;
 };
 
+const spring = { type: "spring", stiffness: 500, damping: 30 };
+const QUESTION_TIME = 15; // seconds per question
+
 export default function QuizPlayPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -42,13 +45,52 @@ export default function QuizPlayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [quizTitle, setQuizTitle] = useState("Викторина");
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [timeoutTriggered, setTimeoutTriggered] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const questionStartTime = useRef<number>(Date.now());
+  
+  // Animated score
+  const animatedScore = useMotionValue(0);
+  const displayScore = useTransform(animatedScore, (v) => Math.round(v));
 
   const currentQuestion = useMemo(
     () => (questions.length > 0 && currentIndex < questions.length ? questions[currentIndex] : null),
     [currentIndex, questions],
   );
 
-  const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
+  const progress = questions.length > 0 ? ((currentIndex) / questions.length) * 100 : 0;
+
+  // Timer effect
+  useEffect(() => {
+    if (loading || finished || answerResult || !currentQuestion) return;
+    
+    setTimeLeft(QUESTION_TIME);
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Time's up - auto submit wrong
+          clearInterval(timerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [currentIndex, loading, finished, answerResult, currentQuestion]);
+
+  // Animate score changes
+  useEffect(() => {
+    animate(animatedScore, totalScore, { duration: 0.5 });
+  }, [totalScore, animatedScore]);
 
   useEffect(() => {
     const preload = async () => {
@@ -65,25 +107,24 @@ export default function QuizPlayPage() {
       }
 
       try {
+        const quizRes = await fetch(`/api/quiz/${quizId}`);
+        if (quizRes.ok) {
+          const quizData = await quizRes.json();
+          setQuizTitle(quizData.title ?? "Викторина");
+        }
+
         const res = await fetch(`/api/quiz/${quizId}/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: session.user.id }),
         });
 
-        if (!res.ok) {
-          throw new Error("failed_to_start");
-        }
+        if (!res.ok) throw new Error("failed_to_start");
 
         const data = (await res.json()) as StartResponse;
         setQuestions(data.questions);
         setSessionId(data.sessionId);
         setTotalScore(data.totalScore ?? 0);
-
-        const fromParams = searchParams.get("sessionId");
-        if (fromParams && Number(fromParams) !== data.sessionId) {
-          console.warn("SessionId in params differs from backend session. Using backend value.");
-        }
       } catch (err) {
         console.error("Failed to start quiz session", err);
         setError("Не удалось начать викторину");
@@ -98,6 +139,8 @@ export default function QuizPlayPage() {
   const sendAnswer = useCallback(
     async (optionId: number) => {
       if (!currentQuestion || !sessionId) return;
+      if (timerRef.current) clearInterval(timerRef.current);
+      
       setSubmitting(true);
       setAnswerResult(null);
       setSelectedOption(optionId);
@@ -110,22 +153,29 @@ export default function QuizPlayPage() {
             sessionId,
             questionId: currentQuestion.id,
             optionId,
-            timeSpentMs: 5000,
+            timeSpentMs: (QUESTION_TIME - timeLeft) * 1000,
           }),
         });
 
-        if (!res.ok) {
-          throw new Error("failed_to_answer");
-        }
+        if (!res.ok) throw new Error("failed_to_answer");
 
         const data = (await res.json()) as AnswerResponse;
         setAnswerResult(data);
         setTotalScore(data.totalScore);
-        // Haptic feedback based on answer correctness
+        
         if (data.correct) {
           haptic.success();
+          setCorrectCount((c) => c + 1);
+          setStreak((s) => {
+            const newStreak = s + 1;
+            setMaxStreak((m) => Math.max(m, newStreak));
+            return newStreak;
+          });
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 2000);
         } else {
           haptic.error();
+          setStreak(0);
         }
       } catch (err) {
         console.error("Failed to send answer", err);
@@ -134,13 +184,15 @@ export default function QuizPlayPage() {
         setSubmitting(false);
       }
     },
-    [currentQuestion, quizId, sessionId],
+    [currentQuestion, quizId, sessionId, timeLeft],
   );
 
   const goNext = useCallback(async () => {
+    haptic.medium();
     setAnswerResult(null);
     setSelectedOption(null);
     const nextIndex = currentIndex + 1;
+    
     if (nextIndex >= questions.length) {
       if (!sessionId) return;
       try {
@@ -151,13 +203,12 @@ export default function QuizPlayPage() {
           body: JSON.stringify({ sessionId }),
         });
 
-        if (!res.ok) {
-          throw new Error("failed_to_finish");
-        }
+        if (!res.ok) throw new Error("failed_to_finish");
 
         const data = (await res.json()) as { totalScore: number };
         setTotalScore(data.totalScore);
         setFinished(true);
+        haptic.heavy();
       } catch (err) {
         console.error("Failed to finish quiz", err);
         setError("Не удалось завершить викторину");
@@ -170,170 +221,674 @@ export default function QuizPlayPage() {
     setCurrentIndex(nextIndex);
   }, [currentIndex, questions.length, quizId, sessionId]);
 
+  // Loading
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="h-3 w-24 rounded-full bg-[#E5E7EB]" />
-        <div className="h-4 w-32 rounded-full bg-[#E5E7EB]" />
-        <div className="h-20 w-full rounded-2xl bg-[#E5E7EB]" />
+      <div className="flex flex-col gap-4 animate-pulse">
+        <div className="h-20 rounded-3xl bg-gradient-to-r from-violet-900/50 to-indigo-900/50" />
+        <div className="h-[400px] rounded-3xl bg-gradient-to-br from-[#0a0a0f] to-[#1a1a2e]" />
       </div>
     );
   }
 
+  // Error
   if (error) {
     return (
-      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 text-sm text-[#EF4444] shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
-        {error}
-      </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center justify-center min-h-[60vh]"
+      >
+        <div className="relative p-8 text-center">
+          <div className="text-6xl mb-4">😔</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Упс!</h2>
+          <p className="text-white/60 mb-6">{error}</p>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/miniapp")}
+            className="px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold"
+          >
+            На главную
+          </motion.button>
+        </div>
+      </motion.div>
     );
   }
 
+  // No questions
   if (!currentQuestion && !finished) {
     return (
-      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280] shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
-        Нет вопросов для этой викторины
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="text-6xl mb-4">📝</div>
+          <p className="text-white/60">Вопросы не найдены</p>
+        </div>
       </div>
     );
   }
 
+  // Finished
   if (finished) {
+    const accuracy = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
+    const rating = accuracy >= 80 ? "🏆" : accuracy >= 50 ? "⭐" : "👍";
+    const ratingText = accuracy >= 80 ? "Превосходно!" : accuracy >= 50 ? "Хорошо!" : "Неплохо!";
+    
     return (
-      <div className="space-y-4">
-        <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6 text-[#111827] shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
-          <div className="text-xl font-semibold text-[#111827]">Викторина завершена</div>
-          <div className="mt-2 text-sm text-[#6B7280]">Вы набрали {totalScore} очков</div>
-          <div className="mt-4 flex gap-2">
-            <button
-              className="flex-1 rounded-full bg-[#22C55E] px-4 py-3 text-white font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.05)] transition-all duration-200 hover:bg-[#16A34A] active:scale-95"
-              onClick={() => {
-                haptic.medium();
-                router.push(`/miniapp/leaderboard?quizId=${quizId}`);
-              }}
-            >
-              Посмотреть лидерборд
-            </button>
-            <button
-              className="flex-1 rounded-full border border-[#E5E7EB] bg-white px-4 py-3 text-[#111827] font-semibold transition-all duration-200 hover:bg-slate-50 active:scale-95"
-              onClick={() => {
-                haptic.light();
-                router.push("/miniapp");
-              }}
-            >
-              На главную
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
-        <div className="mb-2 flex items-center justify-between text-xs text-[#6B7280]">
-          <span>
-            Вопрос {currentIndex + 1} из {questions.length}
-          </span>
-          <span className="font-semibold text-brand-primary">{Math.round(progress)}%</span>
-        </div>
-        <div className="h-1.5 w-full rounded-full bg-slate-200">
-          <div
-            className="h-1.5 rounded-full bg-brand-primary transition-[width] duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {currentQuestion ? (
+      <div className="flex flex-col gap-5 min-h-[80vh] justify-center">
+        {/* Victory Card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: 50 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ ...spring, delay: 0.1 }}
+          className="relative overflow-hidden rounded-[32px]"
+        >
+          {/* Animated rainbow border */}
           <motion.div
-            key={currentQuestion.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-3xl border border-[#E5E7EB] bg-white p-5 text-[#111827] shadow-[0_12px_40px_rgba(0,0,0,0.08)] transition-all duration-200"
-          >
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-brand-textMuted">
-              Трукрайм
+            animate={{ rotate: 360 }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            className="absolute -inset-[2px] rounded-[32px] bg-[conic-gradient(from_0deg,#f43f5e,#8b5cf6,#3b82f6,#22c55e,#eab308,#f43f5e)]"
+          />
+          
+          <div className="relative m-[2px] rounded-[30px] bg-[#0a0a0f] overflow-hidden">
+            {/* Celebratory background */}
+            <div className="absolute inset-0">
+              <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full bg-violet-600/30 blur-[80px] animate-pulse" />
+              <div className="absolute -right-20 -bottom-20 h-60 w-60 rounded-full bg-pink-600/20 blur-[80px] animate-pulse" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-40 w-40 rounded-full bg-yellow-500/20 blur-[60px]" />
             </div>
-            <div className="text-xl font-semibold text-[#111827]">{currentQuestion.text}</div>
-
-            <div className="mt-4 flex flex-col gap-3">
-              {currentQuestion.options.map((opt) => {
-                const isSelected = selectedOption === opt.id;
-                const isAnswered = Boolean(answerResult);
-
-                const baseClasses =
-                  "w-full rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-all duration-150";
-                const defaultClasses =
-                  "border-[#E5E7EB] bg-slate-50 text-[#111827] hover:bg-white hover:shadow-sm";
-                const correctClasses = "border-green-400 bg-green-50 text-green-900";
-                const wrongClasses = "border-red-400 bg-red-50 text-red-900";
-
-                return (
-                  <motion.button
-                    key={opt.id}
-                    whileHover={!isAnswered ? { y: -2 } : undefined}
-                    className={`${baseClasses} ${
-                      isAnswered && isSelected
-                        ? answerResult?.correct
-                          ? correctClasses
-                          : wrongClasses
-                        : defaultClasses
-                    }`}
-                    onClick={() => {
-                      haptic.medium();
-                      sendAnswer(opt.id);
-                    }}
-                    disabled={isAnswered || submitting}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-brand-textMuted">
-                        {String.fromCharCode(65 + currentQuestion.options.findIndex((o) => o.id === opt.id))}
-                      </span>
-                      <div className="flex flex-col text-left">
-                        <span>{opt.text}</span>
-                        {isAnswered && isSelected ? (
-                          <span className="text-xs font-semibold text-brand-textMuted">
-                            {answerResult?.correct ? "Верно" : "Неверно"}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {answerResult ? (
+            
+            {/* Floating stars */}
+            {[...Array(12)].map((_, i) => (
               <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 rounded-2xl border border-[#E5E7EB] bg-slate-50 p-3 text-sm text-[#111827] transition-all duration-200"
+                key={i}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ 
+                  opacity: [0, 1, 0],
+                  scale: [0.5, 1, 0.5],
+                  y: [0, -30, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  delay: i * 0.15,
+                }}
+                className="absolute text-xl"
+                style={{
+                  left: `${8 + i * 8}%`,
+                  top: `${20 + (i % 4) * 20}%`,
+                }}
               >
-                <div className={`font-semibold ${answerResult.correct ? "text-green-600" : "text-red-600"}`}>
-                  {answerResult.correct ? "Правильно" : "Неправильно"}
-                </div>
-                <div className="text-brand-textMuted">
-                  <span className="font-semibold text-brand-yellow">+{answerResult.scoreDelta}</span> очков, всего:{" "}
-                  <span className="font-semibold text-brand-yellow">{answerResult.totalScore}</span>
-                </div>
-                <div className="mt-3">
-                  <button
-                    className="w-full rounded-full bg-[#22C55E] px-3 py-2.5 text-white font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.05)] transition-all duration-200 hover:bg-[#16A34A] active:scale-95"
-                    onClick={() => {
-                      haptic.soft();
-                      goNext();
-                    }}
+                ✨
+              </motion.div>
+            ))}
+            
+            <div className="relative p-8 text-center">
+              {/* Big emoji rating */}
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ ...spring, delay: 0.3 }}
+                className="mb-4"
+              >
+                <motion.span
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="text-8xl inline-block"
+                >
+                  {rating}
+                </motion.span>
+              </motion.div>
+              
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="font-display text-3xl font-black text-white mb-2"
+              >
+                {ratingText}
+              </motion.h1>
+              
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-white/50 mb-8"
+              >
+                Викторина завершена
+              </motion.p>
+              
+              {/* Score display */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, ...spring }}
+                className="relative mb-8"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 blur-2xl" />
+                <div className="relative inline-block rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 px-12 py-6">
+                  <p className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-3">Твой результат</p>
+                  <motion.p
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.7, type: "spring", stiffness: 200 }}
+                    className="font-display text-6xl font-black leading-none bg-gradient-to-r from-white via-violet-200 to-pink-200 bg-clip-text text-transparent pb-1"
                   >
-                    Дальше
-                  </button>
+                    {totalScore}
+                  </motion.p>
+                  <p className="text-white/40 mt-2">очков</p>
                 </div>
               </motion.div>
-            ) : null}
+
+              {/* Stats row */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="flex justify-center gap-6 mb-8"
+              >
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-white leading-none pb-1">{correctCount}/{questions.length}</p>
+                  <p className="text-xs text-white/40">верных</p>
+                </div>
+                <div className="w-px bg-white/10" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-400 leading-none pb-1">{questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0}%</p>
+                  <p className="text-xs text-white/40">точность</p>
+                </div>
+                <div className="w-px bg-white/10" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-amber-400 leading-none pb-1">🔥 {maxStreak}</p>
+                  <p className="text-xs text-white/40">макс. серия</p>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Action Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9 }}
+          className="flex flex-col gap-3"
+        >
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => {
+              haptic.heavy();
+              router.push(`/miniapp/leaderboard?quizId=${quizId}`);
+            }}
+            className="relative overflow-hidden h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg shadow-2xl shadow-violet-500/30"
+          >
+            <motion.div
+              animate={{ x: ["-200%", "200%"] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+            />
+            <span className="relative flex items-center justify-center gap-3">
+              <span className="text-2xl">🏆</span>
+              Таблица лидеров
+            </span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => {
+              haptic.medium();
+              router.push("/miniapp");
+            }}
+            className="h-14 rounded-2xl bg-white/10 backdrop-blur-sm text-white/80 font-semibold hover:bg-white/15 transition-colors"
+          >
+            ← На главную
+          </motion.button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Main Quiz UI
+  const timerProgress = (timeLeft / QUESTION_TIME) * 100;
+  const isUrgent = timeLeft <= 5;
+  const isWarning = timeLeft <= 10 && timeLeft > 5;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Ultra-smooth CSS Confetti */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {[...Array(60)].map((_, i) => {
+            const colors = [
+              "#8b5cf6", "#a78bfa", "#ec4899", "#f472b6", 
+              "#22c55e", "#4ade80", "#eab308", "#facc15",
+              "#3b82f6", "#60a5fa", "#f43f5e", "#06b6d4",
+            ];
+            const left = 5 + Math.random() * 90;
+            const size = 6 + Math.random() * 8;
+            const delay = Math.random() * 0.4;
+            const duration = 2.5 + Math.random() * 1;
+            const rotation = Math.random() * 360;
+            const drift = -100 + Math.random() * 200;
+            const isCircle = Math.random() > 0.6;
+            
+            return (
+              <div
+                key={i}
+                className="absolute gpu-accelerated"
+                style={{
+                  left: `${left}%`,
+                  top: -20,
+                  width: isCircle ? size : size * 0.6,
+                  height: size,
+                  background: colors[i % colors.length],
+                  borderRadius: isCircle ? "50%" : "2px",
+                  boxShadow: `0 0 ${size/2}px ${colors[i % colors.length]}40`,
+                  animation: `confetti-fall ${duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}s forwards`,
+                  transform: `rotate(${rotation}deg)`,
+                  ["--drift" as string]: `${drift}px`,
+                  ["--rotation" as string]: `${720 + Math.random() * 720}deg`,
+                }}
+              />
+            );
+          })}
+          
+          {/* Sparkle emojis */}
+          {[...Array(12)].map((_, i) => {
+            const left = 15 + Math.random() * 70;
+            const delay = 0.1 + Math.random() * 0.3;
+            
+            return (
+              <div
+                key={`spark-${i}`}
+                className="absolute text-xl gpu-accelerated"
+                style={{
+                  left: `${left}%`,
+                  top: "20%",
+                  animation: `sparkle-pop 1.2s ease-out ${delay}s forwards`,
+                  opacity: 0,
+                }}
+              >
+                ✨
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Premium Header Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-2xl bg-[#0a0a0f] p-4"
+      >
+        {/* Background glow */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-violet-600/20 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-24 h-24 rounded-full bg-indigo-600/15 blur-2xl" />
+        
+        <div className="relative flex items-center justify-between">
+          {/* Score */}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl blur-sm opacity-50" />
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600">
+                <span className="text-lg">💎</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Очки</p>
+              <motion.p className="text-xl font-black text-white tabular-nums leading-tight">
+                {displayScore}
+              </motion.p>
+            </div>
+          </div>
+          
+          {/* Question Counter */}
+          <div className="flex flex-col items-center">
+            <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Вопрос</p>
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl font-black text-white">{currentIndex + 1}</span>
+              <span className="text-sm text-white/30">/</span>
+              <span className="text-sm text-white/50">{questions.length}</span>
+            </div>
+          </div>
+          
+          {/* Timer */}
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest text-right">Время</p>
+              <motion.p 
+                key={timeLeft}
+                initial={{ scale: 1.2 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.15 }}
+                className={`text-xl font-black tabular-nums leading-tight text-right ${
+                  isUrgent ? "text-red-400" : isWarning ? "text-amber-400" : "text-emerald-400"
+                }`}
+              >
+                {timeLeft}s
+              </motion.p>
+            </div>
+            <motion.div 
+              animate={isUrgent ? { scale: [1, 1.1, 1] } : {}}
+              transition={{ duration: 0.4, repeat: isUrgent ? Infinity : 0 }}
+              className="relative"
+            >
+              {/* Timer ring background */}
+              <div className={`absolute inset-0 rounded-xl blur-md transition-all duration-500 ${
+                isUrgent ? "bg-red-500/40" : isWarning ? "bg-amber-500/30" : "bg-emerald-500/20"
+              }`} />
+              <div className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-500 ${
+                isUrgent 
+                  ? "bg-gradient-to-br from-red-500 to-rose-600" 
+                  : isWarning 
+                    ? "bg-gradient-to-br from-amber-500 to-orange-600"
+                    : "bg-gradient-to-br from-emerald-500 to-green-600"
+              }`}>
+                {/* Progress ring */}
+                <svg className="absolute inset-1 -rotate-90" viewBox="0 0 36 36">
+                  <circle
+                    cx="18" cy="18" r="16"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.2)"
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx="18" cy="18" r="16"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeDasharray={`${timerProgress} 100`}
+                    className="transition-all duration-1000 ease-linear"
+                  />
+                </svg>
+                <span className="relative text-sm font-bold text-white">
+                  {isUrgent ? "🔥" : "⏱"}
+                </span>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+        
+        {/* Progress bar */}
+        <div className="relative mt-4 h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <motion.div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500"
+            initial={{ width: 0 }}
+            animate={{ width: `${((currentIndex) / questions.length) * 100}%` }}
+            transition={{ duration: 0.5 }}
+          />
+          {/* Shimmer */}
+          <motion.div
+            animate={{ x: ["-100%", "200%"] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+            className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+          />
+        </div>
+      </motion.div>
+
+      {/* Streak indicator */}
+      <AnimatePresence>
+        {streak >= 2 && !answerResult && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className="flex justify-center -mt-2"
+          >
+            <div className="relative">
+              {/* Glow */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 to-red-500 blur-lg opacity-40" />
+              <div className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-5 py-2 shadow-lg shadow-orange-500/30">
+                <motion.span
+                  animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity }}
+                  className="text-xl"
+                >
+                  🔥
+                </motion.span>
+                <span className="font-black text-white">{streak} подряд!</span>
+                <motion.span
+                  animate={{ scale: [1, 1.3, 1], rotate: [0, -10, 10, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
+                  className="text-xl"
+                >
+                  🔥
+                </motion.span>
+              </div>
+            </div>
           </motion.div>
-        ) : null}
+        )}
+      </AnimatePresence>
+
+      {/* Question Card */}
+      <AnimatePresence mode="wait">
+        {currentQuestion && (
+          <motion.div
+            key={currentQuestion.id}
+            initial={{ opacity: 0, rotateY: 90, scale: 0.8 }}
+            animate={{ opacity: 1, rotateY: 0, scale: 1 }}
+            exit={{ opacity: 0, rotateY: -90, scale: 0.8 }}
+            transition={{ duration: 0.4, type: "spring", stiffness: 100 }}
+            style={{ transformStyle: "preserve-3d", perspective: 1000 }}
+            className="relative"
+          >
+            {/* Card glow */}
+            <div className="absolute -inset-1 rounded-[28px] bg-gradient-to-r from-violet-500/50 via-purple-500/50 to-pink-500/50 blur-xl opacity-50" />
+            
+            {/* Animated border */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              className="absolute -inset-[1px] rounded-[28px] bg-[conic-gradient(from_0deg,#8b5cf6,#ec4899,#8b5cf6)] opacity-60"
+            />
+            
+            <div className="relative overflow-hidden rounded-[27px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1025]">
+              {/* Question number badge */}
+              <div className="absolute top-4 right-4">
+                <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
+                  <span className="text-xs font-bold text-white/60">{currentIndex + 1}</span>
+                  <span className="text-white/30">/</span>
+                  <span className="text-xs text-white/40">{questions.length}</span>
+                </div>
+              </div>
+              
+              {/* Background effects */}
+              <div className="absolute -left-32 -top-32 h-64 w-64 rounded-full bg-violet-600/20 blur-[80px]" />
+              <div className="absolute -right-32 -bottom-32 h-64 w-64 rounded-full bg-pink-600/15 blur-[80px]" />
+              
+              <div className="relative p-6 pt-5">
+                {/* Category */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-violet-500/20 border border-violet-500/30 px-3 py-1.5 mb-5"
+                >
+                  <span>🔍</span>
+                  <span className="text-sm font-semibold text-violet-300">{quizTitle}</span>
+                </motion.div>
+
+                {/* Question */}
+                <motion.h2
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="font-display text-2xl font-bold text-white leading-tight mb-8"
+                >
+                  {currentQuestion.text}
+                </motion.h2>
+
+                {/* Options */}
+                <div className="space-y-3">
+                  {currentQuestion.options.map((opt, idx) => {
+                    const isSelected = selectedOption === opt.id;
+                    const isAnswered = Boolean(answerResult);
+                    const isCorrect = answerResult?.correct;
+                    const letter = String.fromCharCode(65 + idx);
+                    const colors = [
+                      "from-violet-600 to-purple-600",
+                      "from-blue-600 to-cyan-600", 
+                      "from-pink-600 to-rose-600",
+                      "from-amber-600 to-orange-600",
+                    ];
+
+                    return (
+                      <motion.button
+                        key={opt.id}
+                        initial={{ opacity: 0, x: 30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 + idx * 0.08, ...spring }}
+                        whileHover={!isAnswered ? { scale: 1.02, x: 5 } : undefined}
+                        whileTap={!isAnswered ? { scale: 0.98 } : undefined}
+                        onClick={() => {
+                          if (!isAnswered && !submitting) {
+                            haptic.medium();
+                            sendAnswer(opt.id);
+                          }
+                        }}
+                        disabled={isAnswered || submitting}
+                        className={`relative w-full overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
+                          isAnswered && isSelected
+                            ? isCorrect
+                              ? "ring-2 ring-green-400 bg-green-500/20"
+                              : "ring-2 ring-red-400 bg-red-500/20"
+                            : isAnswered
+                              ? "opacity-40 bg-white/5"
+                              : "bg-white/5 hover:bg-white/10"
+                        }`}
+                      >
+                        {/* Hover gradient */}
+                        {!isAnswered && (
+                          <div className={`absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r ${colors[idx]} transition-opacity`} />
+                        )}
+                        
+                        {/* Result icon */}
+                        <AnimatePresence>
+                          {isAnswered && isSelected && (
+                            <motion.div
+                              initial={{ scale: 0, rotate: -180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              className={`absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center ${
+                                isCorrect 
+                                  ? "bg-gradient-to-r from-green-500 to-emerald-500" 
+                                  : "bg-gradient-to-r from-red-500 to-rose-500"
+                              } shadow-lg`}
+                            >
+                              <span className="text-white text-xl font-bold">
+                                {isCorrect ? "✓" : "✕"}
+                              </span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        
+                        <div className="relative flex items-center gap-4 pr-14">
+                          {/* Letter */}
+                          <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl font-black text-lg transition-all ${
+                            isAnswered && isSelected
+                              ? isCorrect
+                                ? "bg-green-500 text-white"
+                                : "bg-red-500 text-white"
+                              : `bg-gradient-to-br ${colors[idx]} text-white shadow-lg`
+                          }`}>
+                            {letter}
+                          </div>
+                          
+                          {/* Text */}
+                          <span className={`text-[16px] font-medium leading-snug ${
+                            isAnswered && isSelected
+                              ? isCorrect ? "text-green-300" : "text-red-300"
+                              : "text-white"
+                          }`}>
+                            {opt.text}
+                          </span>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* Result & Next */}
+                <AnimatePresence>
+                  {answerResult && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      className="mt-6"
+                    >
+                      {/* Feedback */}
+                      <motion.div
+                        initial={{ x: answerResult.correct ? -20 : 20 }}
+                        animate={{ x: 0 }}
+                        className={`rounded-2xl p-5 mb-4 ${
+                          answerResult.correct
+                            ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30"
+                            : "bg-gradient-to-r from-red-500/20 to-rose-500/20 border border-red-500/30"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <motion.span
+                              animate={{ rotate: [0, 10, -10, 0] }}
+                              transition={{ duration: 0.5 }}
+                              className="text-4xl"
+                            >
+                              {answerResult.correct ? "🎉" : "💡"}
+                            </motion.span>
+                            <div>
+                              <p className={`text-lg font-bold ${
+                                answerResult.correct ? "text-green-400" : "text-red-400"
+                              }`}>
+                                {answerResult.correct ? "Верно!" : "Неверно"}
+                              </p>
+                              <p className="text-sm text-white/50">
+                                {answerResult.correct ? "Отличная работа!" : "Не сдавайся!"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <motion.p
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className={`text-3xl font-black ${
+                                answerResult.correct ? "text-green-400" : "text-white/30"
+                              }`}
+                            >
+                              +{answerResult.scoreDelta}
+                            </motion.p>
+                          </div>
+                        </div>
+                      </motion.div>
+
+                      {/* Next button */}
+                      <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={goNext}
+                        disabled={submitting}
+                        className="relative w-full h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg overflow-hidden shadow-2xl shadow-violet-500/30 disabled:opacity-50"
+                      >
+                        <motion.div
+                          animate={{ x: ["-200%", "200%"] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+                        />
+                        <span className="relative flex items-center justify-center gap-2">
+                          {currentIndex + 1 >= questions.length ? (
+                            <>🏁 Завершить викторину</>
+                          ) : (
+                            <>Следующий вопрос →</>
+                          )}
+                        </span>
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
