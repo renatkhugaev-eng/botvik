@@ -580,7 +580,10 @@ export default function ProfilePage() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <img src="/icons/coin.png" alt="" className="h-8 w-8 object-contain" />
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
+                    </div>
                     <p
                       className="font-display text-[56px] font-black leading-none tracking-tighter"
                       style={{ 
@@ -808,7 +811,10 @@ export default function ProfilePage() {
             className="rounded-2xl bg-white p-5 shadow-xl shadow-black/5"
           >
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="font-display text-[17px] font-bold text-[#1a1a2e]">Лучшие результаты</h3>
+              <div className="flex items-center gap-2">
+                <img src="/icons/trophy.png" alt="" className="h-8 w-8 object-contain" />
+                <h3 className="font-display text-[17px] font-bold text-[#1a1a2e]">Лучшие результаты</h3>
+              </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-500">
                 {data.stats.bestScoreByQuiz.length} игр
               </span>
@@ -1047,7 +1053,10 @@ export default function ProfilePage() {
                             
                             <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
                               <div className="text-center flex-1">
-                                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
+                                <div className="flex items-center justify-center gap-1">
+                                  <img src="/icons/coin.png" alt="" className="h-7 w-7 object-contain" />
+                                  <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
+                                </div>
                                 <p className="text-[10px] text-slate-400">очков</p>
                               </div>
                               <div className="h-8 w-px bg-slate-200" />

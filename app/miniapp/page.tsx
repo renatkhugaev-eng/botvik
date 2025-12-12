@@ -375,9 +375,12 @@ export default function MiniAppPage() {
             </div>
             <div className="h-8 w-px bg-slate-200" />
             <div className="text-center">
-              <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
-                {userStats?.totalScore ?? 0}
-              </p>
+              <div className="flex items-center justify-center gap-1">
+                <img src="/icons/coin.png" alt="" className="h-8 w-8 object-contain" />
+                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
+                  {userStats?.totalScore ?? 0}
+                </p>
+              </div>
               <p className="text-[10px] text-slate-400">очков</p>
             </div>
           </div>
@@ -567,7 +570,8 @@ export default function MiniAppPage() {
         }}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[16px] font-semibold text-white shadow-xl shadow-black/20"
       >
-        🏆 Таблица лидеров
+        <img src="/icons/trophy.png" alt="" className="h-10 w-10 object-contain" />
+        Таблица лидеров
       </motion.button>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -951,7 +955,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30"
               >
-                <span className="text-xl">🏆</span>
+                <img src="/icons/trophy.png" alt="" className="h-10 w-10 object-contain" />
               </motion.div>
             </div>
 
@@ -1004,9 +1008,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
                 >
                   {/* Place badge */}
                   <div className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${tier.gradient} shadow-lg ${tier.shadow}`}>
-                    <span className="text-[16px] font-bold tabular-nums text-white">
-                      {tier.place}
-                    </span>
+                    {tier.place === 1 ? (
+                      <img src="/icons/fire-medal.png" alt="1" className="h-10 w-10 object-contain" />
+                    ) : (
+                      <img src="/icons/medal.png" alt={String(tier.place)} className="h-9 w-9 object-contain" />
+                    )}
                     {tier.place === 1 && (
                       <motion.div
                         animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}

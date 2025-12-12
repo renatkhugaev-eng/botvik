@@ -493,24 +493,24 @@ export default function QuizPlayPage() {
           transition={{ delay: 0.9 }}
           className="flex flex-col gap-3"
         >
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => {
-              haptic.heavy();
-              router.push(`/miniapp/leaderboard?quizId=${quizId}`);
-            }}
-            className="relative overflow-hidden h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg shadow-2xl shadow-violet-500/30"
-          >
-            <motion.div
-              animate={{ x: ["-200%", "200%"] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
-            />
-            <span className="relative flex items-center justify-center gap-3">
-              <span className="text-2xl">🏆</span>
-              Таблица лидеров
-            </span>
-          </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                haptic.heavy();
+                router.push(`/miniapp/leaderboard?quizId=${quizId}`);
+              }}
+              className="relative overflow-hidden h-16 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-lg shadow-2xl shadow-violet-500/30"
+            >
+              <motion.div
+                animate={{ x: ["-200%", "200%"] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+              />
+              <span className="relative flex items-center justify-center gap-3">
+                <img src="/icons/trophy.png" alt="" className="h-10 w-10 object-contain" />
+                Таблица лидеров
+              </span>
+            </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.97 }}
@@ -594,9 +594,9 @@ export default function QuizPlayPage() {
           {/* Score */}
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl blur-sm opacity-50" />
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600">
-                <span className="text-lg">💎</span>
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl blur-sm opacity-50" />
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500">
+                <img src="/icons/coin.png" alt="" className="h-9 w-9 object-contain" />
               </div>
             </div>
             <div>
@@ -655,9 +655,11 @@ export default function QuizPlayPage() {
                     style={{ transition: "stroke-dasharray 1s linear" }}
                   />
                 </svg>
-                <span className="relative text-sm z-10">
-                  {isUrgent ? "🔥" : "⏱"}
-                </span>
+                <img 
+                  src={isUrgent ? "/icons/alarm.png" : "/icons/hourglass.png"} 
+                  alt="" 
+                  className="relative w-8 h-8 object-contain z-10" 
+                />
               </div>
             </div>
           </div>
