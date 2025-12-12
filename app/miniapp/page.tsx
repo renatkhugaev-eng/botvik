@@ -249,7 +249,7 @@ export default function MiniAppPage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 w-full overflow-x-hidden">
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER — Height: 48px
       ═══════════════════════════════════════════════════════════════════ */}
@@ -449,7 +449,7 @@ export default function MiniAppPage() {
             haptic.medium();
             router.push("/miniapp/leaderboard");
           }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4 w-full"
         >
           {/* Glow effects */}
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
@@ -854,7 +854,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
         animate={{ opacity: 1, y: 0, rotateX: 0 }}
         transition={{ ...spring, duration: 0.8 }}
         style={{ perspective: 1000 }}
-        className="relative"
+        className="relative overflow-hidden"
       >
         {/* Animated gradient border */}
         <div className="absolute -inset-[1px] rounded-[24px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-75 blur-sm" />

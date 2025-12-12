@@ -369,7 +369,7 @@ export default function ProfilePage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="flex flex-col gap-5 pb-10">
+    <div className="flex flex-col gap-5 pb-10 w-full overflow-x-hidden">
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}
@@ -412,7 +412,7 @@ export default function ProfilePage() {
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...smoothSpring, delay: 0.1 }}
-        className="relative gpu-accelerated"
+        className="relative gpu-accelerated overflow-hidden rounded-[32px]"
         style={{ perspective: isTouch ? "none" : 1000 }}
       >
         <div

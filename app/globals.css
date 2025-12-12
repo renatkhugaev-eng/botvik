@@ -39,11 +39,18 @@ html, body {
   -webkit-touch-callout: none;
 }
 
-/* Block all horizontal overscroll */
-#__next, main, .app-container {
+/* Block all horizontal overscroll - use clip to prevent scrolling context */
+#__next, main, .app-container, .app-container > div {
   max-width: 100vw;
-  overflow-x: hidden;
+  max-width: 100dvw;
+  overflow-x: clip;
   overscroll-behavior-x: none;
+}
+
+/* Ensure all content sections don't overflow horizontally */
+section, article, header, footer, aside, nav {
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {

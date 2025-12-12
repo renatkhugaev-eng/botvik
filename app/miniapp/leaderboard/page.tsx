@@ -125,7 +125,7 @@ export default function LeaderboardPage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="flex flex-col gap-5 pb-10">
+    <div className="flex flex-col gap-5 pb-10 w-full overflow-x-hidden">
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}

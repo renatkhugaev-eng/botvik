@@ -109,7 +109,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
   }, [disabled, isRefreshing, onRefresh, pullDistance]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden" style={{ overflowX: 'clip' }}>
       {/* Pull indicator */}
       <AnimatePresence>
         {(pullDistance.get() > 0 || isRefreshing) && (
