@@ -303,8 +303,8 @@ export default function MiniAppPage() {
           className="relative flex items-center gap-2 rounded-full bg-[#0a0a0f] pl-1 pr-3 py-1 shadow-lg"
         >
           {/* Avatar with glow ring */}
-          <div className="relative">
-            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-75 animate-spin-slow" />
+          <div className="relative flex-shrink-0">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-60 animate-spin-slow" />
             {photoUrl ? (
               <img 
                 src={photoUrl} 
@@ -333,8 +333,8 @@ export default function MiniAppPage() {
       >
         <div className="flex items-center gap-4">
           {/* Avatar with ring */}
-          <div className="relative">
-            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-rose-500 via-violet-500 to-indigo-500 opacity-75 blur-[2px] animate-spin-slow" />
+          <div className="relative flex-shrink-0">
+            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-rose-500 via-violet-500 to-indigo-500 opacity-75 animate-spin-slow" />
             {photoUrl ? (
               <img 
                 src={photoUrl} 

@@ -412,7 +412,7 @@ export default function ProfilePage() {
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...smoothSpring, delay: 0.1 }}
-        className="relative gpu-accelerated overflow-hidden rounded-[32px]"
+        className="relative gpu-accelerated"
         style={{ perspective: isTouch ? "none" : 1000 }}
       >
         <div
@@ -433,8 +433,8 @@ export default function ProfilePage() {
             }}
           />
           
-          {/* Outer glow - simplified, no animation */}
-          <div className={`absolute -inset-4 rounded-[36px] bg-gradient-to-r ${rank.color} opacity-20 blur-xl gpu-accelerated`} />
+          {/* Outer glow - simplified, smaller to avoid overflow */}
+          <div className={`absolute -inset-2 rounded-[30px] bg-gradient-to-r ${rank.color} opacity-20 blur-lg gpu-accelerated`} />
           
           {/* Main card */}
           <div className="relative overflow-hidden rounded-[26px] bg-[#0a0a0f]">

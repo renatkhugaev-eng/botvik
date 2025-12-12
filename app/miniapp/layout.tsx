@@ -180,7 +180,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <div className="app-container fixed inset-0 w-full h-full bg-slate-100 overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
         <div 
-          className="w-full h-full px-4 pt-3 pb-6 overflow-y-auto overscroll-none touch-pan-y"
+          className="w-full h-full px-[4.5%] sm:px-5 md:px-6 pt-3 pb-8 overflow-y-auto overscroll-none touch-pan-y"
           style={{ overflowX: 'clip', maxWidth: '100%' }}
         >
           {content}
