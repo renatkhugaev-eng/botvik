@@ -23,6 +23,12 @@ type AnswerResponse = {
   correct: boolean;
   scoreDelta: number;
   totalScore: number;
+  breakdown?: {
+    base: number;
+    timeBonus: number;
+    streakBonus: number;
+    timeSpentMs: number;
+  };
 };
 
 const spring = { type: "spring", stiffness: 500, damping: 30 };
@@ -216,6 +222,7 @@ export default function QuizPlayPage() {
             questionId: currentQuestion.id,
             optionId,
             timeSpentMs: (QUESTION_TIME - timeLeft) * 1000,
+            streak, // Send current streak for bonus calculation
           }),
         });
 
@@ -946,6 +953,34 @@ export default function QuizPlayPage() {
                             </motion.p>
                           </div>
                         </div>
+                        
+                        {/* Score Breakdown - only for correct answers */}
+                        {answerResult.correct && answerResult.breakdown && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="mt-3 pt-3 border-t border-white/10"
+                          >
+                            <div className="flex justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white/40">Базовые:</span>
+                                <span className="text-white font-semibold">+{answerResult.breakdown.base}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-white/40">⚡ Скорость:</span>
+                                <span className={`font-semibold ${answerResult.breakdown.timeBonus > 30 ? "text-green-400" : answerResult.breakdown.timeBonus > 0 ? "text-yellow-400" : "text-white/30"}`}>
+                                  +{answerResult.breakdown.timeBonus}
+                                </span>
+                              </div>
+                              {answerResult.breakdown.streakBonus > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white/40">🔥 Серия:</span>
+                                  <span className="text-orange-400 font-semibold">+{answerResult.breakdown.streakBonus}</span>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
                       </motion.div>
 
                       {/* Next button - hidden on timeout (auto-advance) */}

@@ -71,6 +71,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const questionId = body.questionId;
   const optionId = body.optionId;
   const timeSpentMs = Math.max(0, Number(body.timeSpentMs ?? 0));
+  const streak = Math.max(0, Number(body.streak ?? 0));
 
   if (!sessionId || !questionId || !optionId) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
@@ -108,8 +109,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const isCorrect = correctOption.id === optionId;
-  const bonus = isCorrect ? calculateBonus(timeSpentMs) : 0;
-  const scoreDelta = isCorrect ? BASE_SCORE + bonus : 0;
+  
+  // Calculate score breakdown
+  const timeBonus = isCorrect ? calculateTimeBonus(timeSpentMs) : 0;
+  const streakBonus = isCorrect ? calculateStreakBonus(streak) : 0;
+  const scoreDelta = isCorrect ? BASE_SCORE + timeBonus + streakBonus : 0;
 
   const totalScore = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.answer.create({
@@ -138,6 +142,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     correct: isCorrect,
     scoreDelta,
     totalScore,
+    // Breakdown for UI
+    breakdown: {
+      base: isCorrect ? BASE_SCORE : 0,
+      timeBonus,
+      streakBonus,
+      timeSpentMs,
+    },
   });
 }
 
