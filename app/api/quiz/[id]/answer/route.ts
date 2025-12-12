@@ -9,19 +9,48 @@ type AnswerRequestBody = {
   questionId?: number;
   optionId?: number;
   timeSpentMs?: number;
+  streak?: number;
 };
 
-const BASE_SCORE = 100;
-const MAX_BONUS = 50;
-const FAST_THRESHOLD = 2000;
-const SLOW_THRESHOLD = 15000;
+/* ═══════════════════════════════════════════════════════════════════════════
+   FAIR SCORING SYSTEM (Kahoot-style)
+   
+   Формула: POINTS = BASE + TIME_BONUS + STREAK_BONUS
+   
+   - BASE: 100 очков за правильный ответ
+   - TIME_BONUS: 0-50 очков (линейно убывает от 0 до 15 сек)
+   - STREAK_BONUS: +10 очков за каждый ответ в серии (макс +30)
+   
+   Примеры:
+   - Ответ за 1 сек, без серии: 100 + 50 + 0 = 150
+   - Ответ за 7 сек, серия 3: 100 + 27 + 30 = 157
+   - Ответ за 14 сек, серия 1: 100 + 3 + 10 = 113
+   - Неправильный ответ: 0
+═══════════════════════════════════════════════════════════════════════════ */
 
-function calculateBonus(timeSpentMs: number) {
-  if (timeSpentMs <= FAST_THRESHOLD) return MAX_BONUS;
-  if (timeSpentMs >= SLOW_THRESHOLD) return 0;
+const BASE_SCORE = 100;        // Базовые очки за правильный ответ
+const MAX_TIME_BONUS = 50;     // Максимальный бонус за скорость
+const TIME_LIMIT_MS = 15000;   // Лимит времени (15 сек)
+const STREAK_BONUS = 10;       // Бонус за каждый ответ в серии
+const MAX_STREAK_BONUS = 30;   // Максимальный бонус за серию
 
-  const ratio = (SLOW_THRESHOLD - timeSpentMs) / (SLOW_THRESHOLD - FAST_THRESHOLD);
-  return Math.round(MAX_BONUS * ratio);
+function calculateTimeBonus(timeSpentMs: number): number {
+  // Если ответил мгновенно или очень быстро — максимум
+  if (timeSpentMs <= 500) return MAX_TIME_BONUS;
+  
+  // Если превысил лимит — 0
+  if (timeSpentMs >= TIME_LIMIT_MS) return 0;
+  
+  // Линейное уменьшение бонуса
+  const remainingTime = TIME_LIMIT_MS - timeSpentMs;
+  const bonus = Math.round((remainingTime / TIME_LIMIT_MS) * MAX_TIME_BONUS);
+  
+  return Math.max(0, bonus);
+}
+
+function calculateStreakBonus(streak: number): number {
+  if (streak <= 0) return 0;
+  return Math.min(streak * STREAK_BONUS, MAX_STREAK_BONUS);
 }
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
