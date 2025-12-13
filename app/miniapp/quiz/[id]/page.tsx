@@ -757,6 +757,74 @@ export default function QuizPlayPage() {
               </span>
             </motion.button>
 
+          {/* Share Button */}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={async () => {
+              haptic.heavy();
+              
+              // Формируем текст для шаринга
+              const starEmoji = "⭐".repeat(starCount) + "☆".repeat(5 - starCount);
+              const accuracyPercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+              
+              const shareText = [
+                `🎮 ${quizTitle}`,
+                ``,
+                starEmoji,
+                ``,
+                `📊 Мой результат:`,
+                `✅ ${correctCount}/${questions.length} правильных`,
+                `🎯 ${accuracyPercent}% точность`,
+                `🏆 ${totalScore.toLocaleString()} очков`,
+                `🔥 Серия: ${maxStreak}`,
+                ``,
+                `💀 Попробуй побить мой рекорд!`,
+              ].join("\n");
+              
+              const shareUrl = `https://t.me/truecrimetg_bot/app`;
+              
+              // Используем Telegram WebApp API для шаринга
+              if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+                try {
+                  // Попробуем использовать switchInlineQuery для шаринга
+                  window.Telegram.WebApp.switchInlineQuery(
+                    `${shareText}\n\n👉 ${shareUrl}`,
+                    ["users", "groups", "channels"]
+                  );
+                } catch {
+                  // Fallback: копируем в буфер
+                  await navigator.clipboard.writeText(`${shareText}\n\n👉 ${shareUrl}`);
+                  haptic.success();
+                }
+              } else {
+                // Web fallback
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: quizTitle,
+                      text: shareText,
+                      url: shareUrl,
+                    });
+                  } catch {
+                    // User cancelled or error
+                  }
+                } else {
+                  await navigator.clipboard.writeText(`${shareText}\n\n👉 ${shareUrl}`);
+                }
+              }
+            }}
+            className="relative overflow-hidden h-14 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-bold text-lg shadow-xl shadow-emerald-500/20"
+          >
+            <motion.div
+              animate={{ x: ["-200%", "200%"] }}
+              transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+            />
+            <span className="relative flex items-center justify-center gap-2">
+              📤 Поделиться результатом
+            </span>
+          </motion.button>
+
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => {
@@ -958,75 +1026,89 @@ export default function QuizPlayPage() {
             <div className="absolute -inset-[1px] rounded-[28px] bg-[conic-gradient(from_0deg,#8b5cf6,#ec4899,#8b5cf6)] opacity-60 animate-spin-slow gpu-accelerated" />
             
             <div className="relative overflow-hidden rounded-[27px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1025]">
-              {/* Question number badge */}
-              <div className="absolute top-4 right-4">
-                <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
-                  <span className="text-xs font-bold text-white/60">{currentIndex + 1}</span>
-                  <span className="text-white/30">/</span>
-                  <span className="text-xs text-white/40">{questions.length}</span>
-                </div>
-              </div>
-              
               {/* Background effects - optimized for mobile */}
               <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full bg-violet-600/15 blur-2xl" />
               <div className="absolute -right-16 -bottom-16 h-32 w-32 rounded-full bg-pink-600/10 blur-2xl" />
               
               <div className="relative p-6 pt-5">
-                {/* Category */}
-                {/* Quiz title + Difficulty + Attempt info */}
+                {/* ═══ TOP ROW: Quiz Info ═══ */}
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 }}
+                  className="flex items-center justify-between mb-4"
+                >
+                  {/* Left side: Quiz title */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/30 to-violet-600/20 shadow-lg shadow-violet-500/10">
+                      <span className="text-sm">🔍</span>
+                    </div>
+                    <span className="text-sm font-semibold text-white/80">{quizTitle}</span>
+                  </div>
+                  
+                  {/* Right side: Question counter */}
+                  <div className="flex items-center gap-1 rounded-full bg-white/5 border border-white/10 px-3 py-1.5">
+                    <span className="text-sm font-bold text-white">{currentIndex + 1}</span>
+                    <span className="text-white/30">/</span>
+                    <span className="text-sm text-white/40">{questions.length}</span>
+                  </div>
+                </motion.div>
+                
+                {/* ═══ BADGES ROW: Difficulty + Attempt ═══ */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="flex flex-wrap items-center gap-2 mb-5"
+                  className="flex items-center gap-2 mb-5"
                 >
-                  {/* Quiz title */}
-                  <div className="inline-flex items-center gap-2 rounded-xl bg-violet-500/20 border border-violet-500/30 px-3 py-1.5">
-                    <span>🔍</span>
-                    <span className="text-sm font-semibold text-violet-300">{quizTitle}</span>
-                  </div>
-                  
-                  {/* Difficulty indicator */}
-                  <div className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 border ${
+                  {/* Difficulty badge with stars */}
+                  <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
                     currentQuestion.difficulty === 3 
-                      ? "bg-red-500/20 border-red-500/30" 
+                      ? "bg-gradient-to-r from-red-500/20 to-orange-500/20 shadow-lg shadow-red-500/10" 
                       : currentQuestion.difficulty === 2 
-                        ? "bg-amber-500/20 border-amber-500/30" 
-                        : "bg-emerald-500/20 border-emerald-500/30"
+                        ? "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 shadow-lg shadow-amber-500/10" 
+                        : "bg-gradient-to-r from-emerald-500/20 to-green-500/20 shadow-lg shadow-emerald-500/10"
                   }`}>
                     {[1, 2, 3].map((d) => (
-                      <span 
-                        key={d} 
-                        className={`text-xs ${
+                      <motion.span 
+                        key={d}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.15 + d * 0.05, type: "spring", stiffness: 400 }}
+                        className={`text-sm ${
                           d <= (currentQuestion.difficulty ?? 1) 
                             ? currentQuestion.difficulty === 3 
-                              ? "text-red-400" 
+                              ? "text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]" 
                               : currentQuestion.difficulty === 2 
-                                ? "text-amber-400" 
-                                : "text-emerald-400"
-                            : "text-white/20"
+                                ? "text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]" 
+                                : "text-emerald-400 drop-shadow-[0_0_4px_rgba(16,185,129,0.5)]"
+                            : "text-white/15"
                         }`}
                       >
                         ★
-                      </span>
+                      </motion.span>
                     ))}
-                    <span className={`text-xs font-semibold ml-1 ${
+                    <span className={`text-xs font-bold ml-0.5 ${
                       currentQuestion.difficulty === 3 
-                        ? "text-red-400" 
+                        ? "text-red-300" 
                         : currentQuestion.difficulty === 2 
-                          ? "text-amber-400" 
-                          : "text-emerald-400"
+                          ? "text-amber-300" 
+                          : "text-emerald-300"
                     }`}>
                       {currentQuestion.difficulty === 3 ? "Сложный" : currentQuestion.difficulty === 2 ? "Средний" : "Лёгкий"}
                     </span>
                   </div>
                   
-                  {/* Attempt number (if > 1) */}
+                  {/* Attempt badge (if > 1) */}
                   {attemptNumber > 1 && (
-                    <div className="inline-flex items-center gap-1 rounded-xl bg-white/10 border border-white/20 px-3 py-1.5">
-                      <span className="text-xs text-white/60">Попытка</span>
-                      <span className="text-xs font-bold text-white">{attemptNumber}</span>
-                    </div>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-slate-500/20 to-slate-600/20 px-3 py-1.5"
+                    >
+                      <span className="text-xs text-white/50">×{attemptNumber}</span>
+                    </motion.div>
                   )}
                 </motion.div>
 
@@ -1181,7 +1263,7 @@ export default function QuizPlayPage() {
                                     : "text-white/30"
                               }`}
                             >
-                              {selectedOption === -1 ? "0" : `+${answerResult.scoreDelta}`}
+                              {selectedOption === -1 ? "0" : answerResult.scoreDelta > 0 ? `+${answerResult.scoreDelta}` : answerResult.scoreDelta}
                             </p>
                           </div>
                         </div>

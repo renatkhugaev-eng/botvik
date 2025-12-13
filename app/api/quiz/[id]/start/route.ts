@@ -227,6 +227,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   });
 }
 
+// Fisher-Yates shuffle algorithm
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 // Helper function to get questions with shuffled options
 async function getQuestions(quizId: number) {
   const questions = await prisma.question.findMany({
@@ -246,14 +256,15 @@ async function getQuestions(quizId: number) {
     },
   });
 
+  // Shuffle options for each question to prevent memorization
   return questions.map((q) => ({
     id: q.id,
     text: q.text,
     order: q.order,
     difficulty: q.difficulty,
-    options: q.answers.map((option) => ({
+    options: shuffleArray(q.answers.map((option) => ({
       id: option.id,
       text: option.text,
-    })),
+    }))),
   }));
 }

@@ -11,6 +11,10 @@ type TelegramWebApp = {
     disableVerticalSwipes?: () => void;
     enableVerticalSwipes?: () => void;
     isVerticalSwipesEnabled?: boolean;
+    // Share functionality
+    switchInlineQuery?: (query: string, chatTypes?: string[]) => void;
+    openTelegramLink?: (url: string) => void;
+    shareToStory?: (mediaUrl: string, params?: { text?: string; widget_link?: { url: string; name?: string } }) => void;
   };
 };
 
