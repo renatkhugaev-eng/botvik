@@ -182,10 +182,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
-  // Получаем сессию с attemptNumber
+  // Получаем сессию с attemptNumber и server-side time tracking
   const session = await prisma.quizSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, quizId: true, finishedAt: true, totalScore: true, attemptNumber: true },
+    select: { 
+      id: true, 
+      quizId: true, 
+      finishedAt: true, 
+      totalScore: true, 
+      attemptNumber: true,
+      currentQuestionIndex: true,
+      currentQuestionStartedAt: true,
+    },
   });
 
   if (!session || session.quizId !== quizId) {
@@ -196,10 +204,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "session_finished" }, { status: 400 });
   }
 
+  // Проверяем, не был ли уже дан ответ на этот вопрос
+  const existingAnswer = await prisma.answer.findUnique({
+    where: { sessionId_questionId: { sessionId, questionId } },
+  });
+
+  if (existingAnswer) {
+    return NextResponse.json({ error: "already_answered" }, { status: 400 });
+  }
+
   // Получаем вопрос с difficulty
   const question = await prisma.question.findUnique({
     where: { id: questionId },
-    select: { id: true, quizId: true, difficulty: true },
+    select: { id: true, quizId: true, difficulty: true, order: true },
   });
 
   if (!question || question.quizId !== quizId) {
@@ -215,12 +232,26 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "correct_option_missing" }, { status: 400 });
   }
 
+  // ═══ SERVER-SIDE TIME CALCULATION ═══
+  const now = new Date();
+  let serverTimeSpentMs = timeSpentMs; // Fallback на клиентское время
+  
+  if (session.currentQuestionStartedAt) {
+    serverTimeSpentMs = now.getTime() - session.currentQuestionStartedAt.getTime();
+    
+    // Защита от отрицательного времени (в случае проблем с синхронизацией)
+    if (serverTimeSpentMs < 0) serverTimeSpentMs = timeSpentMs;
+    
+    // Максимум 60 секунд (защита от зависших сессий)
+    if (serverTimeSpentMs > 60000) serverTimeSpentMs = 60000;
+  }
+
   const isCorrect = correctOption.id === optionId;
   
-  // Рассчитываем очки с новой формулой
+  // Рассчитываем очки с серверным временем
   const { scoreDelta, breakdown } = calculateScore({
     isCorrect,
-    timeSpentMs,
+    timeSpentMs: serverTimeSpentMs,
     streak,
     difficulty: question.difficulty,
     attemptNumber: session.attemptNumber,
@@ -233,18 +264,20 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         questionId,
         optionId,
         isCorrect,
-        timeSpentMs,
+        timeSpentMs: serverTimeSpentMs, // Сохраняем серверное время
         scoreDelta,
       },
     });
 
-    // Обновляем totalScore, но не даём уйти в минус
+    // Обновляем totalScore и переходим к следующему вопросу
     const newScore = Math.max(0, session.totalScore + scoreDelta);
     
     const updatedSession = await tx.quizSession.update({
       where: { id: sessionId },
       data: {
         totalScore: newScore,
+        currentQuestionIndex: session.currentQuestionIndex + 1,
+        currentQuestionStartedAt: now, // Время начала следующего вопроса
       },
       select: { totalScore: true },
     });
@@ -256,6 +289,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     correct: isCorrect,
     scoreDelta,
     totalScore,
-    breakdown,
+    breakdown: {
+      ...breakdown,
+      serverTimeSpentMs, // Показываем серверное время для прозрачности
+      clientTimeSpentMs: timeSpentMs,
+    },
   });
 }

@@ -82,16 +82,18 @@ model AnswerOption {
 }
 
 model QuizSession {
-  id            Int       @id @default(autoincrement())
-  userId        Int
-  quizId        Int
-  startedAt     DateTime  @default(now())
-  finishedAt    DateTime?
-  totalScore    Int       @default(0)
-  attemptNumber Int       @default(1) // Номер попытки пользователя для этого квиза
-  user          User      @relation(fields: [userId], references: [id])
-  quiz          Quiz      @relation(fields: [quizId], references: [id])
-  answers       Answer[]
+  id                       Int       @id @default(autoincrement())
+  userId                   Int
+  quizId                   Int
+  startedAt                DateTime  @default(now())
+  finishedAt               DateTime?
+  totalScore               Int       @default(0)
+  attemptNumber            Int       @default(1) // Номер попытки пользователя для этого квиза
+  currentQuestionIndex     Int       @default(0) // Текущий индекс вопроса (0-based)
+  currentQuestionStartedAt DateTime? // Когда был показан текущий вопрос (server-side)
+  user                     User      @relation(fields: [userId], references: [id])
+  quiz                     Quiz      @relation(fields: [quizId], references: [id])
+  answers                  Answer[]
   
   @@index([userId, quizId])
 }
@@ -104,9 +106,13 @@ model Answer {
   isCorrect   Boolean
   timeSpentMs Int
   scoreDelta  Int
+  createdAt   DateTime     @default(now())
   session     QuizSession  @relation(fields: [sessionId], references: [id])
   question    Question     @relation("QuestionResponses", fields: [questionId], references: [id])
   option      AnswerOption @relation(fields: [optionId], references: [id])
+  
+  @@unique([sessionId, questionId]) // Защита от повторных ответов на один вопрос
+  @@index([sessionId])
 }
 
 model LeaderboardEntry {

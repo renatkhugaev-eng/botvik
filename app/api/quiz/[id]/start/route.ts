@@ -78,18 +78,34 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const existingSession = await prisma.quizSession.findFirst({
     where: { quizId, userId: user.id, finishedAt: null },
     orderBy: { startedAt: "desc" },
+    select: {
+      id: true,
+      attemptNumber: true,
+      totalScore: true,
+      currentQuestionIndex: true,
+    },
   });
 
-  // Если есть незавершённая сессия - возвращаем её
+  // Если есть незавершённая сессия - возвращаем её и обновляем время вопроса
   if (existingSession) {
     const questions = await getQuestions(quizId);
+    const now = new Date();
+    
+    // Обновляем время начала текущего вопроса (для случая если пользователь вернулся)
+    await prisma.quizSession.update({
+      where: { id: existingSession.id },
+      data: { currentQuestionStartedAt: now },
+    });
+    
     return NextResponse.json({
       sessionId: existingSession.id,
       quizId,
       attemptNumber: existingSession.attemptNumber,
       totalQuestions: questions.length,
       totalScore: existingSession.totalScore,
+      currentQuestionIndex: existingSession.currentQuestionIndex,
       questions,
+      serverTime: now.toISOString(),
     });
   }
 
@@ -148,12 +164,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const attemptNumber = totalAttempts + 1;
 
-  // Создаём новую сессию
+  // Создаём новую сессию с server-side time tracking
+  const now = new Date();
   const session = await prisma.quizSession.create({
     data: { 
       quizId, 
       userId: user.id,
       attemptNumber,
+      currentQuestionIndex: 0,
+      currentQuestionStartedAt: now, // Время начала первого вопроса
     },
   });
 
@@ -167,6 +186,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     totalQuestions: questions.length,
     totalScore: session.totalScore,
     questions,
+    serverTime: now.toISOString(), // Для синхронизации клиента
   });
 }
 

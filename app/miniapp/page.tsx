@@ -63,6 +63,10 @@ export default function MiniAppPage() {
   const [startError, setStartError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   
+  // Rate limit countdown timer
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
+  const [rateLimitQuizId, setRateLimitQuizId] = useState<number | null>(null);
+  
   // Subscription check
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
@@ -188,6 +192,25 @@ export default function MiniAppPage() {
     }
   }, [session, checkSubscription]);
 
+  // Rate limit countdown timer
+  useEffect(() => {
+    if (rateLimitCountdown === null || rateLimitCountdown <= 0) return;
+    
+    const timer = setInterval(() => {
+      setRateLimitCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          setRateLimitQuizId(null);
+          setStartError(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [rateLimitCountdown]);
+
   const handleStart = useCallback(
     async (id: number) => {
       if (session.status !== "ready") return;
@@ -212,9 +235,12 @@ export default function MiniAppPage() {
         if (res.status === 429) {
           const data = await res.json();
           if (data.error === "rate_limited") {
-            setStartError(`Подожди ${data.waitSeconds ?? 60} сек перед новой попыткой`);
+            // Запускаем countdown timer
+            setRateLimitCountdown(data.waitSeconds ?? 60);
+            setRateLimitQuizId(id);
+            setStartError("rate_limited");
           } else if (data.error === "daily_limit_reached") {
-            setStartError(`Лимит попыток на сегодня исчерпан (${data.attemptsToday}/${data.maxDaily})`);
+            setStartError(`Лимит попыток: ${data.attemptsToday}/${data.maxDaily}`);
           } else {
             setStartError("Слишком много попыток");
           }
@@ -568,6 +594,8 @@ export default function MiniAppPage() {
               error={error}
               startingId={startingId}
               startError={startError}
+              rateLimitCountdown={rateLimitCountdown}
+              rateLimitQuizId={rateLimitQuizId}
               onStart={handleStart}
             />
           </motion.div>
@@ -749,10 +777,12 @@ type QuizViewProps = {
   error: string | null;
   startingId: number | null;
   startError: string | null;
+  rateLimitCountdown: number | null;
+  rateLimitQuizId: number | null;
   onStart: (id: number) => void;
 };
 
-function QuizView({ quizzes, loading, error, startingId, startError, onStart }: QuizViewProps) {
+function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCountdown, rateLimitQuizId, onStart }: QuizViewProps) {
   const router = useRouter();
 
   // Demo data
@@ -845,24 +875,53 @@ function QuizView({ quizzes, loading, error, startingId, startError, onStart }: 
                     </p>
 
                     {/* Button */}
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      disabled={!!startingId && startingId !== q.id}
-                      onClick={() => {
-                        haptic.heavy();
-                        onStart(q.id);
-                      }}
-                      className={`mt-3 flex h-9 w-full items-center justify-center gap-1 rounded-xl bg-white text-[13px] font-bold ${c.text} disabled:opacity-50`}
-                    >
-                      {startingId === q.id ? "..." : "▶ Играть"}
-                    </motion.button>
+                    {rateLimitQuizId === q.id && rateLimitCountdown ? (
+                      // Countdown Timer
+                      <div className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          className="h-4 w-4"
+                        >
+                          <svg className="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 6v6l4 2" />
+                          </svg>
+                        </motion.div>
+                        <span className="text-[13px] font-bold text-amber-400 tabular-nums">
+                          {rateLimitCountdown}с
+                        </span>
+                      </div>
+                    ) : (
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        disabled={!!startingId && startingId !== q.id}
+                        onClick={() => {
+                          haptic.heavy();
+                          onStart(q.id);
+                        }}
+                        className={`mt-3 flex h-9 w-full items-center justify-center gap-1 rounded-xl bg-white text-[13px] font-bold ${c.text} disabled:opacity-50`}
+                      >
+                        {startingId === q.id ? "..." : "▶ Играть"}
+                      </motion.button>
+                    )}
                   </motion.div>
                 );
               })}
             </div>
           </div>
         )}
-        {startError && <p className="text-center text-[13px] text-red-500">{startError}</p>}
+        {/* Error message (not for rate_limited - it shows timer on card) */}
+        {startError && startError !== "rate_limited" && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2"
+          >
+            <span className="text-red-400">⚠️</span>
+            <p className="text-[13px] font-medium text-red-400">{startError}</p>
+          </motion.div>
+        )}
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────
