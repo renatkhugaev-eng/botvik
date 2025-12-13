@@ -11,10 +11,13 @@ type StartResponse = {
   quizId: number;
   totalQuestions: number;
   totalScore: number;
+  attemptNumber: number;           // Номер попытки
+  remainingAttempts?: number;      // Оставшиеся попытки сегодня
   questions: {
     id: number;
     text: string;
     order: number;
+    difficulty: number;            // 1 = легкий, 2 = средний, 3 = сложный
     options: { id: number; text: string }[];
   }[];
 };
@@ -25,10 +28,22 @@ type AnswerResponse = {
   totalScore: number;
   breakdown?: {
     base: number;
+    difficultyMultiplier: number;  // Множитель сложности
+    attemptMultiplier: number;     // Decay множитель попытки
     timeBonus: number;
     streakBonus: number;
+    penalty: number;               // Штраф за неправильный ответ
     timeSpentMs: number;
+    isSuspicious: boolean;         // Подозрительно быстрый ответ
   };
+};
+
+type RateLimitError = {
+  error: "rate_limited" | "daily_limit_reached";
+  message: string;
+  waitSeconds?: number;
+  attemptsToday?: number;
+  maxDaily?: number;
 };
 
 const spring = { type: "spring", stiffness: 500, damping: 30 };
@@ -58,6 +73,9 @@ export default function QuizPlayPage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
   const [showConfetti, setShowConfetti] = useState(false);
   const [timeoutHandled, setTimeoutHandled] = useState(false);
+  const [attemptNumber, setAttemptNumber] = useState(1);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitError | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -202,12 +220,22 @@ export default function QuizPlayPage() {
           body: JSON.stringify({ userId: session.user.id }),
         });
 
+        // Обработка rate limiting
+        if (res.status === 429) {
+          const rateLimitData = (await res.json()) as RateLimitError;
+          setRateLimitInfo(rateLimitData);
+          setLoading(false);
+          return;
+        }
+
         if (!res.ok) throw new Error("failed_to_start");
 
         const data = (await res.json()) as StartResponse;
         setQuestions(data.questions);
         setSessionId(data.sessionId);
         setTotalScore(data.totalScore ?? 0);
+        setAttemptNumber(data.attemptNumber ?? 1);
+        setRemainingAttempts(data.remainingAttempts ?? null);
       } catch (err) {
         console.error("Failed to start quiz session", err);
         setError("Не удалось начать викторину");
@@ -341,6 +369,101 @@ export default function QuizPlayPage() {
     );
   }
 
+  // Rate Limit Screen
+  if (rateLimitInfo) {
+    const isRateLimited = rateLimitInfo.error === "rate_limited";
+    const isDailyLimit = rateLimitInfo.error === "daily_limit_reached";
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center justify-center min-h-[60vh]"
+      >
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a0a0f] to-[#1a1a2e] p-8 text-center max-w-sm mx-auto">
+          {/* Background glow */}
+          <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-amber-500/20 blur-[60px]" />
+          <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-violet-500/20 blur-[60px]" />
+          
+          <div className="relative">
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-7xl mb-6"
+            >
+              {isRateLimited ? "⏱️" : "🔒"}
+            </motion.div>
+            
+            <h2 className="text-2xl font-bold text-white mb-3">
+              {isRateLimited ? "Подожди немного" : "Лимит на сегодня"}
+            </h2>
+            
+            <p className="text-white/60 mb-6 leading-relaxed">
+              {rateLimitInfo.message}
+            </p>
+            
+            {isRateLimited && rateLimitInfo.waitSeconds && (
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-4 py-2">
+                  <span className="text-amber-400 font-bold text-lg">
+                    {rateLimitInfo.waitSeconds} сек
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {isDailyLimit && (
+              <div className="mb-6 space-y-2">
+                <div className="flex items-center justify-center gap-2 text-white/40 text-sm">
+                  <span>Попыток использовано:</span>
+                  <span className="font-bold text-white">{rateLimitInfo.attemptsToday}/{rateLimitInfo.maxDaily}</span>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-violet-500 to-pink-500"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="flex flex-col gap-3">
+              {isRateLimited && (
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setRateLimitInfo(null);
+                    setLoading(true);
+                    window.location.reload();
+                  }}
+                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold"
+                >
+                  Попробовать снова
+                </motion.button>
+              )}
+              
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("/miniapp/leaderboard?quizId=" + quizId)}
+                className="px-8 py-4 rounded-2xl bg-white/10 text-white font-semibold"
+              >
+                🏆 Посмотреть лидерборд
+              </motion.button>
+              
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("/miniapp")}
+                className="px-8 py-4 rounded-2xl text-white/60 font-medium"
+              >
+                ← На главную
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   // No questions
   if (!currentQuestion && !finished) {
     return (
@@ -424,20 +547,26 @@ export default function QuizPlayPage() {
                     }}
                     className="relative"
                   >
-                    {/* Glow effect for filled stars */}
+                    {/* Diffused glow effect */}
                     {star <= starCount && (
                       <motion.div
-                        animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.8, 0.5] }}
-                        transition={{ duration: 2, repeat: Infinity, delay: star * 0.1 }}
-                        className="absolute inset-0 bg-amber-400 rounded-full blur-lg"
-                      />
+                        animate={{ 
+                          opacity: [0.5, 0.9, 0.5],
+                          scale: [1.2, 1.5, 1.2],
+                        }}
+                        transition={{ duration: 2, repeat: Infinity, delay: star * 0.1, ease: "easeInOut" }}
+                        className="absolute inset-0"
+                        style={{ filter: "blur(8px) brightness(1.8) saturate(2)" }}
+                      >
+                        <img src="/icons/star.png" alt="" className="h-12 w-12 object-contain" />
+                      </motion.div>
                     )}
                     <img 
                       src="/icons/star.png" 
                       alt="" 
-                      className={`relative h-12 w-12 object-contain transition-all ${
+                      className={`relative h-12 w-12 object-contain ${
                         star <= starCount 
-                          ? "drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" 
+                          ? "" 
                           : "opacity-30 grayscale"
                       }`}
                     />
@@ -753,14 +882,61 @@ export default function QuizPlayPage() {
               
               <div className="relative p-6 pt-5">
                 {/* Category */}
+                {/* Quiz title + Difficulty + Attempt info */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-violet-500/20 border border-violet-500/30 px-3 py-1.5 mb-5"
+                  className="flex flex-wrap items-center gap-2 mb-5"
                 >
-                  <span>🔍</span>
-                  <span className="text-sm font-semibold text-violet-300">{quizTitle}</span>
+                  {/* Quiz title */}
+                  <div className="inline-flex items-center gap-2 rounded-xl bg-violet-500/20 border border-violet-500/30 px-3 py-1.5">
+                    <span>🔍</span>
+                    <span className="text-sm font-semibold text-violet-300">{quizTitle}</span>
+                  </div>
+                  
+                  {/* Difficulty indicator */}
+                  <div className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 border ${
+                    currentQuestion.difficulty === 3 
+                      ? "bg-red-500/20 border-red-500/30" 
+                      : currentQuestion.difficulty === 2 
+                        ? "bg-amber-500/20 border-amber-500/30" 
+                        : "bg-emerald-500/20 border-emerald-500/30"
+                  }`}>
+                    {[1, 2, 3].map((d) => (
+                      <span 
+                        key={d} 
+                        className={`text-xs ${
+                          d <= (currentQuestion.difficulty ?? 1) 
+                            ? currentQuestion.difficulty === 3 
+                              ? "text-red-400" 
+                              : currentQuestion.difficulty === 2 
+                                ? "text-amber-400" 
+                                : "text-emerald-400"
+                            : "text-white/20"
+                        }`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                    <span className={`text-xs font-semibold ml-1 ${
+                      currentQuestion.difficulty === 3 
+                        ? "text-red-400" 
+                        : currentQuestion.difficulty === 2 
+                          ? "text-amber-400" 
+                          : "text-emerald-400"
+                    }`}>
+                      {currentQuestion.difficulty === 3 ? "Сложный" : currentQuestion.difficulty === 2 ? "Средний" : "Лёгкий"}
+                    </span>
+                  </div>
+                  
+                  {/* Attempt number (if > 1) */}
+                  {attemptNumber > 1 && (
+                    <div className="inline-flex items-center gap-1 rounded-xl bg-white/10 border border-white/20 px-3 py-1.5">
+                      <span className="text-xs text-white/60">Попытка</span>
+                      <span className="text-xs font-bold text-white">{attemptNumber}</span>
+                    </div>
+                  )}
                 </motion.div>
 
                 {/* Question */}

@@ -17,12 +17,23 @@ type SummaryResponse = {
     lastName: string | null;
   };
   stats: {
+    totalScore: number;              // Сумма leaderboard scores (главная метрика)
     totalSessions: number;
     totalQuizzesPlayed: number;
     totalCorrectAnswers: number;
-    totalScore: number;
-    bestScoreByQuiz: { quizId: number; title: string; bestScore: number }[];
+    totalAnswers: number;            // Для точного расчёта accuracy
+    globalRank: number | null;       // Позиция среди всех игроков
+    totalPlayers: number;
+    bestScoreByQuiz: { 
+      quizId: number; 
+      title: string; 
+      bestSessionScore: number;      // Лучший результат за 1 сессию
+      leaderboardScore: number;      // Взвешенный результат
+      attempts: number;              // Количество попыток
+    }[];
     lastSession: { quizId: number; quizTitle: string; score: number; finishedAt: string | Date } | null;
+    todayAttempts: { quizId: number; attempts: number; remaining: number }[];
+    maxDailyAttempts: number;
   };
 };
 
@@ -363,9 +374,16 @@ export default function ProfilePage() {
   const rank = getRank(data.stats.totalScore);
   const nextRank = ranks[rank.level] ?? null;
   const progress = nextRank ? Math.min((data.stats.totalScore / nextRank.min) * 100, 100) : 100;
-  const accuracy = data.stats.totalSessions > 0 
-    ? Math.round((data.stats.totalCorrectAnswers / Math.max(data.stats.totalSessions * 10, 1)) * 100) 
+  
+  // Точный расчёт accuracy на основе реального количества ответов
+  const accuracy = data.stats.totalAnswers > 0 
+    ? Math.round((data.stats.totalCorrectAnswers / data.stats.totalAnswers) * 100) 
     : 0;
+  
+  // Глобальный рейтинг
+  const globalRankText = data.stats.globalRank 
+    ? `#${data.stats.globalRank} из ${data.stats.totalPlayers}` 
+    : null;
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -610,6 +628,30 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
+                
+                {/* Global Rank */}
+                {globalRankText && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.9 }}
+                    className="mt-4 flex items-center justify-center gap-2"
+                  >
+                    <span className="text-lg">🏆</span>
+                    <span className="text-[13px] font-semibold text-white/60">
+                      Место в общем рейтинге:
+                    </span>
+                    <span className={`text-[14px] font-bold ${
+                      data.stats.globalRank && data.stats.globalRank <= 3 
+                        ? "text-amber-400" 
+                        : data.stats.globalRank && data.stats.globalRank <= 10 
+                          ? "text-violet-400" 
+                          : "text-white"
+                    }`}>
+                      {globalRankText}
+                    </span>
+                  </motion.div>
+                )}
               </motion.div>
             </div>
           </div>
@@ -855,10 +897,15 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{item.title}</p>
-                      <p className="text-[12px] text-slate-400">Нажми для повтора</p>
+                      <p className="text-[12px] text-slate-400">
+                        {item.attempts} {item.attempts === 1 ? "попытка" : item.attempts < 5 ? "попытки" : "попыток"}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display text-[22px] font-black text-[#1a1a2e]">{item.bestScore}</p>
+                      <p className="font-display text-[22px] font-black text-[#1a1a2e]">{item.leaderboardScore}</p>
+                      {item.bestSessionScore !== item.leaderboardScore && (
+                        <p className="text-[10px] text-slate-400">рекорд: {item.bestSessionScore}</p>
+                      )}
                     </div>
                     <svg 
                       className="h-5 w-5 text-slate-300" 

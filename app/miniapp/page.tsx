@@ -207,6 +207,21 @@ export default function MiniAppPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: session.user.id }),
         });
+        
+        // Обработка rate limiting
+        if (res.status === 429) {
+          const data = await res.json();
+          if (data.error === "rate_limited") {
+            setStartError(`Подожди ${data.waitSeconds ?? 60} сек перед новой попыткой`);
+          } else if (data.error === "daily_limit_reached") {
+            setStartError(`Лимит попыток на сегодня исчерпан (${data.attemptsToday}/${data.maxDaily})`);
+          } else {
+            setStartError("Слишком много попыток");
+          }
+          haptic.warning();
+          return;
+        }
+        
         if (!res.ok) throw new Error();
         const { sessionId } = await res.json();
         router.push(`/miniapp/quiz/${id}?sessionId=${sessionId}`);

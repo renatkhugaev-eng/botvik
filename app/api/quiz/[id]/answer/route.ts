@@ -13,30 +13,68 @@ type AnswerRequestBody = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FAIR SCORING SYSTEM (Kahoot-style)
+   FAIR SCORING SYSTEM v2.0
    
-   Формула: POINTS = BASE + TIME_BONUS + STREAK_BONUS
+   Формула: POINTS = (BASE × DIFFICULTY × ATTEMPT_DECAY) + TIME_BONUS + STREAK_BONUS
    
+   Компоненты:
    - BASE: 100 очков за правильный ответ
+   - DIFFICULTY: 1.0x (легкий) → 1.5x (средний) → 2.0x (сложный)
+   - ATTEMPT_DECAY: попытка 1 = 100%, попытка 2 = 70%, попытка 3 = 50%...
    - TIME_BONUS: 0-50 очков (линейно убывает от 0 до 15 сек)
-   - STREAK_BONUS: +10 очков за каждый ответ в серии (макс +30)
+   - STREAK_BONUS: +10 очков за каждый ответ в серии (макс +50)
+   - WRONG_PENALTY: -15 очков за неправильный ответ (с учётом attempt decay)
    
-   Примеры:
-   - Ответ за 1 сек, без серии: 100 + 50 + 0 = 150
-   - Ответ за 7 сек, серия 3: 100 + 27 + 30 = 157
-   - Ответ за 14 сек, серия 1: 100 + 3 + 10 = 113
-   - Неправильный ответ: 0
+   Anti-abuse:
+   - Минимальное время ответа: 400ms (защита от ботов)
+   - Максимальное время не ограничено (но бонус = 0)
+   
+   Примеры (попытка 1, средняя сложность):
+   - Ответ за 1 сек, без серии: (100 × 1.5 × 1.0) + 48 + 0 = 198
+   - Ответ за 7 сек, серия 3: (100 × 1.5 × 1.0) + 27 + 30 = 207
+   - Неправильный ответ: -15 × 1.0 = -15 (но минимум 0 за сессию)
+   
+   Примеры (попытка 3, сложный вопрос):
+   - Ответ за 2 сек, серия 5: (100 × 2.0 × 0.5) + 43 + 50 = 193
 ═══════════════════════════════════════════════════════════════════════════ */
 
-const BASE_SCORE = 100;        // Базовые очки за правильный ответ
-const MAX_TIME_BONUS = 50;     // Максимальный бонус за скорость
-const TIME_LIMIT_MS = 15000;   // Лимит времени (15 сек)
-const STREAK_BONUS = 10;       // Бонус за каждый ответ в серии
-const MAX_STREAK_BONUS = 30;   // Максимальный бонус за серию
+const BASE_SCORE = 100;                    // Базовые очки за правильный ответ
+const MAX_TIME_BONUS = 50;                 // Максимальный бонус за скорость
+const TIME_LIMIT_MS = 15000;               // Лимит времени для бонуса (15 сек)
+const STREAK_BONUS_PER = 10;               // Бонус за каждый ответ в серии
+const MAX_STREAK_BONUS = 50;               // Максимальный бонус за серию
+const WRONG_PENALTY = 15;                  // Штраф за неправильный ответ
+const MIN_ANSWER_TIME_MS = 400;            // Минимальное время (защита от ботов)
+
+// Множители сложности: 1 = легкий, 2 = средний, 3 = сложный
+const DIFFICULTY_MULTIPLIERS: Record<number, number> = {
+  1: 1.0,
+  2: 1.5,
+  3: 2.0,
+};
+
+// Decay множители для попыток (чем больше попыток - тем меньше очков)
+const ATTEMPT_DECAY: Record<number, number> = {
+  1: 1.0,   // Первая попытка - 100%
+  2: 0.7,   // Вторая попытка - 70%
+  3: 0.5,   // Третья попытка - 50%
+  4: 0.35,  // Четвёртая попытка - 35%
+  5: 0.25,  // Пятая попытка - 25%
+};
+
+function getAttemptMultiplier(attemptNumber: number): number {
+  if (attemptNumber <= 0) return 1.0;
+  if (attemptNumber > 5) return 0.2; // После 5 попытки - только 20%
+  return ATTEMPT_DECAY[attemptNumber] ?? 0.2;
+}
+
+function getDifficultyMultiplier(difficulty: number): number {
+  return DIFFICULTY_MULTIPLIERS[difficulty] ?? 1.0;
+}
 
 function calculateTimeBonus(timeSpentMs: number): number {
-  // Если ответил мгновенно или очень быстро — максимум
-  if (timeSpentMs <= 500) return MAX_TIME_BONUS;
+  // Если ответил слишком быстро - подозрительно, но бонус даём
+  if (timeSpentMs < MIN_ANSWER_TIME_MS) return MAX_TIME_BONUS;
   
   // Если превысил лимит — 0
   if (timeSpentMs >= TIME_LIMIT_MS) return 0;
@@ -50,8 +88,75 @@ function calculateTimeBonus(timeSpentMs: number): number {
 
 function calculateStreakBonus(streak: number): number {
   if (streak <= 0) return 0;
-  return Math.min(streak * STREAK_BONUS, MAX_STREAK_BONUS);
+  return Math.min(streak * STREAK_BONUS_PER, MAX_STREAK_BONUS);
 }
+
+function calculateScore(params: {
+  isCorrect: boolean;
+  timeSpentMs: number;
+  streak: number;
+  difficulty: number;
+  attemptNumber: number;
+}): { scoreDelta: number; breakdown: ScoreBreakdown } {
+  const { isCorrect, timeSpentMs, streak, difficulty, attemptNumber } = params;
+  
+  const difficultyMult = getDifficultyMultiplier(difficulty);
+  const attemptMult = getAttemptMultiplier(attemptNumber);
+  
+  // Подозрительно быстрый ответ - помечаем но не блокируем
+  const isSuspicious = timeSpentMs < MIN_ANSWER_TIME_MS;
+  
+  if (!isCorrect) {
+    // Штраф за неправильный ответ (с учётом attempt decay)
+    const penalty = Math.round(WRONG_PENALTY * attemptMult);
+    return {
+      scoreDelta: -penalty,
+      breakdown: {
+        base: 0,
+        difficultyMultiplier: difficultyMult,
+        attemptMultiplier: attemptMult,
+        timeBonus: 0,
+        streakBonus: 0,
+        penalty,
+        timeSpentMs,
+        isSuspicious,
+      },
+    };
+  }
+  
+  // Правильный ответ
+  const baseWithDifficulty = Math.round(BASE_SCORE * difficultyMult);
+  const baseWithDecay = Math.round(baseWithDifficulty * attemptMult);
+  const timeBonus = Math.round(calculateTimeBonus(timeSpentMs) * attemptMult);
+  const streakBonus = Math.round(calculateStreakBonus(streak) * attemptMult);
+  
+  const scoreDelta = baseWithDecay + timeBonus + streakBonus;
+  
+  return {
+    scoreDelta,
+    breakdown: {
+      base: baseWithDecay,
+      difficultyMultiplier: difficultyMult,
+      attemptMultiplier: attemptMult,
+      timeBonus,
+      streakBonus,
+      penalty: 0,
+      timeSpentMs,
+      isSuspicious,
+    },
+  };
+}
+
+type ScoreBreakdown = {
+  base: number;
+  difficultyMultiplier: number;
+  attemptMultiplier: number;
+  timeBonus: number;
+  streakBonus: number;
+  penalty: number;
+  timeSpentMs: number;
+  isSuspicious: boolean;
+};
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -77,9 +182,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
+  // Получаем сессию с attemptNumber
   const session = await prisma.quizSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, quizId: true, finishedAt: true, totalScore: true },
+    select: { id: true, quizId: true, finishedAt: true, totalScore: true, attemptNumber: true },
   });
 
   if (!session || session.quizId !== quizId) {
@@ -90,9 +196,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "session_finished" }, { status: 400 });
   }
 
+  // Получаем вопрос с difficulty
   const question = await prisma.question.findUnique({
     where: { id: questionId },
-    select: { id: true, quizId: true },
+    select: { id: true, quizId: true, difficulty: true },
   });
 
   if (!question || question.quizId !== quizId) {
@@ -110,10 +217,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const isCorrect = correctOption.id === optionId;
   
-  // Calculate score breakdown
-  const timeBonus = isCorrect ? calculateTimeBonus(timeSpentMs) : 0;
-  const streakBonus = isCorrect ? calculateStreakBonus(streak) : 0;
-  const scoreDelta = isCorrect ? BASE_SCORE + timeBonus + streakBonus : 0;
+  // Рассчитываем очки с новой формулой
+  const { scoreDelta, breakdown } = calculateScore({
+    isCorrect,
+    timeSpentMs,
+    streak,
+    difficulty: question.difficulty,
+    attemptNumber: session.attemptNumber,
+  });
 
   const totalScore = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.answer.create({
@@ -127,10 +238,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       },
     });
 
+    // Обновляем totalScore, но не даём уйти в минус
+    const newScore = Math.max(0, session.totalScore + scoreDelta);
+    
     const updatedSession = await tx.quizSession.update({
       where: { id: sessionId },
       data: {
-        totalScore: { increment: scoreDelta },
+        totalScore: newScore,
       },
       select: { totalScore: true },
     });
@@ -142,13 +256,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     correct: isCorrect,
     scoreDelta,
     totalScore,
-    // Breakdown for UI
-    breakdown: {
-      base: isCorrect ? BASE_SCORE : 0,
-      timeBonus,
-      streakBonus,
-      timeSpentMs,
-    },
+    breakdown,
   });
 }
-

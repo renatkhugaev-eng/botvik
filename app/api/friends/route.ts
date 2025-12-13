@@ -59,22 +59,30 @@ export async function GET(req: NextRequest) {
     });
 
     // Process accepted friends with stats
+    // Используем leaderboard score для согласованности с лидербордом
     const friendsWithStats = await Promise.all(
       acceptedFriendships.map(async (f) => {
         const friendData = f.userId === userId ? f.friend : f.user;
         
-        const sessions = await prisma.quizSession.findMany({
+        // Считаем количество уникальных квизов (игр)
+        const gamesPlayed = await prisma.quizSession.groupBy({
+          by: ["quizId"],
           where: { userId: friendData.id, finishedAt: { not: null } },
-          select: { totalScore: true },
         });
         
-        const totalScore = sessions.reduce((sum, s) => sum + s.totalScore, 0);
-        const gamesPlayed = sessions.length;
-        
-        const bestEntry = await prisma.leaderboardEntry.findFirst({
+        // Получаем все leaderboard entries для суммарного score
+        const leaderboardEntries = await prisma.leaderboardEntry.findMany({
           where: { userId: friendData.id },
-          orderBy: { score: "desc" },
+          select: { score: true },
         });
+        
+        // Сумма weighted scores (согласовано с лидербордом)
+        const totalScore = leaderboardEntries.reduce((sum, e) => sum + e.score, 0);
+        
+        // Лучший weighted score
+        const bestScore = leaderboardEntries.length > 0 
+          ? Math.max(...leaderboardEntries.map(e => e.score))
+          : 0;
 
         return {
           friendshipId: f.id,
@@ -84,9 +92,9 @@ export async function GET(req: NextRequest) {
           telegramId: friendData.telegramId,
           photoUrl: friendData.photoUrl,
           stats: {
-            totalScore,
-            gamesPlayed,
-            bestScore: bestEntry?.score ?? 0,
+            totalScore,                          // Сумма weighted scores
+            gamesPlayed: gamesPlayed.length,     // Количество уникальных квизов
+            bestScore,                           // Лучший weighted score
           },
           addedAt: f.createdAt,
         };
