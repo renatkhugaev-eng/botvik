@@ -121,17 +121,16 @@ export async function GET(req: NextRequest) {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TODAY'S ATTEMPTS (для показа оставшихся попыток)
+  // SLIDING WINDOW 24H ATTEMPTS (для показа оставшихся попыток)
   // ═══════════════════════════════════════════════════════════════════════════
   
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const todayAttemptsByQuiz = await prisma.quizSession.groupBy({
+  const attemptsIn24hByQuiz = await prisma.quizSession.groupBy({
     by: ["quizId"],
     where: {
       userId: user.id,
-      startedAt: { gte: todayStart },
+      startedAt: { gte: twentyFourHoursAgo },
     },
     _count: { id: true },
   });
@@ -185,8 +184,8 @@ export async function GET(req: NextRequest) {
           }
         : null,
       
-      // Попытки сегодня
-      todayAttempts: todayAttemptsByQuiz.map((t) => ({
+      // Попытки за последние 24 часа (скользящее окно)
+      attemptsIn24h: attemptsIn24hByQuiz.map((t) => ({
         quizId: t.quizId,
         attempts: t._count.id,
         remaining: Math.max(0, MAX_DAILY_ATTEMPTS - t._count.id),

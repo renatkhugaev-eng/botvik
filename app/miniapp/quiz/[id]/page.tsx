@@ -42,8 +42,12 @@ type RateLimitError = {
   error: "rate_limited" | "daily_limit_reached";
   message: string;
   waitSeconds?: number;
-  attemptsToday?: number;
+  waitMs?: number;           // Для скользящего окна 24 часа
+  waitMessage?: string;      // "2ч 30м" формат
+  attemptsToday?: number;    // Legacy
+  attemptsIn24h?: number;    // Скользящее окно
   maxDaily?: number;
+  nextSlotAt?: string;       // ISO timestamp когда освободится слот
 };
 
 const spring = { type: "spring", stiffness: 500, damping: 30 };
@@ -76,6 +80,7 @@ export default function QuizPlayPage() {
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitError | null>(null);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -193,6 +198,23 @@ export default function QuizPlayPage() {
     animate(animatedScore, totalScore, { duration: 0.5 });
   }, [totalScore, animatedScore]);
 
+  // Rate limit countdown timer
+  useEffect(() => {
+    if (rateLimitCountdown === null || rateLimitCountdown <= 0) return;
+    
+    const timer = setInterval(() => {
+      setRateLimitCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [rateLimitCountdown]);
+
   useEffect(() => {
     const preload = async () => {
       if (!quizId || Number.isNaN(quizId)) {
@@ -224,6 +246,14 @@ export default function QuizPlayPage() {
         if (res.status === 429) {
           const rateLimitData = (await res.json()) as RateLimitError;
           setRateLimitInfo(rateLimitData);
+          // Запускаем countdown timer
+          if (rateLimitData.waitSeconds) {
+            // Rate limit — секунды
+            setRateLimitCountdown(rateLimitData.waitSeconds);
+          } else if (rateLimitData.waitMs) {
+            // Daily limit (sliding window) — миллисекунды в секунды
+            setRateLimitCountdown(Math.ceil(rateLimitData.waitMs / 1000));
+          }
           setLoading(false);
           return;
         }
@@ -402,21 +432,42 @@ export default function QuizPlayPage() {
               {rateLimitInfo.message}
             </p>
             
-            {isRateLimited && rateLimitInfo.waitSeconds && (
+            {isRateLimited && rateLimitCountdown !== null && rateLimitCountdown > 0 && (
               <div className="mb-6">
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-4 py-2">
-                  <span className="text-amber-400 font-bold text-lg">
-                    {rateLimitInfo.waitSeconds} сек
+                <div className="inline-flex items-center gap-3 rounded-full bg-amber-500/20 px-5 py-3">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <svg className="h-5 w-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                  </motion.div>
+                  <span className="text-amber-400 font-bold text-xl tabular-nums">
+                    {rateLimitCountdown} сек
                   </span>
                 </div>
               </div>
             )}
             
+            {isRateLimited && rateLimitCountdown === 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-6"
+              >
+                <div className="inline-flex items-center gap-2 rounded-full bg-green-500/20 px-4 py-2">
+                  <span className="text-green-400 font-bold">✓ Можно играть!</span>
+                </div>
+              </motion.div>
+            )}
+            
             {isDailyLimit && (
-              <div className="mb-6 space-y-2">
+              <div className="mb-6 space-y-3">
                 <div className="flex items-center justify-center gap-2 text-white/40 text-sm">
-                  <span>Попыток использовано:</span>
-                  <span className="font-bold text-white">{rateLimitInfo.attemptsToday}/{rateLimitInfo.maxDaily}</span>
+                  <span>Попыток за 24ч:</span>
+                  <span className="font-bold text-white">{rateLimitInfo.attemptsIn24h ?? rateLimitInfo.attemptsToday}/{rateLimitInfo.maxDaily}</span>
                 </div>
                 <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                   <div 
@@ -424,21 +475,61 @@ export default function QuizPlayPage() {
                     style={{ width: "100%" }}
                   />
                 </div>
+                
+                {/* Countdown до следующего слота */}
+                {rateLimitCountdown !== null && rateLimitCountdown > 0 && (
+                  <div className="flex items-center justify-center gap-3 rounded-full bg-violet-500/20 px-5 py-3 mt-2">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    >
+                      <svg className="h-5 w-5 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                      </svg>
+                    </motion.div>
+                    <span className="text-violet-300 text-sm">Следующий слот через:</span>
+                    <span className="text-violet-400 font-bold tabular-nums">
+                      {(() => {
+                        const hours = Math.floor(rateLimitCountdown / 3600);
+                        const mins = Math.floor((rateLimitCountdown % 3600) / 60);
+                        const secs = rateLimitCountdown % 60;
+                        if (hours > 0) return `${hours}ч ${mins}м`;
+                        if (mins > 0) return `${mins}м ${secs}с`;
+                        return `${secs}с`;
+                      })()}
+                    </span>
+                  </div>
+                )}
+                
+                {rateLimitCountdown === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center justify-center gap-2 rounded-full bg-green-500/20 px-4 py-2"
+                  >
+                    <span className="text-green-400 font-bold">✓ Слот освободился!</span>
+                  </motion.div>
+                )}
               </div>
             )}
             
             <div className="flex flex-col gap-3">
-              {isRateLimited && (
+              {/* Кнопка "Играть снова" — показываем когда countdown закончился */}
+              {(rateLimitCountdown === null || rateLimitCountdown === 0) && (
                 <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     setRateLimitInfo(null);
+                    setRateLimitCountdown(null);
                     setLoading(true);
                     window.location.reload();
                   }}
-                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold"
+                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold shadow-lg shadow-violet-500/30"
                 >
-                  Попробовать снова
+                  🎮 Играть снова
                 </motion.button>
               )}
               
