@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../../layout";
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
+import html2canvas from "html2canvas";
+import { ShareCard } from "@/components/ShareCard";
 
 type StartResponse = {
   sessionId: number;
@@ -757,56 +759,143 @@ export default function QuizPlayPage() {
               </span>
             </motion.button>
 
-          {/* Share Button */}
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={async () => {
-              haptic.heavy();
-              
-              // Формируем текст для шаринга
-              const starEmoji = "⭐".repeat(starCount) + "☆".repeat(5 - starCount);
-              const accuracyPercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
-              
-              const shareText = [
-                `🎮 ${quizTitle}`,
-                ``,
-                starEmoji,
-                ``,
-                `📊 Мой результат:`,
-                `✅ ${correctCount}/${questions.length} правильных`,
-                `🎯 ${accuracyPercent}% точность`,
-                `🏆 ${totalScore.toLocaleString()} очков`,
-                `🔥 Серия: ${maxStreak}`,
-                ``,
-                `💀 Попробуй побить мой рекорд!`,
-                ``,
-                `👉 https://t.me/truecrimetg_bot/app`,
-              ].join("\n");
-              
-              // Telegram share URL (работает надёжно)
-              const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent("https://t.me/truecrimetg_bot/app")}&text=${encodeURIComponent(shareText)}`;
-              
-              const tgWebApp = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
-              
-              // Пробуем открыть через Telegram WebApp
-              if (tgWebApp?.openTelegramLink) {
-                tgWebApp.openTelegramLink(telegramShareUrl);
-              } else {
-                // Fallback: открываем ссылку напрямую
-                window.open(telegramShareUrl, "_blank");
-              }
-            }}
-            className="relative overflow-hidden h-14 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-bold text-lg shadow-xl shadow-emerald-500/20"
-          >
-            <motion.div
-              animate={{ x: ["-200%", "200%"] }}
-              transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
-            />
-            <span className="relative flex items-center justify-center gap-2">
-              📤 Поделиться результатом
-            </span>
-          </motion.button>
+          {/* Share Buttons Row */}
+          <div className="flex gap-3">
+            {/* Share Image Button */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={async () => {
+                haptic.heavy();
+                
+                // Создаём временный контейнер для карточки
+                const container = document.createElement("div");
+                container.style.position = "absolute";
+                container.style.left = "-9999px";
+                container.style.top = "-9999px";
+                document.body.appendChild(container);
+                
+                // Рендерим React компонент в контейнер
+                const { createRoot } = await import("react-dom/client");
+                const root = createRoot(container);
+                
+                const cardElement = document.createElement("div");
+                container.appendChild(cardElement);
+                
+                // Рендерим карточку
+                root.render(
+                  <ShareCard
+                    quizTitle={quizTitle}
+                    score={totalScore}
+                    correctCount={correctCount}
+                    totalQuestions={questions.length}
+                    maxStreak={maxStreak}
+                    starCount={starCount}
+                  />
+                );
+                
+                // Ждём рендеринга
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                try {
+                  // Генерируем canvas
+                  const canvas = await html2canvas(container.firstChild as HTMLElement, {
+                    backgroundColor: null,
+                    scale: 2, // Высокое качество
+                    useCORS: true,
+                    logging: false,
+                  });
+                  
+                  // Конвертируем в blob
+                  const blob = await new Promise<Blob>((resolve) => {
+                    canvas.toBlob((b) => resolve(b!), "image/png", 1.0);
+                  });
+                  
+                  // Пробуем шарить через Web Share API
+                  if (navigator.share && navigator.canShare?.({ files: [new File([blob], "result.png", { type: "image/png" })] })) {
+                    const file = new File([blob], "quiz-result.png", { type: "image/png" });
+                    await navigator.share({
+                      files: [file],
+                      title: quizTitle,
+                      text: `🎮 Мой результат в ${quizTitle}: ${totalScore} очков! Попробуй побить!\n👉 https://t.me/truecrimetg_bot/app`,
+                    });
+                  } else {
+                    // Fallback: скачиваем изображение
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `quiz-result-${totalScore}.png`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    haptic.success();
+                  }
+                } catch (err) {
+                  console.error("Share error:", err);
+                  haptic.error();
+                } finally {
+                  // Очищаем
+                  root.unmount();
+                  document.body.removeChild(container);
+                }
+              }}
+              className="relative overflow-hidden flex-1 h-14 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white font-bold shadow-xl shadow-violet-500/20"
+            >
+              <motion.div
+                animate={{ x: ["-200%", "200%"] }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+              />
+              <span className="relative flex items-center justify-center gap-2 text-base">
+                🖼️ Картинка
+              </span>
+            </motion.button>
+            
+            {/* Share Text Button */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={async () => {
+                haptic.heavy();
+                
+                const starEmoji = "⭐".repeat(starCount) + "☆".repeat(5 - starCount);
+                const accuracyPercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+                
+                const shareText = [
+                  `🎮 ${quizTitle}`,
+                  ``,
+                  starEmoji,
+                  ``,
+                  `📊 Мой результат:`,
+                  `✅ ${correctCount}/${questions.length} правильных`,
+                  `🎯 ${accuracyPercent}% точность`,
+                  `🏆 ${totalScore.toLocaleString()} очков`,
+                  `🔥 Серия: ${maxStreak}`,
+                  ``,
+                  `💀 Попробуй побить мой рекорд!`,
+                  ``,
+                  `👉 https://t.me/truecrimetg_bot/app`,
+                ].join("\n");
+                
+                const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent("https://t.me/truecrimetg_bot/app")}&text=${encodeURIComponent(shareText)}`;
+                
+                const tgWebApp = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
+                
+                if (tgWebApp?.openTelegramLink) {
+                  tgWebApp.openTelegramLink(telegramShareUrl);
+                } else {
+                  window.open(telegramShareUrl, "_blank");
+                }
+              }}
+              className="relative overflow-hidden flex-1 h-14 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-bold shadow-xl shadow-emerald-500/20"
+            >
+              <motion.div
+                animate={{ x: ["-200%", "200%"] }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+              />
+              <span className="relative flex items-center justify-center gap-2 text-base">
+                📤 Текст
+              </span>
+            </motion.button>
+          </div>
 
           <motion.button
             whileTap={{ scale: 0.97 }}
