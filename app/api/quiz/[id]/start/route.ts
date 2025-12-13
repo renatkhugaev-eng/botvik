@@ -83,6 +83,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       attemptNumber: true,
       totalScore: true,
       currentQuestionIndex: true,
+      currentStreak: true, // Server-side streak
     },
   });
 
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       totalQuestions: questions.length,
       totalScore: existingSession.totalScore,
       currentQuestionIndex: existingSession.currentQuestionIndex,
+      currentStreak: existingSession.currentStreak, // Возвращаем серверный streak
       questions,
       serverTime: now.toISOString(),
     });
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const attemptNumber = totalAttempts + 1;
 
-  // Создаём новую сессию с server-side time tracking
+  // Создаём новую сессию с server-side time tracking и streak = 0
   const now = new Date();
   const session = await prisma.quizSession.create({
     data: { 
@@ -173,6 +175,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       attemptNumber,
       currentQuestionIndex: 0,
       currentQuestionStartedAt: now, // Время начала первого вопроса
+      currentStreak: 0, // Начинаем с 0 streak
     },
   });
 
@@ -185,6 +188,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     remainingAttempts: MAX_DAILY_ATTEMPTS - dailyAttempts - 1,
     totalQuestions: questions.length,
     totalScore: session.totalScore,
+    currentStreak: 0, // Начальный streak
     questions,
     serverTime: now.toISOString(), // Для синхронизации клиента
   });

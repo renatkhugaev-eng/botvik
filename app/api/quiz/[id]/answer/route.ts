@@ -9,7 +9,7 @@ type AnswerRequestBody = {
   questionId?: number;
   optionId?: number;
   timeSpentMs?: number;
-  streak?: number;
+  // streak больше не принимается от клиента — считается на сервере
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -176,13 +176,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const questionId = body.questionId;
   const optionId = body.optionId;
   const timeSpentMs = Math.max(0, Number(body.timeSpentMs ?? 0));
-  const streak = Math.max(0, Number(body.streak ?? 0));
 
   if (!sessionId || !questionId || !optionId) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
-  // Получаем сессию с attemptNumber и server-side time tracking
+  // Получаем сессию с attemptNumber, server-side time tracking и streak
   const session = await prisma.quizSession.findUnique({
     where: { id: sessionId },
     select: { 
@@ -193,6 +192,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       attemptNumber: true,
       currentQuestionIndex: true,
       currentQuestionStartedAt: true,
+      currentStreak: true, // Server-side streak
     },
   });
 
@@ -204,7 +204,31 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "session_finished" }, { status: 400 });
   }
 
-  // Проверяем, не был ли уже дан ответ на этот вопрос
+  // ═══ QUESTION ORDER VALIDATION ═══
+  // Получаем список вопросов в правильном порядке
+  const questions = await prisma.question.findMany({
+    where: { quizId },
+    orderBy: { order: "asc" },
+    select: { id: true, difficulty: true, order: true },
+  });
+
+  // Проверяем, что пользователь отвечает на правильный вопрос
+  const expectedQuestion = questions[session.currentQuestionIndex];
+  
+  if (!expectedQuestion) {
+    return NextResponse.json({ error: "quiz_completed" }, { status: 400 });
+  }
+
+  if (expectedQuestion.id !== questionId) {
+    return NextResponse.json({ 
+      error: "wrong_question_order",
+      message: `Ожидается вопрос ${session.currentQuestionIndex + 1}, получен другой`,
+      expectedQuestionId: expectedQuestion.id,
+      receivedQuestionId: questionId,
+    }, { status: 400 });
+  }
+
+  // Проверяем, не был ли уже дан ответ на этот вопрос (дополнительная защита)
   const existingAnswer = await prisma.answer.findUnique({
     where: { sessionId_questionId: { sessionId, questionId } },
   });
@@ -213,15 +237,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "already_answered" }, { status: 400 });
   }
 
-  // Получаем вопрос с difficulty
-  const question = await prisma.question.findUnique({
-    where: { id: questionId },
-    select: { id: true, quizId: true, difficulty: true, order: true },
-  });
-
-  if (!question || question.quizId !== quizId) {
-    return NextResponse.json({ error: "question_not_found" }, { status: 404 });
-  }
+  const question = expectedQuestion;
 
   const correctOption = await prisma.answerOption.findFirst({
     where: { questionId, isCorrect: true },
@@ -248,16 +264,23 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const isCorrect = correctOption.id === optionId;
   
-  // Рассчитываем очки с серверным временем
+  // ═══ SERVER-SIDE STREAK ═══
+  // Streak учитывается ДО ответа (текущая серия правильных)
+  const currentStreak = session.currentStreak;
+  
+  // Рассчитываем очки с серверным временем и серверным streak
   const { scoreDelta, breakdown } = calculateScore({
     isCorrect,
     timeSpentMs: serverTimeSpentMs,
-    streak,
+    streak: currentStreak, // Используем серверный streak
     difficulty: question.difficulty,
     attemptNumber: session.attemptNumber,
   });
 
-  const totalScore = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  // Новый streak: +1 если правильно, 0 если неправильно
+  const newStreak = isCorrect ? currentStreak + 1 : 0;
+
+  const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.answer.create({
       data: {
         sessionId,
@@ -269,7 +292,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       },
     });
 
-    // Обновляем totalScore и переходим к следующему вопросу
+    // Обновляем totalScore, streak и переходим к следующему вопросу
     const newScore = Math.max(0, session.totalScore + scoreDelta);
     
     const updatedSession = await tx.quizSession.update({
@@ -278,21 +301,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         totalScore: newScore,
         currentQuestionIndex: session.currentQuestionIndex + 1,
         currentQuestionStartedAt: now, // Время начала следующего вопроса
+        currentStreak: newStreak, // Обновляем серверный streak
       },
-      select: { totalScore: true },
+      select: { totalScore: true, currentStreak: true },
     });
 
-    return updatedSession.totalScore;
+    return { 
+      totalScore: updatedSession.totalScore,
+      newStreak: updatedSession.currentStreak,
+    };
   });
 
   return NextResponse.json({
     correct: isCorrect,
     scoreDelta,
-    totalScore,
+    totalScore: result.totalScore,
+    streak: result.newStreak, // Возвращаем новый streak для UI
     breakdown: {
       ...breakdown,
       serverTimeSpentMs, // Показываем серверное время для прозрачности
       clientTimeSpentMs: timeSpentMs,
+      streakUsed: currentStreak, // Какой streak был использован для расчёта
     },
   });
 }

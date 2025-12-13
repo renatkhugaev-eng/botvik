@@ -91,6 +91,7 @@ model QuizSession {
   attemptNumber            Int       @default(1) // Номер попытки пользователя для этого квиза
   currentQuestionIndex     Int       @default(0) // Текущий индекс вопроса (0-based)
   currentQuestionStartedAt DateTime? // Когда был показан текущий вопрос (server-side)
+  currentStreak            Int       @default(0) // Текущая серия правильных ответов (server-side)
   user                     User      @relation(fields: [userId], references: [id])
   quiz                     Quiz      @relation(fields: [quizId], references: [id])
   answers                  Answer[]
