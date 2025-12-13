@@ -17,11 +17,22 @@ import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 
 type Tab = "participant" | "creator";
 
+type LimitInfo = {
+  attemptsIn24h: number;
+  maxAttempts: number;
+  remaining: number;
+  rateLimitWaitSeconds: number | null;
+  dailyLimitWaitMs: number | null;
+  nextSlotAt: string | null;
+  hasUnfinishedSession: boolean;
+};
+
 type QuizSummary = {
   id: number;
   title: string;
   description: string | null;
   prizeTitle: string;
+  limitInfo?: LimitInfo;
 };
 
 type UserStats = {
@@ -63,9 +74,8 @@ export default function MiniAppPage() {
   const [startError, setStartError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   
-  // Rate limit countdown timer
-  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
-  const [rateLimitQuizId, setRateLimitQuizId] = useState<number | null>(null);
+  // Rate limit countdown timers (per quiz)
+  const [countdowns, setCountdowns] = useState<Record<number, number>>({});
   
   // Subscription check
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
@@ -77,18 +87,36 @@ export default function MiniAppPage() {
 
   // Fetch all data
   const fetchData = useCallback(async () => {
+    if (session.status !== "ready") return;
+    
     setLoading(true);
     setError(null);
     try {
-      const quizzesRes = await fetch("/api/quiz");
-      const quizzesData = await quizzesRes.json();
+      // Передаём userId для получения информации о лимитах
+      const quizzesRes = await fetch(`/api/quiz?userId=${session.user.id}`);
+      const quizzesData = await quizzesRes.json() as QuizSummary[];
       setQuizzes(quizzesData);
+      
+      // Инициализируем countdowns из серверных данных
+      const newCountdowns: Record<number, number> = {};
+      for (const quiz of quizzesData) {
+        if (quiz.limitInfo) {
+          if (quiz.limitInfo.rateLimitWaitSeconds && quiz.limitInfo.rateLimitWaitSeconds > 0) {
+            // Rate limit — секунды
+            newCountdowns[quiz.id] = quiz.limitInfo.rateLimitWaitSeconds;
+          } else if (quiz.limitInfo.dailyLimitWaitMs && quiz.limitInfo.dailyLimitWaitMs > 0) {
+            // Daily limit — миллисекунды в секунды
+            newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.dailyLimitWaitMs / 1000);
+          }
+        }
+      }
+      setCountdowns(newCountdowns);
     } catch {
       setError("Ошибка загрузки");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   // Initial fetch
   useEffect(() => {
@@ -192,24 +220,35 @@ export default function MiniAppPage() {
     }
   }, [session, checkSubscription]);
 
-  // Rate limit countdown timer
+  // Countdown timers for all quizzes
   useEffect(() => {
-    if (rateLimitCountdown === null || rateLimitCountdown <= 0) return;
+    const hasActiveCountdowns = Object.values(countdowns).some(v => v > 0);
+    if (!hasActiveCountdowns) return;
     
     const timer = setInterval(() => {
-      setRateLimitCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          setRateLimitQuizId(null);
-          setStartError(null);
-          return null;
+      setCountdowns((prev) => {
+        const updated: Record<number, number> = {};
+        let hasChanges = false;
+        
+        for (const [quizId, seconds] of Object.entries(prev)) {
+          const id = Number(quizId);
+          if (seconds > 1) {
+            updated[id] = seconds - 1;
+            hasChanges = true;
+          } else if (seconds === 1) {
+            // Countdown finished, remove from map
+            hasChanges = true;
+          } else {
+            updated[id] = seconds;
+          }
         }
-        return prev - 1;
+        
+        return hasChanges ? updated : prev;
       });
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [rateLimitCountdown]);
+  }, [countdowns]);
 
   const handleStart = useCallback(
     async (id: number) => {
@@ -234,23 +273,12 @@ export default function MiniAppPage() {
         // Обработка rate limiting
         if (res.status === 429) {
           const data = await res.json();
-          if (data.error === "rate_limited") {
-            // Запускаем countdown timer
-            setRateLimitCountdown(data.waitSeconds ?? 60);
-            setRateLimitQuizId(id);
-            setStartError("rate_limited");
-          } else if (data.error === "daily_limit_reached") {
-            // Скользящее окно 24 часа — показываем когда будет доступна следующая попытка
-            if (data.waitMs) {
-              const waitMinutes = Math.ceil(data.waitMs / 60000);
-              setRateLimitCountdown(waitMinutes * 60); // Переводим в секунды для countdown
-              setRateLimitQuizId(id);
-              setStartError(`daily_limit:${data.waitMessage ?? "скоро"}`);
-            } else {
-              setStartError(`Лимит попыток: ${data.attemptsIn24h}/${data.maxDaily}`);
-            }
-          } else {
-            setStartError("Слишком много попыток");
+          if (data.error === "rate_limited" && data.waitSeconds) {
+            // Rate limit — добавляем countdown для этого квиза
+            setCountdowns(prev => ({ ...prev, [id]: data.waitSeconds }));
+          } else if (data.error === "daily_limit_reached" && data.waitMs) {
+            // Daily limit — добавляем countdown для этого квиза
+            setCountdowns(prev => ({ ...prev, [id]: Math.ceil(data.waitMs / 1000) }));
           }
           haptic.warning();
           return;
@@ -602,8 +630,7 @@ export default function MiniAppPage() {
               error={error}
               startingId={startingId}
               startError={startError}
-              rateLimitCountdown={rateLimitCountdown}
-              rateLimitQuizId={rateLimitQuizId}
+              countdowns={countdowns}
               onStart={handleStart}
             />
           </motion.div>
@@ -785,12 +812,11 @@ type QuizViewProps = {
   error: string | null;
   startingId: number | null;
   startError: string | null;
-  rateLimitCountdown: number | null;
-  rateLimitQuizId: number | null;
+  countdowns: Record<number, number>;
   onStart: (id: number) => void;
 };
 
-function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCountdown, rateLimitQuizId, onStart }: QuizViewProps) {
+function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart }: QuizViewProps) {
   const router = useRouter();
 
   // Demo data
@@ -883,7 +909,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCo
                     </p>
 
                     {/* Button */}
-                    {rateLimitQuizId === q.id && rateLimitCountdown ? (
+                    {countdowns[q.id] && countdowns[q.id] > 0 ? (
                       // Countdown Timer — shows either rate limit (seconds) or daily limit (hours/mins)
                       <div className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
                         <motion.div
@@ -897,20 +923,19 @@ function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCo
                           </svg>
                         </motion.div>
                         <span className="text-[13px] font-bold text-amber-400 tabular-nums">
-                          {startError?.startsWith("daily_limit:") ? (
-                            // Скользящее окно — показываем часы:минуты
-                            (() => {
-                              const hours = Math.floor(rateLimitCountdown / 3600);
-                              const mins = Math.floor((rateLimitCountdown % 3600) / 60);
-                              if (hours > 0) {
-                                return `${hours}ч ${mins}м`;
-                              }
-                              return `${mins}м`;
-                            })()
-                          ) : (
-                            // Rate limit — показываем секунды
-                            `${rateLimitCountdown}с`
-                          )}
+                          {(() => {
+                            const seconds = countdowns[q.id];
+                            const hours = Math.floor(seconds / 3600);
+                            const mins = Math.floor((seconds % 3600) / 60);
+                            const secs = seconds % 60;
+                            if (hours > 0) {
+                              return `${hours}ч ${mins}м`;
+                            }
+                            if (mins > 0) {
+                              return `${mins}м ${secs}с`;
+                            }
+                            return `${secs}с`;
+                          })()}
                         </span>
                       </div>
                     ) : (
@@ -932,8 +957,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCo
             </div>
           </div>
         )}
-        {/* Error message (not for rate_limited or daily_limit - they show timer on card) */}
-        {startError && !startError.startsWith("rate_limited") && !startError.startsWith("daily_limit:") && (
+        {/* Error message */}
+        {startError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
