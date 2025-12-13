@@ -784,10 +784,12 @@ export default function QuizPlayPage() {
               const shareUrl = `https://t.me/truecrimetg_bot/app`;
               
               // Используем Telegram WebApp API для шаринга
-              if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+              const tgWebApp = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
+              
+              if (tgWebApp?.switchInlineQuery) {
                 try {
                   // Попробуем использовать switchInlineQuery для шаринга
-                  window.Telegram.WebApp.switchInlineQuery(
+                  tgWebApp.switchInlineQuery(
                     `${shareText}\n\n👉 ${shareUrl}`,
                     ["users", "groups", "channels"]
                   );
