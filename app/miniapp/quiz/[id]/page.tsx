@@ -779,40 +779,21 @@ export default function QuizPlayPage() {
                 `🔥 Серия: ${maxStreak}`,
                 ``,
                 `💀 Попробуй побить мой рекорд!`,
+                ``,
+                `👉 https://t.me/truecrimetg_bot/app`,
               ].join("\n");
               
-              const shareUrl = `https://t.me/truecrimetg_bot/app`;
+              // Telegram share URL (работает надёжно)
+              const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent("https://t.me/truecrimetg_bot/app")}&text=${encodeURIComponent(shareText)}`;
               
-              // Используем Telegram WebApp API для шаринга
               const tgWebApp = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
               
-              if (tgWebApp?.switchInlineQuery) {
-                try {
-                  // Попробуем использовать switchInlineQuery для шаринга
-                  tgWebApp.switchInlineQuery(
-                    `${shareText}\n\n👉 ${shareUrl}`,
-                    ["users", "groups", "channels"]
-                  );
-                } catch {
-                  // Fallback: копируем в буфер
-                  await navigator.clipboard.writeText(`${shareText}\n\n👉 ${shareUrl}`);
-                  haptic.success();
-                }
+              // Пробуем открыть через Telegram WebApp
+              if (tgWebApp?.openTelegramLink) {
+                tgWebApp.openTelegramLink(telegramShareUrl);
               } else {
-                // Web fallback
-                if (navigator.share) {
-                  try {
-                    await navigator.share({
-                      title: quizTitle,
-                      text: shareText,
-                      url: shareUrl,
-                    });
-                  } catch {
-                    // User cancelled or error
-                  }
-                } else {
-                  await navigator.clipboard.writeText(`${shareText}\n\n👉 ${shareUrl}`);
-                }
+                // Fallback: открываем ссылку напрямую
+                window.open(telegramShareUrl, "_blank");
               }
             }}
             className="relative overflow-hidden h-14 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-bold text-lg shadow-xl shadow-emerald-500/20"
