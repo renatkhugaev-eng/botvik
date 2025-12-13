@@ -15,6 +15,8 @@ type StartResponse = {
   totalScore: number;
   attemptNumber: number;           // Номер попытки
   remainingAttempts?: number;      // Оставшиеся попытки сегодня
+  currentQuestionIndex?: number;   // Текущий индекс вопроса (для возобновления)
+  currentStreak?: number;          // Текущий streak (server-side)
   questions: {
     id: number;
     text: string;
@@ -85,6 +87,7 @@ export default function QuizPlayPage() {
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null);
   
   // Animated score
   const animatedScore = useMotionValue(0);
@@ -268,6 +271,16 @@ export default function QuizPlayPage() {
         setTotalScore(data.totalScore ?? 0);
         setAttemptNumber(data.attemptNumber ?? 1);
         setRemainingAttempts(data.remainingAttempts ?? null);
+        
+        // Восстанавливаем позицию если это возобновлённая сессия
+        if (data.currentQuestionIndex !== undefined && data.currentQuestionIndex > 0) {
+          setCurrentIndex(data.currentQuestionIndex);
+        }
+        // Восстанавливаем streak с сервера
+        if (data.currentStreak !== undefined) {
+          setStreak(data.currentStreak);
+          setMaxStreak((m) => Math.max(m, data.currentStreak ?? 0));
+        }
       } catch (err) {
         console.error("Failed to start quiz session", err);
         setError("Не удалось начать викторину");
@@ -578,6 +591,18 @@ export default function QuizPlayPage() {
     
     return (
       <div className="flex flex-col gap-5 min-h-[80vh] justify-center">
+        {/* Hidden Share Card for screenshot */}
+        <div className="fixed -left-[9999px] -top-[9999px]">
+          <ShareCard
+            ref={shareCardRef}
+            quizTitle={quizTitle}
+            score={totalScore}
+            correctCount={correctCount}
+            totalQuestions={questions.length}
+            maxStreak={maxStreak}
+            starCount={starCount}
+          />
+        </div>
         {/* Victory Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8, y: 50 }}
@@ -767,74 +792,57 @@ export default function QuizPlayPage() {
               onClick={async () => {
                 haptic.heavy();
                 
-                // Создаём временный контейнер для карточки
-                const container = document.createElement("div");
-                container.style.position = "absolute";
-                container.style.left = "-9999px";
-                container.style.top = "-9999px";
-                document.body.appendChild(container);
-                
-                // Рендерим React компонент в контейнер
-                const { createRoot } = await import("react-dom/client");
-                const root = createRoot(container);
-                
-                const cardElement = document.createElement("div");
-                container.appendChild(cardElement);
-                
-                // Рендерим карточку
-                root.render(
-                  <ShareCard
-                    quizTitle={quizTitle}
-                    score={totalScore}
-                    correctCount={correctCount}
-                    totalQuestions={questions.length}
-                    maxStreak={maxStreak}
-                    starCount={starCount}
-                  />
-                );
-                
-                // Ждём рендеринга
-                await new Promise(resolve => setTimeout(resolve, 100));
+                if (!shareCardRef.current) {
+                  console.error("Share card ref not found");
+                  return;
+                }
                 
                 try {
-                  // Генерируем canvas
-                  const canvas = await html2canvas(container.firstChild as HTMLElement, {
-                    backgroundColor: null,
+                  // Генерируем canvas из скрытой карточки
+                  const canvas = await html2canvas(shareCardRef.current, {
+                    backgroundColor: "#0f0f1a",
                     scale: 2, // Высокое качество
                     useCORS: true,
                     logging: false,
+                    width: 400,
+                    height: 560,
                   });
                   
                   // Конвертируем в blob
-                  const blob = await new Promise<Blob>((resolve) => {
-                    canvas.toBlob((b) => resolve(b!), "image/png", 1.0);
+                  const blob = await new Promise<Blob>((resolve, reject) => {
+                    canvas.toBlob((b) => {
+                      if (b) resolve(b);
+                      else reject(new Error("Failed to create blob"));
+                    }, "image/png", 1.0);
                   });
                   
                   // Пробуем шарить через Web Share API
-                  if (navigator.share && navigator.canShare?.({ files: [new File([blob], "result.png", { type: "image/png" })] })) {
-                    const file = new File([blob], "quiz-result.png", { type: "image/png" });
+                  const file = new File([blob], "quiz-result.png", { type: "image/png" });
+                  
+                  if (navigator.share && navigator.canShare?.({ files: [file] })) {
                     await navigator.share({
                       files: [file],
                       title: quizTitle,
-                      text: `🎮 Мой результат в ${quizTitle}: ${totalScore} очков! Попробуй побить!\n👉 https://t.me/truecrimetg_bot/app`,
+                      text: `🎮 Мой результат: ${totalScore} очков!\n👉 https://t.me/truecrimetg_bot/app`,
                     });
+                    haptic.success();
                   } else {
                     // Fallback: скачиваем изображение
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
                     a.download = `quiz-result-${totalScore}.png`;
+                    document.body.appendChild(a);
                     a.click();
+                    document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     haptic.success();
                   }
                 } catch (err) {
                   console.error("Share error:", err);
+                  // Показываем алерт с ошибкой для отладки
+                  alert("Ошибка генерации: " + (err instanceof Error ? err.message : String(err)));
                   haptic.error();
-                } finally {
-                  // Очищаем
-                  root.unmount();
-                  document.body.removeChild(container);
                 }
               }}
               className="relative overflow-hidden flex-1 h-14 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white font-bold shadow-xl shadow-violet-500/20"
