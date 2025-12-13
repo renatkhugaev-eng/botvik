@@ -581,11 +581,11 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <img src="/icons/coin.png" alt="" className="h-8 w-8 object-contain" />
+                      <img src="/icons/coin.png" alt="" className="h-10 w-10 object-contain" />
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
                     </div>
                     <p
-                      className="font-display text-[56px] font-black leading-none tracking-tighter"
+                      className="font-display text-[56px] font-black leading-tight tracking-tighter pb-1"
                       style={{ 
                         background: `linear-gradient(135deg, #fff, ${rank.accent}, #fff)`,
                         backgroundSize: "200% 200%",
@@ -1054,7 +1054,7 @@ export default function ProfilePage() {
                             <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
                               <div className="text-center flex-1">
                                 <div className="flex items-center justify-center gap-1">
-                                  <img src="/icons/coin.png" alt="" className="h-7 w-7 object-contain" />
+                                  <img src="/icons/coin.png" alt="" className="h-9 w-9 object-contain" />
                                   <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
                                 </div>
                                 <p className="text-[10px] text-slate-400">очков</p>

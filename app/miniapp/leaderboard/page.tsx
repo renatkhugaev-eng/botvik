@@ -604,7 +604,7 @@ export default function LeaderboardPage() {
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl bg-white p-3 shadow-lg shadow-black/5 text-center">
                 {stat.img ? (
-                  <img src={stat.img} alt="" className="h-8 w-8 object-contain mx-auto" />
+                  <img src={stat.img} alt="" className="h-10 w-10 object-contain mx-auto" />
                 ) : (
                   <span className="text-lg">{stat.icon}</span>
                 )}

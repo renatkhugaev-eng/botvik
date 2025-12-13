@@ -376,7 +376,7 @@ export default function MiniAppPage() {
             <div className="h-8 w-px bg-slate-200" />
             <div className="text-center">
               <div className="flex items-center justify-center gap-1">
-                <img src="/icons/coin.png" alt="" className="h-8 w-8 object-contain" />
+                <img src="/icons/coin.png" alt="" className="h-10 w-10 object-contain" />
                 <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
                   {userStats?.totalScore ?? 0}
                 </p>

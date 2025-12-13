@@ -356,8 +356,9 @@ export default function QuizPlayPage() {
   // Finished
   if (finished) {
     const accuracy = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
-    const rating = accuracy >= 80 ? "🏆" : accuracy >= 50 ? "⭐" : "👍";
-    const ratingText = accuracy >= 80 ? "Превосходно!" : accuracy >= 50 ? "Хорошо!" : "Неплохо!";
+    // Star rating: 5 stars for 90%+, 4 for 70%+, 3 for 50%+, 2 for 30%+, 1 for less
+    const starCount = accuracy >= 90 ? 5 : accuracy >= 70 ? 4 : accuracy >= 50 ? 3 : accuracy >= 30 ? 2 : 1;
+    const ratingText = starCount === 5 ? "Идеально!" : starCount === 4 ? "Превосходно!" : starCount === 3 ? "Хорошо!" : starCount === 2 ? "Неплохо!" : "Попробуй ещё!";
     
     return (
       <div className="flex flex-col gap-5 min-h-[80vh] justify-center">
@@ -378,25 +379,25 @@ export default function QuizPlayPage() {
               <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-pink-600/15 blur-2xl" />
             </div>
             
-            {/* Floating stars */}
-            {[...Array(12)].map((_, i) => (
+            {/* Floating sparkles */}
+            {[...Array(8)].map((_, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ 
                   opacity: [0, 1, 0],
                   scale: [0.5, 1, 0.5],
-                  y: [0, -30, 0],
+                  y: [0, -20, 0],
                 }}
                 transition={{
                   duration: 2,
                   repeat: Infinity,
-                  delay: i * 0.15,
+                  delay: i * 0.2,
                 }}
-                className="absolute text-xl"
+                className="absolute text-lg"
                 style={{
-                  left: `${8 + i * 8}%`,
-                  top: `${20 + (i % 4) * 20}%`,
+                  left: `${10 + i * 11}%`,
+                  top: `${25 + (i % 3) * 20}%`,
                 }}
               >
                 ✨
@@ -404,26 +405,50 @@ export default function QuizPlayPage() {
             ))}
             
             <div className="relative p-8 text-center">
-              {/* Big emoji rating */}
-              <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ ...spring, delay: 0.3 }}
-                className="mb-4"
-              >
-                <motion.span
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="text-8xl inline-block"
-                >
-                  {rating}
-                </motion.span>
-              </motion.div>
+              {/* 5-Star Rating */}
+              <div className="flex justify-center gap-2 mb-6">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <motion.div
+                    key={star}
+                    initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                    animate={{ 
+                      opacity: 1, 
+                      scale: star <= starCount ? 1 : 0.6,
+                      rotate: 0,
+                    }}
+                    transition={{ 
+                      delay: 0.2 + star * 0.1,
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 15,
+                    }}
+                    className="relative"
+                  >
+                    {/* Glow effect for filled stars */}
+                    {star <= starCount && (
+                      <motion.div
+                        animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: star * 0.1 }}
+                        className="absolute inset-0 bg-amber-400 rounded-full blur-lg"
+                      />
+                    )}
+                    <img 
+                      src="/icons/star.png" 
+                      alt="" 
+                      className={`relative h-12 w-12 object-contain transition-all ${
+                        star <= starCount 
+                          ? "drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" 
+                          : "opacity-30 grayscale"
+                      }`}
+                    />
+                  </motion.div>
+                ))}
+              </div>
               
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.7 }}
                 className="font-display text-3xl font-black text-white mb-2"
               >
                 {ratingText}
@@ -432,7 +457,7 @@ export default function QuizPlayPage() {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.8 }}
                 className="text-white/50 mb-8"
               >
                 Викторина завершена
@@ -442,7 +467,7 @@ export default function QuizPlayPage() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, ...spring }}
+                transition={{ delay: 0.9, ...spring }}
                 className="relative mb-8"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 blur-2xl" />
@@ -451,8 +476,8 @@ export default function QuizPlayPage() {
                   <motion.p
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ delay: 0.7, type: "spring", stiffness: 200 }}
-                    className="font-display text-6xl font-black leading-none bg-gradient-to-r from-white via-violet-200 to-pink-200 bg-clip-text text-transparent pb-1"
+                    transition={{ delay: 1, type: "spring", stiffness: 200 }}
+                    className="font-display text-6xl font-black leading-tight tracking-tighter bg-gradient-to-r from-white via-violet-200 to-pink-200 bg-clip-text text-transparent pb-1"
                   >
                     {totalScore}
                   </motion.p>
@@ -464,21 +489,21 @@ export default function QuizPlayPage() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
+                transition={{ delay: 1.1 }}
                 className="flex justify-center gap-6 mb-8"
               >
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-white leading-none pb-1">{correctCount}/{questions.length}</p>
+                  <p className="text-2xl font-bold text-white leading-tight pb-1">{correctCount}/{questions.length}</p>
                   <p className="text-xs text-white/40">верных</p>
                 </div>
                 <div className="w-px bg-white/10" />
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400 leading-none pb-1">{questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0}%</p>
+                  <p className="text-2xl font-bold text-green-400 leading-tight pb-1">{questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0}%</p>
                   <p className="text-xs text-white/40">точность</p>
                 </div>
                 <div className="w-px bg-white/10" />
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-amber-400 leading-none pb-1">🔥 {maxStreak}</p>
+                  <p className="text-2xl font-bold text-amber-400 leading-tight pb-1">🔥 {maxStreak}</p>
                   <p className="text-xs text-white/40">макс. серия</p>
                 </div>
               </motion.div>
@@ -596,7 +621,7 @@ export default function QuizPlayPage() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl blur-sm opacity-50" />
               <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500">
-                <img src="/icons/coin.png" alt="" className="h-9 w-9 object-contain" />
+                <img src="/icons/coin.png" alt="" className="h-11 w-11 object-contain" />
               </div>
             </div>
             <div>
