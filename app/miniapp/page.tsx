@@ -240,7 +240,15 @@ export default function MiniAppPage() {
             setRateLimitQuizId(id);
             setStartError("rate_limited");
           } else if (data.error === "daily_limit_reached") {
-            setStartError(`Лимит попыток: ${data.attemptsToday}/${data.maxDaily}`);
+            // Скользящее окно 24 часа — показываем когда будет доступна следующая попытка
+            if (data.waitMs) {
+              const waitMinutes = Math.ceil(data.waitMs / 60000);
+              setRateLimitCountdown(waitMinutes * 60); // Переводим в секунды для countdown
+              setRateLimitQuizId(id);
+              setStartError(`daily_limit:${data.waitMessage ?? "скоро"}`);
+            } else {
+              setStartError(`Лимит попыток: ${data.attemptsIn24h}/${data.maxDaily}`);
+            }
           } else {
             setStartError("Слишком много попыток");
           }
@@ -876,7 +884,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCo
 
                     {/* Button */}
                     {rateLimitQuizId === q.id && rateLimitCountdown ? (
-                      // Countdown Timer
+                      // Countdown Timer — shows either rate limit (seconds) or daily limit (hours/mins)
                       <div className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
                         <motion.div
                           animate={{ rotate: 360 }}
@@ -889,7 +897,20 @@ function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCo
                           </svg>
                         </motion.div>
                         <span className="text-[13px] font-bold text-amber-400 tabular-nums">
-                          {rateLimitCountdown}с
+                          {startError?.startsWith("daily_limit:") ? (
+                            // Скользящее окно — показываем часы:минуты
+                            (() => {
+                              const hours = Math.floor(rateLimitCountdown / 3600);
+                              const mins = Math.floor((rateLimitCountdown % 3600) / 60);
+                              if (hours > 0) {
+                                return `${hours}ч ${mins}м`;
+                              }
+                              return `${mins}м`;
+                            })()
+                          ) : (
+                            // Rate limit — показываем секунды
+                            `${rateLimitCountdown}с`
+                          )}
                         </span>
                       </div>
                     ) : (
@@ -911,8 +932,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, rateLimitCo
             </div>
           </div>
         )}
-        {/* Error message (not for rate_limited - it shows timer on card) */}
-        {startError && startError !== "rate_limited" && (
+        {/* Error message (not for rate_limited or daily_limit - they show timer on card) */}
+        {startError && !startError.startsWith("rate_limited") && !startError.startsWith("daily_limit:") && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}

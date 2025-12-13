@@ -4,15 +4,22 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ANTI-ABUSE: Rate Limiting & Daily Limits
+   ANTI-ABUSE: Rate Limiting & Sliding Window Limits
    
    - Rate limit: 1 новая сессия в минуту
-   - Daily limit: 5 попыток в день на квиз
+   - Sliding window: 5 попыток за последние 24 часа (скользящее окно)
    - Attempt tracking: номер попытки для decay scoring
+   
+   DEV BYPASS: Установи BYPASS_LIMITS=true в .env.local для отключения лимитов
 ═══════════════════════════════════════════════════════════════════════════ */
 
 const RATE_LIMIT_MS = 60_000; // 1 минута между сессиями
 const MAX_DAILY_ATTEMPTS = 5; // Максимум попыток в день
+
+// Dev bypass для тестирования (только в development)
+const bypassLimits = 
+  process.env.BYPASS_LIMITS === "true" && 
+  process.env.NODE_ENV !== "production";
 
 type StartRequestBody = {
   userId?: number;
@@ -112,48 +119,74 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   // ═══ ANTI-ABUSE CHECKS для новой сессии ═══
+  // (пропускаются если bypassLimits = true в dev режиме)
 
   // 1. Rate limiting - проверяем последнюю завершённую сессию
-  const lastSession = await prisma.quizSession.findFirst({
-    where: { userId: user.id, quizId, finishedAt: { not: null } },
-    orderBy: { finishedAt: "desc" },
-    select: { finishedAt: true },
-  });
+  if (!bypassLimits) {
+    const lastSession = await prisma.quizSession.findFirst({
+      where: { userId: user.id, quizId, finishedAt: { not: null } },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true },
+    });
 
-  if (lastSession?.finishedAt) {
-    const timeSinceLastSession = Date.now() - lastSession.finishedAt.getTime();
-    if (timeSinceLastSession < RATE_LIMIT_MS) {
-      const waitSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastSession) / 1000);
-      return NextResponse.json(
-        { 
-          error: "rate_limited", 
-          message: `Подожди ${waitSeconds} секунд перед новой попыткой`,
-          waitSeconds,
-        },
-        { status: 429 }
-      );
+    if (lastSession?.finishedAt) {
+      const timeSinceLastSession = Date.now() - lastSession.finishedAt.getTime();
+      if (timeSinceLastSession < RATE_LIMIT_MS) {
+        const waitSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastSession) / 1000);
+        return NextResponse.json(
+          { 
+            error: "rate_limited", 
+            message: `Подожди ${waitSeconds} секунд перед новой попыткой`,
+            waitSeconds,
+          },
+          { status: 429 }
+        );
+      }
     }
   }
 
-  // 2. Daily limit - считаем попытки за сегодня
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // 2. Sliding window 24h - считаем попытки за последние 24 часа
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const dailyAttempts = await prisma.quizSession.count({
+  // Получаем сессии за последние 24 часа (для расчёта когда освободится слот)
+  const recentSessions = await prisma.quizSession.findMany({
     where: {
       userId: user.id,
       quizId,
-      startedAt: { gte: todayStart },
+      startedAt: { gte: twentyFourHoursAgo },
     },
+    orderBy: { startedAt: "asc" },
+    select: { startedAt: true },
   });
 
-  if (dailyAttempts >= MAX_DAILY_ATTEMPTS) {
+  const attemptsIn24h = recentSessions.length;
+
+  if (!bypassLimits && attemptsIn24h >= MAX_DAILY_ATTEMPTS) {
+    // Когда освободится следующий слот (самая старая сессия + 24 часа)
+    const oldestSession = recentSessions[0];
+    const nextSlotAt = new Date(oldestSession.startedAt.getTime() + 24 * 60 * 60 * 1000);
+    const waitMs = nextSlotAt.getTime() - Date.now();
+    const waitMinutes = Math.ceil(waitMs / 60000);
+    const waitHours = Math.floor(waitMinutes / 60);
+    const remainingMinutes = waitMinutes % 60;
+    
+    // Формируем читаемое сообщение
+    let waitMessage: string;
+    if (waitHours > 0) {
+      waitMessage = `${waitHours} ч ${remainingMinutes} мин`;
+    } else {
+      waitMessage = `${remainingMinutes} мин`;
+    }
+
     return NextResponse.json(
       { 
         error: "daily_limit_reached", 
-        message: `Ты исчерпал ${MAX_DAILY_ATTEMPTS} попыток на сегодня. Возвращайся завтра!`,
-        attemptsToday: dailyAttempts,
+        message: `Лимит ${MAX_DAILY_ATTEMPTS} попыток за 24 часа исчерпан`,
+        attemptsIn24h,
         maxDaily: MAX_DAILY_ATTEMPTS,
+        nextSlotAt: nextSlotAt.toISOString(),
+        waitMs,
+        waitMessage,
       },
       { status: 429 }
     );
@@ -185,7 +218,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     sessionId: session.id,
     quizId,
     attemptNumber,
-    remainingAttempts: MAX_DAILY_ATTEMPTS - dailyAttempts - 1,
+    remainingAttempts: MAX_DAILY_ATTEMPTS - attemptsIn24h - 1,
     totalQuestions: questions.length,
     totalScore: session.totalScore,
     currentStreak: 0, // Начальный streak
