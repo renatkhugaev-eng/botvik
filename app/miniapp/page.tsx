@@ -203,20 +203,36 @@ export default function MiniAppPage() {
       });
   }, [session]);
 
-  // Simulate online players count (updates every 30 seconds)
+  // Real-time online players via Server-Sent Events
   useEffect(() => {
-    // Random initial count between 15-60
-    setOnlinePlayers(Math.floor(Math.random() * 45) + 15);
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
     
-    const interval = setInterval(() => {
-      // Fluctuate by -3 to +5
-      setOnlinePlayers((prev) => {
-        const change = Math.floor(Math.random() * 9) - 3;
-        return Math.max(10, Math.min(99, prev + change));
-      });
-    }, 30000);
+    const connect = () => {
+      eventSource = new EventSource('/api/online');
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setOnlinePlayers(data.count);
+        } catch {
+          // Ignore parse errors
+        }
+      };
+      
+      eventSource.onerror = () => {
+        eventSource?.close();
+        // Reconnect after 5 seconds
+        reconnectTimeout = setTimeout(connect, 5000);
+      };
+    };
     
-    return () => clearInterval(interval);
+    connect();
+    
+    return () => {
+      eventSource?.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   // Fetch leaderboard position
