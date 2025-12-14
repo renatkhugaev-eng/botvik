@@ -87,6 +87,7 @@ export default function QuizPlayPage() {
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitError | null>(null);
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
+  const [timeRestoredFromServer, setTimeRestoredFromServer] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
   const shareCardRef = useRef<HTMLDivElement>(null);
@@ -123,8 +124,13 @@ export default function QuizPlayPage() {
   useEffect(() => {
     if (loading || finished || answerResult || !currentQuestion) return;
     
-    // Reset for new question
-    setTimeLeft(QUESTION_TIME);
+    // НЕ сбрасываем время если оно было восстановлено с сервера
+    if (timeRestoredFromServer) {
+      setTimeRestoredFromServer(false); // Сбрасываем флаг, следующий вопрос будет с полным временем
+    } else {
+      // Reset for new question
+      setTimeLeft(QUESTION_TIME);
+    }
     setTimeoutHandled(false);
     
     timerRef.current = setInterval(() => {
@@ -140,7 +146,7 @@ export default function QuizPlayPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentIndex, loading, finished, currentQuestion]); // removed answerResult to prevent reset
+  }, [currentIndex, loading, finished, currentQuestion, timeRestoredFromServer]);
 
   // Handle timeout - when timer reaches 0
   useEffect(() => {
@@ -293,6 +299,7 @@ export default function QuizPlayPage() {
           
           if (remaining > 0) {
             setTimeLeft(remaining);
+            setTimeRestoredFromServer(true); // Флаг: время восстановлено с сервера
           } else {
             // Время истекло — помечаем как timeout
             setTimeLeft(0);
