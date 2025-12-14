@@ -15,8 +15,77 @@ import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
    Border radius: 8, 12, 16, 20
 ═══════════════════════════════════════════════════════════════════════════ */
 
+// Greeting icons as React elements
+function SunriseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" stroke="url(#sunrise)" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M12 16a4 4 0 100-8 4 4 0 000 8z" fill="url(#sunFill)"/>
+      <defs>
+        <linearGradient id="sunrise" x1="2" y1="2" x2="22" y2="22">
+          <stop stopColor="#F59E0B"/><stop offset="1" stopColor="#F97316"/>
+        </linearGradient>
+        <linearGradient id="sunFill" x1="8" y1="8" x2="16" y2="16">
+          <stop stopColor="#FBBF24"/><stop offset="1" stopColor="#F59E0B"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function SunIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="5" fill="url(#sunGradient)"/>
+      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="url(#rayGradient)" strokeWidth="2" strokeLinecap="round"/>
+      <defs>
+        <linearGradient id="sunGradient" x1="7" y1="7" x2="17" y2="17">
+          <stop stopColor="#FCD34D"/><stop offset="1" stopColor="#F59E0B"/>
+        </linearGradient>
+        <linearGradient id="rayGradient" x1="1" y1="1" x2="23" y2="23">
+          <stop stopColor="#FBBF24"/><stop offset="1" stopColor="#F97316"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function SunsetIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path d="M17 18a5 5 0 10-10 0" fill="url(#sunsetSun)"/>
+      <path d="M12 2v2M4.22 5.64l1.42 1.42M18.36 5.64l-1.42 1.42M1 12h2M21 12h2" stroke="url(#sunsetRay)" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M2 20h20" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round"/>
+      <defs>
+        <linearGradient id="sunsetSun" x1="7" y1="13" x2="17" y2="18">
+          <stop stopColor="#FB923C"/><stop offset="1" stopColor="#EC4899"/>
+        </linearGradient>
+        <linearGradient id="sunsetRay" x1="1" y1="2" x2="21" y2="12">
+          <stop stopColor="#FBBF24"/><stop offset="1" stopColor="#F472B6"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function MoonIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="url(#moonGradient)"/>
+      <circle cx="8" cy="8" r="1" fill="#A78BFA" opacity="0.6"/>
+      <circle cx="11" cy="13" r="0.5" fill="#A78BFA" opacity="0.4"/>
+      <circle cx="15" cy="9" r="0.7" fill="#A78BFA" opacity="0.5"/>
+      <defs>
+        <linearGradient id="moonGradient" x1="11" y1="3" x2="21" y2="21">
+          <stop stopColor="#C4B5FD"/><stop offset="1" stopColor="#8B5CF6"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 // Greeting based on time of day
-function getGreeting(): { text: string; emoji: string; atmosphere: string } {
+function getGreeting(): { text: string; icon: React.ReactNode; atmosphere: string } {
   const hour = new Date().getHours();
   
   const atmospheres = [
@@ -29,13 +98,13 @@ function getGreeting(): { text: string; emoji: string; atmosphere: string } {
   const randomAtmosphere = atmospheres[Math.floor(Math.random() * atmospheres.length)];
   
   if (hour >= 5 && hour < 12) {
-    return { text: "Доброе утро", emoji: "🌅", atmosphere: randomAtmosphere };
+    return { text: "Доброе утро", icon: <SunriseIcon className="inline h-5 w-5 -mt-0.5" />, atmosphere: randomAtmosphere };
   } else if (hour >= 12 && hour < 17) {
-    return { text: "Добрый день", emoji: "☀️", atmosphere: randomAtmosphere };
+    return { text: "Добрый день", icon: <SunIcon className="inline h-5 w-5 -mt-0.5" />, atmosphere: randomAtmosphere };
   } else if (hour >= 17 && hour < 22) {
-    return { text: "Добрый вечер", emoji: "🌆", atmosphere: randomAtmosphere };
+    return { text: "Добрый вечер", icon: <SunsetIcon className="inline h-5 w-5 -mt-0.5" />, atmosphere: randomAtmosphere };
   } else {
-    return { text: "Доброй ночи", emoji: "🌙", atmosphere: randomAtmosphere };
+    return { text: "Доброй ночи", icon: <MoonIcon className="inline h-5 w-5 -mt-0.5" />, atmosphere: randomAtmosphere };
   }
 }
 
@@ -75,13 +144,88 @@ type LeaderboardPosition = {
 // Animations
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 
+// Quiz card icon components
+function SearchIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <circle cx="11" cy="11" r="6" stroke="url(#searchGrad)" strokeWidth="2"/>
+      <path d="M20 20l-3-3" stroke="url(#searchGrad)" strokeWidth="2" strokeLinecap="round"/>
+      <defs>
+        <linearGradient id="searchGrad" x1="5" y1="5" x2="20" y2="20">
+          <stop stopColor="#818CF8"/><stop offset="1" stopColor="#6366F1"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function MaskIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <path d="M12 4C7 4 3 7 3 11c0 2.5 1.5 4.5 3 6 1.5 1.5 3 3 6 3s4.5-1.5 6-3c1.5-1.5 3-3.5 3-6 0-4-4-7-9-7z" fill="url(#maskGrad)"/>
+      <circle cx="8.5" cy="10" r="1.5" fill="#1a1a2e"/>
+      <circle cx="15.5" cy="10" r="1.5" fill="#1a1a2e"/>
+      <path d="M9 14c1 1 2 1.5 3 1.5s2-.5 3-1.5" stroke="#1a1a2e" strokeWidth="1.5" strokeLinecap="round"/>
+      <defs>
+        <linearGradient id="maskGrad" x1="3" y1="4" x2="21" y2="20">
+          <stop stopColor="#FB7185"/><stop offset="1" stopColor="#E11D48"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" fill="url(#boltGrad)"/>
+      <defs>
+        <linearGradient id="boltGrad" x1="4" y1="2" x2="20" y2="22">
+          <stop stopColor="#FCD34D"/><stop offset="1" stopColor="#F59E0B"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function SnowflakeIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2v20M2 12h20M5.64 5.64l12.72 12.72M18.36 5.64L5.64 18.36" stroke="url(#snowGrad)" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="2" fill="url(#snowGrad)"/>
+      <defs>
+        <linearGradient id="snowGrad" x1="2" y1="2" x2="22" y2="22">
+          <stop stopColor="#67E8F9"/><stop offset="1" stopColor="#06B6D4"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function FlameIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <path d="M12 22c4-2 6-5 6-8 0-4-3-6-4-8-1 2-2 3-2 5 0-3-2-6-4-8-1 3 0 6 0 8-3-2-4-5-4-8 0 5 2 11 8 19z" fill="url(#flameGrad)"/>
+      <path d="M12 22c2-1 3-2.5 3-4 0-2-1.5-3-2-4-.5 1-1 1.5-1 2.5 0-1.5-1-3-2-4-.5 1.5 0 3 0 4-1.5-1-2-2.5-2-4 0 2.5 1 5.5 4 9.5z" fill="url(#flameInner)"/>
+      <defs>
+        <linearGradient id="flameGrad" x1="4" y1="22" x2="18" y2="2">
+          <stop stopColor="#EF4444"/><stop offset="0.5" stopColor="#F97316"/><stop offset="1" stopColor="#FBBF24"/>
+        </linearGradient>
+        <linearGradient id="flameInner" x1="7" y1="22" x2="15" y2="10">
+          <stop stopColor="#FCD34D"/><stop offset="1" stopColor="#FEF3C7"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 // Premium Dark Palette — Netflix/HBO Crime aesthetic
 const palette = [
-  { bg: "from-[#1a1a2e] to-[#16213e]", text: "text-indigo-400", icon: "🔍" },
-  { bg: "from-[#2d132c] to-[#1a1a2e]", text: "text-rose-400", icon: "🎭" },
-  { bg: "from-[#1f1f1f] to-[#121212]", text: "text-amber-400", icon: "⚡" },
-  { bg: "from-[#1e3a5f] to-[#0d1b2a]", text: "text-cyan-400", icon: "🧊" },
-  { bg: "from-[#2c1810] to-[#1a0f0a]", text: "text-orange-400", icon: "🔥" },
+  { bg: "from-[#1a1a2e] to-[#16213e]", text: "text-indigo-400", icon: <SearchIcon /> },
+  { bg: "from-[#2d132c] to-[#1a1a2e]", text: "text-rose-400", icon: <MaskIcon /> },
+  { bg: "from-[#1f1f1f] to-[#121212]", text: "text-amber-400", icon: <BoltIcon /> },
+  { bg: "from-[#1e3a5f] to-[#0d1b2a]", text: "text-cyan-400", icon: <SnowflakeIcon /> },
+  { bg: "from-[#2c1810] to-[#1a0f0a]", text: "text-orange-400", icon: <FlameIcon /> },
 ];
 
 // Канал для подписки
@@ -391,7 +535,12 @@ export default function MiniAppPage() {
   if (session.status === "error") {
     return (
       <div className="flex h-[400px] flex-col items-center justify-center text-center">
-        <div className="text-5xl">😔</div>
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-100">
+          <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#F43F5E" strokeWidth="2"/>
+            <path d="M15 9l-6 6M9 9l6 6" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
         <p className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">Ошибка</p>
         <p className="mt-1 text-[15px] text-[#64748b]">Откройте из Telegram</p>
       </div>
@@ -406,17 +555,17 @@ export default function MiniAppPage() {
     <PullToRefresh onRefresh={handleRefresh}>
     <div className="flex flex-col gap-6 w-full overflow-x-hidden">
       {/* ═══════════════════════════════════════════════════════════════════
-          HEADER — Height: 48px
+          HEADER — Height: 56px
       ═══════════════════════════════════════════════════════════════════ */}
-      <header className="relative flex h-12 items-center justify-between">
-        {/* Back — 40x40 */}
+      <header className="relative flex h-14 items-center justify-between">
+        {/* Back — 44x44 */}
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => {
             haptic.light();
             router.push("/");
           }}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#64748b] shadow-sm"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -434,8 +583,8 @@ export default function MiniAppPage() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
             <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
           </span>
-          <span className="text-[11px] font-medium text-white whitespace-nowrap">
-            <span className="font-bold">{onlinePlayers}</span> <span className="text-white/60">играют сейчас</span>
+          <span className="text-xs font-medium text-white whitespace-nowrap">
+            <span className="font-bold tabular-nums">{onlinePlayers}</span> <span className="text-white/50">играют сейчас</span>
           </span>
         </motion.div>
 
@@ -457,26 +606,27 @@ export default function MiniAppPage() {
             haptic.medium();
             router.push("/miniapp/profile");
           }}
-          className="relative mb-3"
+          className="relative mb-4"
         >
-          {/* Animated gradient ring */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow blur-[2px]" />
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-40 animate-spin-slow" />
+          {/* Animated gradient ring — outer glow */}
+          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-60 animate-spin-slow blur-md" />
+          {/* Animated gradient ring — sharp edge */}
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow" />
           
           {photoUrl ? (
             <img 
               src={photoUrl} 
               alt={name}
-              className="relative h-16 w-16 rounded-full object-cover ring-[3px] ring-white"
+              className="relative h-24 w-24 rounded-full object-cover ring-[3px] ring-white shadow-xl"
             />
           ) : (
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-[3px] ring-white">
-              <span className="text-xl font-bold text-white">{avatarLetter}</span>
+            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-[3px] ring-white shadow-xl">
+              <span className="text-3xl font-bold text-white">{avatarLetter}</span>
             </div>
           )}
           
           {/* Online indicator */}
-          <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white">
+          <div className="absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm">
             <span className="relative flex h-3 w-3">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
@@ -485,38 +635,35 @@ export default function MiniAppPage() {
         </motion.button>
         
         {/* Greeting */}
-        <p className="text-[12px] text-slate-400 text-center">
-          {greeting.emoji} {greeting.text}, <span className="font-semibold text-slate-600">{name}</span>
+        <p className="text-sm text-slate-500 text-center flex items-center justify-center gap-1.5">
+          {greeting.icon} {greeting.text}, <span className="font-semibold text-slate-700">{name}</span>
         </p>
-        <p className="text-[10px] text-slate-400/70 italic text-center mt-0.5 mb-3">
+        <p className="text-xs text-slate-400/80 italic text-center mt-1 mb-4">
           {greeting.atmosphere}
         </p>
         
         {/* Stats — Minimal Oval Pills */}
-        <div className="flex justify-center items-center gap-2">
+        <div className="flex justify-center items-center gap-3">
           {/* Energy pill */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-2 pr-3 py-1 shadow-lg shadow-amber-500/20"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-1.5 pr-3 py-1 shadow-lg shadow-amber-500/25"
           >
-            <span className="text-sm">⚡</span>
-            <span className="text-[13px] font-bold text-white">{userStats?.minEnergy ?? 5}</span>
+            <img src="/icons/energy.png" alt="" className="h-7 w-7 object-contain" />
+            <span className="text-sm font-bold text-white tabular-nums">{userStats?.minEnergy ?? 5}</span>
           </motion.div>
-          
-          {/* Dot separator */}
-          <span className="text-slate-300 text-[8px]">●</span>
           
           {/* Score pill */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-2 pr-3 py-1 shadow-lg shadow-violet-500/20"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-1.5 pr-3 py-1 shadow-lg shadow-violet-500/25"
           >
-            <img src="/icons/coin.png" alt="" className="h-4 w-4 object-contain" />
-            <span className="text-[13px] font-bold text-white">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
+            <img src="/icons/7.PNG" alt="" className="h-7 w-7 object-contain" />
+            <span className="text-sm font-bold text-white tabular-nums">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
           </motion.div>
         </div>
       </motion.section>
@@ -582,13 +729,13 @@ export default function MiniAppPage() {
                       : "bg-gradient-to-br from-violet-500 to-indigo-600"
                 }`}>
                   {!myPosition || myPosition.place === 0 ? (
-                    <span className="text-[16px]">🏆</span>
+                    <img src="/icons/trophy.png" alt="" className="h-7 w-7 object-contain" />
                   ) : myPosition.place === 1 ? (
-                    <span className="text-[18px]">🥇</span>
+                    <img src="/icons/fire-medal.png" alt="1" className="h-8 w-8 object-contain" />
                   ) : myPosition.place === 2 ? (
-                    <span className="text-[18px]">🥈</span>
+                    <img src="/icons/medal.png" alt="2" className="h-7 w-7 object-contain" />
                   ) : myPosition.place === 3 ? (
-                    <span className="text-[18px]">🥉</span>
+                    <img src="/icons/medal.png" alt="3" className="h-7 w-7 object-contain" />
                   ) : (
                     <span className="text-[14px] font-black text-white">{myPosition.place}</span>
                   )}
@@ -677,7 +824,20 @@ export default function MiniAppPage() {
                   transition={{ duration: 2, repeat: Infinity }}
                   className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm"
                 >
-                  <span className="text-4xl">🔒</span>
+                  <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="11" width="18" height="11" rx="2" fill="url(#lockBody)"/>
+                    <path d="M7 11V7a5 5 0 0110 0v4" stroke="url(#lockShackle)" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="12" cy="16" r="1.5" fill="#1a1a2e"/>
+                    <path d="M12 17.5v2" stroke="#1a1a2e" strokeWidth="1.5" strokeLinecap="round"/>
+                    <defs>
+                      <linearGradient id="lockBody" x1="3" y1="11" x2="21" y2="22">
+                        <stop stopColor="#FCD34D"/><stop offset="1" stopColor="#F59E0B"/>
+                      </linearGradient>
+                      <linearGradient id="lockShackle" x1="7" y1="7" x2="17" y2="11">
+                        <stop stopColor="#FBBF24"/><stop offset="1" stopColor="#D97706"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
                 </motion.div>
                 <h2 className="font-display text-[22px] font-bold text-white">
                   Подпишись на канал
@@ -792,13 +952,22 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   const items = [...quizzes, ...demos.slice(0, Math.max(0, 5 - quizzes.length))];
 
   const tournaments = [
-    { id: "t1", title: "Серийники 60-х", time: "20:00", emoji: "🎭", bg: "from-[#2d132c] to-[#1a1a2e]" },
-    { id: "t2", title: "Ночь культов", time: "12ч", emoji: "🕯️", bg: "from-[#1e3a5f] to-[#0d1b2a]" },
+    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <MaskIcon />, bg: "from-[#2d132c] to-[#1a1a2e]" },
+    { id: "t2", title: "Ночь культов", time: "12ч", icon: (
+      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2c.5 3.5 2 5 4 6.5-2 1-3 2.5-3 5.5 0-3-1-4.5-3-5.5 2-1.5 3.5-3 2-6.5z" fill="url(#candleFlame)"/>
+        <rect x="9" y="14" width="6" height="8" rx="1" fill="url(#candleBody)"/>
+        <defs>
+          <linearGradient id="candleFlame" x1="9" y1="2" x2="16" y2="14"><stop stopColor="#FBBF24"/><stop offset="0.5" stopColor="#F97316"/><stop offset="1" stopColor="#EF4444"/></linearGradient>
+          <linearGradient id="candleBody" x1="9" y1="14" x2="15" y2="22"><stop stopColor="#FEF3C7"/><stop offset="1" stopColor="#FCD34D"/></linearGradient>
+        </defs>
+      </svg>
+    ), bg: "from-[#1e3a5f] to-[#0d1b2a]" },
   ];
 
   const events = [
-    { id: "e1", title: "Неделя загадок", tag: "Марафон", emoji: "🔍" },
-    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", emoji: "🧊" },
+    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <SearchIcon /> },
+    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <SnowflakeIcon /> },
   ];
 
   return (
@@ -851,10 +1020,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     className={`flex h-[200px] w-[168px] flex-shrink-0 snap-start flex-col rounded-2xl bg-gradient-to-br ${c.bg} p-4`}
                   >
                     {/* Row 1: Icon + Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-[18px]">
-                        {c.icon}
-                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
+                          {c.icon}
+                        </div>
                       <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
                         Активна
                       </span>
@@ -926,7 +1095,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center justify-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2"
           >
-            <span className="text-red-400">⚠️</span>
+            <svg className="h-4 w-4 text-red-400" viewBox="0 0 24 24" fill="none">
+              <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+            </svg>
             <p className="text-[13px] font-medium text-red-400">{startError}</p>
           </motion.div>
         )}
@@ -1126,13 +1298,27 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               className="mb-4 flex h-12 items-center justify-center gap-4 rounded-xl bg-white/[0.03]"
             >
               {[
-                { icon: "🎮", label: "Играй" },
-                { icon: "📈", label: "Набирай" },
-                { icon: "🏆", label: "Побеждай" },
+                { icon: (
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="6" width="20" height="12" rx="3" fill="url(#gamepadGrad)"/>
+                    <circle cx="8" cy="12" r="2" fill="#1a1a2e"/>
+                    <circle cx="16" cy="10" r="1" fill="#1a1a2e"/>
+                    <circle cx="16" cy="14" r="1" fill="#1a1a2e"/>
+                    <defs><linearGradient id="gamepadGrad" x1="2" y1="6" x2="22" y2="18"><stop stopColor="#A78BFA"/><stop offset="1" stopColor="#8B5CF6"/></linearGradient></defs>
+                  </svg>
+                ), label: "Играй" },
+                { icon: (
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 20L9 14l4 4 8-10" stroke="url(#chartGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M17 8h4v4" stroke="url(#chartGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <defs><linearGradient id="chartGrad" x1="3" y1="20" x2="21" y2="8"><stop stopColor="#34D399"/><stop offset="1" stopColor="#10B981"/></linearGradient></defs>
+                  </svg>
+                ), label: "Набирай" },
+                { icon: <img src="/icons/trophy.png" alt="" className="h-5 w-5 object-contain" />, label: "Побеждай" },
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-base">{step.icon}</span>
+                    {step.icon}
                     <span className="text-[11px] font-medium text-slate-400">{step.label}</span>
                   </div>
                   {i < 2 && (
@@ -1170,14 +1356,21 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           TOURNAMENTS
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Турниры" badge="🎯">
+      <Card title="Турниры" badge={
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="url(#targetGrad)" strokeWidth="2"/>
+          <circle cx="12" cy="12" r="6" stroke="url(#targetGrad)" strokeWidth="2"/>
+          <circle cx="12" cy="12" r="2" fill="url(#targetGrad)"/>
+          <defs><linearGradient id="targetGrad" x1="2" y1="2" x2="22" y2="22"><stop stopColor="#F472B6"/><stop offset="1" stopColor="#EC4899"/></linearGradient></defs>
+        </svg>
+      }>
         <div className="flex flex-col gap-2">
           {tournaments.map((t) => (
             <Row
               key={t.id}
               icon={
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${t.bg} text-[18px] shadow-lg`}>
-                  {t.emoji}
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${t.bg} shadow-lg`}>
+                  {t.icon}
                 </div>
               }
               title={t.title}
@@ -1191,7 +1384,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           SPECIAL EVENTS — 2 columns
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Спецпроекты" badge="✨">
+      <Card title="Спецпроекты" badge={<img src="/icons/5.PNG" alt="" className="h-5 w-5 object-contain" />}>
         <div className="grid grid-cols-2 gap-3">
           {events.map((e) => (
             <motion.div
@@ -1199,7 +1392,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               whileTap={{ scale: 0.97 }}
               className="flex h-24 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a] text-center shadow-lg"
             >
-              <div className="text-2xl">{e.emoji}</div>
+              <div className="flex h-8 w-8 items-center justify-center">{e.icon}</div>
               <p className="mt-1 text-[13px] font-semibold text-white">{e.title}</p>
               <span className="mt-1 text-[10px] text-indigo-300">{e.tag}</span>
             </motion.div>
@@ -1214,13 +1407,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
    SHARED COMPONENTS
 ═══════════════════════════════════════════════════════════════════════════ */
 
-function Card({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) {
+function Card({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm">
       {/* Header — h-6 */}
       <div className="mb-3 flex h-6 items-center justify-between">
         <h3 className="font-display text-[15px] font-bold text-[#1a1a2e]">{title}</h3>
-        {badge && <span className="text-[14px]">{badge}</span>}
+        {badge && <span className="flex items-center justify-center">{badge}</span>}
       </div>
       {children}
     </div>

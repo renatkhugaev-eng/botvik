@@ -159,8 +159,8 @@ export default function QuizPlayPage() {
       timeRestoredRef.current = false;
       initialTimeLeftRef.current = null;
     } else {
-      // Reset for new question
-      setTimeLeft(QUESTION_TIME);
+    // Reset for new question
+    setTimeLeft(QUESTION_TIME);
     }
     setTimeoutHandled(false);
     
@@ -412,7 +412,7 @@ export default function QuizPlayPage() {
     setSelectedOption(null);
     const nextIndex = currentIndex + 1;
     
-      if (nextIndex >= questions.length) {
+    if (nextIndex >= questions.length) {
       if (!sessionId) return;
       try {
         setSubmitting(true);
@@ -561,7 +561,8 @@ export default function QuizPlayPage() {
             {isEnergyDepleted && (
               <div className="mb-6 space-y-3">
                 <div className="flex items-center justify-center gap-2 text-white/40 text-sm">
-                  <span>⚡ Энергия:</span>
+                  <img src="/icons/energy.png" alt="" className="h-6 w-6 object-contain" />
+                  <span>Энергия:</span>
                   <span className="font-bold text-white">{rateLimitInfo.usedAttempts}/{rateLimitInfo.maxAttempts}</span>
                   <span className="text-white/30">• +1 каждые {rateLimitInfo.hoursPerAttempt ?? 4}ч</span>
                 </div>
@@ -718,7 +719,7 @@ export default function QuizPlayPage() {
               {/* 5-Star Rating */}
               <div className="flex justify-center gap-2 mb-6">
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <motion.div
+              <motion.div
                     key={star}
                     initial={{ opacity: 0, scale: 0, rotate: -180 }}
                     animate={{ 
@@ -733,7 +734,7 @@ export default function QuizPlayPage() {
                       damping: 15,
                     }}
                     className="relative"
-                  >
+              >
                     {/* Diffused glow effect */}
                     {star <= starCount && (
                       <motion.div
@@ -745,11 +746,11 @@ export default function QuizPlayPage() {
                         className="absolute inset-0"
                         style={{ filter: "blur(8px) brightness(1.8) saturate(2)" }}
                       >
-                        <img src="/icons/star.png" alt="" className="h-12 w-12 object-contain" />
-                      </motion.div>
+                        <img src="/icons/5.PNG" alt="" className="h-12 w-12 object-contain" />
+              </motion.div>
                     )}
                     <img 
-                      src="/icons/star.png" 
+                      src="/icons/5.PNG" 
                       alt="" 
                       className={`relative h-12 w-12 object-contain ${
                         star <= starCount 
@@ -1069,7 +1070,7 @@ export default function QuizPlayPage() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl blur-sm opacity-50" />
               <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500">
-                <img src="/icons/coin.png" alt="" className="h-11 w-11 object-contain" />
+                <img src="/icons/7.PNG" alt="" className="h-11 w-11 object-contain" />
               </div>
             </div>
             <div>

@@ -197,35 +197,35 @@ export default function LeaderboardPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           QUIZ SELECTOR
       ═══════════════════════════════════════════════════════════════════ */}
-      <motion.button
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => {
-          haptic.medium();
-          setShowSelect(true);
-        }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
-      >
-        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
-        <div className="relative flex items-center justify-between">
-          <div>
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            haptic.medium();
+            setShowSelect(true);
+          }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
+        >
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
+          <div className="relative flex items-center justify-between">
+            <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-1">Рейтинг</p>
             <p className="text-[16px] font-bold text-white">
               {quizId === null ? "🌍 Общий рейтинг" : currentQuiz?.title ?? "Выбрать"}
             </p>
-          </div>
-          <div className="flex items-center gap-2">
+            </div>
+            <div className="flex items-center gap-2">
             <span className="text-[12px] font-semibold text-white/40">{entries.length} игроков</span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-              <svg className="h-5 w-5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-              </svg>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+                <svg className="h-5 w-5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+                </svg>
+              </div>
             </div>
           </div>
-        </div>
-      </motion.button>
+        </motion.button>
 
       {/* Quiz selector modal */}
       <AnimatePresence>
@@ -620,7 +620,7 @@ export default function LeaderboardPage() {
           >
             {[
               { label: "Участников", value: entries.length, icon: "👥", img: null },
-              { label: "Лучший счёт", value: leaderScore, icon: null, img: "/icons/coin.png" },
+              { label: "Лучший счёт", value: leaderScore, icon: null, img: "/icons/7.PNG" },
               { label: "Средний счёт", value: entries.length > 0 ? Math.round(entries.reduce((s, e) => s + e.score, 0) / entries.length) : 0, icon: "📊", img: null },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl bg-white p-3 shadow-lg shadow-black/5 text-center">

@@ -682,32 +682,32 @@ export default function ProfilePage() {
               </div>
 
               {/* XP Progress to next level */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="mt-6"
-              >
-                <div className="flex items-center justify-between text-[12px] mb-2">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="mt-6"
+                >
+                  <div className="flex items-center justify-between text-[12px] mb-2">
                   <span className="text-white/50">
                     <span className="text-amber-400">⚡</span> Уровень {xp.level}
                   </span>
                   <span className="font-mono text-white/70 tabular-nums">{xp.xpInCurrentLevel} / {xp.xpNeededForNext} XP</span>
-                </div>
-                <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ delay: 0.8, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                  </div>
+                  <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ delay: 0.8, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
                     className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
-                  />
-                  {/* Shimmer - CSS animation */}
-                  <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                </div>
+                    />
+                    {/* Shimmer - CSS animation */}
+                    <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                  </div>
                 <p className="text-[10px] text-white/30 mt-1.5 text-center">
                   Всего: {xp.total.toLocaleString()} XP
                 </p>
-              </motion.div>
+                </motion.div>
 
               {/* Giant animated score */}
               <motion.div
@@ -719,7 +719,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <img src="/icons/coin.png" alt="" className="h-10 w-10 object-contain" />
+                      <img src="/icons/7.PNG" alt="" className="h-10 w-10 object-contain" />
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
                     </div>
                     <p
@@ -1221,7 +1221,7 @@ export default function ProfilePage() {
                             <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
                               <div className="text-center flex-1">
                                 <div className="flex items-center justify-center gap-1">
-                                  <img src="/icons/coin.png" alt="" className="h-9 w-9 object-contain" />
+                                  <img src="/icons/7.PNG" alt="" className="h-9 w-9 object-contain" />
                                   <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.totalScore}</p>
                                 </div>
                                 <p className="text-[10px] text-slate-400">очков</p>
