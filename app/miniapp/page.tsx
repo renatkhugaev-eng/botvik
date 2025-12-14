@@ -39,6 +39,8 @@ type QuizSummary = {
 type UserStats = {
   totalQuizzesPlayed: number;
   totalScore: number;
+  minEnergy?: number;      // Минимальная энергия среди всех квизов
+  maxEnergy?: number;      // Максимум энергии
 };
 
 type LeaderboardPosition = {
@@ -101,8 +103,16 @@ export default function MiniAppPage() {
       // Инициализируем countdowns из серверных данных
       // ВАЖНО: Energy в приоритете над Rate limit (если энергия кончилась, показываем её)
       const newCountdowns: Record<number, number> = {};
+      let minEnergy = 5; // Начинаем с максимума
+      let maxEnergy = 5;
+      
       for (const quiz of quizzesData) {
         if (quiz.limitInfo) {
+          // Считаем минимальную энергию среди всех квизов
+          const remaining = quiz.limitInfo.remaining ?? quiz.limitInfo.maxAttempts ?? 5;
+          maxEnergy = quiz.limitInfo.maxAttempts ?? 5;
+          if (remaining < minEnergy) minEnergy = remaining;
+          
           if (quiz.limitInfo.energyWaitMs && quiz.limitInfo.energyWaitMs > 0) {
             // Energy depleted — показываем сколько ждать до +1 энергии
             newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.energyWaitMs / 1000);
@@ -113,6 +123,15 @@ export default function MiniAppPage() {
         }
       }
       setCountdowns(newCountdowns);
+      
+      // Обновляем энергию в userStats
+      setUserStats(prev => ({ 
+        ...prev, 
+        totalQuizzesPlayed: prev?.totalQuizzesPlayed ?? 0,
+        totalScore: prev?.totalScore ?? 0,
+        minEnergy, 
+        maxEnergy 
+      }));
     } catch {
       setError("Ошибка загрузки");
     } finally {
@@ -133,10 +152,12 @@ export default function MiniAppPage() {
       try {
         const statsRes = await fetch(`/api/me/summary?userId=${session.user.id}`);
         const data = await statsRes.json();
-        setUserStats({
+        setUserStats(prev => ({
           totalQuizzesPlayed: data.stats?.totalQuizzesPlayed ?? 0,
           totalScore: data.stats?.totalScore ?? 0,
-        });
+          minEnergy: prev?.minEnergy ?? 5,
+          maxEnergy: prev?.maxEnergy ?? 5,
+        }));
       } catch {
         // Ignore
       }
@@ -149,13 +170,15 @@ export default function MiniAppPage() {
     fetch(`/api/me/summary?userId=${session.user.id}`)
       .then((r) => r.json())
       .then((data) => {
-        setUserStats({
+        setUserStats(prev => ({
           totalQuizzesPlayed: data.stats?.totalQuizzesPlayed ?? 0,
           totalScore: data.stats?.totalScore ?? 0,
-        });
+          minEnergy: prev?.minEnergy ?? 5,
+          maxEnergy: prev?.maxEnergy ?? 5,
+        }));
       })
       .catch(() => {
-        setUserStats({ totalQuizzesPlayed: 0, totalScore: 0 });
+        setUserStats({ totalQuizzesPlayed: 0, totalScore: 0, minEnergy: 5, maxEnergy: 5 });
       });
   }, [session]);
 
@@ -446,13 +469,18 @@ export default function MiniAppPage() {
           
           {/* Stats */}
           <div className="flex gap-3">
+            {/* Energy indicator */}
             <div className="text-center">
-              <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
-                {userStats?.totalQuizzesPlayed ?? 0}
-              </p>
-              <p className="text-[10px] text-slate-400">игр</p>
+              <div className="flex items-center justify-center gap-1">
+                <span className="text-[16px]">⚡</span>
+                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
+                  {userStats?.minEnergy ?? 5}/{userStats?.maxEnergy ?? 5}
+                </p>
+              </div>
+              <p className="text-[10px] text-slate-400">энергия</p>
             </div>
             <div className="h-8 w-px bg-slate-200" />
+            {/* Score */}
             <div className="text-center">
               <div className="flex items-center justify-center gap-1">
                 <img src="/icons/coin.png" alt="" className="h-10 w-10 object-contain" />
