@@ -813,20 +813,26 @@ export default function QuizPlayPage() {
                 haptic.heavy();
                 
                 try {
-                  // Генерируем URL для OG image API
-                  const params = new URLSearchParams({
-                    title: quizTitle,
-                    score: totalScore.toString(),
-                    correct: correctCount.toString(),
-                    total: questions.length.toString(),
-                    streak: maxStreak.toString(),
-                    stars: starCount.toString(),
-                    player: session.status === "ready" ? (session.user?.firstName || session.user?.username || "") : "",
+                  // Генерируем картинку через htmlcsstoimage API
+                  const response = await fetch("/api/share-image", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      quizTitle,
+                      score: totalScore,
+                      correct: correctCount,
+                      total: questions.length,
+                      streak: maxStreak,
+                      stars: starCount,
+                      player: session.status === "ready" ? (session.user?.firstName || session.user?.username || "") : "",
+                    }),
                   });
                   
-                  // Полный URL для Telegram
-                  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-                  const imageUrl = `${baseUrl}/api/og/result?${params.toString()}`;
+                  if (!response.ok) {
+                    throw new Error("Failed to generate image");
+                  }
+                  
+                  const { url: imageUrl } = await response.json();
                   
                   // 1. Пробуем Telegram shareToStory (нативный метод)
                   const tgWebApp = window.Telegram?.WebApp;
@@ -843,8 +849,8 @@ export default function QuizPlayPage() {
                   }
                   
                   // 2. Загружаем картинку и пробуем Web Share API
-                  const response = await fetch(imageUrl);
-                  const blob = await response.blob();
+                  const imgResponse = await fetch(imageUrl);
+                  const blob = await imgResponse.blob();
                   const file = new File([blob], "quiz-result.png", { type: "image/png" });
                   
                   if (navigator.share) {
@@ -861,15 +867,8 @@ export default function QuizPlayPage() {
                     }
                   }
                   
-                  // 3. Fallback: скачиваем изображение
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `quiz-result-${totalScore}.png`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
+                  // 3. Fallback: открываем картинку в новой вкладке
+                  window.open(imageUrl, "_blank");
                   haptic.success();
                 } catch (err) {
                   console.error("Share error:", err);
