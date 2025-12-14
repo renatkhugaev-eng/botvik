@@ -134,34 +134,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // ═══ ANTI-ABUSE CHECKS для новой сессии ═══
   // (пропускаются если bypassLimits = true в dev режиме)
 
-  // 1. Rate limiting - проверяем последнюю завершённую сессию
-  if (!bypassLimits) {
-    const lastSession = await prisma.quizSession.findFirst({
-      where: { userId: user.id, quizId, finishedAt: { not: null } },
-      orderBy: { finishedAt: "desc" },
-      select: { finishedAt: true },
-    });
-
-    if (lastSession?.finishedAt) {
-      const timeSinceLastSession = Date.now() - lastSession.finishedAt.getTime();
-      if (timeSinceLastSession < RATE_LIMIT_MS) {
-        const waitSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastSession) / 1000);
-        return NextResponse.json(
-          { 
-            error: "rate_limited", 
-            message: `Подожди ${waitSeconds} секунд перед новой попыткой`,
-            waitSeconds,
-          },
-          { status: 429 }
-        );
-      }
-    }
-  }
-
-  // 2. Energy system - считаем попытки за последние ATTEMPT_COOLDOWN_MS
+  // 1. Energy system - СНАЧАЛА проверяем энергию (чтобы не показывать 60 сек, если энергия кончилась)
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
 
-  // Получаем сессии в окне cooldown (для расчёта когда освободится слот)
   const recentSessions = await prisma.quizSession.findMany({
     where: {
       userId: user.id,
@@ -204,6 +179,30 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       },
       { status: 429 }
     );
+  }
+
+  // 2. Rate limiting - проверяем последнюю завершённую сессию (между попытками)
+  if (!bypassLimits) {
+    const lastSession = await prisma.quizSession.findFirst({
+      where: { userId: user.id, quizId, finishedAt: { not: null } },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true },
+    });
+
+    if (lastSession?.finishedAt) {
+      const timeSinceLastSession = Date.now() - lastSession.finishedAt.getTime();
+      if (timeSinceLastSession < RATE_LIMIT_MS) {
+        const waitSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastSession) / 1000);
+        return NextResponse.json(
+          { 
+            error: "rate_limited", 
+            message: `Подожди ${waitSeconds} секунд перед новой попыткой`,
+            waitSeconds,
+          },
+          { status: 429 }
+        );
+      }
+    }
   }
 
   // 3. Считаем общее количество попыток для attemptNumber

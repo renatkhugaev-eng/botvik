@@ -99,15 +99,16 @@ export default function MiniAppPage() {
       setQuizzes(quizzesData);
       
       // Инициализируем countdowns из серверных данных
+      // ВАЖНО: Energy в приоритете над Rate limit (если энергия кончилась, показываем её)
       const newCountdowns: Record<number, number> = {};
       for (const quiz of quizzesData) {
         if (quiz.limitInfo) {
-          if (quiz.limitInfo.rateLimitWaitSeconds && quiz.limitInfo.rateLimitWaitSeconds > 0) {
-            // Rate limit — секунды
-            newCountdowns[quiz.id] = quiz.limitInfo.rateLimitWaitSeconds;
-          } else if (quiz.limitInfo.energyWaitMs && quiz.limitInfo.energyWaitMs > 0) {
-            // Energy limit — миллисекунды в секунды
+          if (quiz.limitInfo.energyWaitMs && quiz.limitInfo.energyWaitMs > 0) {
+            // Energy depleted — показываем сколько ждать до +1 энергии
             newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.energyWaitMs / 1000);
+          } else if (quiz.limitInfo.rateLimitWaitSeconds && quiz.limitInfo.rateLimitWaitSeconds > 0) {
+            // Rate limit — секунды между попытками
+            newCountdowns[quiz.id] = quiz.limitInfo.rateLimitWaitSeconds;
           }
         }
       }
@@ -274,12 +275,12 @@ export default function MiniAppPage() {
         // Обработка rate limiting
         if (res.status === 429) {
           const data = await res.json();
-          if (data.error === "rate_limited" && data.waitSeconds) {
-            // Rate limit — добавляем countdown для этого квиза
-            setCountdowns(prev => ({ ...prev, [id]: data.waitSeconds }));
-          } else if (data.error === "energy_depleted" && data.waitMs) {
-            // Energy depleted — добавляем countdown для этого квиза
+          if (data.error === "energy_depleted" && data.waitMs) {
+            // Energy depleted — показываем сколько ждать (в приоритете)
             setCountdowns(prev => ({ ...prev, [id]: Math.ceil(data.waitMs / 1000) }));
+          } else if (data.error === "rate_limited" && data.waitSeconds) {
+            // Rate limit — секунды между попытками
+            setCountdowns(prev => ({ ...prev, [id]: data.waitSeconds }));
           }
           haptic.warning();
           return;
