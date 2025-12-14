@@ -439,33 +439,6 @@ export default function MiniAppPage() {
           </span>
         </motion.div>
 
-        {/* Profile Button */}
-        <motion.button
-          whileTap={{ scale: 0.92 }}
-          onClick={() => {
-            haptic.medium();
-            router.push("/miniapp/profile");
-          }}
-          className="relative flex items-center gap-2 rounded-full bg-[#0a0a0f] pl-1 pr-3 py-1 shadow-lg"
-        >
-          {/* Avatar with glow ring */}
-          <div className="relative flex-shrink-0">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-60 animate-spin-slow" />
-            {photoUrl ? (
-              <img 
-                src={photoUrl} 
-                alt={name}
-                className="relative h-8 w-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600">
-                <span className="text-[12px] font-bold text-white">{avatarLetter}</span>
-              </div>
-            )}
-          </div>
-          {/* Label */}
-          <span className="text-[12px] font-semibold text-white/80">Профиль</span>
-        </motion.button>
       </header>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -477,8 +450,15 @@ export default function MiniAppPage() {
         transition={{ duration: 0.5 }}
         className="relative flex flex-col items-center py-4"
       >
-        {/* Centered Avatar with animated ring */}
-        <div className="relative mb-3">
+        {/* Centered Avatar — clickable to profile */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            haptic.medium();
+            router.push("/miniapp/profile");
+          }}
+          className="relative mb-3"
+        >
           {/* Animated gradient ring */}
           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow blur-[2px]" />
           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-40 animate-spin-slow" />
@@ -502,7 +482,7 @@ export default function MiniAppPage() {
               <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
             </span>
           </div>
-        </div>
+        </motion.button>
         
         {/* Greeting */}
         <p className="text-[12px] text-slate-400 text-center">
