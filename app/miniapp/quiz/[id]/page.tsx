@@ -744,7 +744,7 @@ export default function QuizPlayPage() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 1, type: "spring", stiffness: 200 }}
-                    className="font-display text-6xl font-black leading-tight tracking-tighter bg-gradient-to-r from-white via-violet-200 to-pink-200 bg-clip-text text-transparent pb-1"
+                    className="text-6xl font-black leading-tight tracking-tighter bg-gradient-to-r from-white via-violet-200 to-pink-200 bg-clip-text text-transparent pb-1 tabular-nums"
                   >
                     {totalScore}
                   </motion.p>

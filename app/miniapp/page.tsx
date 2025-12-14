@@ -1062,7 +1062,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5, ...spring }}
-                    className="font-display bg-gradient-to-r from-white via-violet-200 to-white bg-clip-text text-[40px] font-black tabular-nums tracking-tight text-transparent"
+                    className="bg-gradient-to-r from-white via-violet-200 to-white bg-clip-text text-[40px] font-black tabular-nums tracking-tight text-transparent"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     1 750

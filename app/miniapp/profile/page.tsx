@@ -535,7 +535,7 @@ export default function ProfilePage() {
                     initial={{ opacity: 0, x: -30 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3, ...spring }}
-                    className="font-display text-[28px] font-black tracking-tight text-white"
+                    className="text-[28px] font-black tracking-tight text-white tabular-nums"
                   >
                     {displayName}
                   </motion.h2>
@@ -603,7 +603,7 @@ export default function ProfilePage() {
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
                     </div>
                     <p
-                      className="font-display text-[56px] font-black leading-tight tracking-tighter pb-1"
+                      className="text-[56px] font-black leading-tight tracking-tighter pb-1 tabular-nums"
                       style={{ 
                         background: `linear-gradient(135deg, #fff, ${rank.accent}, #fff)`,
                         backgroundSize: "200% 200%",
@@ -618,12 +618,12 @@ export default function ProfilePage() {
                   {/* Mini stats */}
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <p className="font-display text-[24px] font-bold text-white">{animatedGames}</p>
+                      <p className="text-[24px] font-bold text-white tabular-nums">{animatedGames}</p>
                       <p className="text-[10px] text-white/40">игр</p>
                     </div>
                     <div className="h-10 w-px bg-white/10" />
                     <div className="text-center">
-                      <p className="font-display text-[24px] font-bold text-white">{animatedCorrect}</p>
+                      <p className="text-[24px] font-bold text-white tabular-nums">{animatedCorrect}</p>
                       <p className="text-[10px] text-white/40">верных</p>
                     </div>
                   </div>
@@ -758,7 +758,7 @@ export default function ProfilePage() {
                     
                     {/* Text */}
                     <div>
-                      <p className="font-display text-[24px] font-bold text-white leading-none">
+                      <p className="text-[24px] font-bold text-white leading-none tabular-nums">
                         {stat.value}{stat.suffix}
                       </p>
                       <p className="mt-1 text-[11px] font-medium text-white/50 uppercase tracking-wide">
@@ -828,7 +828,7 @@ export default function ProfilePage() {
                       <p className="mt-1 text-[12px] text-slate-400">{formatDate(data.stats.lastSession.finishedAt)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display text-[28px] font-black text-[#1a1a2e]">{data.stats.lastSession.score}</p>
+                      <p className="text-[28px] font-black text-[#1a1a2e] tabular-nums">{data.stats.lastSession.score}</p>
                       <p className="text-[11px] text-slate-400">очков</p>
                     </div>
                   </div>
@@ -902,7 +902,7 @@ export default function ProfilePage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display text-[22px] font-black text-[#1a1a2e]">{item.leaderboardScore}</p>
+                      <p className="text-[22px] font-black text-[#1a1a2e] tabular-nums">{item.leaderboardScore}</p>
                       {item.bestSessionScore !== item.leaderboardScore && (
                         <p className="text-[10px] text-slate-400">рекорд: {item.bestSessionScore}</p>
                       )}
@@ -1102,18 +1102,18 @@ export default function ProfilePage() {
                               <div className="text-center flex-1">
                                 <div className="flex items-center justify-center gap-1">
                                   <img src="/icons/coin.png" alt="" className="h-9 w-9 object-contain" />
-                                  <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.totalScore}</p>
+                                  <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.totalScore}</p>
                                 </div>
                                 <p className="text-[10px] text-slate-400">очков</p>
                               </div>
                               <div className="h-8 w-px bg-slate-200" />
                               <div className="text-center flex-1">
-                                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.gamesPlayed}</p>
+                                <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.gamesPlayed}</p>
                                 <p className="text-[10px] text-slate-400">игр</p>
                               </div>
                               <div className="h-8 w-px bg-slate-200" />
                               <div className="text-center flex-1">
-                                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">{friend.stats.bestScore}</p>
+                                <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.bestScore}</p>
                                 <p className="text-[10px] text-slate-400">рекорд</p>
                               </div>
                             </div>

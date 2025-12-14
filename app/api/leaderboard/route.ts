@@ -5,46 +5,80 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const quizIdParam = req.nextUrl.searchParams.get("quizId");
-  const quizId = quizIdParam ? Number(quizIdParam) : NaN;
+  const quizId = quizIdParam ? Number(quizIdParam) : null;
 
-  if (!quizIdParam || Number.isNaN(quizId)) {
-    return NextResponse.json({ error: "quizId_required" }, { status: 400 });
-  }
-
-  const entries = await prisma.leaderboardEntry.findMany({
-    where: { quizId, periodType: "ALL_TIME" },
-    orderBy: [
-      { score: "desc" },
-      { id: "asc" },
-    ],
-    take: 50,
-    select: {
-      score: true,
-      user: {
-        select: {
-          id: true,
-          username: true,
-          firstName: true,
-          photoUrl: true,
+  // If quizId is provided, return per-quiz leaderboard
+  if (quizId && !Number.isNaN(quizId)) {
+    const entries = await prisma.leaderboardEntry.findMany({
+      where: { quizId, periodType: "ALL_TIME" },
+      orderBy: [
+        { score: "desc" },
+        { id: "asc" },
+      ],
+      take: 50,
+      select: {
+        score: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            photoUrl: true,
+          },
         },
       },
+    });
+
+    const result = entries.map((entry, idx) => ({
+      place: idx + 1,
+      user: {
+        id: entry.user.id,
+        username: entry.user.username,
+        firstName: entry.user.firstName,
+        photoUrl: entry.user.photoUrl,
+      },
+      score: entry.score,
+    }));
+
+    return NextResponse.json(result);
+  }
+
+  // Global leaderboard — sum of all quiz scores per user
+  const globalScores = await prisma.leaderboardEntry.groupBy({
+    by: ["userId"],
+    where: { periodType: "ALL_TIME" },
+    _sum: { score: true },
+    orderBy: { _sum: { score: "desc" } },
+    take: 50,
+  });
+
+  // Get user details for each entry
+  const userIds = globalScores.map((e) => e.userId);
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: {
+      id: true,
+      username: true,
+      firstName: true,
+      photoUrl: true,
     },
   });
 
-  const result = entries.map((entry: (typeof entries)[number], idx: number): {
-    place: number;
-    user: { id: number; username: string | null; firstName: string | null; photoUrl: string | null };
-    score: number;
-  } => ({
-    place: idx + 1,
-    user: {
-      id: entry.user.id,
-      username: entry.user.username,
-      firstName: entry.user.firstName,
-      photoUrl: entry.user.photoUrl,
-    },
-    score: entry.score,
-  }));
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  const result = globalScores.map((entry, idx) => {
+    const user = userMap.get(entry.userId);
+    return {
+      place: idx + 1,
+      user: {
+        id: entry.userId,
+        username: user?.username ?? null,
+        firstName: user?.firstName ?? null,
+        photoUrl: user?.photoUrl ?? null,
+      },
+      score: entry._sum.score ?? 0,
+    };
+  });
 
   return NextResponse.json(result);
 }

@@ -26,9 +26,9 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const session = useMiniAppSession();
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
-  const [quizId, setQuizId] = useState<number | null>(null);
+  const [quizId, setQuizId] = useState<number | null>(null); // null = global
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSelect, setShowSelect] = useState(false);
 
@@ -40,6 +40,7 @@ export default function LeaderboardPage() {
     if (initial) {
       setQuizId(Number(initial));
     }
+    // If no quizId in URL, keep null for global leaderboard
   }, [searchParams]);
 
   useEffect(() => {
@@ -49,25 +50,22 @@ export default function LeaderboardPage() {
         if (!res.ok) throw new Error("quiz_load_error");
         const data = (await res.json()) as QuizSummary[];
         setQuizzes(data);
-        if (!quizId && data.length > 0) {
-          setQuizId(data[0].id);
-        }
       } catch (err) {
         console.error("Failed to load quizzes", err);
-        setError("Не удалось загрузить список викторин");
       }
     };
 
     fetchQuizzes();
-  }, [quizId]);
+  }, []);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      if (!quizId) return;
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/leaderboard?quizId=${quizId}`);
+        // If quizId is null, fetch global leaderboard
+        const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
+        const res = await fetch(url);
         if (!res.ok) {
           throw new Error("leaderboard_load_error");
         }
@@ -85,6 +83,7 @@ export default function LeaderboardPage() {
   }, [quizId]);
 
   const currentQuiz = useMemo(() => {
+    if (quizId === null) return null; // Global
     return quizzes.find((q) => q.id === quizId);
   }, [quizId, quizzes]);
 
@@ -100,10 +99,10 @@ export default function LeaderboardPage() {
 
   // Pull to refresh handler
   const handleRefresh = useCallback(async () => {
-    if (!quizId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/leaderboard?quizId=${quizId}`);
+      const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = (await res.json()) as LeaderboardEntry[];
         setEntries(data);
@@ -184,7 +183,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
             <div className="text-right">
-              <p className="font-display text-[28px] font-black text-white">{myPosition.score}</p>
+              <p className="text-[28px] font-black text-white tabular-nums">{myPosition.score}</p>
               {myPosition.place > 1 && (
                 <p className="text-[11px] text-white/60">
                   -{leaderScore - myPosition.score} до лидера
@@ -198,35 +197,35 @@ export default function LeaderboardPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           QUIZ SELECTOR
       ═══════════════════════════════════════════════════════════════════ */}
-      {quizzes.length > 0 && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            haptic.medium();
-            setShowSelect(true);
-          }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
-        >
-          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
-          <div className="relative flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-1">Викторина</p>
-              <p className="text-[16px] font-bold text-white">{currentQuiz?.title ?? "Выбрать"}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] font-semibold text-white/40">{entries.length} участников</span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-                <svg className="h-5 w-5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                </svg>
-              </div>
+      <motion.button
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          haptic.medium();
+          setShowSelect(true);
+        }}
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
+      >
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-1">Рейтинг</p>
+            <p className="text-[16px] font-bold text-white">
+              {quizId === null ? "🌍 Общий рейтинг" : currentQuiz?.title ?? "Выбрать"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-white/40">{entries.length} игроков</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+              <svg className="h-5 w-5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+              </svg>
             </div>
           </div>
-        </motion.button>
-      )}
+        </div>
+      </motion.button>
 
       {/* Quiz selector modal */}
       <AnimatePresence>
@@ -264,6 +263,28 @@ export default function LeaderboardPage() {
                 </button>
               </div>
               <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto scrollbar-hide">
+                {/* Global leaderboard option */}
+                <button
+                  onClick={() => {
+                    haptic.selection();
+                    setQuizId(null);
+                    setShowSelect(false);
+                  }}
+                  className={`flex items-center justify-between rounded-xl px-4 py-3.5 text-left transition-all ${
+                    quizId === null 
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/25" 
+                      : "bg-white/5 text-white/80 active:bg-white/10"
+                  }`}
+                >
+                  <span className="text-[14px] font-semibold">🌍 Общий рейтинг</span>
+                  {quizId === null && (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </button>
+                
+                {/* Per-quiz options */}
                 {quizzes.map((quiz) => (
                   <button
                     key={quiz.id}
@@ -576,7 +597,7 @@ export default function LeaderboardPage() {
                       
                       {/* Score */}
                       <div className="text-right">
-                        <span className={`font-display text-[16px] font-bold ${isMe ? "text-violet-700" : "text-[#1a1a2e]"}`}>
+                        <span className={`text-[16px] font-bold tabular-nums ${isMe ? "text-violet-700" : "text-[#1a1a2e]"}`}>
                           {entry.score}
                         </span>
                         {diffFromLeader > 0 && (
@@ -608,7 +629,7 @@ export default function LeaderboardPage() {
                 ) : (
                   <span className="text-lg">{stat.icon}</span>
                 )}
-                <p className="font-display text-[18px] font-bold text-[#1a1a2e] mt-1">{stat.value}</p>
+                <p className="text-[18px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{stat.value}</p>
                 <p className="text-[10px] text-slate-400">{stat.label}</p>
               </div>
             ))}
