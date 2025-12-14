@@ -821,7 +821,7 @@ export default function QuizPlayPage() {
                     total: questions.length.toString(),
                     streak: maxStreak.toString(),
                     stars: starCount.toString(),
-                    player: session.user?.name || "",
+                    player: session.status === "ready" ? (session.user?.name || "") : "",
                   });
                   
                   const imageUrl = `/api/og/result?${params.toString()}`;
