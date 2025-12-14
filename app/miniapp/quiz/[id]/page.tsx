@@ -5,8 +5,6 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../../layout";
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
-import html2canvas from "html2canvas";
-import { ShareCard } from "@/components/ShareCard";
 
 type StartResponse = {
   sessionId: number;
@@ -91,7 +89,6 @@ export default function QuizPlayPage() {
   const timeRestoredRef = useRef(false); // Ref вместо state — обновляется мгновенно
   const initialTimeLeftRef = useRef<number | null>(null); // Сохраняем восстановленное время
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
-  const shareCardRef = useRef<HTMLDivElement>(null);
   
   // Animated score
   const animatedScore = useMotionValue(0);
@@ -626,18 +623,6 @@ export default function QuizPlayPage() {
     
     return (
       <div className="flex flex-col gap-5 min-h-[80vh] justify-center">
-        {/* Hidden Share Card for screenshot */}
-        <div className="fixed -left-[9999px] -top-[9999px]">
-          <ShareCard
-            ref={shareCardRef}
-            quizTitle={quizTitle}
-            score={totalScore}
-            correctCount={correctCount}
-            totalQuestions={questions.length}
-            maxStreak={maxStreak}
-            starCount={starCount}
-          />
-        </div>
         {/* Victory Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8, y: 50 }}
@@ -827,29 +812,23 @@ export default function QuizPlayPage() {
               onClick={async () => {
                 haptic.heavy();
                 
-                if (!shareCardRef.current) {
-                  console.error("Share card ref not found");
-                  return;
-                }
-                
                 try {
-                  // Генерируем canvas из скрытой карточки
-                  const canvas = await html2canvas(shareCardRef.current, {
-                    backgroundColor: "#0f0f1a",
-                    scale: 2, // Высокое качество
-                    useCORS: true,
-                    logging: false,
-                    width: 400,
-                    height: 560,
+                  // Генерируем URL для OG image API
+                  const params = new URLSearchParams({
+                    title: quizTitle,
+                    score: totalScore.toString(),
+                    correct: correctCount.toString(),
+                    total: questions.length.toString(),
+                    streak: maxStreak.toString(),
+                    stars: starCount.toString(),
+                    player: session.user?.name || "",
                   });
                   
-                  // Конвертируем в blob
-                  const blob = await new Promise<Blob>((resolve, reject) => {
-                    canvas.toBlob((b) => {
-                      if (b) resolve(b);
-                      else reject(new Error("Failed to create blob"));
-                    }, "image/png", 1.0);
-                  });
+                  const imageUrl = `/api/og/result?${params.toString()}`;
+                  
+                  // Загружаем картинку с сервера
+                  const response = await fetch(imageUrl);
+                  const blob = await response.blob();
                   
                   // Пробуем шарить через Web Share API
                   const file = new File([blob], "quiz-result.png", { type: "image/png" });
@@ -875,7 +854,6 @@ export default function QuizPlayPage() {
                   }
                 } catch (err) {
                   console.error("Share error:", err);
-                  // Показываем алерт с ошибкой для отладки
                   alert("Ошибка генерации: " + (err instanceof Error ? err.message : String(err)));
                   haptic.error();
                 }
