@@ -15,7 +15,29 @@ import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
    Border radius: 8, 12, 16, 20
 ═══════════════════════════════════════════════════════════════════════════ */
 
-type Tab = "participant" | "creator";
+// Greeting based on time of day
+function getGreeting(): { text: string; emoji: string; atmosphere: string } {
+  const hour = new Date().getHours();
+  
+  const atmospheres = [
+    "Раскрой тёмные тайны...",
+    "Найди улики...",
+    "Разгадай загадку...",
+    "Стань детективом...",
+    "Докопайся до правды...",
+  ];
+  const randomAtmosphere = atmospheres[Math.floor(Math.random() * atmospheres.length)];
+  
+  if (hour >= 5 && hour < 12) {
+    return { text: "Доброе утро", emoji: "🌅", atmosphere: randomAtmosphere };
+  } else if (hour >= 12 && hour < 17) {
+    return { text: "Добрый день", emoji: "☀️", atmosphere: randomAtmosphere };
+  } else if (hour >= 17 && hour < 22) {
+    return { text: "Добрый вечер", emoji: "🌆", atmosphere: randomAtmosphere };
+  } else {
+    return { text: "Доброй ночи", emoji: "🌙", atmosphere: randomAtmosphere };
+  }
+}
 
 type LimitInfo = {
   usedAttempts: number;
@@ -69,8 +91,9 @@ const CHANNEL_URL = "https://t.me/dark_bookshelf";
 export default function MiniAppPage() {
   const session = useMiniAppSession();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("participant");
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
+  const [onlinePlayers, setOnlinePlayers] = useState(0);
+  const [greeting] = useState(() => getGreeting());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<number | null>(null);
@@ -179,6 +202,22 @@ export default function MiniAppPage() {
         setUserStats({ totalQuizzesPlayed: 0, totalScore: 0, minEnergy: 5, maxEnergy: 5 });
       });
   }, [session]);
+
+  // Simulate online players count (updates every 30 seconds)
+  useEffect(() => {
+    // Random initial count between 15-60
+    setOnlinePlayers(Math.floor(Math.random() * 45) + 15);
+    
+    const interval = setInterval(() => {
+      // Fluctuate by -3 to +5
+      setOnlinePlayers((prev) => {
+        const change = Math.floor(Math.random() * 9) - 3;
+        return Math.max(10, Math.min(99, prev + change));
+      });
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch leaderboard position
   useEffect(() => {
@@ -353,7 +392,7 @@ export default function MiniAppPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER — Height: 48px
       ═══════════════════════════════════════════════════════════════════ */}
-      <header className="flex h-12 items-center justify-between">
+      <header className="relative flex h-12 items-center justify-between">
         {/* Back — 40x40 */}
         <motion.button
           whileTap={{ scale: 0.92 }}
@@ -368,30 +407,21 @@ export default function MiniAppPage() {
           </svg>
         </motion.button>
 
-        {/* Tabs — Height: 36px */}
-        <div className="flex h-9 items-center rounded-xl bg-[#1a1a2e] p-1">
-          {(["participant", "creator"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => {
-                haptic.selection();
-                setTab(t);
-              }}
-              className={`relative h-7 rounded-lg px-4 text-[13px] font-semibold transition-colors ${
-                tab === t ? "text-white" : "text-zinc-400"
-              }`}
-            >
-              {tab === t && (
-                <motion.div
-                  layoutId="tab"
-                  className="absolute inset-0 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600"
-                  transition={spring}
-                />
-              )}
-              <span className="relative">{t === "participant" ? "Играть" : "Создать"}</span>
-            </button>
-          ))}
-        </div>
+        {/* Live Players Counter — centered */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5"
+        >
+          {/* Pulsing red dot */}
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+          </span>
+          <span className="text-[11px] font-medium text-white whitespace-nowrap">
+            <span className="font-bold">{onlinePlayers}</span> <span className="text-white/60">играют сейчас</span>
+          </span>
+        </motion.div>
 
         {/* Profile Button */}
         <motion.button
@@ -458,41 +488,40 @@ export default function MiniAppPage() {
           </div>
         </div>
         
-        {/* Name */}
-        <h1 className="font-display text-[18px] font-bold tracking-tight text-[#1a1a2e] mb-2">
-          {name}
-        </h1>
+        {/* Greeting */}
+        <p className="text-[12px] text-slate-400 text-center">
+          {greeting.emoji} {greeting.text}, <span className="font-semibold text-slate-600">{name}</span>
+        </p>
+        <p className="text-[10px] text-slate-400/70 italic text-center mt-0.5 mb-3">
+          {greeting.atmosphere}
+        </p>
         
-        {/* Stats row: Energy + Score */}
-        <div className="flex items-center gap-4">
-          {/* Energy */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-              <span className="text-[14px]">⚡</span>
-            </div>
-            <div className="text-left">
-              <p className="font-display text-[15px] font-bold text-[#1a1a2e] leading-none">
-                {userStats?.minEnergy ?? 5}/{userStats?.maxEnergy ?? 5}
-              </p>
-              <p className="text-[9px] text-slate-400 uppercase tracking-wide">энергия</p>
-            </div>
-          </div>
+        {/* Stats — Minimal Oval Pills */}
+        <div className="flex justify-center items-center gap-2">
+          {/* Energy pill */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-2 pr-3 py-1 shadow-lg shadow-amber-500/20"
+          >
+            <span className="text-sm">⚡</span>
+            <span className="text-[13px] font-bold text-white">{userStats?.minEnergy ?? 5}</span>
+          </motion.div>
           
-          {/* Divider */}
-          <div className="h-8 w-px bg-slate-200" />
+          {/* Dot separator */}
+          <span className="text-slate-300 text-[8px]">●</span>
           
-          {/* Score */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100">
-              <img src="/icons/coin.png" alt="" className="h-5 w-5 object-contain" />
-            </div>
-            <div className="text-left">
-              <p className="font-display text-[15px] font-bold text-[#1a1a2e] leading-none">
-                {(userStats?.totalScore ?? 0).toLocaleString()}
-              </p>
-              <p className="text-[9px] text-slate-400 uppercase tracking-wide">очков</p>
-            </div>
-          </div>
+          {/* Score pill */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-2 pr-3 py-1 shadow-lg shadow-violet-500/20"
+          >
+            <img src="/icons/coin.png" alt="" className="h-4 w-4 object-contain" />
+            <span className="text-[13px] font-bold text-white">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
+          </motion.div>
         </div>
       </motion.section>
 
@@ -592,35 +621,22 @@ export default function MiniAppPage() {
           CONTENT
       ═══════════════════════════════════════════════════════════════════ */}
       <AnimatePresence mode="wait">
-        {tab === "creator" ? (
-          <motion.div
-            key="c"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={spring}
-          >
-            <CreatorView />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="p"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={spring}
-          >
-            <QuizView
-              quizzes={quizzes}
-              loading={loading}
-              error={error}
-              startingId={startingId}
-              startError={startError}
-              countdowns={countdowns}
-              onStart={handleStart}
-            />
-          </motion.div>
-        )}
+        <motion.div
+          key="quizzes"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={spring}
+        >
+          <QuizView
+            quizzes={quizzes}
+            loading={loading}
+            error={error}
+            startingId={startingId}
+            startError={startError}
+            countdowns={countdowns}
+            onStart={handleStart}
+          />
+        </motion.div>
       </AnimatePresence>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -750,42 +766,6 @@ export default function MiniAppPage() {
       </AnimatePresence>
     </div>
     </PullToRefresh>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   CREATOR VIEW
-═══════════════════════════════════════════════════════════════════════════ */
-function CreatorView() {
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Create Button — Height: 56px */}
-      <motion.button
-        whileTap={{ scale: 0.98 }}
-        onClick={() => haptic.heavy()}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-[16px] font-semibold text-white shadow-lg shadow-indigo-500/25"
-      >
-        ✨ Создать викторину
-      </motion.button>
-
-      {/* Card: My Quizzes */}
-      <Card title="Мои викторины" badge="0">
-        <div className="flex h-24 flex-col items-center justify-center">
-          <div className="text-3xl">📝</div>
-          <p className="mt-2 text-[14px] text-[#64748b]">Создайте первую викторину</p>
-        </div>
-      </Card>
-
-      {/* Card: Channels */}
-      <Card title="Каналы" badge="1">
-        <Row
-          icon={<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-[14px] font-bold text-white">T</div>}
-          title="@truecrime_quiz"
-          subtitle="1,234 подписчика"
-          trailing={<div className="h-2 w-2 rounded-full bg-emerald-500" />}
-        />
-      </Card>
-    </div>
   );
 }
 
