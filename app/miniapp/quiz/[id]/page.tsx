@@ -14,9 +14,11 @@ type StartResponse = {
   totalQuestions: number;
   totalScore: number;
   attemptNumber: number;           // Номер попытки
-  remainingAttempts?: number;      // Оставшиеся попытки сегодня
+  remainingAttempts?: number;      // Оставшиеся попытки
   currentQuestionIndex?: number;   // Текущий индекс вопроса (для возобновления)
   currentStreak?: number;          // Текущий streak (server-side)
+  serverTime?: string;             // Текущее время сервера
+  questionStartedAt?: string;      // Когда начался текущий вопрос (для расчёта оставшегося времени)
   questions: {
     id: number;
     text: string;
@@ -280,6 +282,22 @@ export default function QuizPlayPage() {
         if (data.currentStreak !== undefined) {
           setStreak(data.currentStreak);
           setMaxStreak((m) => Math.max(m, data.currentStreak ?? 0));
+        }
+        
+        // Рассчитываем оставшееся время если это возобновлённая сессия
+        if (data.questionStartedAt && data.serverTime) {
+          const serverNow = new Date(data.serverTime).getTime();
+          const questionStart = new Date(data.questionStartedAt).getTime();
+          const elapsedSeconds = Math.floor((serverNow - questionStart) / 1000);
+          const remaining = Math.max(0, QUESTION_TIME - elapsedSeconds);
+          
+          if (remaining > 0) {
+            setTimeLeft(remaining);
+          } else {
+            // Время истекло — помечаем как timeout
+            setTimeLeft(0);
+            setTimeoutHandled(true);
+          }
         }
       } catch (err) {
         console.error("Failed to start quiz session", err);

@@ -96,16 +96,26 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     },
   });
 
-  // Если есть незавершённая сессия - возвращаем её и обновляем время вопроса
+  // Если есть незавершённая сессия - возвращаем её БЕЗ сброса времени
   if (existingSession) {
     const questions = await getQuestions(quizId);
     const now = new Date();
     
-    // Обновляем время начала текущего вопроса (для случая если пользователь вернулся)
-    await prisma.quizSession.update({
+    // Получаем полную сессию с временем начала вопроса
+    const fullSession = await prisma.quizSession.findUnique({
       where: { id: existingSession.id },
-      data: { currentQuestionStartedAt: now },
+      select: { currentQuestionStartedAt: true },
     });
+    
+    // Если время вопроса не было установлено — устанавливаем сейчас
+    let questionStartedAt = fullSession?.currentQuestionStartedAt;
+    if (!questionStartedAt) {
+      questionStartedAt = now;
+      await prisma.quizSession.update({
+        where: { id: existingSession.id },
+        data: { currentQuestionStartedAt: now },
+      });
+    }
     
     return NextResponse.json({
       sessionId: existingSession.id,
@@ -114,9 +124,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       totalQuestions: questions.length,
       totalScore: existingSession.totalScore,
       currentQuestionIndex: existingSession.currentQuestionIndex,
-      currentStreak: existingSession.currentStreak, // Возвращаем серверный streak
+      currentStreak: existingSession.currentStreak,
       questions,
       serverTime: now.toISOString(),
+      questionStartedAt: questionStartedAt.toISOString(), // Когда начался текущий вопрос
     });
   }
 
@@ -226,7 +237,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     totalScore: session.totalScore,
     currentStreak: 0, // Начальный streak
     questions,
-    serverTime: now.toISOString(), // Для синхронизации клиента
+    serverTime: now.toISOString(),
+    questionStartedAt: now.toISOString(), // Время начала первого вопроса
     energyInfo: {
       used: usedAttempts + 1,
       max: MAX_ATTEMPTS,
