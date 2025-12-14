@@ -109,18 +109,21 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                 key={star}
                 style={{
                   position: "relative",
-                  filter: star <= starCount ? "drop-shadow(0 0 8px rgba(251, 191, 36, 0.6))" : "none",
+                  filter: star <= starCount ? "drop-shadow(0 0 12px rgba(168, 85, 247, 0.7))" : "none",
                 }}
               >
-                <span 
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src="/icons/5.PNG" 
+                  alt="" 
                   style={{ 
-                    fontSize: 36,
-                    opacity: star <= starCount ? 1 : 0.2,
+                    width: 40,
+                    height: 40,
+                    objectFit: "contain",
+                    opacity: star <= starCount ? 1 : 0.25,
                     filter: star <= starCount ? "none" : "grayscale(1)",
                   }}
-                >
-                  ⭐
-                </span>
+                />
               </div>
             ))}
           </div>
