@@ -423,7 +423,7 @@ export default function MiniAppPage() {
       </header>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          HERO — Minimal Aesthetic
+          HERO — Compact & Harmonious
       ═══════════════════════════════════════════════════════════════════ */}
       <motion.section 
         initial={{ opacity: 0 }}
@@ -431,7 +431,8 @@ export default function MiniAppPage() {
         transition={{ duration: 0.6 }}
         className="relative py-2"
       >
-        <div className="flex items-center gap-4">
+        {/* Top row: Avatar + Name + Online badge */}
+        <div className="flex items-center gap-3 mb-3">
           {/* Avatar with ring */}
           <div className="relative flex-shrink-0">
             <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-rose-500 via-violet-500 to-indigo-500 opacity-75 animate-spin-slow" />
@@ -439,55 +440,48 @@ export default function MiniAppPage() {
               <img 
                 src={photoUrl} 
                 alt={name}
-                className="relative h-14 w-14 rounded-full object-cover ring-2 ring-white/10"
+                className="relative h-11 w-11 rounded-full object-cover ring-2 ring-white/10"
               />
             ) : (
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-2 ring-white/10">
-                <span className="text-lg font-semibold text-white">{avatarLetter}</span>
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-2 ring-white/10">
+                <span className="text-base font-semibold text-white">{avatarLetter}</span>
               </div>
             )}
           </div>
           
-          {/* Text */}
-          <div className="flex-1">
+          {/* Name + Online */}
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-[24px] font-semibold tracking-tight text-[#1a1a2e]">
+              <h1 className="font-display text-[20px] font-semibold tracking-tight text-[#1a1a2e] truncate">
                 {name}
               </h1>
-              <div className="flex h-5 items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5">
-                <span className="relative flex h-2 w-2">
+              <div className="flex-shrink-0 flex h-5 items-center gap-1 rounded-full bg-emerald-500/10 px-2">
+                <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                 </span>
-                <span className="text-[10px] font-semibold text-emerald-600">онлайн</span>
+                <span className="text-[9px] font-semibold text-emerald-600">онлайн</span>
               </div>
             </div>
-            <p className="text-[13px] text-slate-500">Раскрой тёмные тайны</p>
+          </div>
+        </div>
+        
+        {/* Bottom row: Energy + Score — compact pills */}
+        <div className="flex gap-2">
+          {/* Energy pill */}
+          <div className="flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/50 px-3 py-1.5">
+            <span className="text-[14px]">⚡</span>
+            <span className="font-display text-[14px] font-bold text-amber-700">
+              {userStats?.minEnergy ?? 5}/{userStats?.maxEnergy ?? 5}
+            </span>
           </div>
           
-          {/* Stats */}
-          <div className="flex gap-3">
-            {/* Energy indicator */}
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1">
-                <span className="text-[16px]">⚡</span>
-                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
-                  {userStats?.minEnergy ?? 5}/{userStats?.maxEnergy ?? 5}
-                </p>
-              </div>
-              <p className="text-[10px] text-slate-400">энергия</p>
-            </div>
-            <div className="h-8 w-px bg-slate-200" />
-            {/* Score */}
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1">
-                <img src="/icons/coin.png" alt="" className="h-10 w-10 object-contain" />
-                <p className="font-display text-[18px] font-bold text-[#1a1a2e]">
-                  {userStats?.totalScore ?? 0}
-                </p>
-              </div>
-              <p className="text-[10px] text-slate-400">очков</p>
-            </div>
+          {/* Score pill */}
+          <div className="flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200/50 px-3 py-1.5">
+            <img src="/icons/coin.png" alt="" className="h-5 w-5 object-contain" />
+            <span className="font-display text-[14px] font-bold text-violet-700">
+              {(userStats?.totalScore ?? 0).toLocaleString()}
+            </span>
           </div>
         </div>
       </motion.section>

@@ -87,8 +87,9 @@ export default function QuizPlayPage() {
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitError | null>(null);
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
-  const [timeRestoredFromServer, setTimeRestoredFromServer] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timeRestoredRef = useRef(false); // Ref вместо state — обновляется мгновенно
+  const initialTimeLeftRef = useRef<number | null>(null); // Сохраняем восстановленное время
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
   const shareCardRef = useRef<HTMLDivElement>(null);
   
@@ -124,9 +125,13 @@ export default function QuizPlayPage() {
   useEffect(() => {
     if (loading || finished || answerResult || !currentQuestion) return;
     
-    // НЕ сбрасываем время если оно было восстановлено с сервера
-    if (timeRestoredFromServer) {
-      setTimeRestoredFromServer(false); // Сбрасываем флаг, следующий вопрос будет с полным временем
+    // НЕ сбрасываем время если оно было восстановлено с сервера (проверяем ref)
+    if (timeRestoredRef.current && initialTimeLeftRef.current !== null) {
+      console.log("[Timer] Using restored time:", initialTimeLeftRef.current);
+      setTimeLeft(initialTimeLeftRef.current);
+      // Сбрасываем флаги, следующий вопрос будет с полным временем
+      timeRestoredRef.current = false;
+      initialTimeLeftRef.current = null;
     } else {
       // Reset for new question
       setTimeLeft(QUESTION_TIME);
@@ -146,7 +151,7 @@ export default function QuizPlayPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentIndex, loading, finished, currentQuestion, timeRestoredFromServer]);
+  }, [currentIndex, loading, finished, currentQuestion]);
 
   // Handle timeout - when timer reaches 0
   useEffect(() => {
@@ -297,10 +302,14 @@ export default function QuizPlayPage() {
           const elapsedSeconds = Math.floor((serverNow - questionStart) / 1000);
           const remaining = Math.max(0, QUESTION_TIME - elapsedSeconds);
           
-          if (remaining > 0) {
+          console.log("[Timer] Restored from server:", { elapsedSeconds, remaining, questionStart: data.questionStartedAt });
+          
+          if (remaining > 0 && remaining < QUESTION_TIME) {
+            // Сохраняем в ref ДО установки state (ref обновляется мгновенно)
+            timeRestoredRef.current = true;
+            initialTimeLeftRef.current = remaining;
             setTimeLeft(remaining);
-            setTimeRestoredFromServer(true); // Флаг: время восстановлено с сервера
-          } else {
+          } else if (remaining <= 0) {
             // Время истекло — помечаем как timeout
             setTimeLeft(0);
             setTimeoutHandled(true);
