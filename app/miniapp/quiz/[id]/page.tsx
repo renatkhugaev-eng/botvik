@@ -824,37 +824,56 @@ export default function QuizPlayPage() {
                     player: session.status === "ready" ? (session.user?.firstName || session.user?.username || "") : "",
                   });
                   
-                  const imageUrl = `/api/og/result?${params.toString()}`;
+                  // Полный URL для Telegram
+                  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+                  const imageUrl = `${baseUrl}/api/og/result?${params.toString()}`;
                   
-                  // Загружаем картинку с сервера
-                  const response = await fetch(imageUrl);
-                  const blob = await response.blob();
-                  
-                  // Пробуем шарить через Web Share API
-                  const file = new File([blob], "quiz-result.png", { type: "image/png" });
-                  
-                  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-                    await navigator.share({
-                      files: [file],
-                      title: quizTitle,
-                      text: `🎮 Мой результат: ${totalScore} очков!\n👉 https://t.me/truecrimetg_bot/app`,
+                  // 1. Пробуем Telegram shareToStory (нативный метод)
+                  const tgWebApp = window.Telegram?.WebApp;
+                  if (tgWebApp?.shareToStory) {
+                    tgWebApp.shareToStory(imageUrl, {
+                      text: `🎮 Мой результат: ${totalScore} очков!`,
+                      widget_link: {
+                        url: "https://t.me/truecrimetg_bot/app",
+                        name: "Играть",
+                      },
                     });
                     haptic.success();
-                  } else {
-                    // Fallback: скачиваем изображение
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `quiz-result-${totalScore}.png`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    haptic.success();
+                    return;
                   }
+                  
+                  // 2. Загружаем картинку и пробуем Web Share API
+                  const response = await fetch(imageUrl);
+                  const blob = await response.blob();
+                  const file = new File([blob], "quiz-result.png", { type: "image/png" });
+                  
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        files: [file],
+                        title: quizTitle,
+                        text: `🎮 Мой результат: ${totalScore} очков!\n👉 https://t.me/truecrimetg_bot/app`,
+                      });
+                      haptic.success();
+                      return;
+                    } catch (shareError) {
+                      console.log("Share with files failed:", shareError);
+                    }
+                  }
+                  
+                  // 3. Fallback: скачиваем изображение
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `quiz-result-${totalScore}.png`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  haptic.success();
                 } catch (err) {
                   console.error("Share error:", err);
-                  alert("Ошибка генерации: " + (err instanceof Error ? err.message : String(err)));
+                  alert("Ошибка: " + (err instanceof Error ? err.message : String(err)));
                   haptic.error();
                 }
               }}
@@ -866,7 +885,7 @@ export default function QuizPlayPage() {
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
               />
               <span className="relative flex items-center justify-center gap-2 text-base">
-                🖼️ Картинка
+                📤 В сторис
               </span>
             </motion.button>
             
