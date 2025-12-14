@@ -142,6 +142,47 @@ function useIsTouchDevice() {
   return isTouch;
 }
 
+// Notification toggle component
+function NotificationToggle({ 
+  label, 
+  description, 
+  icon, 
+  enabled, 
+  onChange 
+}: { 
+  label: string; 
+  description: string; 
+  icon: string; 
+  enabled: boolean; 
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div 
+      className="flex items-center justify-between py-2 cursor-pointer"
+      onClick={() => onChange(!enabled)}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-xl">{icon}</span>
+        <div>
+          <p className="text-[14px] font-semibold text-[#1a1a2e]">{label}</p>
+          <p className="text-[11px] text-slate-400">{description}</p>
+        </div>
+      </div>
+      <div 
+        className={`relative w-11 h-6 rounded-full transition-colors ${
+          enabled ? "bg-violet-500" : "bg-slate-200"
+        }`}
+      >
+        <div 
+          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform ${
+            enabled ? "translate-x-5" : "translate-x-0.5"
+          }`}
+        />
+      </div>
+    </div>
+  );
+}
+
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 const smoothSpring = { type: "spring", stiffness: 200, damping: 20 };
 
@@ -163,6 +204,15 @@ export default function ProfilePage() {
   const [addingFriend, setAddingFriend] = useState(false);
   const [addFriendError, setAddFriendError] = useState<string | null>(null);
   const [addFriendSuccess, setAddFriendSuccess] = useState<string | null>(null);
+  
+  // Notification settings
+  const [notifySettings, setNotifySettings] = useState({
+    notifyLevelUp: true,
+    notifyEnergyFull: true,
+    notifyDailyReminder: true,
+    notifyLeaderboard: false,
+    notifyFriends: true,
+  });
   const cardRef = useRef<HTMLDivElement>(null);
   const isTouch = useIsTouchDevice();
   
@@ -237,6 +287,51 @@ export default function ProfilePage() {
   useEffect(() => {
     loadFriends();
   }, [loadFriends]);
+  
+  // Fetch notification settings
+  const loadNotifySettings = useCallback(async () => {
+    if (session.status !== "ready") return;
+    
+    try {
+      const res = await fetch(`/api/notifications/settings?userId=${session.user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setNotifySettings(data.settings);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load notification settings", err);
+    }
+  }, [session]);
+  
+  useEffect(() => {
+    loadNotifySettings();
+  }, [loadNotifySettings]);
+  
+  // Update notification setting
+  const updateNotifySetting = async (key: string, value: boolean) => {
+    if (session.status !== "ready") return;
+    
+    // Optimistic update
+    setNotifySettings(prev => ({ ...prev, [key]: value }));
+    haptic.selection();
+    
+    try {
+      await fetch("/api/notifications/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session.user.id,
+          settings: { [key]: value },
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to update notification setting", err);
+      // Revert on error
+      setNotifySettings(prev => ({ ...prev, [key]: !value }));
+    }
+  };
 
   // Pull to refresh handler
   const handleRefresh = useCallback(async () => {
@@ -1246,6 +1341,52 @@ export default function ProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          NOTIFICATION SETTINGS
+      ═══════════════════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55 }}
+        className="rounded-2xl bg-white p-5 shadow-lg shadow-black/5"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-2xl">🔔</span>
+          <h3 className="text-[17px] font-bold text-[#1a1a2e]">Уведомления</h3>
+        </div>
+        
+        <div className="space-y-3">
+          <NotificationToggle
+            label="Level Up"
+            description="Когда достигаешь нового уровня"
+            icon="🎉"
+            enabled={notifySettings.notifyLevelUp}
+            onChange={(v) => updateNotifySetting("notifyLevelUp", v)}
+          />
+          <NotificationToggle
+            label="Энергия"
+            description="Когда энергия восстановлена"
+            icon="⚡"
+            enabled={notifySettings.notifyEnergyFull}
+            onChange={(v) => updateNotifySetting("notifyEnergyFull", v)}
+          />
+          <NotificationToggle
+            label="Напоминания"
+            description="Ежедневные напоминания об игре"
+            icon="📊"
+            enabled={notifySettings.notifyDailyReminder}
+            onChange={(v) => updateNotifySetting("notifyDailyReminder", v)}
+          />
+          <NotificationToggle
+            label="Друзья"
+            description="Активность друзей"
+            icon="👥"
+            enabled={notifySettings.notifyFriends}
+            onChange={(v) => updateNotifySetting("notifyFriends", v)}
+          />
+        </div>
+      </motion.div>
 
       {/* ═══════════════════════════════════════════════════════════════════
           BACK BUTTON

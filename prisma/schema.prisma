@@ -20,6 +20,14 @@ model User {
   xp              Int       @default(0)      // Total experience points
   lastQuizAt      DateTime?                  // Last quiz completion (for daily bonus tracking)
   
+  // Notification Preferences
+  notifyLevelUp       Boolean   @default(true)   // Level up notifications
+  notifyEnergyFull    Boolean   @default(true)   // Energy restored notifications
+  notifyDailyReminder Boolean   @default(true)   // Daily play reminder
+  notifyLeaderboard   Boolean   @default(false)  // Leaderboard changes
+  notifyFriends       Boolean   @default(true)   // Friend activity
+  lastNotifiedAt      DateTime?                  // Last notification sent (rate limiting)
+  
   sessions   QuizSession[]
   leaderboardEntries LeaderboardEntry[]
   

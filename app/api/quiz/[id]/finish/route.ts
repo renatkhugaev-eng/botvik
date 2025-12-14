@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateQuizXp, getLevelProgress, type XpBreakdown } from "@/lib/xp";
+import { calculateQuizXp, getLevelProgress, getLevelTitle, type XpBreakdown } from "@/lib/xp";
+import { notifyLevelUp } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -229,6 +230,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (newLevelInfo.level > oldLevelInfo.level) {
       levelUp = true;
       newLevel = newLevelInfo.level;
+      
+      // Send push notification for level up (async, don't await)
+      const levelTitle = getLevelTitle(newLevel);
+      notifyLevelUp(session.userId, newLevel, levelTitle.title, xpBreakdown.total)
+        .catch(err => console.error("Failed to send level up notification:", err));
     }
   } else {
     // Session was already finished, just get current XP
