@@ -423,206 +423,171 @@ export default function MiniAppPage() {
       </header>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          HERO — Compact & Harmonious
+          HERO — Centered Avatar + Stats (Duolingo/Headspace style)
       ═══════════════════════════════════════════════════════════════════ */}
       <motion.section 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="relative py-2"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative flex flex-col items-center py-4"
       >
-        {/* Top row: Avatar + Name + Online badge */}
-        <div className="flex items-center gap-3 mb-3">
-          {/* Avatar with ring */}
-          <div className="relative flex-shrink-0">
-            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-rose-500 via-violet-500 to-indigo-500 opacity-75 animate-spin-slow" />
-            {photoUrl ? (
-              <img 
-                src={photoUrl} 
-                alt={name}
-                className="relative h-11 w-11 rounded-full object-cover ring-2 ring-white/10"
-              />
-            ) : (
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-2 ring-white/10">
-                <span className="text-base font-semibold text-white">{avatarLetter}</span>
-              </div>
-            )}
-          </div>
+        {/* Centered Avatar with animated ring */}
+        <div className="relative mb-3">
+          {/* Animated gradient ring */}
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow blur-[2px]" />
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-40 animate-spin-slow" />
           
-          {/* Name + Online */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-[20px] font-semibold tracking-tight text-[#1a1a2e] truncate">
-                {name}
-              </h1>
-              <div className="flex-shrink-0 flex h-5 items-center gap-1 rounded-full bg-emerald-500/10 px-2">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                </span>
-                <span className="text-[9px] font-semibold text-emerald-600">онлайн</span>
-              </div>
+          {photoUrl ? (
+            <img 
+              src={photoUrl} 
+              alt={name}
+              className="relative h-16 w-16 rounded-full object-cover ring-[3px] ring-white"
+            />
+          ) : (
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-[3px] ring-white">
+              <span className="text-xl font-bold text-white">{avatarLetter}</span>
             </div>
+          )}
+          
+          {/* Online indicator */}
+          <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+            </span>
           </div>
         </div>
         
-        {/* Bottom row: Energy + Score — compact pills */}
-        <div className="flex gap-2">
-          {/* Energy pill */}
-          <div className="flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/50 px-3 py-1.5">
-            <span className="text-[14px]">⚡</span>
-            <span className="font-display text-[14px] font-bold text-amber-700">
-              {userStats?.minEnergy ?? 5}/{userStats?.maxEnergy ?? 5}
-            </span>
+        {/* Name */}
+        <h1 className="font-display text-[18px] font-bold tracking-tight text-[#1a1a2e] mb-2">
+          {name}
+        </h1>
+        
+        {/* Stats row: Energy + Score */}
+        <div className="flex items-center gap-4">
+          {/* Energy */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+              <span className="text-[14px]">⚡</span>
+            </div>
+            <div className="text-left">
+              <p className="font-display text-[15px] font-bold text-[#1a1a2e] leading-none">
+                {userStats?.minEnergy ?? 5}/{userStats?.maxEnergy ?? 5}
+              </p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wide">энергия</p>
+            </div>
           </div>
           
-          {/* Score pill */}
-          <div className="flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200/50 px-3 py-1.5">
-            <img src="/icons/coin.png" alt="" className="h-5 w-5 object-contain" />
-            <span className="font-display text-[14px] font-bold text-violet-700">
-              {(userStats?.totalScore ?? 0).toLocaleString()}
-            </span>
+          {/* Divider */}
+          <div className="h-8 w-px bg-slate-200" />
+          
+          {/* Score */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100">
+              <img src="/icons/coin.png" alt="" className="h-5 w-5 object-contain" />
+            </div>
+            <div className="text-left">
+              <p className="font-display text-[15px] font-bold text-[#1a1a2e] leading-none">
+                {(userStats?.totalScore ?? 0).toLocaleString()}
+              </p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wide">очков</p>
+            </div>
           </div>
         </div>
       </motion.section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          CHANNEL PROMO — Premium 2025
+          QUICK ACTIONS — Creative Glassmorphism Cards
       ═══════════════════════════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0, y: -8 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        whileTap={{ scale: 0.98 }}
+        transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
+        className="relative"
       >
-        <a
-          href="https://t.me/dark_bookshelf"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative flex h-12 items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] px-3 shadow-lg shadow-black/10"
-        >
-          {/* Animated shine */}
-          <motion.div
-            initial={{ x: "-100%" }}
-            animate={{ x: "200%" }}
-            transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12"
-          />
+        {/* Single unified glassmorphism card */}
+        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/95 to-[#1a1a2e]/95 backdrop-blur-xl p-1">
+          {/* Animated border glow */}
+          <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-amber-500/20 opacity-60" />
           
-          {/* Telegram icon */}
-          <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#2AABEE] to-[#229ED9]">
-            <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-            </svg>
-          </div>
-          
-          {/* Text */}
-          <div className="relative flex-1 min-w-0">
-            <p className="font-display text-[13px] font-semibold text-white">Чернила и Кровь</p>
-            <p className="text-[11px] text-white/60">Подпишись для участия</p>
-          </div>
-          
-          {/* Badge */}
-          <div className="relative flex h-7 items-center gap-1 rounded-lg bg-white/15 px-2.5 backdrop-blur-sm transition-colors group-hover:bg-white/25">
-            <span className="text-[11px] font-semibold text-white">Открыть</span>
-            <motion.svg 
-              animate={{ x: [0, 2, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="h-3 w-3 text-white/70" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor" 
-              strokeWidth={2.5}
+          {/* Inner content */}
+          <div className="relative flex">
+            {/* Telegram Channel */}
+            <motion.a
+              href="https://t.me/dark_bookshelf"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 flex items-center gap-3 p-3 rounded-l-[16px] hover:bg-white/5 transition-colors"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </motion.svg>
-          </div>
-        </a>
-      </motion.div>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          YOUR LEADERBOARD POSITION
-      ═══════════════════════════════════════════════════════════════════ */}
-      {myPosition && (
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            haptic.medium();
-            router.push("/miniapp/leaderboard");
-          }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4 w-full"
-        >
-          {/* Glow effects */}
-          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
-          <div className="absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-indigo-600/15 blur-xl" />
-          
-          {/* Content */}
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Position badge */}
+              {/* Telegram icon with glow */}
               <div className="relative">
-                {myPosition.place > 0 && myPosition.place <= 3 && (
-                  <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-60 blur-sm animate-pulse" />
-                )}
-                <div className={`relative flex h-12 w-12 items-center justify-center rounded-full ${
-                  myPosition.place === 0 
-                    ? "bg-white/10 text-white/50" 
-                    : myPosition.place <= 3 
-                      ? "bg-gradient-to-br from-violet-500 to-indigo-600 text-white" 
-                      : myPosition.place <= 10 
-                        ? "bg-violet-500/20 text-violet-400"
-                        : "bg-white/10 text-white/70"
+                <div className="absolute inset-0 rounded-xl bg-[#2AABEE] blur-md opacity-50" />
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#2AABEE] to-[#1E96D1]">
+                  <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-white truncate">Чернила и Кровь</p>
+                <p className="text-[10px] text-white/40">Подпишись на канал →</p>
+              </div>
+            </motion.a>
+
+            {/* Divider */}
+            <div className="w-px bg-gradient-to-b from-transparent via-white/10 to-transparent my-2" />
+
+            {/* Leaderboard Position */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                haptic.medium();
+                router.push("/miniapp/leaderboard");
+              }}
+              className="flex-1 flex items-center gap-3 p-3 rounded-r-[16px] hover:bg-white/5 transition-colors"
+            >
+              {/* Position badge with glow */}
+              <div className="relative">
+                <div className="absolute inset-0 rounded-xl bg-violet-500 blur-md opacity-40" />
+                <div className={`relative flex h-10 w-10 items-center justify-center rounded-xl ${
+                  !myPosition || myPosition.place === 0
+                    ? "bg-white/10"
+                    : myPosition.place <= 3
+                      ? "bg-gradient-to-br from-amber-400 to-orange-500"
+                      : "bg-gradient-to-br from-violet-500 to-indigo-600"
                 }`}>
-                  {myPosition.place === 0 ? (
-                    <span className="text-lg">—</span>
+                  {!myPosition || myPosition.place === 0 ? (
+                    <span className="text-[16px]">🏆</span>
                   ) : myPosition.place === 1 ? (
-                    <span className="text-xl">🥇</span>
+                    <span className="text-[18px]">🥇</span>
                   ) : myPosition.place === 2 ? (
-                    <span className="text-xl">🥈</span>
+                    <span className="text-[18px]">🥈</span>
                   ) : myPosition.place === 3 ? (
-                    <span className="text-xl">🥉</span>
+                    <span className="text-[18px]">🥉</span>
                   ) : (
-                    <span className="text-[16px] font-black">#{myPosition.place}</span>
+                    <span className="text-[14px] font-black text-white">{myPosition.place}</span>
                   )}
                 </div>
               </div>
-              
-              {/* Text */}
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Твоя позиция</p>
-                <p className="text-[16px] font-bold text-white">
-                  {myPosition.place === 0 
-                    ? "Ещё не в топе" 
-                    : myPosition.place <= 3 
-                      ? "В топ-3! 🔥" 
-                      : myPosition.place <= 10 
-                        ? "В топ-10!" 
-                        : `${myPosition.place} из ${myPosition.totalPlayers}`
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-[13px] font-bold text-white">
+                  {!myPosition || myPosition.place === 0 
+                    ? "Лидерборд" 
+                    : `#${myPosition.place} место`
+                  }
+                </p>
+                <p className="text-[10px] text-white/40">
+                  {myPosition?.score 
+                    ? `${myPosition.score.toLocaleString()} очков →` 
+                    : "Открыть топ →"
                   }
                 </p>
               </div>
-            </div>
-            
-            {/* Score & Arrow */}
-            <div className="flex items-center gap-3">
-              {myPosition.place > 0 && (
-                <div className="text-right">
-                  <p className="font-display text-[20px] font-bold text-white">{myPosition.score}</p>
-                  {myPosition.place > 1 && (
-                    <p className="text-[10px] text-white/40">-{myPosition.topScore - myPosition.score} до топ-1</p>
-                  )}
-                </div>
-              )}
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                <svg className="h-4 w-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </div>
-            </div>
+            </motion.button>
           </div>
-        </motion.button>
-      )}
+        </div>
+      </motion.div>
 
       {/* ═══════════════════════════════════════════════════════════════════
           CONTENT
