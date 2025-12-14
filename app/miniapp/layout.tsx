@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
+import { NotificationProvider } from "@/components/InAppNotification";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -181,15 +182,17 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
   return (
     <MiniAppContext.Provider value={session}>
-      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-      <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
-        <div 
-          className="w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
-          style={{ overflowX: 'clip', maxWidth: '100%' }}
-        >
-          {content}
+      <NotificationProvider>
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+        <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
+          <div 
+            className="w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
+            style={{ overflowX: 'clip', maxWidth: '100%' }}
+          >
+            {content}
+          </div>
         </div>
-      </div>
+      </NotificationProvider>
     </MiniAppContext.Provider>
   );
 }

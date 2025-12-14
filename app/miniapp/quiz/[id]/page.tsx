@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../../layout";
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
+import { useNotify } from "@/components/InAppNotification";
 
 type StartResponse = {
   sessionId: number;
@@ -54,14 +55,42 @@ type RateLimitError = {
   hoursPerAttempt?: number;  // Часов на восстановление 1 попытки
 };
 
+type FinishResponse = {
+  totalScore: number;
+  bestScore: number;
+  leaderboardScore: number;
+  xp: {
+    earned: number;
+    total: number;
+    level: number;
+    progress: number;
+    xpToNextLevel: number;
+    levelUp: boolean;
+    newLevel?: number;
+  };
+};
+
 const spring = { type: "spring", stiffness: 500, damping: 30 };
 const QUESTION_TIME = 15; // seconds per question
+
+// Level titles for notifications
+const getLevelTitle = (level: number): string => {
+  if (level >= 50) return "Легенда";
+  if (level >= 40) return "Грандмастер";
+  if (level >= 30) return "Мастер";
+  if (level >= 20) return "Эксперт";
+  if (level >= 15) return "Детектив";
+  if (level >= 10) return "Следователь";
+  if (level >= 5) return "Агент";
+  return "Новичок";
+};
 
 export default function QuizPlayPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
   const session = useMiniAppSession();
+  const notify = useNotify();
 
   const quizId = Number(params.id);
   const [loading, setLoading] = useState(true);
@@ -383,7 +412,7 @@ export default function QuizPlayPage() {
     setSelectedOption(null);
     const nextIndex = currentIndex + 1;
     
-    if (nextIndex >= questions.length) {
+      if (nextIndex >= questions.length) {
       if (!sessionId) return;
       try {
         setSubmitting(true);
@@ -395,10 +424,30 @@ export default function QuizPlayPage() {
 
         if (!res.ok) throw new Error("failed_to_finish");
 
-        const data = (await res.json()) as { totalScore: number };
+        const data = (await res.json()) as FinishResponse;
         setTotalScore(data.totalScore);
         setFinished(true);
         haptic.heavy();
+        
+        // Show level up notification
+        if (data.xp?.levelUp && data.xp?.newLevel) {
+          setTimeout(() => {
+            notify.levelUp(data.xp.newLevel!, getLevelTitle(data.xp.newLevel!));
+          }, 1000);
+        }
+        
+        // Show XP earned notification
+        if (data.xp?.earned > 0) {
+          setTimeout(() => {
+            notify.custom({
+              type: "success",
+              icon: "✨",
+              title: `+${data.xp.earned} XP`,
+              message: `Уровень ${data.xp.level} • ${data.xp.progress}%`,
+              duration: 3000,
+            });
+          }, 500);
+        }
       } catch (err) {
         console.error("Failed to finish quiz", err);
         setError("Не удалось завершить викторину");
