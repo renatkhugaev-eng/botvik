@@ -141,14 +141,16 @@ async function canSendNotification(
   userId: number, 
   type: NotificationType
 ): Promise<{ allowed: boolean; telegramId?: string }> {
-  const preferenceField = NOTIFICATION_PREFERENCES[type];
-  
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       telegramId: true,
       lastNotifiedAt: true,
-      [preferenceField]: true,
+      notifyLevelUp: true,
+      notifyEnergyFull: true,
+      notifyDailyReminder: true,
+      notifyLeaderboard: true,
+      notifyFriends: true,
     },
   });
 
@@ -157,14 +159,22 @@ async function canSendNotification(
   }
 
   // Check if notification type is enabled
-  const isEnabled = user[preferenceField as keyof typeof user];
-  if (!isEnabled) {
+  const preferenceMap: Record<NotificationType, boolean> = {
+    level_up: user.notifyLevelUp,
+    energy_full: user.notifyEnergyFull,
+    daily_reminder: user.notifyDailyReminder,
+    leaderboard_change: user.notifyLeaderboard,
+    friend_activity: user.notifyFriends,
+  };
+
+  if (!preferenceMap[type]) {
     return { allowed: false };
   }
 
   // Rate limiting (except for level_up which is important)
   if (type !== "level_up" && user.lastNotifiedAt) {
-    const timeSinceLastNotification = Date.now() - user.lastNotifiedAt.getTime();
+    const lastNotifiedTime = new Date(user.lastNotifiedAt).getTime();
+    const timeSinceLastNotification = Date.now() - lastNotifiedTime;
     if (timeSinceLastNotification < MIN_NOTIFICATION_INTERVAL_MS) {
       return { allowed: false };
     }
