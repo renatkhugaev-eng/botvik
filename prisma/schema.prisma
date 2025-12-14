@@ -15,6 +15,11 @@ model User {
   photoUrl   String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+  
+  // XP System
+  xp              Int       @default(0)      // Total experience points
+  lastQuizAt      DateTime?                  // Last quiz completion (for daily bonus tracking)
+  
   sessions   QuizSession[]
   leaderboardEntries LeaderboardEntry[]
   

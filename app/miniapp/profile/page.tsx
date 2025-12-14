@@ -24,6 +24,19 @@ type SummaryResponse = {
     totalAnswers: number;            // Для точного расчёта accuracy
     globalRank: number | null;       // Позиция среди всех игроков
     totalPlayers: number;
+    // XP System
+    xp: {
+      total: number;
+      level: number;
+      progress: number;              // 0-100
+      currentLevelXp: number;
+      nextLevelXp: number;
+      xpInCurrentLevel: number;
+      xpNeededForNext: number;
+      title: string;
+      icon: string;
+      color: string;
+    };
     bestScoreByQuiz: { 
       quizId: number; 
       title: string; 
@@ -371,9 +384,18 @@ export default function ProfilePage() {
     );
   }
 
-  const rank = getRank(data.stats.totalScore);
-  const nextRank = ranks[rank.level] ?? null;
-  const progress = nextRank ? Math.min((data.stats.totalScore / nextRank.min) * 100, 100) : 100;
+  // XP-based level system from API
+  const xp = data.stats.xp ?? { total: 0, level: 1, progress: 0, title: "Новичок", icon: "🌱", color: "from-slate-400 to-slate-500", xpInCurrentLevel: 0, xpNeededForNext: 100 };
+  
+  // For backwards compatibility with old rank display
+  const rank = { 
+    level: xp.level, 
+    label: xp.title, 
+    icon: xp.icon, 
+    color: xp.color, 
+    accent: "#8b5cf6" 
+  };
+  const progress = xp.progress;
   
   // Точный расчёт accuracy на основе реального количества ответов
   const accuracy = data.stats.totalAnswers > 0 
@@ -564,30 +586,33 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Progress to next rank */}
-              {nextRank && (
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="mt-6"
-                >
-                  <div className="flex items-center justify-between text-[12px] mb-2">
-                    <span className="text-white/50">Прогресс до <span className="text-white/80">{nextRank.label}</span></span>
-                    <span className="font-mono text-white/70">{data.stats.totalScore} / {nextRank.min}</span>
-                  </div>
-                  <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progress}%` }}
-                      transition={{ delay: 0.8, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-                      className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${rank.color}`}
-                    />
-                    {/* Shimmer - CSS animation */}
-                    <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                  </div>
-                </motion.div>
-              )}
+              {/* XP Progress to next level */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="mt-6"
+              >
+                <div className="flex items-center justify-between text-[12px] mb-2">
+                  <span className="text-white/50">
+                    <span className="text-amber-400">⚡</span> Уровень {xp.level}
+                  </span>
+                  <span className="font-mono text-white/70 tabular-nums">{xp.xpInCurrentLevel} / {xp.xpNeededForNext} XP</span>
+                </div>
+                <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ delay: 0.8, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+                  />
+                  {/* Shimmer - CSS animation */}
+                  <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                </div>
+                <p className="text-[10px] text-white/30 mt-1.5 text-center">
+                  Всего: {xp.total.toLocaleString()} XP
+                </p>
+              </motion.div>
 
               {/* Giant animated score */}
               <motion.div

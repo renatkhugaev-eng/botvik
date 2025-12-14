@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getLevelProgress, getLevelTitle } from "@/lib/xp";
 
 export const runtime = "nodejs";
 
@@ -154,6 +155,14 @@ export async function GET(req: NextRequest) {
   const globalRank = allUsersScores.findIndex((u) => u.userId === user.id) + 1;
   const totalPlayers = allUsersScores.length;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // XP & LEVEL SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const userXp = (user as { xp?: number }).xp ?? 0;
+  const levelProgress = getLevelProgress(userXp);
+  const levelTitle = getLevelTitle(levelProgress.level);
+
   return NextResponse.json({
     user: {
       id: user.id,
@@ -173,6 +182,20 @@ export async function GET(req: NextRequest) {
       // Рейтинг
       globalRank: globalRank > 0 ? globalRank : null,
       totalPlayers,
+      
+      // XP System
+      xp: {
+        total: userXp,
+        level: levelProgress.level,
+        progress: levelProgress.progress,
+        currentLevelXp: levelProgress.currentLevelXp,
+        nextLevelXp: levelProgress.nextLevelXp,
+        xpInCurrentLevel: levelProgress.xpInCurrentLevel,
+        xpNeededForNext: levelProgress.xpNeededForNext,
+        title: levelTitle.title,
+        icon: levelTitle.icon,
+        color: levelTitle.color,
+      },
       
       // По квизам
       bestScoreByQuiz,

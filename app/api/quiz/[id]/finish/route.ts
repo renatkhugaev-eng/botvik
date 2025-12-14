@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { calculateQuizXp, getLevelProgress, type XpBreakdown } from "@/lib/xp";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       totalScore: true, 
       finishedAt: true,
       attemptNumber: true,
+      answers: {
+        select: { isCorrect: true },
+      },
     },
   });
 
@@ -67,21 +71,24 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   // Завершаем сессию, если ещё не завершена
-  const finishedSession =
-    session.finishedAt !== null
-      ? session
-      : await prisma.quizSession.update({
-          where: { id: sessionId },
-          data: { finishedAt: new Date() },
-          select: { 
-            id: true, 
-            quizId: true, 
-            userId: true, 
-            totalScore: true, 
-            finishedAt: true,
-            attemptNumber: true,
+  const alreadyFinished = session.finishedAt !== null;
+  const finishedSession = alreadyFinished
+    ? session
+    : await prisma.quizSession.update({
+        where: { id: sessionId },
+        data: { finishedAt: new Date() },
+        select: { 
+          id: true, 
+          quizId: true, 
+          userId: true, 
+          totalScore: true, 
+          finishedAt: true,
+          attemptNumber: true,
+          answers: {
+            select: { isCorrect: true },
           },
-        });
+        },
+      });
 
   // ═══ WEIGHTED SCORE CALCULATION ═══
   
@@ -149,10 +156,106 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     })),
   };
 
+  // ═══ XP SYSTEM ═══
+  // Only award XP if session wasn't already finished (prevent double XP)
+  let xpBreakdown: XpBreakdown | null = null;
+  let levelUp = false;
+  let newLevel = 0;
+  let totalXp = 0;
+
+  if (!alreadyFinished) {
+    // Get user's current XP and last quiz date
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { xp: true, lastQuizAt: true },
+    });
+
+    const currentXp = user?.xp ?? 0;
+    const lastQuizAt = user?.lastQuizAt;
+    
+    // Check if this is first quiz of the day
+    const now = new Date();
+    const isFirstQuizOfDay = !lastQuizAt || 
+      lastQuizAt.toDateString() !== now.toDateString();
+
+    // Get quiz total questions for perfect bonus calculation
+    const quiz = await prisma.quiz.findUnique({
+      where: { id: quizId },
+      select: { questions: { select: { id: true } } },
+    });
+    const totalQuestions = quiz?.questions.length ?? 0;
+
+    // Calculate correct count and max streak from session answers
+    const answers = finishedSession.answers ?? session.answers ?? [];
+    const correctCount = answers.filter(a => a.isCorrect).length;
+    
+    // Calculate max streak
+    let maxStreak = 0;
+    let currentStreak = 0;
+    for (const answer of answers) {
+      if (answer.isCorrect) {
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
+    }
+
+    // Calculate XP
+    xpBreakdown = calculateQuizXp({
+      correctCount,
+      totalQuestions,
+      maxStreak,
+      isFirstQuizOfDay,
+    });
+
+    // Get level before XP update
+    const oldLevelInfo = getLevelProgress(currentXp);
+    
+    // Update user XP
+    const updatedUser = await prisma.user.update({
+      where: { id: session.userId },
+      data: {
+        xp: { increment: xpBreakdown.total },
+        lastQuizAt: now,
+      },
+      select: { xp: true },
+    });
+
+    totalXp = updatedUser.xp;
+    const newLevelInfo = getLevelProgress(totalXp);
+    
+    // Check for level up
+    if (newLevelInfo.level > oldLevelInfo.level) {
+      levelUp = true;
+      newLevel = newLevelInfo.level;
+    }
+  } else {
+    // Session was already finished, just get current XP
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { xp: true },
+    });
+    totalXp = user?.xp ?? 0;
+  }
+
+  const levelInfo = getLevelProgress(totalXp);
+
   return NextResponse.json({ 
     totalScore: finishedSession.totalScore,
     bestScore,
     leaderboardScore: normalizedScore,
     attemptStats,
+    // XP info
+    xp: {
+      earned: xpBreakdown?.total ?? 0,
+      breakdown: xpBreakdown,
+      total: totalXp,
+      level: levelInfo.level,
+      progress: levelInfo.progress,
+      xpToNextLevel: levelInfo.xpNeededForNext - levelInfo.xpInCurrentLevel,
+      levelUp,
+      newLevel: levelUp ? newLevel : undefined,
+    },
   });
 }
