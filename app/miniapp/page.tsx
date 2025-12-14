@@ -513,12 +513,11 @@ export default function MiniAppPage() {
           {/* Inner content */}
           <div className="relative flex">
             {/* Telegram Channel */}
-            <motion.a
+            <a
               href="https://t.me/dark_bookshelf"
               target="_blank"
               rel="noopener noreferrer"
-              whileTap={{ scale: 0.98 }}
-              className="flex-1 flex items-center gap-3 p-3 rounded-l-[16px] hover:bg-white/5 transition-colors"
+              className="flex-1 flex items-center gap-3 p-3 rounded-l-[16px] hover:bg-white/5 transition-colors active:scale-[0.98]"
             >
               {/* Telegram icon with glow */}
               <div className="relative">
@@ -533,7 +532,7 @@ export default function MiniAppPage() {
                 <p className="text-[13px] font-bold text-white truncate">Чернила и Кровь</p>
                 <p className="text-[10px] text-white/40">Подпишись на канал →</p>
               </div>
-            </motion.a>
+            </a>
 
             {/* Divider */}
             <div className="w-px bg-gradient-to-b from-transparent via-white/10 to-transparent my-2" />
