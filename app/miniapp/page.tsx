@@ -103,16 +103,14 @@ export default function MiniAppPage() {
       // Инициализируем countdowns из серверных данных
       // ВАЖНО: Energy в приоритете над Rate limit (если энергия кончилась, показываем её)
       const newCountdowns: Record<number, number> = {};
-      let minEnergy = 5; // Начинаем с максимума
-      let maxEnergy = 5;
+      
+      // Глобальная энергия — берём из первого квиза (теперь одинаковая для всех)
+      const firstQuiz = quizzesData[0];
+      const globalEnergy = firstQuiz?.limitInfo?.remaining ?? 5;
+      const maxEnergy = firstQuiz?.limitInfo?.maxAttempts ?? 5;
       
       for (const quiz of quizzesData) {
         if (quiz.limitInfo) {
-          // Считаем минимальную энергию среди всех квизов
-          const remaining = quiz.limitInfo.remaining ?? quiz.limitInfo.maxAttempts ?? 5;
-          maxEnergy = quiz.limitInfo.maxAttempts ?? 5;
-          if (remaining < minEnergy) minEnergy = remaining;
-          
           if (quiz.limitInfo.energyWaitMs && quiz.limitInfo.energyWaitMs > 0) {
             // Energy depleted — показываем сколько ждать до +1 энергии
             newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.energyWaitMs / 1000);
@@ -124,12 +122,12 @@ export default function MiniAppPage() {
       }
       setCountdowns(newCountdowns);
       
-      // Обновляем энергию в userStats
+      // Обновляем глобальную энергию в userStats
       setUserStats(prev => ({ 
         ...prev, 
         totalQuizzesPlayed: prev?.totalQuizzesPlayed ?? 0,
         totalScore: prev?.totalScore ?? 0,
-        minEnergy, 
+        minEnergy: globalEnergy, 
         maxEnergy 
       }));
     } catch {

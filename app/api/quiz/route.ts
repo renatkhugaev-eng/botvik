@@ -35,12 +35,36 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(quizzes);
   }
 
-  // Получаем информацию о лимитах для каждого квиза
+  // ═══ ГЛОБАЛЬНАЯ ЭНЕРГИЯ — одна на все квизы ═══
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
   
+  // Считаем ВСЕ сессии пользователя за период cooldown (глобально)
+  const allRecentSessions = await prisma.quizSession.findMany({
+    where: {
+      userId: userIdNum,
+      startedAt: { gte: cooldownAgo },
+    },
+    orderBy: { startedAt: "asc" },
+    select: { startedAt: true },
+  });
+
+  const globalUsedAttempts = allRecentSessions.length;
+  const globalRemaining = Math.max(0, MAX_ATTEMPTS - globalUsedAttempts);
+  
+  let globalEnergyWaitMs: number | null = null;
+  let globalNextSlotAt: string | null = null;
+
+  if (globalUsedAttempts >= MAX_ATTEMPTS && allRecentSessions.length > 0) {
+    const oldestSession = allRecentSessions[0];
+    const nextSlot = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
+    globalEnergyWaitMs = nextSlot.getTime() - Date.now();
+    globalNextSlotAt = nextSlot.toISOString();
+  }
+
+  // Для каждого квиза добавляем rate limit + глобальную энергию
   const quizzesWithLimits = await Promise.all(
     quizzes.map(async (quiz) => {
-      // Проверяем rate limit (последняя завершённая сессия)
+      // Rate limit — per-quiz (последняя завершённая сессия ЭТОГО квиза)
       const lastSession = await prisma.quizSession.findFirst({
         where: { userId: userIdNum, quizId: quiz.id, finishedAt: { not: null } },
         orderBy: { finishedAt: "desc" },
@@ -55,28 +79,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Проверяем energy (sliding window по cooldown)
-      const recentSessions = await prisma.quizSession.findMany({
-        where: {
-          userId: userIdNum,
-          quizId: quiz.id,
-          startedAt: { gte: cooldownAgo },
-        },
-        orderBy: { startedAt: "asc" },
-        select: { startedAt: true },
-      });
-
-      const usedAttempts = recentSessions.length;
-      let energyWaitMs: number | null = null;
-      let nextSlotAt: string | null = null;
-
-      if (usedAttempts >= MAX_ATTEMPTS) {
-        const oldestSession = recentSessions[0];
-        const nextSlot = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
-        energyWaitMs = nextSlot.getTime() - Date.now();
-        nextSlotAt = nextSlot.toISOString();
-      }
-
       // Проверяем незавершённую сессию
       const unfinishedSession = await prisma.quizSession.findFirst({
         where: { userId: userIdNum, quizId: quiz.id, finishedAt: null },
@@ -86,12 +88,14 @@ export async function GET(req: NextRequest) {
       return {
         ...quiz,
         limitInfo: {
-          usedAttempts,
+          // Глобальная энергия (одна на все квизы)
+          usedAttempts: globalUsedAttempts,
           maxAttempts: MAX_ATTEMPTS,
-          remaining: Math.max(0, MAX_ATTEMPTS - usedAttempts),
+          remaining: globalRemaining,
+          energyWaitMs: globalEnergyWaitMs,
+          nextSlotAt: globalNextSlotAt,
+          // Rate limit per-quiz
           rateLimitWaitSeconds,
-          energyWaitMs,
-          nextSlotAt,
           hasUnfinishedSession: !!unfinishedSession,
           hoursPerAttempt: HOURS_PER_ATTEMPT,
         },

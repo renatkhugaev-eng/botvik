@@ -134,17 +134,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // ═══ ANTI-ABUSE CHECKS для новой сессии ═══
   // (пропускаются если bypassLimits = true в dev режиме)
 
-  // 1. Energy system - СНАЧАЛА проверяем энергию (чтобы не показывать 60 сек, если энергия кончилась)
+  // 1. Energy system - ОБЩАЯ энергия на ВСЕ квизы (не per-quiz)
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
 
+  // Считаем ВСЕ сессии пользователя за период cooldown (не только для этого квиза)
   const recentSessions = await prisma.quizSession.findMany({
     where: {
       userId: user.id,
-      quizId,
+      // БЕЗ фильтра quizId — считаем глобально
       startedAt: { gte: cooldownAgo },
     },
     orderBy: { startedAt: "asc" },
-    select: { startedAt: true },
+    select: { startedAt: true, quizId: true },
   });
 
   const usedAttempts = recentSessions.length;

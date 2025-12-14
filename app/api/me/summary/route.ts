@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ENERGY SYSTEM (попытки с cooldown 4 часа)
+  // GLOBAL ENERGY SYSTEM (общая энергия на все квизы)
   // ═══════════════════════════════════════════════════════════════════════════
   
   const MAX_ATTEMPTS = 5;
@@ -129,14 +129,16 @@ export async function GET(req: NextRequest) {
   const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000;
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
 
-  const recentAttemptsByQuiz = await prisma.quizSession.groupBy({
-    by: ["quizId"],
+  // Считаем ВСЕ сессии пользователя глобально (не по квизам)
+  const globalRecentAttempts = await prisma.quizSession.count({
     where: {
       userId: user.id,
       startedAt: { gte: cooldownAgo },
     },
-    _count: { id: true },
   });
+  
+  const globalEnergyUsed = globalRecentAttempts;
+  const globalEnergyRemaining = Math.max(0, MAX_ATTEMPTS - globalRecentAttempts);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GLOBAL RANK (позиция среди всех игроков)
@@ -185,14 +187,13 @@ export async function GET(req: NextRequest) {
           }
         : null,
       
-      // Энергетическая система (попытки с cooldown)
-      energyByQuiz: recentAttemptsByQuiz.map((t) => ({
-        quizId: t.quizId,
-        used: t._count.id,
-        remaining: Math.max(0, MAX_ATTEMPTS - t._count.id),
-      })),
-      maxAttempts: MAX_ATTEMPTS,
-      hoursPerAttempt: HOURS_PER_ATTEMPT,
+      // Глобальная энергия (общая на все квизы)
+      globalEnergy: {
+        used: globalEnergyUsed,
+        remaining: globalEnergyRemaining,
+        max: MAX_ATTEMPTS,
+        hoursPerAttempt: HOURS_PER_ATTEMPT,
+      },
     },
   });
 }
