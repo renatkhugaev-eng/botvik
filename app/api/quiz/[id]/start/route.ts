@@ -4,17 +4,19 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ANTI-ABUSE: Rate Limiting & Sliding Window Limits
+   ANTI-ABUSE: Rate Limiting & Energy System
    
    - Rate limit: 1 новая сессия в минуту
-   - Sliding window: 5 попыток за последние 24 часа (скользящее окно)
+   - Energy system: 5 попыток, восстановление 1 попытки каждые 4 часа
    - Attempt tracking: номер попытки для decay scoring
    
    DEV BYPASS: Установи BYPASS_LIMITS=true в .env.local для отключения лимитов
 ═══════════════════════════════════════════════════════════════════════════ */
 
 const RATE_LIMIT_MS = 60_000; // 1 минута между сессиями
-const MAX_DAILY_ATTEMPTS = 5; // Максимум попыток в день
+const MAX_ATTEMPTS = 5; // Максимум попыток (энергия)
+const HOURS_PER_ATTEMPT = 4; // Часов на восстановление 1 попытки
+const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000; // 4 часа в мс
 
 // Dev bypass для тестирования (только в development)
 const bypassLimits = 
@@ -145,26 +147,26 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
   }
 
-  // 2. Sliding window 24h - считаем попытки за последние 24 часа
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  // 2. Energy system - считаем попытки за последние ATTEMPT_COOLDOWN_MS
+  const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
 
-  // Получаем сессии за последние 24 часа (для расчёта когда освободится слот)
+  // Получаем сессии в окне cooldown (для расчёта когда освободится слот)
   const recentSessions = await prisma.quizSession.findMany({
     where: {
       userId: user.id,
       quizId,
-      startedAt: { gte: twentyFourHoursAgo },
+      startedAt: { gte: cooldownAgo },
     },
     orderBy: { startedAt: "asc" },
     select: { startedAt: true },
   });
 
-  const attemptsIn24h = recentSessions.length;
+  const usedAttempts = recentSessions.length;
 
-  if (!bypassLimits && attemptsIn24h >= MAX_DAILY_ATTEMPTS) {
-    // Когда освободится следующий слот (самая старая сессия + 24 часа)
+  if (!bypassLimits && usedAttempts >= MAX_ATTEMPTS) {
+    // Когда освободится следующий слот (самая старая сессия + cooldown)
     const oldestSession = recentSessions[0];
-    const nextSlotAt = new Date(oldestSession.startedAt.getTime() + 24 * 60 * 60 * 1000);
+    const nextSlotAt = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
     const waitMs = nextSlotAt.getTime() - Date.now();
     const waitMinutes = Math.ceil(waitMs / 60000);
     const waitHours = Math.floor(waitMinutes / 60);
@@ -180,13 +182,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     return NextResponse.json(
       { 
-        error: "daily_limit_reached", 
-        message: `Лимит ${MAX_DAILY_ATTEMPTS} попыток за 24 часа исчерпан`,
-        attemptsIn24h,
-        maxDaily: MAX_DAILY_ATTEMPTS,
+        error: "energy_depleted", 
+        message: `Энергия закончилась! Восстановление через ${waitMessage}`,
+        usedAttempts,
+        maxAttempts: MAX_ATTEMPTS,
         nextSlotAt: nextSlotAt.toISOString(),
         waitMs,
         waitMessage,
+        hoursPerAttempt: HOURS_PER_ATTEMPT,
       },
       { status: 429 }
     );
@@ -218,12 +221,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     sessionId: session.id,
     quizId,
     attemptNumber,
-    remainingAttempts: MAX_DAILY_ATTEMPTS - attemptsIn24h - 1,
+    remainingAttempts: MAX_ATTEMPTS - usedAttempts - 1,
     totalQuestions: questions.length,
     totalScore: session.totalScore,
     currentStreak: 0, // Начальный streak
     questions,
     serverTime: now.toISOString(), // Для синхронизации клиента
+    energyInfo: {
+      used: usedAttempts + 1,
+      max: MAX_ATTEMPTS,
+      hoursPerAttempt: HOURS_PER_ATTEMPT,
+    },
   });
 }
 

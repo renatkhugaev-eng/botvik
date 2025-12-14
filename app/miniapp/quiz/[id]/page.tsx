@@ -43,15 +43,15 @@ type AnswerResponse = {
 };
 
 type RateLimitError = {
-  error: "rate_limited" | "daily_limit_reached";
+  error: "rate_limited" | "energy_depleted";
   message: string;
   waitSeconds?: number;
-  waitMs?: number;           // Для скользящего окна 24 часа
+  waitMs?: number;           // Для энергетической системы
   waitMessage?: string;      // "2ч 30м" формат
-  attemptsToday?: number;    // Legacy
-  attemptsIn24h?: number;    // Скользящее окно
-  maxDaily?: number;
+  usedAttempts?: number;     // Использовано попыток
+  maxAttempts?: number;      // Максимум попыток
   nextSlotAt?: string;       // ISO timestamp когда освободится слот
+  hoursPerAttempt?: number;  // Часов на восстановление 1 попытки
 };
 
 const spring = { type: "spring", stiffness: 500, damping: 30 };
@@ -417,7 +417,7 @@ export default function QuizPlayPage() {
   // Rate Limit Screen
   if (rateLimitInfo) {
     const isRateLimited = rateLimitInfo.error === "rate_limited";
-    const isDailyLimit = rateLimitInfo.error === "daily_limit_reached";
+    const isEnergyDepleted = rateLimitInfo.error === "energy_depleted";
     
     return (
       <motion.div
@@ -436,11 +436,11 @@ export default function QuizPlayPage() {
               transition={{ duration: 2, repeat: Infinity }}
               className="text-7xl mb-6"
             >
-              {isRateLimited ? "⏱️" : "🔒"}
+              {isRateLimited ? "⏱️" : "⚡"}
             </motion.div>
             
             <h2 className="text-2xl font-bold text-white mb-3">
-              {isRateLimited ? "Подожди немного" : "Лимит на сегодня"}
+              {isRateLimited ? "Подожди немного" : "Энергия закончилась"}
             </h2>
             
             <p className="text-white/60 mb-6 leading-relaxed">
@@ -478,33 +478,34 @@ export default function QuizPlayPage() {
               </motion.div>
             )}
             
-            {isDailyLimit && (
+            {isEnergyDepleted && (
               <div className="mb-6 space-y-3">
                 <div className="flex items-center justify-center gap-2 text-white/40 text-sm">
-                  <span>Попыток за 24ч:</span>
-                  <span className="font-bold text-white">{rateLimitInfo.attemptsIn24h ?? rateLimitInfo.attemptsToday}/{rateLimitInfo.maxDaily}</span>
+                  <span>⚡ Энергия:</span>
+                  <span className="font-bold text-white">{rateLimitInfo.usedAttempts}/{rateLimitInfo.maxAttempts}</span>
+                  <span className="text-white/30">• +1 каждые {rateLimitInfo.hoursPerAttempt ?? 4}ч</span>
                 </div>
                 <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-violet-500 to-pink-500"
+                    className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
                     style={{ width: "100%" }}
                   />
                 </div>
                 
                 {/* Countdown до следующего слота */}
                 {rateLimitCountdown !== null && rateLimitCountdown > 0 && (
-                  <div className="flex items-center justify-center gap-3 rounded-full bg-violet-500/20 px-5 py-3 mt-2">
+                  <div className="flex items-center justify-center gap-3 rounded-full bg-amber-500/20 px-5 py-3 mt-2">
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                     >
-                      <svg className="h-5 w-5 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <svg className="h-5 w-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 6v6l4 2" />
                       </svg>
                     </motion.div>
-                    <span className="text-violet-300 text-sm">Следующий слот через:</span>
-                    <span className="text-violet-400 font-bold tabular-nums">
+                    <span className="text-amber-300 text-sm">+1 энергия через:</span>
+                    <span className="text-amber-400 font-bold tabular-nums">
                       {(() => {
                         const hours = Math.floor(rateLimitCountdown / 3600);
                         const mins = Math.floor((rateLimitCountdown % 3600) / 60);

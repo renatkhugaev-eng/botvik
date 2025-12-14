@@ -18,13 +18,14 @@ import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 type Tab = "participant" | "creator";
 
 type LimitInfo = {
-  attemptsIn24h: number;
+  usedAttempts: number;
   maxAttempts: number;
   remaining: number;
   rateLimitWaitSeconds: number | null;
-  dailyLimitWaitMs: number | null;
+  energyWaitMs: number | null;
   nextSlotAt: string | null;
   hasUnfinishedSession: boolean;
+  hoursPerAttempt: number;
 };
 
 type QuizSummary = {
@@ -104,9 +105,9 @@ export default function MiniAppPage() {
           if (quiz.limitInfo.rateLimitWaitSeconds && quiz.limitInfo.rateLimitWaitSeconds > 0) {
             // Rate limit — секунды
             newCountdowns[quiz.id] = quiz.limitInfo.rateLimitWaitSeconds;
-          } else if (quiz.limitInfo.dailyLimitWaitMs && quiz.limitInfo.dailyLimitWaitMs > 0) {
-            // Daily limit — миллисекунды в секунды
-            newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.dailyLimitWaitMs / 1000);
+          } else if (quiz.limitInfo.energyWaitMs && quiz.limitInfo.energyWaitMs > 0) {
+            // Energy limit — миллисекунды в секунды
+            newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.energyWaitMs / 1000);
           }
         }
       }
@@ -276,8 +277,8 @@ export default function MiniAppPage() {
           if (data.error === "rate_limited" && data.waitSeconds) {
             // Rate limit — добавляем countdown для этого квиза
             setCountdowns(prev => ({ ...prev, [id]: data.waitSeconds }));
-          } else if (data.error === "daily_limit_reached" && data.waitMs) {
-            // Daily limit — добавляем countdown для этого квиза
+          } else if (data.error === "energy_depleted" && data.waitMs) {
+            // Energy depleted — добавляем countdown для этого квиза
             setCountdowns(prev => ({ ...prev, [id]: Math.ceil(data.waitMs / 1000) }));
           }
           haptic.warning();

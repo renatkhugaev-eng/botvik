@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 const RATE_LIMIT_MS = 60_000; // 1 минута между сессиями
-const MAX_DAILY_ATTEMPTS = 5; // Максимум попыток за 24 часа
+const MAX_ATTEMPTS = 5; // Максимум попыток (энергия)
+const HOURS_PER_ATTEMPT = 4; // Часов на восстановление 1 попытки
+const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000; // 4 часа в мс
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId");
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Получаем информацию о лимитах для каждого квиза
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
   
   const quizzesWithLimits = await Promise.all(
     quizzes.map(async (quiz) => {
@@ -53,25 +55,25 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Проверяем daily limit (sliding window 24h)
+      // Проверяем energy (sliding window по cooldown)
       const recentSessions = await prisma.quizSession.findMany({
         where: {
           userId: userIdNum,
           quizId: quiz.id,
-          startedAt: { gte: twentyFourHoursAgo },
+          startedAt: { gte: cooldownAgo },
         },
         orderBy: { startedAt: "asc" },
         select: { startedAt: true },
       });
 
-      const attemptsIn24h = recentSessions.length;
-      let dailyLimitWaitMs: number | null = null;
+      const usedAttempts = recentSessions.length;
+      let energyWaitMs: number | null = null;
       let nextSlotAt: string | null = null;
 
-      if (attemptsIn24h >= MAX_DAILY_ATTEMPTS) {
+      if (usedAttempts >= MAX_ATTEMPTS) {
         const oldestSession = recentSessions[0];
-        const nextSlot = new Date(oldestSession.startedAt.getTime() + 24 * 60 * 60 * 1000);
-        dailyLimitWaitMs = nextSlot.getTime() - Date.now();
+        const nextSlot = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
+        energyWaitMs = nextSlot.getTime() - Date.now();
         nextSlotAt = nextSlot.toISOString();
       }
 
@@ -84,13 +86,14 @@ export async function GET(req: NextRequest) {
       return {
         ...quiz,
         limitInfo: {
-          attemptsIn24h,
-          maxAttempts: MAX_DAILY_ATTEMPTS,
-          remaining: Math.max(0, MAX_DAILY_ATTEMPTS - attemptsIn24h),
+          usedAttempts,
+          maxAttempts: MAX_ATTEMPTS,
+          remaining: Math.max(0, MAX_ATTEMPTS - usedAttempts),
           rateLimitWaitSeconds,
-          dailyLimitWaitMs,
+          energyWaitMs,
           nextSlotAt,
           hasUnfinishedSession: !!unfinishedSession,
+          hoursPerAttempt: HOURS_PER_ATTEMPT,
         },
       };
     })
