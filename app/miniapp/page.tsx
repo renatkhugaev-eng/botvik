@@ -814,9 +814,11 @@ export default function MiniAppPage() {
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-[13px] font-bold text-white">Лидерборд</p>
                 <p className="text-[10px] text-white/40">
-                  {!myPosition || myPosition.place === 0 
-                    ? "Открыть топ →" 
-                    : `${myPosition.place} место • ${myPosition.score?.toLocaleString() || 0} очков`
+                  {myPosition && myPosition.place > 0 
+                    ? `${myPosition.place} место • ${myPosition.score?.toLocaleString() || 0} очков`
+                    : myPosition?.totalPlayers 
+                      ? `— место • Сыграй чтобы попасть в топ`
+                      : "Открыть топ →"
                   }
                 </p>
               </div>
