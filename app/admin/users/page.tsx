@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 type User = {
   id: number;
@@ -43,16 +44,8 @@ export default function AdminUsers() {
 
     setResettingId(userId);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/reset-energy`, {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setToast(data.message);
-      } else {
-        alert("Ошибка сброса энергии");
-      }
+      const data = await api.post<{ message: string }>(`/api/admin/users/${userId}/reset-energy`);
+      setToast(data.message);
     } catch (error) {
       console.error("Failed to reset energy:", error);
       alert("Ошибка сброса энергии");
@@ -64,11 +57,8 @@ export default function AdminUsers() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch("/api/admin/users");
-        if (res.ok) {
-          const data = await res.json();
-          setUsers(data.users || []);
-        }
+        const data = await api.get<{ users: User[] }>("/api/admin/users");
+        setUsers(data.users || []);
       } catch (error) {
         console.error("Failed to fetch users:", error);
       } finally {

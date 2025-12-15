@@ -222,21 +222,52 @@ export function isAdmin(telegramId: string): boolean {
 
 /**
  * Authenticate and check admin access
+ * Supports both Telegram auth AND browser session (admin_token cookie)
  */
 export async function authenticateAdmin(req: NextRequest): Promise<AuthResult> {
+  // ═══ OPTION 1: Try Telegram auth first ═══
   const auth = await authenticateRequest(req);
   
-  if (!auth.ok) {
+  if (auth.ok) {
+    if (!isAdmin(auth.user.telegramId)) {
+      return {
+        ok: false,
+        error: "ADMIN_ACCESS_REQUIRED",
+        status: 403,
+      };
+    }
     return auth;
   }
   
-  if (!isAdmin(auth.user.telegramId)) {
-    return {
-      ok: false,
-      error: "ADMIN_ACCESS_REQUIRED",
-      status: 403,
-    };
+  // ═══ OPTION 2: Check admin_token cookie (browser session) ═══
+  const adminToken = req.cookies.get("admin_token")?.value;
+  
+  if (adminToken) {
+    try {
+      const decoded = JSON.parse(Buffer.from(adminToken, "base64").toString());
+      
+      if (decoded.authorized && decoded.expires > Date.now()) {
+        // Return a mock admin user for browser sessions
+        return {
+          ok: true,
+          user: {
+            id: 0,
+            telegramId: "browser-admin",
+            username: "admin",
+            firstName: "Admin",
+            lastName: null,
+          },
+        };
+      }
+    } catch {
+      // Invalid token format - ignore
+    }
   }
   
-  return auth;
+  // No valid auth
+  return {
+    ok: false,
+    error: "ADMIN_AUTH_REQUIRED",
+    status: 401,
+  };
 }
