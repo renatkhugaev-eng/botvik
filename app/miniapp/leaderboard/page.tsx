@@ -40,8 +40,10 @@ export default function LeaderboardPage() {
     const initial = searchParams.get("quizId");
     if (initial) {
       setQuizId(Number(initial));
+    } else {
+      // Reset to global leaderboard when no quizId in URL
+      setQuizId(null);
     }
-    // If no quizId in URL, keep null for global leaderboard
   }, [searchParams]);
 
   useEffect(() => {

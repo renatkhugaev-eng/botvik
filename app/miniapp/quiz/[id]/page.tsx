@@ -709,9 +709,9 @@ export default function QuizPlayPage() {
   // Finished
   if (finished) {
     const accuracy = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
-    // Star rating: 5 stars for 90%+, 4 for 70%+, 3 for 50%+, 2 for 30%+, 1 for less
-    const starCount = accuracy >= 90 ? 5 : accuracy >= 70 ? 4 : accuracy >= 50 ? 3 : accuracy >= 30 ? 2 : 1;
-    const ratingText = starCount === 5 ? "Идеально!" : starCount === 4 ? "Превосходно!" : starCount === 3 ? "Хорошо!" : starCount === 2 ? "Неплохо!" : "Попробуй ещё!";
+    // Star rating: 5 stars for 90%+, 4 for 70%+, 3 for 50%+, 2 for 30%+, 1 for 10%+, 0 for less
+    const starCount = accuracy >= 90 ? 5 : accuracy >= 70 ? 4 : accuracy >= 50 ? 3 : accuracy >= 30 ? 2 : accuracy >= 10 ? 1 : 0;
+    const ratingText = starCount === 5 ? "Идеально!" : starCount === 4 ? "Превосходно!" : starCount === 3 ? "Хорошо!" : starCount === 2 ? "Неплохо!" : starCount === 1 ? "Слабовато..." : "Попробуй ещё!";
     
     return (
       <div className="flex flex-col gap-5 min-h-[80vh] justify-center">

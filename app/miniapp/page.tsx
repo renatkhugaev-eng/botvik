@@ -380,15 +380,12 @@ export default function MiniAppPage() {
     };
   }, []);
 
-  // Fetch leaderboard position
+  // Fetch GLOBAL leaderboard position (sum of all quiz scores)
   useEffect(() => {
-    if (session.status !== "ready" || quizzes.length === 0) return;
+    if (session.status !== "ready") return;
     
-    // Get first quiz leaderboard
-    const firstQuizId = quizzes[0]?.id;
-    if (!firstQuizId) return;
-    
-    fetch(`/api/leaderboard?quizId=${firstQuizId}`)
+    // Fetch global leaderboard (no quizId = global)
+    fetch(`/api/leaderboard`)
       .then((r) => r.json())
       .then((entries: { place: number; user: { id: number }; score: number }[]) => {
         const myEntry = entries.find((e) => e.user.id === session.user.id);
@@ -412,7 +409,7 @@ export default function MiniAppPage() {
       .catch(() => {
         // Ignore errors
       });
-  }, [session, quizzes]);
+  }, [session]);
 
   // Check channel subscription
   const checkSubscription = useCallback(async () => {
