@@ -5,7 +5,7 @@ import { validateInitData, parseInitData } from "@/lib/telegram";
 export const runtime = "nodejs";
 
 // Admin Telegram IDs - same as in layout
-const ADMIN_IDS = ["dev-mock", "6819443693927128423"];
+const ADMIN_IDS = ["dev-mock", "5731136459"]; // Renat's Telegram ID
 
 export async function GET(req: NextRequest) {
   // For development, allow mock admin

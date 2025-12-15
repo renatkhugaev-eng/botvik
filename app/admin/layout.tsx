@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 // Admin Telegram IDs - add your ID here
-const ADMIN_IDS = ["dev-mock", "6819443693927128423"]; // Add your Telegram ID
+const ADMIN_IDS = ["dev-mock", "5731136459"]; // Renat's Telegram ID
 
 type AdminUser = {
   id: number;
