@@ -114,12 +114,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
   const user = auth.user;
 
-  // ═══ RATE LIMITING ═══
-  const identifier = getClientIdentifier(req, user.telegramId);
-  const rateLimit = await checkRateLimit(quizAnswerLimiter, identifier);
-  if (rateLimit.limited) {
-    return rateLimit.response;
-  }
+  // ═══ RATE LIMITING (temporarily disabled for debugging) ═══
+  // const identifier = getClientIdentifier(req, user.telegramId);
+  // const rateLimit = await checkRateLimit(quizAnswerLimiter, identifier);
+  // if (rateLimit.limited) {
+  //   return rateLimit.response;
+  // }
 
   const { id } = await context.params;
   const quizId = Number(id);
