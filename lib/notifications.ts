@@ -312,7 +312,7 @@ export async function sendDailyReminders(): Promise<{ sent: number; failed: numb
       id: true,
       xp: true,
       leaderboardEntries: {
-        select: { score: true },
+        select: { bestScore: true, attempts: true },
       },
     },
     take: 100, // Batch limit
@@ -322,7 +322,10 @@ export async function sendDailyReminders(): Promise<{ sent: number; failed: numb
   let failed = 0;
 
   for (const user of users) {
-    const totalScore = user.leaderboardEntries.reduce((sum, e) => sum + e.score, 0);
+    // Рассчитываем total score по формуле Best + Activity
+    const totalBestScore = user.leaderboardEntries.reduce((sum, e) => sum + e.bestScore, 0);
+    const totalAttempts = user.leaderboardEntries.reduce((sum, e) => sum + e.attempts, 0);
+    const totalScore = totalBestScore + Math.min(totalAttempts * 50, 500);
     const level = Math.max(1, Math.floor((-1 + Math.sqrt(1 + (4 * user.xp) / 50)) / 2));
     
     const success = await notifyDailyReminder(user.id, level, totalScore);

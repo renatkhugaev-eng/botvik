@@ -68,11 +68,14 @@ export async function GET(req: NextRequest) {
   
   const leaderboardEntries = await prisma.leaderboardEntry.findMany({
     where: { userId: user.id },
-    select: { score: true, quizId: true },
+    select: { bestScore: true, attempts: true, quizId: true },
   });
 
-  // Сумма всех leaderboard scores (взвешенных)
-  const leaderboardTotalScore = leaderboardEntries.reduce((sum, e) => sum + e.score, 0);
+  // Сумма всех leaderboard scores (Best + Activity Bonus)
+  const totalBestScore = leaderboardEntries.reduce((sum, e) => sum + e.bestScore, 0);
+  const totalAttempts = leaderboardEntries.reduce((sum, e) => sum + e.attempts, 0);
+  const activityBonus = Math.min(totalAttempts * 50, 500);
+  const leaderboardTotalScore = totalBestScore + activityBonus;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BEST SCORES BY QUIZ (для раздела "Рекорды")
@@ -99,12 +102,19 @@ export async function GET(req: NextRequest) {
     const quizTitle = quizzes.find((qq) => qq.id === q.quizId)?.title ?? "Викторина";
     const leaderboardEntry = leaderboardEntries.find((e) => e.quizId === q.quizId);
     
+    // Рассчитываем итоговый score по формуле Best + Activity
+    const entryBestScore = leaderboardEntry?.bestScore ?? 0;
+    const entryAttempts = leaderboardEntry?.attempts ?? 0;
+    const entryActivityBonus = Math.min(entryAttempts * 50, 500);
+    const entryTotalScore = entryBestScore + entryActivityBonus;
+    
     return {
       quizId: q.quizId,
       title: quizTitle,
       bestSessionScore: q._max.totalScore ?? 0,        // Лучший результат за 1 сессию
-      leaderboardScore: leaderboardEntry?.score ?? 0,  // Взвешенный результат в лидерборде
-      attempts: q._count.id,                            // Количество попыток
+      leaderboardScore: entryTotalScore,               // Best + Activity Bonus
+      bestScore: entryBestScore,                       // Лучший результат
+      attempts: q._count.id,                           // Количество попыток
     };
   });
 
@@ -145,12 +155,28 @@ export async function GET(req: NextRequest) {
   // GLOBAL RANK (позиция среди всех игроков)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Суммируем leaderboard scores всех пользователей и сортируем
-  const allUsersScores = await prisma.leaderboardEntry.groupBy({
-    by: ["userId"],
-    _sum: { score: true },
-    orderBy: { _sum: { score: "desc" } },
+  // Получаем все записи и считаем total score по формуле Best + Activity
+  const allEntries = await prisma.leaderboardEntry.findMany({
+    select: { userId: true, bestScore: true, attempts: true },
   });
+
+  // Агрегируем по пользователям
+  const userScoresMap = new Map<number, { bestScore: number; attempts: number }>();
+  for (const entry of allEntries) {
+    const current = userScoresMap.get(entry.userId) ?? { bestScore: 0, attempts: 0 };
+    userScoresMap.set(entry.userId, {
+      bestScore: current.bestScore + entry.bestScore,
+      attempts: current.attempts + entry.attempts,
+    });
+  }
+
+  // Рассчитываем total scores и сортируем
+  const allUsersScores = Array.from(userScoresMap.entries())
+    .map(([userId, data]) => ({
+      userId,
+      totalScore: data.bestScore + Math.min(data.attempts * 50, 500),
+    }))
+    .sort((a, b) => b.totalScore - a.totalScore);
 
   const globalRank = allUsersScores.findIndex((u) => u.userId === user.id) + 1;
   const totalPlayers = allUsersScores.length;

@@ -139,14 +139,15 @@ model LeaderboardEntry {
   userId     Int
   quizId     Int
   periodType String
-  score      Int      @default(0)
+  bestScore  Int      @default(0)  // Лучший результат за одну игру
+  attempts   Int      @default(1)  // Количество попыток
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   user       User     @relation(fields: [userId], references: [id])
   quiz       Quiz     @relation(fields: [quizId], references: [id])
 
   @@unique([userId, quizId, periodType])
-  @@index([quizId, periodType, score])
+  @@index([quizId, periodType, bestScore])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -158,13 +159,13 @@ model WeeklyScore {
   id        Int      @id @default(autoincrement())
   userId    Int
   weekStart DateTime // Monday 00:00 of the week
-  score     Int      @default(0)
-  quizzes   Int      @default(0) // Number of quizzes played this week
+  bestScore Int      @default(0)  // Лучший результат за одну игру на неделе
+  quizzes   Int      @default(0)  // Количество игр за неделю
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, weekStart])
-  @@index([weekStart, score])
+  @@index([weekStart, bestScore])
 }
 
 // Archive of weekly winners

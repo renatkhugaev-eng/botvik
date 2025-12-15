@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWeekStart, getWeekEnd, getTimeUntilWeekEnd, getWeekLabel } from "@/lib/week";
 import { checkRateLimit, leaderboardLimiter, getClientIdentifier } from "@/lib/ratelimit";
+import { calculateTotalScore, getScoreBreakdown, MAX_GAMES_FOR_BONUS } from "@/lib/scoring";
 
 export const runtime = "nodejs";
 
 /**
  * GET /api/leaderboard/weekly
+ * 
+ * Unified scoring system: TotalScore = BestScore + ActivityBonus
  * 
  * Returns:
  * - Current week's leaderboard (top 50)
@@ -31,12 +34,12 @@ export async function GET(req: NextRequest) {
   const timeRemaining = getTimeUntilWeekEnd(now);
   const weekLabel = getWeekLabel(now);
 
-  // Get current week's leaderboard
+  // Get current week's scores
   const weeklyScores = await prisma.weeklyScore.findMany({
     where: { weekStart },
-    orderBy: { score: "desc" },
-    take: 50,
-    include: {
+    select: {
+      bestScore: true,
+      quizzes: true,
       user: {
         select: {
           id: true,
@@ -49,10 +52,22 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const leaderboard = weeklyScores.map((entry, idx) => ({
+  // Calculate total scores and sort
+  const scoredEntries = weeklyScores
+    .map(entry => ({
+      user: entry.user,
+      bestScore: entry.bestScore,
+      quizzes: entry.quizzes,
+      totalScore: calculateTotalScore(entry.bestScore, entry.quizzes),
+    }))
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, 50);
+
+  const leaderboard = scoredEntries.map((entry, idx) => ({
     place: idx + 1,
     user: entry.user,
-    score: entry.score,
+    score: entry.totalScore,
+    bestScore: entry.bestScore,
     quizzes: entry.quizzes,
   }));
 
@@ -61,20 +76,23 @@ export async function GET(req: NextRequest) {
   if (userId) {
     const myScore = await prisma.weeklyScore.findUnique({
       where: { userId_weekStart: { userId, weekStart } },
+      select: { bestScore: true, quizzes: true },
     });
 
     if (myScore) {
-      // Count how many have higher score
-      const higherCount = await prisma.weeklyScore.count({
-        where: {
-          weekStart,
-          score: { gt: myScore.score },
-        },
-      });
+      const myTotalScore = calculateTotalScore(myScore.bestScore, myScore.quizzes);
+      const breakdown = getScoreBreakdown(myScore.bestScore, myScore.quizzes);
+      
+      // Count how many have higher total score
+      const higherCount = scoredEntries.filter(e => e.totalScore > myTotalScore).length;
+      
       myPosition = {
         place: higherCount + 1,
-        score: myScore.score,
+        score: myTotalScore,
+        bestScore: myScore.bestScore,
         quizzes: myScore.quizzes,
+        activityBonus: breakdown.activityBonus,
+        gamesUntilMaxBonus: breakdown.gamesUntilMaxBonus,
       };
     }
   }
@@ -120,10 +138,16 @@ export async function GET(req: NextRequest) {
       score: w.score,
       prize: w.prize,
     })),
+    // Scoring system info
+    scoringInfo: {
+      formula: "TotalScore = BestScore + ActivityBonus",
+      activityBonusPerGame: 50,
+      maxActivityBonus: 500,
+      maxGamesForBonus: MAX_GAMES_FOR_BONUS,
+    },
   }, {
     headers: {
       "Cache-Control": "public, s-maxage=30, stale-while-revalidate=300",
     },
   });
 }
-

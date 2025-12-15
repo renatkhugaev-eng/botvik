@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWeekStart, getWeekEnd } from "@/lib/week";
+import { calculateTotalScore } from "@/lib/scoring";
 
 export const runtime = "nodejs";
 
@@ -9,9 +10,12 @@ export const runtime = "nodejs";
  * 
  * Called by Vercel Cron every Sunday at 23:59 UTC
  * 
- * 1. Gets top 3 from current week
- * 2. Saves them to WeeklyWinner table
- * 3. (Optional) Send notifications to winners
+ * Uses unified scoring: TotalScore = BestScore + ActivityBonus
+ * 
+ * 1. Gets all participants from current week
+ * 2. Calculates total scores using unified formula
+ * 3. Saves top 3 to WeeklyWinner table
+ * 4. (Optional) Send notifications to winners
  * 
  * Note: We don't delete WeeklyScore - new week automatically uses new weekStart
  */
@@ -31,12 +35,13 @@ export async function POST(req: NextRequest) {
 
   console.log(`[Weekly Reset] Processing week ${weekStart.toISOString()} - ${weekEnd.toISOString()}`);
 
-  // Get top 3 for this week
-  const top3 = await prisma.weeklyScore.findMany({
+  // Get all participants for this week
+  const allScores = await prisma.weeklyScore.findMany({
     where: { weekStart },
-    orderBy: { score: "desc" },
-    take: 3,
-    include: {
+    select: {
+      userId: true,
+      bestScore: true,
+      quizzes: true,
       user: {
         select: {
           id: true,
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  if (top3.length === 0) {
+  if (allScores.length === 0) {
     console.log("[Weekly Reset] No participants this week");
     return NextResponse.json({ 
       success: true, 
@@ -56,6 +61,17 @@ export async function POST(req: NextRequest) {
       winners: [],
     });
   }
+
+  // Calculate total scores using unified formula and sort
+  const rankedScores = allScores
+    .map(entry => ({
+      ...entry,
+      totalScore: calculateTotalScore(entry.bestScore, entry.quizzes),
+    }))
+    .sort((a, b) => b.totalScore - a.totalScore);
+
+  // Get top 3
+  const top3 = rankedScores.slice(0, 3);
 
   // Prize descriptions
   const prizes = [
@@ -82,7 +98,7 @@ export async function POST(req: NextRequest) {
           weekStart,
           weekEnd,
           place,
-          score: entry.score,
+          score: entry.totalScore, // Store calculated total score
           prize: prizes[i] || null,
         },
       });
@@ -90,11 +106,13 @@ export async function POST(req: NextRequest) {
       winners.push({
         place,
         user: entry.user,
-        score: entry.score,
+        score: entry.totalScore,
+        bestScore: entry.bestScore,
+        quizzes: entry.quizzes,
         prize: prizes[i],
       });
 
-      console.log(`[Weekly Reset] Winner #${place}: ${entry.user.firstName || entry.user.username} with ${entry.score} points`);
+      console.log(`[Weekly Reset] Winner #${place}: ${entry.user.firstName || entry.user.username} with ${entry.totalScore} points (best: ${entry.bestScore}, games: ${entry.quizzes})`);
     }
   }
 
@@ -109,8 +127,9 @@ export async function POST(req: NextRequest) {
       start: weekStart.toISOString(),
       end: weekEnd.toISOString(),
     },
-    totalParticipants: await prisma.weeklyScore.count({ where: { weekStart } }),
+    totalParticipants: allScores.length,
     winners,
+    scoringFormula: "TotalScore = BestScore + ActivityBonus (max 500 for 10 games)",
   });
 }
 
@@ -118,4 +137,3 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   return POST(req);
 }
-

@@ -73,15 +73,20 @@ export async function GET(req: NextRequest) {
         // Получаем все leaderboard entries для суммарного score
         const leaderboardEntries = await prisma.leaderboardEntry.findMany({
           where: { userId: friendData.id },
-          select: { score: true },
+          select: { bestScore: true, attempts: true },
         });
         
-        // Сумма weighted scores (согласовано с лидербордом)
-        const totalScore = leaderboardEntries.reduce((sum, e) => sum + e.score, 0);
+        // Сумма best scores (согласовано с новой системой)
+        const totalBestScore = leaderboardEntries.reduce((sum, e) => sum + e.bestScore, 0);
+        const totalAttempts = leaderboardEntries.reduce((sum, e) => sum + e.attempts, 0);
         
-        // Лучший weighted score
+        // Итоговый score по формуле: Best + Activity Bonus
+        const activityBonus = Math.min(totalAttempts * 50, 500);
+        const totalScore = totalBestScore + activityBonus;
+        
+        // Лучший результат за одну игру
         const bestScore = leaderboardEntries.length > 0 
-          ? Math.max(...leaderboardEntries.map(e => e.score))
+          ? Math.max(...leaderboardEntries.map(e => e.bestScore))
           : 0;
 
         return {

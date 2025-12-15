@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   // Звёзды (1-5 на основе accuracy)
   const stars = accuracy >= 90 ? 5 : accuracy >= 70 ? 4 : accuracy >= 50 ? 3 : accuracy >= 30 ? 2 : 1;
 
-  // Позиция в лидерборде
+  // Позиция в лидерборде (используем формулу Best + Activity)
   const leaderboardEntry = await prisma.leaderboardEntry.findUnique({
     where: {
       userId_quizId_periodType: {
@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
         periodType: "ALL_TIME",
       },
     },
+    select: { bestScore: true, attempts: true },
   });
 
   // Получаем позицию
@@ -91,21 +92,28 @@ export async function POST(req: NextRequest) {
   let totalPlayers = 0;
 
   if (leaderboardEntry) {
-    const higherScores = await prisma.leaderboardEntry.count({
-      where: {
-        quizId: session.quizId,
-        periodType: "ALL_TIME",
-        score: { gt: leaderboardEntry.score },
-      },
-    });
-    rank = higherScores + 1;
+    // Рассчитываем total score пользователя
+    const myTotalScore = leaderboardEntry.bestScore + Math.min(leaderboardEntry.attempts * 50, 500);
     
-    totalPlayers = await prisma.leaderboardEntry.count({
+    // Получаем все записи для этого квиза и считаем сколько выше
+    const allEntries = await prisma.leaderboardEntry.findMany({
       where: {
         quizId: session.quizId,
         periodType: "ALL_TIME",
       },
+      select: { bestScore: true, attempts: true },
     });
+    
+    let higherCount = 0;
+    for (const entry of allEntries) {
+      const entryTotalScore = entry.bestScore + Math.min(entry.attempts * 50, 500);
+      if (entryTotalScore > myTotalScore) {
+        higherCount++;
+      }
+    }
+    
+    rank = higherCount + 1;
+    totalPlayers = allEntries.length;
   }
 
   // Формируем данные для карточки
