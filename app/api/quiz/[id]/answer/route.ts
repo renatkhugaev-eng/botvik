@@ -181,7 +181,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         id: true,
         difficulty: true,
         order: true,
-        options: {
+        answers: {
           where: { isCorrect: true },
           select: { id: true },
           take: 1,
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       id: q.id,
       order: q.order,
       difficulty: q.difficulty,
-      correctOptionId: q.options[0]?.id ?? -1,
+      correctOptionId: q.answers[0]?.id ?? -1,
     }));
     
     // Cache for next requests
