@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
         <button
@@ -203,8 +203,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
-        <div className="p-4 sm:p-6 lg:p-8">
+      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0 overflow-y-auto">
+        <div className="p-4 sm:p-6 lg:p-8 pb-24">
           {children}
         </div>
       </main>

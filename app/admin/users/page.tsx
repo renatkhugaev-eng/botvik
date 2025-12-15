@@ -124,7 +124,7 @@ export default function AdminUsers() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 pb-8">
           {filteredUsers.map((user) => (
             <div
               key={user.id}
