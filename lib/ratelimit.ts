@@ -68,18 +68,18 @@ export const generalLimiter = new Ratelimit({
   analytics: true,
 });
 
-// Quiz answers: 10 per minute (prevent spam clicking)
+// Quiz answers: 60 per minute (5 questions * possible retries)
 export const quizAnswerLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
+  limiter: Ratelimit.slidingWindow(60, "1 m"),
   prefix: "ratelimit:quiz:answer",
   analytics: true,
 });
 
-// Quiz start: 5 per minute (prevent session spam)
+// Quiz start: 20 per minute (allow retries and navigation)
 export const quizStartLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  limiter: Ratelimit.slidingWindow(20, "1 m"),
   prefix: "ratelimit:quiz:start",
   analytics: true,
 });
