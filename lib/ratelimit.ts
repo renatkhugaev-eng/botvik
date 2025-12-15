@@ -19,6 +19,44 @@ export function isRateLimitConfigured(): boolean {
 }
 
 /**
+ * Local in-memory cache for rate limit results
+ * Reduces Upstash calls by caching "allowed" results for a short time
+ * 
+ * Key: identifier
+ * Value: { allowed: true, expiresAt: timestamp }
+ */
+const localRateLimitCache = new Map<string, { expiresAt: number }>();
+const LOCAL_CACHE_TTL_MS = 1000; // Cache "allowed" for 1 second
+
+function getLocalCachedAllowed(identifier: string): boolean {
+  const entry = localRateLimitCache.get(identifier);
+  if (!entry) return false;
+  
+  if (Date.now() > entry.expiresAt) {
+    localRateLimitCache.delete(identifier);
+    return false;
+  }
+  
+  return true;
+}
+
+function setLocalCachedAllowed(identifier: string): void {
+  // Clean old entries periodically (every 100 sets)
+  if (localRateLimitCache.size > 1000) {
+    const now = Date.now();
+    for (const [key, value] of localRateLimitCache) {
+      if (now > value.expiresAt) {
+        localRateLimitCache.delete(key);
+      }
+    }
+  }
+  
+  localRateLimitCache.set(identifier, {
+    expiresAt: Date.now() + LOCAL_CACHE_TTL_MS,
+  });
+}
+
+/**
  * Rate limiters for different use cases
  */
 
@@ -83,6 +121,8 @@ export type RateLimitResult = {
 /**
  * Check rate limit for a given identifier
  * Returns response if rate limited, null if OK
+ * 
+ * OPTIMIZED: Uses local cache to reduce Upstash calls
  */
 export async function checkRateLimit(
   limiter: Ratelimit,
@@ -90,6 +130,11 @@ export async function checkRateLimit(
 ): Promise<{ limited: false } | { limited: true; response: NextResponse }> {
   // Skip rate limiting if not configured (development)
   if (!isRateLimitConfigured()) {
+    return { limited: false };
+  }
+  
+  // Check local cache first — avoid Upstash call if recently allowed
+  if (getLocalCachedAllowed(identifier)) {
     return { limited: false };
   }
   
@@ -119,6 +164,9 @@ export async function checkRateLimit(
         ),
       };
     }
+    
+    // Cache the "allowed" result locally
+    setLocalCachedAllowed(identifier);
     
     return { limited: false };
   } catch (error) {
