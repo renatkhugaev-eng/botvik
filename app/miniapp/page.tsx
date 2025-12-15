@@ -602,18 +602,25 @@ export default function MiniAppPage() {
           }}
           className="relative mb-4"
         >
-          {/* Diffused glow behind avatar - GPU optimized with box-shadow */}
+          {/* Large diffused glow behind avatar - cyan/violet */}
           <div 
-            className="absolute -inset-4 rounded-full gpu-accelerated"
+            className="absolute -inset-8 rounded-full gpu-accelerated animate-pulse"
             style={{
-              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.3) 40%, transparent 70%)',
-              filter: 'blur(12px)',
+              background: 'radial-gradient(circle, rgba(6, 182, 212, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
+              filter: 'blur(20px)',
+            }}
+          />
+          <div 
+            className="absolute -inset-5 rounded-full gpu-accelerated"
+            style={{
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)',
+              filter: 'blur(15px)',
             }}
           />
           {/* Animated gradient ring — outer glow */}
-          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-50 animate-spin-slow gpu-accelerated" />
+          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-60 animate-spin-slow gpu-accelerated" />
           {/* Animated gradient ring — sharp edge */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow gpu-accelerated" />
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-80 animate-spin-slow gpu-accelerated" />
           
           {photoUrl ? (
             <img 
@@ -679,10 +686,15 @@ export default function MiniAppPage() {
         transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
         className="relative"
       >
-        {/* Single unified glassmorphism card - optimized */}
-        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1">
+        {/* Single unified glassmorphism card - with glow effect */}
+        <div 
+          className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+          style={{
+            boxShadow: '0 8px 32px rgba(139, 92, 246, 0.2), 0 0 60px rgba(139, 92, 246, 0.1)',
+          }}
+        >
           {/* Animated border glow */}
-          <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-amber-500/20 opacity-60" />
+          <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/30 via-pink-500/25 to-amber-500/30 opacity-70 animate-pulse" />
           
           {/* Inner content */}
           <div className="relative flex">
@@ -747,7 +759,7 @@ export default function MiniAppPage() {
                 <p className="text-[13px] font-bold text-white">
                   {!myPosition || myPosition.place === 0 
                     ? "Лидерборд" 
-                    : `#${myPosition.place} место`
+                    : `${myPosition.place} место`
                   }
                 </p>
                 <p className="text-[10px] text-white/40">

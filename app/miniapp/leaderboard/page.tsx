@@ -176,7 +176,7 @@ export default function LeaderboardPage() {
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-[18px] font-black text-white">
-                #{myPosition.place}
+                {myPosition.place}
               </div>
               <div>
                 <p className="text-[12px] font-semibold text-white/60">Твоя позиция</p>

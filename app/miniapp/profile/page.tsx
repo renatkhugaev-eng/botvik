@@ -501,7 +501,7 @@ export default function ProfilePage() {
   
   // Глобальный рейтинг
   const globalRankText = data.stats.globalRank 
-    ? `#${data.stats.globalRank} из ${data.stats.totalPlayers}` 
+    ? `${data.stats.globalRank} из ${data.stats.totalPlayers}` 
     : null;
 
   return (
@@ -562,6 +562,60 @@ export default function ProfilePage() {
             transition: "transform 0.1s ease-out",
           }}
         >
+          {/* DIFFUSED LIGHT EFFECT - soft glows without visible edges */}
+          {/* Top cyan glow - very diffused */}
+          <div 
+            className="absolute gpu-accelerated animate-pulse"
+            style={{
+              top: '-60px',
+              left: '10%',
+              right: '10%',
+              height: '120px',
+              background: 'radial-gradient(ellipse 80% 100% at center, rgba(6, 182, 212, 0.5) 0%, rgba(6, 182, 212, 0.2) 40%, transparent 70%)',
+              filter: 'blur(40px)',
+              borderRadius: '50%',
+            }}
+          />
+          {/* Bottom violet glow - very diffused */}
+          <div 
+            className="absolute gpu-accelerated"
+            style={{
+              bottom: '-50px',
+              left: '5%',
+              right: '5%',
+              height: '100px',
+              background: 'radial-gradient(ellipse 90% 100% at center, rgba(139, 92, 246, 0.4) 0%, rgba(139, 92, 246, 0.15) 50%, transparent 80%)',
+              filter: 'blur(35px)',
+              borderRadius: '50%',
+            }}
+          />
+          {/* Left accent */}
+          <div 
+            className="absolute gpu-accelerated"
+            style={{
+              top: '20%',
+              left: '-40px',
+              width: '80px',
+              height: '60%',
+              background: 'radial-gradient(ellipse at center, rgba(6, 182, 212, 0.25) 0%, transparent 70%)',
+              filter: 'blur(30px)',
+              borderRadius: '50%',
+            }}
+          />
+          {/* Right accent */}
+          <div 
+            className="absolute gpu-accelerated"
+            style={{
+              top: '30%',
+              right: '-40px',
+              width: '80px',
+              height: '50%',
+              background: 'radial-gradient(ellipse at center, rgba(236, 72, 153, 0.2) 0%, transparent 70%)',
+              filter: 'blur(30px)',
+              borderRadius: '50%',
+            }}
+          />
+          
           {/* Animated conic gradient border - CSS animation */}
           <div
             className="absolute -inset-[2px] rounded-[28px] animate-spin-slow gpu-accelerated"
@@ -569,9 +623,6 @@ export default function ProfilePage() {
               background: `conic-gradient(from 0deg, ${rank.accent}, #8b5cf6, #06b6d4, ${rank.accent})`,
             }}
           />
-          
-          {/* Outer glow - GPU optimized, no blur */}
-          <div className={`absolute -inset-2 rounded-[30px] bg-gradient-to-r ${rank.color} opacity-15 gpu-accelerated`} />
           
           {/* Main card */}
           <div className="relative overflow-hidden rounded-[26px] bg-[#0a0a0f]">
@@ -716,7 +767,10 @@ export default function ProfilePage() {
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.7, type: "spring" }}
-                className="mt-6 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10"
+                className="relative mt-6 rounded-2xl bg-white/[0.05] p-5 ring-1 ring-white/20"
+                style={{
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 0 40px rgba(139,92,246,0.15)',
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -898,6 +952,9 @@ style={{
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
               className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-lg"
+              style={{
+                boxShadow: '0 10px 40px rgba(139, 92, 246, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08)',
+              }}
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-2xl shadow-lg">
@@ -935,8 +992,14 @@ style={{
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="overflow-hidden rounded-2xl bg-white shadow-xl shadow-black/5"
+                className="relative overflow-hidden rounded-2xl bg-white"
+                style={{
+                  boxShadow: '0 15px 50px rgba(139, 92, 246, 0.2), 0 5px 20px rgba(0, 0, 0, 0.1)',
+                }}
               >
+                {/* Animated glow border */}
+                <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 animate-pulse" />
+                <div className="relative bg-white rounded-2xl overflow-hidden">
                 <div className="bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] p-4">
                   <div className="flex items-center gap-2">
                     <img src="/icons/31.PNG" alt="" className="h-6 w-6 object-contain" />
@@ -961,6 +1024,7 @@ style={{
                   >
                     ▶ Играть снова
                   </motion.button>
+                </div>
                 </div>
               </motion.div>
             )}
