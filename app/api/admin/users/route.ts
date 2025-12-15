@@ -1,9 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateAdmin } from "@/lib/auth";
+import { checkRateLimit, adminLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ═══ ADMIN AUTHENTICATION ═══
+  const auth = await authenticateAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(adminLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   try {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: "desc" },
@@ -27,4 +42,3 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 }
-

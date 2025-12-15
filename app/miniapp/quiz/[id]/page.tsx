@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "
 import { haptic } from "@/lib/haptic";
 import { useNotify } from "@/components/InAppNotification";
 import { usePerformance } from "@/lib/usePerformance";
+import { fetchWithAuth } from "@/lib/api";
 
 type StartResponse = {
   sessionId: number;
@@ -204,7 +205,7 @@ export default function QuizPlayPage() {
     
     // Sync timeout with server (so page refresh works correctly)
     if (sessionId && currentQuestion) {
-      fetch(`/api/quiz/${quizId}/timeout`, {
+      fetchWithAuth(`/api/quiz/${quizId}/timeout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, questionId: currentQuestion.id }),
@@ -223,7 +224,7 @@ export default function QuizPlayPage() {
       if (nextIndex >= questions.length) {
         // Finish quiz
         if (sessionId) {
-          fetch(`/api/quiz/${quizId}/finish`, {
+          fetchWithAuth(`/api/quiz/${quizId}/finish`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
@@ -294,13 +295,13 @@ export default function QuizPlayPage() {
       }
 
       try {
-        const quizRes = await fetch(`/api/quiz/${quizId}`);
+        const quizRes = await fetchWithAuth(`/api/quiz/${quizId}`);
         if (quizRes.ok) {
           const quizData = await quizRes.json();
           setQuizTitle(quizData.title ?? "Викторина");
         }
 
-        const res = await fetch(`/api/quiz/${quizId}/start`, {
+        const res = await fetchWithAuth(`/api/quiz/${quizId}/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: session.user.id }),
@@ -401,7 +402,7 @@ export default function QuizPlayPage() {
       setSelectedOption(optionId);
 
       try {
-        const res = await fetch(`/api/quiz/${quizId}/answer`, {
+        const res = await fetchWithAuth(`/api/quiz/${quizId}/answer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -464,7 +465,7 @@ export default function QuizPlayPage() {
       if (!sessionId) return;
       try {
         setSubmitting(true);
-        const res = await fetch(`/api/quiz/${quizId}/finish`, {
+        const res = await fetchWithAuth(`/api/quiz/${quizId}/finish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId }),

@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonProfilePage, SkeletonFriendCard } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
+import { fetchWithAuth } from "@/lib/api";
 
 type SummaryResponse = {
   user: {
@@ -251,7 +252,7 @@ export default function ProfilePage() {
       try {
         setError(null);
         setLoading(true);
-        const res = await fetch(`/api/me/summary?userId=${session.user.id}`);
+        const res = await fetchWithAuth(`/api/me/summary?userId=${session.user.id}`);
         if (!res.ok) throw new Error("summary_load_failed");
         const json = (await res.json()) as SummaryResponse;
         setData(json);
@@ -271,7 +272,7 @@ export default function ProfilePage() {
     
     setFriendsLoading(true);
     try {
-      const res = await fetch(`/api/friends?userId=${session.user.id}`);
+      const res = await fetchWithAuth(`/api/friends?userId=${session.user.id}`);
       if (res.ok) {
         const data: FriendsData = await res.json();
         setFriends(data.friends);
@@ -294,7 +295,7 @@ export default function ProfilePage() {
     if (session.status !== "ready") return;
     
     try {
-      const res = await fetch(`/api/notifications/settings?userId=${session.user.id}`);
+      const res = await fetchWithAuth(`/api/notifications/settings?userId=${session.user.id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.settings) {
@@ -340,7 +341,7 @@ export default function ProfilePage() {
     
     try {
       // Refresh profile data
-      const res = await fetch(`/api/me/summary?userId=${session.user.id}`);
+      const res = await fetchWithAuth(`/api/me/summary?userId=${session.user.id}`);
       if (res.ok) {
         const json = (await res.json()) as SummaryResponse;
         setData(json);

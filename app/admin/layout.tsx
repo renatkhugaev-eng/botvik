@@ -4,21 +4,29 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
-// Admin password - change this to your secure password!
-const ADMIN_PASSWORD = "truecrime2024";
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const savedAuth = localStorage.getItem("admin_authorized");
-    if (savedAuth === "true") {
-      setAuthorized(true);
+    // Check if already authorized via localStorage token
+    const savedToken = localStorage.getItem("admin_token");
+    if (savedToken) {
+      try {
+        const decoded = JSON.parse(atob(savedToken));
+        if (decoded.authorized && decoded.expires > Date.now()) {
+          setAuthorized(true);
+        } else {
+          localStorage.removeItem("admin_token");
+        }
+      } catch {
+        localStorage.removeItem("admin_token");
+      }
     }
     setLoading(false);
   }, []);
@@ -28,21 +36,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setSidebarOpen(false);
   }, [pathname]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (password === ADMIN_PASSWORD) {
-      setAuthorized(true);
-      setPasswordError(false);
-      localStorage.setItem("admin_authorized", "true");
-    } else {
+    setSubmitting(true);
+    setPasswordError(false);
+
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem("admin_token", data.token);
+        setAuthorized(true);
+      } else {
+        setPasswordError(true);
+        setPassword("");
+      }
+    } catch {
       setPasswordError(true);
-      setPassword("");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_authorized");
+  const handleLogout = async () => {
+    localStorage.removeItem("admin_token");
+    await fetch("/api/admin/login", { method: "DELETE" });
     setAuthorized(false);
   };
 
@@ -88,6 +111,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   passwordError ? "border-red-500" : "border-slate-600"
                 }`}
                 autoFocus
+                disabled={submitting}
               />
               {passwordError && (
                 <p className="text-red-400 text-sm mt-2">Неверный пароль</p>
@@ -96,9 +120,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-violet-500/25"
+              disabled={submitting}
+              className="w-full py-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-violet-500/25"
             >
-              Войти
+              {submitting ? "Проверка..." : "Войти"}
             </button>
           </form>
           

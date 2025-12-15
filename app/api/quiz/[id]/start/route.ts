@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, quizStartLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -23,53 +25,29 @@ const bypassLimits =
   process.env.BYPASS_LIMITS === "true" && 
   process.env.NODE_ENV !== "production";
 
-type StartRequestBody = {
-  userId?: number;
-};
-
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const authUser = auth.user;
+
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req, authUser.telegramId);
+  const rateLimit = await checkRateLimit(quizStartLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   const { id } = await context.params;
   const quizId = Number(id);
   if (!quizId || Number.isNaN(quizId)) {
     return NextResponse.json({ error: "invalid_quiz_id" }, { status: 400 });
   }
 
-  let body: StartRequestBody;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
-  }
-
-  const userId = body.userId;
-  if (!userId || Number.isNaN(userId)) {
-    return NextResponse.json({ error: "user_required" }, { status: 400 });
-  }
-
-  const allowDevMock =
-    process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" &&
-    process.env.NODE_ENV !== "production";
-
-  const telegramId = `dev-${userId}`;
-
-  let user = await prisma.user.findUnique({ where: { id: userId } });
-
-  if (!user && allowDevMock) {
-    user = await prisma.user.upsert({
-      where: { telegramId },
-      update: {
-        username: "devuser",
-        firstName: "Dev",
-        lastName: "User",
-      },
-      create: {
-        telegramId,
-        username: "devuser",
-        firstName: "Dev",
-        lastName: "User",
-      },
-    });
-  }
+  // Get user from database (auth already validated)
+  const user = await prisma.user.findUnique({ where: { id: authUser.id } });
 
   if (!user) {
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });

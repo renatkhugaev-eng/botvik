@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, quizAnswerLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -159,6 +161,20 @@ type ScoreBreakdown = {
 };
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const user = auth.user;
+
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req, user.telegramId);
+  const rateLimit = await checkRateLimit(quizAnswerLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   const { id } = await context.params;
   const quizId = Number(id);
   if (!quizId || Number.isNaN(quizId)) {
@@ -186,6 +202,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     where: { id: sessionId },
     select: { 
       id: true, 
+      userId: true,  // For ownership validation
       quizId: true, 
       finishedAt: true, 
       totalScore: true, 
@@ -198,6 +215,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   if (!session || session.quizId !== quizId) {
     return NextResponse.json({ error: "session_not_found" }, { status: 404 });
+  }
+
+  // ═══ OWNERSHIP VALIDATION ═══
+  if (session.userId !== user.id) {
+    return NextResponse.json({ error: "session_not_yours" }, { status: 403 });
   }
 
   if (session.finishedAt) {

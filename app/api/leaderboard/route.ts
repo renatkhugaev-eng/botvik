@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, leaderboardLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -7,6 +8,13 @@ export const runtime = "nodejs";
 export const revalidate = 30;
 
 export async function GET(req: NextRequest) {
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req);
+  const rateLimit = await checkRateLimit(leaderboardLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   const quizIdParam = req.nextUrl.searchParams.get("quizId");
   const quizId = quizIdParam ? Number(quizIdParam) : null;
 

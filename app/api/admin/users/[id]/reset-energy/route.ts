@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateAdmin } from "@/lib/auth";
+import { checkRateLimit, adminLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +12,19 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ═══ ADMIN AUTHENTICATION ═══
+  const auth = await authenticateAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(adminLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   const { id } = await params;
   const userId = Number(id);
 
@@ -57,6 +72,8 @@ export async function POST(
         },
       });
     });
+
+    console.log(`[Admin] ${auth.user.telegramId} reset energy for user ${userId}`);
 
     return NextResponse.json({
       success: true,

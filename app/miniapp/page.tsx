@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
+import { fetchWithAuth } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -264,7 +265,7 @@ export default function MiniAppPage() {
     setError(null);
     try {
       // Передаём userId для получения информации о лимитах
-      const quizzesRes = await fetch(`/api/quiz?userId=${session.user.id}`);
+      const quizzesRes = await fetchWithAuth(`/api/quiz?userId=${session.user.id}`);
       const quizzesData = await quizzesRes.json() as QuizSummary[];
       setQuizzes(quizzesData);
       
@@ -316,7 +317,7 @@ export default function MiniAppPage() {
     if (session.status === "ready") {
       // Also refresh user stats
       try {
-        const statsRes = await fetch(`/api/me/summary?userId=${session.user.id}`);
+        const statsRes = await fetchWithAuth(`/api/me/summary?userId=${session.user.id}`);
         const data = await statsRes.json();
         setUserStats(prev => ({
           totalQuizzesPlayed: data.stats?.totalQuizzesPlayed ?? 0,
@@ -333,7 +334,7 @@ export default function MiniAppPage() {
   // Fetch user stats
   useEffect(() => {
     if (session.status !== "ready") return;
-    fetch(`/api/me/summary?userId=${session.user.id}`)
+    fetchWithAuth(`/api/me/summary?userId=${session.user.id}`)
       .then((r) => r.json())
       .then((data) => {
         setUserStats(prev => ({
@@ -385,7 +386,7 @@ export default function MiniAppPage() {
     if (session.status !== "ready") return;
     
     // Fetch global leaderboard (no quizId = global)
-    fetch(`/api/leaderboard`)
+    fetchWithAuth(`/api/leaderboard`)
       .then((r) => r.json())
       .then((entries: { place: number; user: { id: number }; score: number }[]) => {
         const myEntry = entries.find((e) => e.user.id === session.user.id);
@@ -484,7 +485,7 @@ export default function MiniAppPage() {
       setStartError(null);
       setStartingId(id);
       try {
-        const res = await fetch(`/api/quiz/${id}/start`, {
+        const res = await fetchWithAuth(`/api/quiz/${id}/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: session.user.id }),
