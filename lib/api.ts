@@ -10,19 +10,11 @@
  * ```
  */
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        initData?: string;
-      };
-    };
-  }
-}
-
 function getInitData(): string | null {
   if (typeof window === "undefined") return null;
-  return window.Telegram?.WebApp?.initData || null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const telegram = (window as any).Telegram;
+  return telegram?.WebApp?.initData || null;
 }
 
 type FetchOptions = {
