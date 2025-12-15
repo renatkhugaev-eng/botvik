@@ -812,22 +812,12 @@ export default function MiniAppPage() {
                 </div>
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center gap-2">
-                  <p className="text-[13px] font-bold text-white">
-                    {!myPosition || myPosition.place === 0 
-                      ? "Лидерборд" 
-                      : `${myPosition.place} место`
-                    }
-                  </p>
-                  {weeklyData?.week?.isEnding && (
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded animate-pulse">
-                      ФИНАЛ
-                    </span>
-                  )}
-                </div>
+                <p className="text-[13px] font-bold text-white">Лидерборд</p>
                 <p className="text-[10px] text-white/40">
-                  {weeklyTimeLeft ? `⏱ ${weeklyTimeLeft}` : "Открыть топ →"}
-                  {myPosition?.score ? ` • ${myPosition.score.toLocaleString()} очков` : ""}
+                  {!myPosition || myPosition.place === 0 
+                    ? "Открыть топ →" 
+                    : `${myPosition.place} место • ${myPosition.score?.toLocaleString() || 0} очков`
+                  }
                 </p>
               </div>
             </motion.button>
@@ -853,6 +843,8 @@ export default function MiniAppPage() {
             startError={startError}
             countdowns={countdowns}
             onStart={handleStart}
+            myPosition={myPosition}
+            weeklyTimeLeft={weeklyTimeLeft}
           />
         </motion.div>
       </AnimatePresence>
@@ -1011,9 +1003,11 @@ type QuizViewProps = {
   startError: string | null;
   countdowns: Record<number, number>;
   onStart: (id: number) => void;
+  myPosition: LeaderboardPosition | null;
+  weeklyTimeLeft: string;
 };
 
-function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart }: QuizViewProps) {
+function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft }: QuizViewProps) {
   const router = useRouter();
 
   // Demo data
@@ -1171,246 +1165,492 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────
-          PRIZES — Ultimate Premium Design
+          🏆 WEEKLY COMPETITION — Premium Design
       ───────────────────────────────────────────────────────────────── */}
       <motion.section
-        initial={{ opacity: 0, y: 30, rotateX: -10 }}
-        animate={{ opacity: 1, y: 0, rotateX: 0 }}
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ ...spring, duration: 0.8 }}
-        style={{ perspective: 1000 }}
         className="relative"
       >
-        {/* Animated spinning border - GPU optimized */}
-        <div className="absolute -inset-[2px] rounded-[22px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-40" />
-        <div className="absolute -inset-[2px] rounded-[22px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-70 animate-spin-medium" />
+        {/* Outer glow */}
+        <div className="absolute -inset-4 rounded-[32px] bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 blur-2xl" />
+        
+        {/* Animated border */}
+        <div className="absolute -inset-[2px] rounded-[24px] overflow-hidden">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#f59e0b,#06b6d4,#8b5cf6)]"
+          />
+        </div>
         
         {/* Main container */}
-        <div className="relative overflow-hidden rounded-[20px] bg-[#0a0a0f]">
-          {/* Animated mesh gradient background */}
-          <div className="absolute inset-0">
-            <motion.div
-              animate={{ 
-                background: [
-                  "radial-gradient(600px circle at 0% 0%, rgba(139, 92, 246, 0.15), transparent 50%)",
-                  "radial-gradient(600px circle at 100% 100%, rgba(139, 92, 246, 0.15), transparent 50%)",
-                  "radial-gradient(600px circle at 0% 100%, rgba(139, 92, 246, 0.15), transparent 50%)",
-                  "radial-gradient(600px circle at 0% 0%, rgba(139, 92, 246, 0.15), transparent 50%)",
-                ]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0"
-            />
-            <motion.div
-              animate={{ 
-                background: [
-                  "radial-gradient(400px circle at 100% 0%, rgba(6, 182, 212, 0.1), transparent 50%)",
-                  "radial-gradient(400px circle at 0% 50%, rgba(6, 182, 212, 0.1), transparent 50%)",
-                  "radial-gradient(400px circle at 100% 100%, rgba(6, 182, 212, 0.1), transparent 50%)",
-                  "radial-gradient(400px circle at 100% 0%, rgba(6, 182, 212, 0.1), transparent 50%)",
-                ]
-              }}
-              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0"
-            />
-          </div>
-
-          {/* Floating particles */}
-          {[...Array(6)].map((_, i) => (
+        <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-b from-[#0f0a1a] via-[#0a0a12] to-[#0a0812]">
+          
+          {/* Animated background particles */}
+          {[...Array(12)].map((_, i) => (
             <motion.div
               key={i}
               animate={{
-                y: [0, -30, 0],
-                x: [0, i % 2 === 0 ? 10 : -10, 0],
-                opacity: [0.3, 0.8, 0.3],
-                scale: [1, 1.2, 1],
+                y: [0, -100, 0],
+                x: [0, Math.sin(i) * 20, 0],
+                opacity: [0, 0.6, 0],
+                scale: [0.5, 1, 0.5],
               }}
               transition={{
-                duration: 3 + i * 0.5,
+                duration: 4 + i * 0.5,
                 repeat: Infinity,
-                delay: i * 0.3,
-                ease: "easeInOut",
+                delay: i * 0.4,
               }}
-              className="absolute rounded-full bg-white"
+              className="absolute rounded-full"
               style={{
-                width: 2 + i,
-                height: 2 + i,
-                left: `${15 + i * 15}%`,
-                top: `${20 + (i % 3) * 25}%`,
-                filter: "blur(0.5px)",
+                width: 3 + (i % 3),
+                height: 3 + (i % 3),
+                left: `${8 + i * 8}%`,
+                bottom: "10%",
+                background: i % 3 === 0 ? "#fbbf24" : i % 3 === 1 ? "#a855f7" : "#06b6d4",
+                filter: "blur(1px)",
               }}
             />
           ))}
 
           {/* Content */}
-          <div className="relative px-4 py-5">
-            {/* Header with animated badge */}
-            <div className="mb-5 flex items-center justify-between">
-              <div>
+          <div className="relative px-5 py-6">
+            
+            {/* ═══ COUNTDOWN TIMER — Hero Section ═══ */}
+            <div className="mb-6">
+              {/* Timer label */}
+              <div className="flex items-center justify-center gap-2 mb-3">
                 <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-violet-500/20 px-2.5 py-0.5"
-                >
-                  <motion.span
-                    animate={{ scale: [1, 1.3, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="h-1.5 w-1.5 rounded-full bg-green-400"
-                  />
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-violet-300">Еженедельно</span>
-                </motion.div>
-                <motion.h2
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="font-display text-[20px] font-bold tracking-tight text-white"
-                >
-                  Призовой фонд
-                </motion.h2>
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full bg-red-500 shadow-lg shadow-red-500/50"
+                />
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-400">LIVE</span>
+                <span className="text-[11px] font-medium uppercase tracking-widest text-white/40">• До финиша</span>
               </div>
               
-              {/* Treasure Chest with glow */}
+              {/* Big timer display */}
               <motion.div
-                animate={{ rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="relative flex justify-center"
               >
-                {/* Glow effect - GPU optimized */}
-                <div className="absolute inset-0 rounded-full glow-amber animate-pulse gpu-accelerated" />
-                <div className="absolute inset-2 rounded-full glow-violet opacity-50" />
+                {/* Glow behind timer */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-48 h-16 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30 rounded-full blur-2xl" />
+                </div>
                 
-                {/* Chest image */}
-                <img src="/icons/17.PNG" alt="" className="relative h-20 w-20 object-contain drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
+                <div className="relative flex items-baseline gap-1">
+                  <motion.span
+                    animate={{ 
+                      textShadow: [
+                        "0 0 20px rgba(139,92,246,0.5)",
+                        "0 0 40px rgba(217,70,239,0.5)",
+                        "0 0 20px rgba(139,92,246,0.5)",
+                      ]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="text-[52px] font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-fuchsia-200 to-amber-200"
+                    style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}
+                  >
+                    {weeklyTimeLeft || "—"}
+                  </motion.span>
+                </div>
               </motion.div>
+              
+              {/* Sub-label */}
+              <p className="text-center text-[10px] text-white/30 mt-2">
+                Сброс в воскресенье 00:00 МСК
+              </p>
             </div>
 
-            {/* Prize Amount with counter effect */}
+            {/* ═══ PRIZE POOL — Glassmorphism Card ═══ */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4, ...spring }}
-              className="relative mb-4 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] px-4 py-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="relative mb-5 rounded-2xl overflow-hidden"
             >
+              {/* Card background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-violet-500/10" />
+              <div className="absolute inset-0 backdrop-blur-sm" />
+              
               {/* Shimmer effect */}
               <motion.div
                 animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12"
+                transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3 }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent skew-x-12"
               />
               
-              <div className="relative text-center">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-widest text-slate-500">Общий призовой фонд</p>
-                <div className="flex items-baseline justify-center">
-                  <motion.span
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5, ...spring }}
-                    className="bg-gradient-to-r from-white via-violet-200 to-white bg-clip-text text-[40px] font-black tabular-nums tracking-tight text-transparent"
-                    style={{ fontVariantNumeric: "tabular-nums" }}
+              <div className="relative p-5 border border-white/[0.08] rounded-2xl">
+                <div className="flex items-center justify-between">
+                  {/* Left: Prize info */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
+                        Призовой фонд
+                      </span>
+                    </div>
+                    <div className="flex items-baseline">
+                      <span className="text-[42px] font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-200" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        1 750
+                      </span>
+                      <span className="ml-1.5 text-[20px] font-bold text-amber-400/60">₽</span>
+                    </div>
+                  </div>
+                  
+                  {/* Right: Trophy */}
+                  <motion.div
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      y: [0, -3, 0],
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    className="relative"
                   >
-                    1 750
-                  </motion.span>
-                  <span className="ml-1 text-[18px] font-semibold text-white/50">₽</span>
+                    <div className="absolute inset-0 bg-amber-400/40 rounded-full blur-xl scale-150" />
+                    <img src="/icons/17.PNG" alt="" className="relative h-20 w-20 object-contain drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]" />
+                  </motion.div>
                 </div>
               </div>
             </motion.div>
 
-            {/* Prize Tiers - Stacked cards with 3D effect */}
-            <div className="mb-4 space-y-2">
+            {/* ═══ PRIZE TIERS — 3D Cards ═══ */}
+            <div className="mb-5 space-y-2.5">
               {[
-                { place: 1, amount: "1 000", label: "Золото", gradient: "from-amber-500 to-yellow-400", bg: "from-amber-500/20 to-amber-500/5", ring: "ring-amber-500/30", shadow: "shadow-amber-500/20" },
-                { place: 2, amount: "500", label: "Серебро", gradient: "from-slate-300 to-slate-400", bg: "from-slate-400/20 to-slate-400/5", ring: "ring-slate-400/30", shadow: "shadow-slate-400/20" },
-                { place: 3, amount: "250", label: "Бронза", gradient: "from-orange-500 to-amber-600", bg: "from-orange-500/20 to-orange-500/5", ring: "ring-orange-500/30", shadow: "shadow-orange-500/20" },
+                { 
+                  place: 1, 
+                  amount: "1 000", 
+                  label: "Золото", 
+                  gradient: "from-amber-500/25 via-yellow-500/15 to-orange-500/20",
+                  border: "border-amber-500/40",
+                  glow: "shadow-amber-500/20",
+                  textColor: "text-amber-200",
+                  badge: "bg-gradient-to-br from-amber-400 to-orange-500"
+                },
+                { 
+                  place: 2, 
+                  amount: "500", 
+                  label: "Серебро", 
+                  gradient: "from-slate-400/20 via-slate-300/10 to-slate-500/15",
+                  border: "border-slate-400/30",
+                  glow: "shadow-slate-400/15",
+                  textColor: "text-slate-200",
+                  badge: "bg-gradient-to-br from-slate-300 to-slate-500"
+                },
+                { 
+                  place: 3, 
+                  amount: "250", 
+                  label: "Бронза", 
+                  gradient: "from-orange-600/20 via-orange-500/10 to-amber-600/15",
+                  border: "border-orange-500/30",
+                  glow: "shadow-orange-500/15",
+                  textColor: "text-orange-200",
+                  badge: "bg-gradient-to-br from-orange-500 to-amber-600"
+                },
               ].map((tier, i) => (
                 <motion.div
                   key={tier.place}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -30 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.6 + i * 0.1, ...spring }}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  className={`flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r ${tier.bg} px-3 ring-1 ${tier.ring}`}
+                  transition={{ delay: 0.3 + i * 0.1, ...spring }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative flex items-center gap-4 p-3.5 rounded-xl bg-gradient-to-r ${tier.gradient} border ${tier.border} shadow-lg ${tier.glow}`}
                 >
                   {/* Place badge */}
-                  <div className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${tier.gradient} shadow-lg ${tier.shadow}`}>
+                  <div className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${tier.badge} shadow-lg`}>
                     {tier.place === 1 ? (
-                      <img src="/icons/fire-medal.png" alt="1" className="h-10 w-10 object-contain" />
+                      <>
+                        <motion.div
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="absolute inset-0 rounded-xl bg-amber-400"
+                        />
+                        <img src="/icons/fire-medal.png" alt="1" className="relative h-9 w-9 object-contain" />
+                      </>
                     ) : (
-                      <img src="/icons/medal.png" alt={String(tier.place)} className="h-9 w-9 object-contain" />
-                    )}
-                    {tier.place === 1 && (
-                      <motion.div
-                        animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute inset-0 rounded-lg bg-amber-400"
-                      />
+                      <img src="/icons/medal.png" alt={String(tier.place)} className="h-8 w-8 object-contain" />
                     )}
                   </div>
                   
                   {/* Label */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-white">{tier.label}</p>
+                  <div className="flex-1">
+                    <p className={`text-[14px] font-bold ${tier.textColor}`}>{tier.label}</p>
+                    <p className="text-[10px] text-white/40">{tier.place} место в рейтинге</p>
                   </div>
                   
                   {/* Amount */}
-                  <div className="flex items-baseline gap-0.5">
-                    <span className="text-[16px] font-bold tabular-nums text-white">{tier.amount}</span>
-                    <span className="text-[12px] font-medium text-white/50">₽</span>
+                  <div className="text-right">
+                    <span className="text-[18px] font-black text-white">{tier.amount}</span>
+                    <span className="text-[12px] font-medium text-white/40 ml-0.5">₽</span>
                   </div>
                 </motion.div>
               ))}
             </div>
 
-            {/* Steps indicator */}
+            {/* ═══ YOUR POSITION — Highlight Card ═══ */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9 }}
-              className="mb-4 flex h-12 items-center justify-center gap-4 rounded-xl bg-white/[0.03]"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 }}
+              className={`relative mb-5 p-4 rounded-2xl overflow-hidden ${
+                myPosition && myPosition.place > 0 && myPosition.place <= 3
+                  ? "bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-cyan-500/20 border border-emerald-500/30"
+                  : "bg-gradient-to-r from-violet-500/15 via-violet-500/10 to-indigo-500/15 border border-violet-500/20"
+              }`}
             >
-              {[
-                { icon: <img src="/icons/56.PNG" alt="" className="h-7 w-7 object-contain" />, label: "Играй" },
-                { icon: (
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 20L9 14l4 4 8-10" stroke="url(#chartGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M17 8h4v4" stroke="url(#chartGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <defs><linearGradient id="chartGrad" x1="3" y1="20" x2="21" y2="8"><stop stopColor="#34D399"/><stop offset="1" stopColor="#10B981"/></linearGradient></defs>
-                  </svg>
-                ), label: "Набирай" },
-                { icon: <img src="/icons/54.PNG" alt="" className="h-7 w-7 object-contain" />, label: "Побеждай" },
-              ].map((step, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    {step.icon}
-                    <span className="text-[11px] font-medium text-slate-400">{step.label}</span>
+              {/* Sparkle effect for top-3 */}
+              {myPosition && myPosition.place > 0 && myPosition.place <= 3 && (
+                <motion.div
+                  animate={{ opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent"
+                />
+              )}
+              
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* Position circle */}
+                  <motion.div
+                    animate={myPosition && myPosition.place > 0 && myPosition.place <= 3 ? { scale: [1, 1.05, 1] } : {}}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className={`flex h-14 w-14 items-center justify-center rounded-full font-black text-[20px] ${
+                      !myPosition || myPosition.place === 0
+                        ? "bg-white/10 text-white/30 border-2 border-dashed border-white/20"
+                        : myPosition.place === 1
+                          ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xl shadow-amber-500/40"
+                          : myPosition.place === 2
+                            ? "bg-gradient-to-br from-slate-300 to-slate-500 text-slate-900 shadow-xl shadow-slate-400/30"
+                            : myPosition.place === 3
+                              ? "bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-xl shadow-orange-500/40"
+                              : "bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-xl shadow-violet-500/30"
+                    }`}
+                  >
+                    {!myPosition || myPosition.place === 0 ? "?" : myPosition.place}
+                  </motion.div>
+                  
+                  <div>
+                    <p className="text-[11px] font-medium text-white/50 uppercase tracking-wide">Твоя позиция</p>
+                    <p className="text-[18px] font-bold text-white">
+                      {myPosition?.score ? `${myPosition.score.toLocaleString()} очков` : "Начни играть!"}
+                    </p>
                   </div>
-                  {i < 2 && (
-                    <span className="text-[11px] text-slate-600">→</span>
-                  )}
                 </div>
-              ))}
+                
+                {/* Status badge */}
+                {myPosition && myPosition.place > 0 && (
+                  <div className={`px-3 py-1.5 rounded-full text-[11px] font-bold ${
+                    myPosition.place <= 3
+                      ? "bg-emerald-500/30 text-emerald-300 shadow-lg shadow-emerald-500/20"
+                      : "bg-violet-500/30 text-violet-300"
+                  }`}>
+                    {myPosition.place <= 3 ? "🏆 В призах!" : `До топ-3: ${myPosition.place - 3}`}
+                  </div>
+                )}
+              </div>
             </motion.div>
 
-            {/* CTA Button */}
+            {/* ═══ GAME PATH — Road to Victory ═══ */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="mb-5 relative"
+            >
+              {/* Path container */}
+              <div className="relative p-5 rounded-2xl bg-gradient-to-br from-slate-900/80 via-violet-950/40 to-slate-900/80 border border-white/[0.08] overflow-hidden">
+                
+                {/* Background pattern */}
+                <div className="absolute inset-0 opacity-[0.03]" style={{
+                  backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                  backgroundSize: '24px 24px'
+                }} />
+                
+                {/* Glowing orb in background */}
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full blur-3xl" />
+                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/15 rounded-full blur-3xl" />
+
+                {/* Title */}
+                <div className="relative flex items-center gap-2.5 mb-5">
+                  <img src="/icons/39.PNG" alt="" className="w-8 h-8 object-contain" />
+                  <span className="text-[15px] font-bold text-white">Путь к победе</span>
+                </div>
+
+                {/* Horizontal Path */}
+                <div className="relative flex items-center justify-between">
+                  
+                  {/* Connecting line - animated gradient */}
+                  <div className="absolute top-7 left-8 right-8 h-1 rounded-full overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30" />
+                    <motion.div
+                      animate={{ x: ["-100%", "100%"] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  {[
+                    { step: 1, icon: "/icons/56.PNG", label: "Играй", desc: "квизы", color: "from-violet-500 to-violet-600", glow: "violet", isImg: true },
+                    { step: 2, icon: "/icons/7.PNG", label: "Набирай", desc: "очки", color: "from-fuchsia-500 to-pink-500", glow: "fuchsia", isImg: true },
+                    { step: 3, icon: "/icons/54.PNG", label: "Расти", desc: "в топе", color: "from-cyan-500 to-blue-500", glow: "cyan", isImg: true },
+                    { step: 4, icon: "/icons/17.PNG", label: "Получай", desc: "призы", color: "from-amber-500 to-orange-500", glow: "amber", isImg: true },
+                  ].map((item, i) => (
+                    <motion.div
+                      key={item.step}
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.7 + i * 0.15, type: "spring", stiffness: 300 }}
+                      className="relative flex flex-col items-center z-10"
+                    >
+                      {/* Glow behind circle */}
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
+                        className={`absolute top-0 w-16 h-16 rounded-full blur-xl bg-${item.glow}-500/40`}
+                      />
+                      
+                      {/* Step circle */}
+                      <motion.div
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg shadow-${item.glow}-500/30 ring-2 ring-white/20`}
+                      >
+                        <img src={item.icon} alt="" className="w-9 h-9 object-contain" />
+                        
+                        {/* Step number badge */}
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-900 border-2 border-white/30 flex items-center justify-center">
+                          <span className="text-[10px] font-black text-white">{item.step}</span>
+                        </div>
+                      </motion.div>
+                      
+                      {/* Label */}
+                      <div className="mt-3 text-center">
+                        <p className="text-[12px] font-bold text-white">{item.label}</p>
+                        <p className="text-[10px] text-white/40">{item.desc}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Full Rules Section */}
+                <div className="relative mt-6 pt-4 border-t border-white/[0.08]">
+                  <div className="flex items-center gap-2 mb-4 justify-center">
+                    <img src="/icons/24.PNG" alt="" className="w-6 h-6 object-contain" />
+                    <span className="text-[13px] font-bold text-white/80">Правила участия</span>
+                  </div>
+                  
+                  <div className="space-y-2.5 mb-4">
+                    {[
+                      { icon: "/icons/30.PNG", title: "Еженедельный турнир", desc: "Соревнование длится с понедельника по воскресенье" },
+                      { icon: "/icons/alarm.png", title: "Сброс рейтинга", desc: "Каждое воскресенье в 00:00 МСК очки обнуляются" },
+                      { icon: "/icons/fire-medal.png", title: "Топ-3 получают призы", desc: "1 место — 1000₽, 2 место — 500₽, 3 место — 250₽" },
+                      { icon: "/icons/coin.png", title: "Быстрая выплата", desc: "Призы переводятся на карту в течение 24 часов" },
+                      { icon: "/icons/31.PNG", title: "Минимум участников", desc: "Для розыгрыша нужно минимум 3 игрока" },
+                    ].map((rule, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 1.1 + i * 0.08 }}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 flex items-center justify-center flex-shrink-0">
+                          <img src={rule.icon} alt="" className="w-6 h-6 object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-bold text-white/90">{rule.title}</p>
+                          <p className="text-[10px] text-white/50 leading-relaxed">{rule.desc}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Channel Subscription - Required */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.5 }}
+                    className="p-3 rounded-xl bg-gradient-to-r from-[#2AABEE]/20 to-[#1E96D1]/10 border border-[#2AABEE]/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Telegram icon */}
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2AABEE] to-[#1E96D1] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#2AABEE]/30">
+                        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                        </svg>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-[12px] font-bold text-white">Чернила и Кровь</p>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-red-500/20 text-red-400 uppercase">Обязательно</span>
+                        </div>
+                        <p className="text-[10px] text-white/50">Подпишись на канал для участия в розыгрыше</p>
+                      </div>
+                      
+                      {/* Subscribe button */}
+                      <a
+                        href="https://t.me/dark_bookshelf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-[#2AABEE] hover:bg-[#1E96D1] text-white text-[10px] font-bold transition-colors flex-shrink-0"
+                      >
+                        Подписаться
+                      </a>
+                    </div>
+                  </motion.div>
+
+                  {/* Additional info */}
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.6 }}
+                    className="text-center text-[9px] text-white/30 mt-3"
+                  >
+                    Победители объявляются в канале каждое воскресенье
+                  </motion.p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* ═══ CTA BUTTON — Animated ═══ */}
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1 }}
+              transition={{ delay: 0.8 }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
-                haptic.medium();
+                haptic.heavy();
                 router.push("/miniapp/leaderboard");
               }}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[13px] font-semibold text-white"
+              className="relative w-full h-14 rounded-xl overflow-hidden group"
             >
-              <span>Открыть рейтинг</span>
-              <motion.span
-                animate={{ x: [0, 3, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                →
-              </motion.span>
+              {/* Button gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 bg-[length:200%_100%] group-hover:animate-shimmer" />
+              
+              {/* Shine effect */}
+              <motion.div
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+              />
+              
+              {/* Button content */}
+              <div className="relative flex items-center justify-center gap-3 h-full">
+                <img src="/icons/54.PNG" alt="" className="h-6 w-6 object-contain" />
+                <span className="text-[15px] font-bold text-white">Смотреть рейтинг</span>
+                <motion.span
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="text-white/80"
+                >
+                  →
+                </motion.span>
+              </div>
             </motion.button>
           </div>
         </div>
