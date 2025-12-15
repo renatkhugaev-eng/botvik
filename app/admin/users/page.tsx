@@ -15,10 +15,51 @@ type User = {
   };
 };
 
+// Toast notification component
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed bottom-6 right-6 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-green-500/30 z-50 animate-pulse">
+      ✅ {message}
+    </div>
+  );
+}
+
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<number | null>(null);
+
+  const resetEnergy = async (userId: number, userName: string) => {
+    if (!confirm(`Сбросить энергию для ${userName}? Это удалит все сегодняшние сессии.`)) {
+      return;
+    }
+
+    setResettingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reset-energy`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setToast(data.message);
+      } else {
+        alert("Ошибка сброса энергии");
+      }
+    } catch (error) {
+      console.error("Failed to reset energy:", error);
+      alert("Ошибка сброса энергии");
+    } finally {
+      setResettingId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -90,12 +131,13 @@ export default function AdminUsers() {
                 <th className="text-left py-4 px-6 text-slate-400 font-medium">XP</th>
                 <th className="text-left py-4 px-6 text-slate-400 font-medium">Игр</th>
                 <th className="text-left py-4 px-6 text-slate-400 font-medium">Регистрация</th>
+                <th className="text-left py-4 px-6 text-slate-400 font-medium">Действия</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     {search ? "Пользователи не найдены" : "Нет пользователей"}
                   </td>
                 </tr>
@@ -138,6 +180,21 @@ export default function AdminUsers() {
                         {new Date(user.createdAt).toLocaleDateString("ru-RU")}
                       </span>
                     </td>
+                    <td className="py-4 px-6">
+                      <button
+                        onClick={() => resetEnergy(user.id, user.firstName || user.username || "Пользователь")}
+                        disabled={resettingId === user.id}
+                        className="px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                        title="Сбросить энергию (удалить сегодняшние сессии)"
+                      >
+                        {resettingId === user.id ? (
+                          <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <span>⚡</span>
+                        )}
+                        Сброс
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -145,6 +202,9 @@ export default function AdminUsers() {
           </table>
         </div>
       )}
+
+      {/* Toast notification */}
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
