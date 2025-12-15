@@ -7,38 +7,26 @@ import { useState, useEffect } from "react";
 // Admin password - change this to your secure password!
 const ADMIN_PASSWORD = "truecrime2024";
 
-// Admin Telegram IDs (for display purposes)
-const ADMIN_IDS = ["dev-mock", "5731136459"];
-
-type AdminUser = {
-  id: number;
-  telegramId: string;
-  username: string | null;
-  firstName: string | null;
-};
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Check if already authorized via localStorage
     const savedAuth = localStorage.getItem("admin_authorized");
     if (savedAuth === "true") {
       setAuthorized(true);
-      setUser({
-        id: 1,
-        telegramId: "5731136459",
-        username: "admin",
-        firstName: "Admin",
-      });
     }
     setLoading(false);
   }, []);
+
+  // Close sidebar when route changes (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,12 +35,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setAuthorized(true);
       setPasswordError(false);
       localStorage.setItem("admin_authorized", "true");
-      setUser({
-        id: 1,
-        telegramId: "5731136459",
-        username: "admin",
-        firstName: "Admin",
-      });
     } else {
       setPasswordError(true);
       setPassword("");
@@ -62,7 +44,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = () => {
     localStorage.removeItem("admin_authorized");
     setAuthorized(false);
-    setUser(null);
   };
 
   const navItems = [
@@ -85,12 +66,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!authorized) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-slate-800 rounded-2xl p-8 border border-slate-700">
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-4">🔐</div>
-            <h1 className="text-2xl font-bold text-white mb-2">Админ-панель</h1>
-            <p className="text-slate-400">Введите пароль для входа</p>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-slate-800 rounded-2xl p-6 sm:p-8 border border-slate-700">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="text-5xl sm:text-6xl mb-4">🔐</div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white mb-2">Админ-панель</h1>
+            <p className="text-slate-400 text-sm sm:text-base">Введите пароль для входа</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -103,7 +84,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   setPasswordError(false);
                 }}
                 placeholder="Пароль"
-                className={`w-full px-4 py-3 bg-slate-700 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 ${
+                className={`w-full px-4 py-3 bg-slate-700 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 text-base ${
                   passwordError ? "border-red-500" : "border-slate-600"
                 }`}
                 autoFocus
@@ -135,19 +116,56 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex">
+    <div className="min-h-screen bg-slate-900">
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 -ml-2 text-slate-400 hover:text-white"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <h1 className="text-lg font-bold text-white flex items-center gap-2">
+          <span>🎯</span> Admin
+        </h1>
+        <div className="w-10" />
+      </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col">
+      <aside className={`
+        fixed top-0 left-0 z-50 h-full w-72 bg-slate-800 border-r border-slate-700 flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:w-64
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
         {/* Logo */}
-        <div className="p-6 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <span className="text-2xl">🎯</span>
+        <div className="p-4 sm:p-6 border-b border-slate-700 flex items-center justify-between">
+          <h1 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+            <span className="text-xl sm:text-2xl">🎯</span>
             True Crime Admin
           </h1>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1 text-slate-400 hover:text-white"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 p-4 overflow-y-auto">
           <ul className="space-y-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href || 
@@ -157,6 +175,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                       isActive
                         ? "bg-violet-600 text-white shadow-lg shadow-violet-500/25"
@@ -172,25 +191,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </ul>
         </nav>
 
-        {/* User info + Logout */}
-        <div className="p-4 border-t border-slate-700 space-y-3">
-          <div className="flex items-center gap-3 px-4 py-3 bg-slate-700/50 rounded-xl">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-              {user?.firstName?.[0] || "A"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-white font-medium truncate">
-                {user?.firstName || "Admin"}
-              </div>
-              <div className="text-xs text-slate-400 truncate">
-                Администратор
-              </div>
-            </div>
-          </div>
-          
+        {/* Logout */}
+        <div className="p-4 border-t border-slate-700">
           <button
             onClick={handleLogout}
-            className="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
           >
             <span>🚪</span> Выйти
           </button>
@@ -198,8 +203,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
+      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
+        <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>
