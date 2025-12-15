@@ -1,0 +1,151 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type User = {
+  id: number;
+  telegramId: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  xp: number;
+  createdAt: string;
+  _count: {
+    sessions: number;
+  };
+};
+
+export default function AdminUsers() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/admin/users");
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(data.users || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const filteredUsers = users.filter((user) => {
+    const searchLower = search.toLowerCase();
+    return (
+      user.username?.toLowerCase().includes(searchLower) ||
+      user.firstName?.toLowerCase().includes(searchLower) ||
+      user.telegramId.includes(search)
+    );
+  });
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Пользователи</h1>
+          <p className="text-slate-400">Всего: {users.length}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск..."
+              className="w-64 pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              🔍
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Users Table */}
+      {loading ? (
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-16 bg-slate-700 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="text-left py-4 px-6 text-slate-400 font-medium">Пользователь</th>
+                <th className="text-left py-4 px-6 text-slate-400 font-medium">Telegram ID</th>
+                <th className="text-left py-4 px-6 text-slate-400 font-medium">XP</th>
+                <th className="text-left py-4 px-6 text-slate-400 font-medium">Игр</th>
+                <th className="text-left py-4 px-6 text-slate-400 font-medium">Регистрация</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                    {search ? "Пользователи не найдены" : "Нет пользователей"}
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
+                  >
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+                          {user.firstName?.[0] || user.username?.[0] || "?"}
+                        </div>
+                        <div>
+                          <div className="text-white font-medium">
+                            {user.firstName} {user.lastName}
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            @{user.username || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <code className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">
+                        {user.telegramId}
+                      </code>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-amber-400 font-semibold">
+                        {user.xp.toLocaleString()} XP
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-slate-300">{user._count.sessions}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-slate-400 text-sm">
+                        {new Date(user.createdAt).toLocaleDateString("ru-RU")}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
