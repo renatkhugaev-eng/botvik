@@ -16,98 +16,107 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
   ({ quizTitle, score, correctCount, totalQuestions, maxStreak, starCount, playerName }, ref) => {
     const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
     
-    // Rating text based on stars
-    const ratingText = starCount >= 5 ? "ЛЕГЕНДА" 
-      : starCount >= 4 ? "МАСТЕР" 
-      : starCount >= 3 ? "ДЕТЕКТИВ"
-      : starCount >= 2 ? "АГЕНТ"
-      : starCount >= 1 ? "НОВИЧОК"
-      : "ПОПРОБУЙ ЕЩЁ";
+    // Rating text and color based on stars
+    const getRating = () => {
+      if (starCount >= 5) return { text: "ЛЕГЕНДА", color: "#fbbf24", glow: "rgba(251,191,36,0.6)" };
+      if (starCount >= 4) return { text: "МАСТЕР", color: "#a855f7", glow: "rgba(168,85,247,0.6)" };
+      if (starCount >= 3) return { text: "ДЕТЕКТИВ", color: "#3b82f6", glow: "rgba(59,130,246,0.6)" };
+      if (starCount >= 2) return { text: "АГЕНТ", color: "#22c55e", glow: "rgba(34,197,94,0.6)" };
+      if (starCount >= 1) return { text: "НОВИЧОК", color: "#64748b", glow: "rgba(100,116,139,0.5)" };
+      return { text: "ПОПРОБУЙ ЕЩЁ", color: "#64748b", glow: "rgba(100,116,139,0.4)" };
+    };
     
-    // Color theme based on performance
-    const themeColor = starCount >= 4 ? "#fbbf24" : starCount >= 2 ? "#a855f7" : "#64748b";
+    const rating = getRating();
     
     return (
       <div
         ref={ref}
         style={{
-          width: 400,
-          height: 600,
+          width: 540,
+          height: 960,
           position: "relative",
           overflow: "hidden",
-          background: "linear-gradient(165deg, #0c0c14 0%, #1a0f24 35%, #120a1c 65%, #0a0a0f 100%)",
+          background: "linear-gradient(180deg, #0a0a12 0%, #0f0a18 25%, #150d20 50%, #0f0a18 75%, #0a0a12 100%)",
           fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         }}
       >
         {/* === ANIMATED BACKGROUND EFFECTS === */}
         
-        {/* Main glow - violet */}
+        {/* Main center glow */}
         <div style={{
           position: "absolute",
           left: "50%",
-          top: "30%",
+          top: "35%",
           transform: "translate(-50%, -50%)",
+          width: 500,
+          height: 500,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${rating.glow} 0%, transparent 60%)`,
+          filter: "blur(80px)",
+        }} />
+        
+        {/* Top violet accent */}
+        <div style={{
+          position: "absolute",
+          left: "30%",
+          top: "5%",
           width: 300,
           height: 300,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(139,92,246,0.4) 0%, transparent 60%)",
-          filter: "blur(40px)",
+          background: "radial-gradient(circle, rgba(139,92,246,0.35) 0%, transparent 60%)",
+          filter: "blur(60px)",
         }} />
         
-        {/* Secondary glow - pink */}
+        {/* Bottom pink accent */}
         <div style={{
           position: "absolute",
-          right: -60,
-          bottom: 100,
-          width: 200,
-          height: 200,
+          right: "10%",
+          bottom: "15%",
+          width: 350,
+          height: 350,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(236,72,153,0.35) 0%, transparent 60%)",
-          filter: "blur(30px)",
+          background: "radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 60%)",
+          filter: "blur(70px)",
         }} />
         
-        {/* Accent glow - cyan for top performers */}
+        {/* Left cyan accent for top performers */}
         {starCount >= 4 && (
           <div style={{
             position: "absolute",
-            left: -40,
-            top: 80,
-            width: 150,
-            height: 150,
+            left: "-10%",
+            top: "40%",
+            width: 250,
+            height: 250,
             borderRadius: "50%",
             background: "radial-gradient(circle, rgba(6,182,212,0.25) 0%, transparent 60%)",
-            filter: "blur(25px)",
+            filter: "blur(50px)",
           }} />
         )}
         
-        {/* Decorative particles */}
-        {[...Array(12)].map((_, i) => (
+        {/* Decorative floating particles */}
+        {[...Array(20)].map((_, i) => (
           <div
             key={i}
             style={{
               position: "absolute",
-              left: `${10 + (i * 8) % 80}%`,
-              top: `${15 + (i * 13) % 70}%`,
-              width: 4,
-              height: 4,
+              left: `${5 + (i * 5) % 90}%`,
+              top: `${8 + (i * 7) % 85}%`,
+              width: i % 4 === 0 ? 6 : 4,
+              height: i % 4 === 0 ? 6 : 4,
               borderRadius: "50%",
-              background: i % 3 === 0 ? "#a855f7" : i % 3 === 1 ? "#ec4899" : "#fbbf24",
-              opacity: 0.3 + (i % 4) * 0.1,
-              boxShadow: `0 0 ${6 + i % 4}px currentColor`,
+              background: i % 4 === 0 ? "#fbbf24" : i % 3 === 0 ? "#a855f7" : i % 2 === 0 ? "#ec4899" : "#3b82f6",
+              opacity: 0.2 + (i % 5) * 0.1,
+              boxShadow: `0 0 ${8 + i % 6}px currentColor`,
             }}
           />
         ))}
         
-        {/* Subtle grid pattern */}
+        {/* Subtle noise texture */}
         <div style={{
           position: "absolute",
           inset: 0,
           opacity: 0.03,
-          backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)
-          `,
-          backgroundSize: "32px 32px",
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
         }} />
 
         {/* === CONTENT === */}
@@ -116,30 +125,34 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
           height: "100%", 
           display: "flex", 
           flexDirection: "column", 
-          padding: "28px 24px",
+          padding: "48px 32px",
         }}>
           
-          {/* TOP BADGE */}
+          {/* TOP SECTION - Quiz Badge */}
           <div style={{ 
             display: "flex", 
             justifyContent: "center", 
-            marginBottom: 16,
+            marginBottom: 32,
           }}>
             <div style={{
-              display: "inline-flex",
+              display: "flex",
               alignItems: "center",
-              gap: 10,
-              background: "linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(236,72,153,0.15) 100%)",
-              border: "1px solid rgba(139,92,246,0.3)",
+              gap: 14,
+              background: "linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(236,72,153,0.1) 100%)",
+              border: "1px solid rgba(139,92,246,0.25)",
               borderRadius: 100,
-              padding: "10px 20px",
-              backdropFilter: "blur(10px)",
+              padding: "14px 28px",
             }}>
-              <span style={{ fontSize: 20 }}>🔍</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/icons/36.PNG" 
+                alt="" 
+                style={{ width: 32, height: 32, objectFit: "contain" }}
+              />
               <span style={{ 
-                color: "rgba(255,255,255,0.9)", 
+                color: "rgba(255,255,255,0.95)", 
                 fontWeight: 700, 
-                fontSize: 15,
+                fontSize: 18,
                 letterSpacing: 0.5,
               }}>
                 {quizTitle}
@@ -147,61 +160,62 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             </div>
           </div>
 
-          {/* RANK BADGE */}
+          {/* RANK TITLE - Big and prominent */}
           <div style={{ 
-            display: "flex", 
-            justifyContent: "center", 
+            textAlign: "center",
             marginBottom: 20,
           }}>
             <div style={{
+              display: "inline-block",
               position: "relative",
-              padding: "6px 24px",
+              padding: "12px 40px",
             }}>
-              {/* Glowing background for rank */}
+              {/* Glowing background */}
               <div style={{
                 position: "absolute",
                 inset: 0,
-                background: `linear-gradient(135deg, ${themeColor}33 0%, ${themeColor}11 100%)`,
-                border: `1px solid ${themeColor}44`,
-                borderRadius: 8,
+                background: `linear-gradient(135deg, ${rating.color}22 0%, ${rating.color}08 100%)`,
+                border: `2px solid ${rating.color}44`,
+                borderRadius: 16,
+                boxShadow: `0 0 30px ${rating.glow}`,
               }} />
               <span style={{ 
                 position: "relative",
-                color: themeColor, 
+                color: rating.color, 
                 fontWeight: 900, 
-                fontSize: 13,
-                letterSpacing: 4,
+                fontSize: 24,
+                letterSpacing: 6,
                 textTransform: "uppercase",
+                textShadow: `0 0 30px ${rating.glow}`,
               }}>
-                {ratingText}
+                {rating.text}
               </span>
             </div>
           </div>
 
-          {/* STARS - Big and prominent */}
+          {/* STARS SECTION - Using custom icons */}
           <div style={{ 
             display: "flex", 
             justifyContent: "center", 
-            gap: 8, 
-            marginBottom: 28,
+            gap: 12, 
+            marginBottom: 40,
           }}>
             {[1, 2, 3, 4, 5].map((star) => (
               <div
                 key={star}
                 style={{
                   position: "relative",
-                  transform: star <= starCount ? "scale(1)" : "scale(0.85)",
-                  transition: "transform 0.3s",
+                  transform: star <= starCount ? "scale(1)" : "scale(0.7)",
                 }}
               >
-                {/* Star glow */}
+                {/* Star glow for active stars */}
                 {star <= starCount && (
                   <div style={{
                     position: "absolute",
-                    inset: -8,
-                    background: "radial-gradient(circle, rgba(251,191,36,0.5) 0%, transparent 70%)",
+                    inset: -16,
+                    background: "radial-gradient(circle, rgba(251,191,36,0.6) 0%, transparent 70%)",
                     borderRadius: "50%",
-                    filter: "blur(8px)",
+                    filter: "blur(12px)",
                   }} />
                 )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -210,18 +224,20 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                   alt="" 
                   style={{ 
                     position: "relative",
-                    width: 44,
-                    height: 44,
+                    width: 56,
+                    height: 56,
                     objectFit: "contain",
-                    opacity: star <= starCount ? 1 : 0.2,
-                    filter: star <= starCount ? "drop-shadow(0 0 8px rgba(251,191,36,0.6))" : "grayscale(1)",
+                    opacity: star <= starCount ? 1 : 0.15,
+                    filter: star <= starCount 
+                      ? "drop-shadow(0 0 12px rgba(251,191,36,0.8))" 
+                      : "grayscale(1)",
                   }}
                 />
               </div>
             ))}
           </div>
 
-          {/* MAIN SCORE DISPLAY */}
+          {/* MAIN SCORE SECTION */}
           <div style={{ 
             flex: 1, 
             display: "flex", 
@@ -229,141 +245,227 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             alignItems: "center", 
             justifyContent: "center",
           }}>
-            {/* Score Card */}
+            {/* Score Card - Glass morphism */}
             <div style={{
               position: "relative",
               width: "100%",
-              maxWidth: 320,
-              borderRadius: 28,
-              padding: "32px 24px",
-              background: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
+              maxWidth: 450,
+              borderRadius: 36,
+              padding: "40px 32px",
+              background: "linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}>
-              {/* Inner glow effect */}
+              {/* Top highlight */}
               <div style={{
                 position: "absolute",
-                top: -1,
-                left: "10%",
-                right: "10%",
+                top: 0,
+                left: "15%",
+                right: "15%",
                 height: 1,
-                background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.5), transparent)",
+                background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.6), transparent)",
               }} />
+              
+              {/* Score header with trophy */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                marginBottom: 16,
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src="/icons/trophy.png" 
+                  alt="" 
+                  style={{ width: 28, height: 28, objectFit: "contain" }}
+                />
+                <span style={{ 
+                  color: "rgba(255,255,255,0.5)", 
+                  fontSize: 14, 
+                  textTransform: "uppercase", 
+                  letterSpacing: 4, 
+                  fontWeight: 700,
+                }}>
+                  Мой результат
+                </span>
+              </div>
+              
+              {/* Big Score Number */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 16,
+                marginBottom: 8,
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src="/icons/coin.png" 
+                  alt="" 
+                  style={{ width: 48, height: 48, objectFit: "contain" }}
+                />
+                <p style={{
+                  fontSize: 84,
+                  fontWeight: 900,
+                  margin: 0,
+                  lineHeight: 1,
+                  background: "linear-gradient(135deg, #ffffff 0%, #e9d5ff 50%, #f9a8d4 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}>
+                  {score.toLocaleString()}
+                </p>
+              </div>
               
               <p style={{ 
                 color: "rgba(255,255,255,0.4)", 
-                fontSize: 11, 
-                textTransform: "uppercase", 
-                letterSpacing: 4, 
-                textAlign: "center",
-                marginBottom: 8,
-                fontWeight: 600,
-              }}>
-                Мой результат
-              </p>
-              
-              {/* Big Score Number */}
-              <p style={{
-                fontSize: 72,
-                fontWeight: 900,
-                textAlign: "center",
-                margin: 0,
-                lineHeight: 1,
-                background: "linear-gradient(135deg, #ffffff 0%, #e9d5ff 40%, #f9a8d4 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                textShadow: "0 0 60px rgba(139,92,246,0.5)",
-              }}>
-                {score.toLocaleString()}
-              </p>
-              
-              <p style={{ 
-                color: "rgba(255,255,255,0.35)", 
-                fontSize: 14, 
+                fontSize: 16, 
                 textAlign: "center", 
-                marginTop: 4,
-                fontWeight: 500,
+                fontWeight: 600,
+                letterSpacing: 2,
+                marginBottom: 32,
               }}>
                 очков
               </p>
 
-              {/* Stats Row */}
+              {/* Stats Grid */}
               <div style={{ 
                 display: "flex", 
-                justifyContent: "center",
-                gap: 32,
-                marginTop: 28,
-                paddingTop: 24,
-                borderTop: "1px solid rgba(255,255,255,0.08)",
+                justifyContent: "space-between",
+                gap: 16,
+                paddingTop: 28,
+                borderTop: "1px solid rgba(255,255,255,0.1)",
               }}>
                 {/* Correct answers */}
-                <div style={{ textAlign: "center" }}>
+                <div style={{ 
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "16px 8px",
+                  background: "rgba(34,197,94,0.08)",
+                  borderRadius: 16,
+                  border: "1px solid rgba(34,197,94,0.15)",
+                }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src="/icons/38.PNG" 
+                    alt="" 
+                    style={{ 
+                      width: 32, 
+                      height: 32, 
+                      objectFit: "contain",
+                      marginBottom: 8,
+                    }}
+                  />
                   <p style={{ 
                     fontSize: 28, 
                     fontWeight: 800, 
-                    color: "#ffffff", 
+                    color: "#22c55e", 
                     margin: 0,
                     lineHeight: 1,
                   }}>
-                    {correctCount}<span style={{ color: "rgba(255,255,255,0.3)" }}>/{totalQuestions}</span>
+                    {correctCount}/{totalQuestions}
                   </p>
                   <p style={{ 
-                    color: "rgba(255,255,255,0.4)", 
+                    color: "rgba(255,255,255,0.5)", 
                     fontSize: 11, 
                     margin: 0,
-                    marginTop: 4,
+                    marginTop: 6,
                     textTransform: "uppercase",
                     letterSpacing: 1,
+                    fontWeight: 600,
                   }}>
                     верных
                   </p>
                 </div>
                 
                 {/* Accuracy */}
-                <div style={{ textAlign: "center" }}>
+                <div style={{ 
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "16px 8px",
+                  background: accuracy >= 70 
+                    ? "rgba(34,197,94,0.08)" 
+                    : accuracy >= 50 
+                    ? "rgba(251,191,36,0.08)" 
+                    : "rgba(248,113,113,0.08)",
+                  borderRadius: 16,
+                  border: accuracy >= 70 
+                    ? "1px solid rgba(34,197,94,0.15)" 
+                    : accuracy >= 50 
+                    ? "1px solid rgba(251,191,36,0.15)" 
+                    : "1px solid rgba(248,113,113,0.15)",
+                }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src="/icons/medal.png" 
+                    alt="" 
+                    style={{ 
+                      width: 32, 
+                      height: 32, 
+                      objectFit: "contain",
+                      marginBottom: 8,
+                    }}
+                  />
                   <p style={{ 
                     fontSize: 28, 
                     fontWeight: 800, 
-                    color: accuracy >= 70 ? "#34d399" : accuracy >= 50 ? "#fbbf24" : "#f87171", 
+                    color: accuracy >= 70 ? "#22c55e" : accuracy >= 50 ? "#fbbf24" : "#f87171", 
                     margin: 0,
                     lineHeight: 1,
                   }}>
                     {accuracy}%
                   </p>
                   <p style={{ 
-                    color: "rgba(255,255,255,0.4)", 
+                    color: "rgba(255,255,255,0.5)", 
                     fontSize: 11, 
                     margin: 0,
-                    marginTop: 4,
+                    marginTop: 6,
                     textTransform: "uppercase",
                     letterSpacing: 1,
+                    fontWeight: 600,
                   }}>
                     точность
                   </p>
                 </div>
                 
                 {/* Streak */}
-                <div style={{ textAlign: "center" }}>
+                <div style={{ 
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "16px 8px",
+                  background: "rgba(251,191,36,0.08)",
+                  borderRadius: 16,
+                  border: "1px solid rgba(251,191,36,0.15)",
+                }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src="/icons/fire-medal.png" 
+                    alt="" 
+                    style={{ 
+                      width: 32, 
+                      height: 32, 
+                      objectFit: "contain",
+                      marginBottom: 8,
+                    }}
+                  />
                   <p style={{ 
                     fontSize: 28, 
                     fontWeight: 800, 
                     color: "#fbbf24", 
                     margin: 0,
                     lineHeight: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 4,
                   }}>
-                    <span style={{ fontSize: 22 }}>🔥</span>{maxStreak}
+                    {maxStreak}
                   </p>
                   <p style={{ 
-                    color: "rgba(255,255,255,0.4)", 
+                    color: "rgba(255,255,255,0.5)", 
                     fontSize: 11, 
                     margin: 0,
-                    marginTop: 4,
+                    marginTop: 6,
                     textTransform: "uppercase",
                     letterSpacing: 1,
+                    fontWeight: 600,
                   }}>
                     серия
                   </p>
@@ -372,62 +474,82 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             </div>
           </div>
 
-          {/* FOOTER - Call to action */}
+          {/* FOOTER SECTION */}
           <div style={{ 
-            marginTop: 24,
+            marginTop: 32,
             textAlign: "center",
           }}>
             {/* Player name if available */}
             {playerName && (
-              <p style={{ 
-                color: "rgba(255,255,255,0.5)", 
-                fontSize: 13, 
-                marginBottom: 12,
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                marginBottom: 20,
               }}>
-                Игрок: <span style={{ color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>{playerName}</span>
-              </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src="/icons/51.PNG" 
+                  alt="" 
+                  style={{ width: 24, height: 24, objectFit: "contain" }}
+                />
+                <span style={{ 
+                  color: "rgba(255,255,255,0.7)", 
+                  fontSize: 16, 
+                  fontWeight: 600,
+                }}>
+                  {playerName}
+                </span>
+              </div>
             )}
             
-            {/* Challenge text */}
+            {/* Challenge button */}
             <div style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
-              background: "linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(236,72,153,0.15) 100%)",
-              border: "1px solid rgba(139,92,246,0.25)",
-              borderRadius: 16,
-              padding: "14px 24px",
-              marginBottom: 16,
+              gap: 12,
+              background: "linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(236,72,153,0.2) 100%)",
+              border: "1px solid rgba(139,92,246,0.3)",
+              borderRadius: 20,
+              padding: "18px 32px",
+              marginBottom: 24,
             }}>
-              <span style={{ fontSize: 18 }}>💀</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/icons/49.PNG" 
+                alt="" 
+                style={{ width: 28, height: 28, objectFit: "contain" }}
+              />
               <span style={{ 
-                color: "rgba(255,255,255,0.9)", 
-                fontSize: 15, 
-                fontWeight: 600,
+                color: "rgba(255,255,255,0.95)", 
+                fontSize: 18, 
+                fontWeight: 700,
+                letterSpacing: 0.5,
               }}>
-                Сможешь лучше? Проверь себя!
+                Сможешь лучше?
               </span>
             </div>
             
-            {/* Bot link */}
+            {/* Bot link with indicator */}
             <div style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 8,
+              gap: 10,
             }}>
               <div style={{
-                width: 8,
-                height: 8,
+                width: 10,
+                height: 10,
                 borderRadius: "50%",
                 background: "#22c55e",
-                boxShadow: "0 0 8px #22c55e",
+                boxShadow: "0 0 12px #22c55e, 0 0 24px #22c55e",
               }} />
               <span style={{ 
                 color: "#a78bfa", 
-                fontSize: 14, 
-                fontWeight: 600,
-                letterSpacing: 0.5,
+                fontSize: 18, 
+                fontWeight: 700,
+                letterSpacing: 1,
               }}>
                 @truecrimetg_bot
               </span>
@@ -439,58 +561,54 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
         {/* Top left */}
         <div style={{ 
           position: "absolute", 
-          top: 12, 
-          left: 12, 
-          width: 40, 
-          height: 40, 
-          borderLeft: "2px solid rgba(139,92,246,0.4)", 
-          borderTop: "2px solid rgba(139,92,246,0.4)", 
-          borderTopLeftRadius: 12,
+          top: 20, 
+          left: 20, 
+          width: 60, 
+          height: 60, 
+          borderLeft: "3px solid rgba(139,92,246,0.5)", 
+          borderTop: "3px solid rgba(139,92,246,0.5)", 
+          borderTopLeftRadius: 16,
         }} />
         {/* Top right */}
         <div style={{ 
           position: "absolute", 
-          top: 12, 
-          right: 12, 
-          width: 40, 
-          height: 40, 
-          borderRight: "2px solid rgba(139,92,246,0.4)", 
-          borderTop: "2px solid rgba(139,92,246,0.4)", 
-          borderTopRightRadius: 12,
+          top: 20, 
+          right: 20, 
+          width: 60, 
+          height: 60, 
+          borderRight: "3px solid rgba(139,92,246,0.5)", 
+          borderTop: "3px solid rgba(139,92,246,0.5)", 
+          borderTopRightRadius: 16,
         }} />
         {/* Bottom left */}
         <div style={{ 
           position: "absolute", 
-          bottom: 12, 
-          left: 12, 
-          width: 40, 
-          height: 40, 
-          borderLeft: "2px solid rgba(236,72,153,0.4)", 
-          borderBottom: "2px solid rgba(236,72,153,0.4)", 
-          borderBottomLeftRadius: 12,
+          bottom: 20, 
+          left: 20, 
+          width: 60, 
+          height: 60, 
+          borderLeft: "3px solid rgba(236,72,153,0.5)", 
+          borderBottom: "3px solid rgba(236,72,153,0.5)", 
+          borderBottomLeftRadius: 16,
         }} />
         {/* Bottom right */}
         <div style={{ 
           position: "absolute", 
-          bottom: 12, 
-          right: 12, 
-          width: 40, 
-          height: 40, 
-          borderRight: "2px solid rgba(236,72,153,0.4)", 
-          borderBottom: "2px solid rgba(236,72,153,0.4)", 
-          borderBottomRightRadius: 12,
+          bottom: 20, 
+          right: 20, 
+          width: 60, 
+          height: 60, 
+          borderRight: "3px solid rgba(236,72,153,0.5)", 
+          borderBottom: "3px solid rgba(236,72,153,0.5)", 
+          borderBottomRightRadius: 16,
         }} />
         
-        {/* Animated border glow */}
+        {/* Gradient border overlay */}
         <div style={{
           position: "absolute",
           inset: 0,
-          borderRadius: 0,
           border: "1px solid transparent",
-          background: "linear-gradient(135deg, rgba(139,92,246,0.1), transparent, rgba(236,72,153,0.1)) border-box",
-          WebkitMask: "linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)",
-          WebkitMaskComposite: "xor",
-          maskComposite: "exclude",
+          background: "linear-gradient(180deg, rgba(139,92,246,0.15) 0%, transparent 30%, transparent 70%, rgba(236,72,153,0.15) 100%) border-box",
           pointerEvents: "none",
         }} />
       </div>

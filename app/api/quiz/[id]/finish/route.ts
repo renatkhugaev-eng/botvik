@@ -247,11 +247,25 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const levelInfo = getLevelProgress(totalXp);
 
+  // Calculate correct count from answers if not already calculated
+  const allAnswers = finishedSession.answers ?? session.answers ?? [];
+  const serverCorrectCount = allAnswers.filter(a => a.isCorrect).length;
+  
+  // Get total questions for this quiz
+  const quizQuestions = await prisma.question.findMany({
+    where: { quizId },
+    select: { id: true },
+  });
+  const serverTotalQuestions = quizQuestions.length;
+
   return NextResponse.json({ 
     totalScore: finishedSession.totalScore,
     bestScore,
     leaderboardScore: normalizedScore,
     attemptStats,
+    // Server-side accurate stats for star calculation
+    correctCount: serverCorrectCount,
+    totalQuestions: serverTotalQuestions,
     // XP info
     xp: {
       earned: xpBreakdown?.total ?? 0,

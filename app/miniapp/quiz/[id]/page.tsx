@@ -60,6 +60,8 @@ type FinishResponse = {
   totalScore: number;
   bestScore: number;
   leaderboardScore: number;
+  correctCount: number;       // Server-side accurate count
+  totalQuestions: number;     // Server-side total questions
   xp: {
     earned: number;
     total: number;
@@ -227,8 +229,12 @@ export default function QuizPlayPage() {
             body: JSON.stringify({ sessionId }),
           })
             .then((res) => res.json())
-            .then((data) => {
+            .then((data: FinishResponse) => {
               setTotalScore(data.totalScore);
+              // Use server-side accurate count for star calculation
+              if (data.correctCount !== undefined) {
+                setCorrectCount(data.correctCount);
+              }
               setFinished(true);
               haptic.heavy();
             })
@@ -468,6 +474,10 @@ export default function QuizPlayPage() {
 
         const data = (await res.json()) as FinishResponse;
         setTotalScore(data.totalScore);
+        // Use server-side accurate count for star calculation
+        if (data.correctCount !== undefined) {
+          setCorrectCount(data.correctCount);
+        }
         setFinished(true);
         haptic.heavy();
         
