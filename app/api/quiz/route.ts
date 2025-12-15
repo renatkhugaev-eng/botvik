@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
+// Cache quiz list for 60 seconds
+export const revalidate = 60;
+
 const RATE_LIMIT_MS = 60_000; // 1 минута между сессиями
 const MAX_ATTEMPTS = 5; // Максимум попыток (энергия)
 const HOURS_PER_ATTEMPT = 4; // Часов на восстановление 1 попытки
@@ -25,9 +28,13 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Если userId не передан, возвращаем просто список квизов
+  // Если userId не передан, возвращаем просто список квизов (можно кэшировать)
   if (!userId) {
-    return NextResponse.json(quizzes);
+    return NextResponse.json(quizzes, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    });
   }
 
   const userIdNum = Number(userId);

@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
+// Cache leaderboard for 30 seconds (stale-while-revalidate for 5 minutes)
+export const revalidate = 30;
+
 export async function GET(req: NextRequest) {
   const quizIdParam = req.nextUrl.searchParams.get("quizId");
   const quizId = quizIdParam ? Number(quizIdParam) : null;
@@ -40,7 +43,11 @@ export async function GET(req: NextRequest) {
       score: entry.score,
     }));
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300',
+      },
+    });
   }
 
   // Global leaderboard — sum of all quiz scores per user
@@ -80,6 +87,10 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300',
+    },
+  });
 }
 
