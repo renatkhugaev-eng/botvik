@@ -23,6 +23,39 @@ export type AuthResult =
   | { ok: false; error: string; status: number };
 
 /**
+ * In-memory user cache to avoid DB queries on every request
+ * TTL: 5 minutes
+ */
+const userCache = new Map<string, { user: AuthUser; cachedAt: number }>();
+const USER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedUser(telegramId: string): AuthUser | null {
+  const entry = userCache.get(telegramId);
+  if (!entry) return null;
+  
+  if (Date.now() - entry.cachedAt > USER_CACHE_TTL_MS) {
+    userCache.delete(telegramId);
+    return null;
+  }
+  
+  return entry.user;
+}
+
+function setCachedUser(telegramId: string, user: AuthUser): void {
+  // Limit cache size
+  if (userCache.size > 1000) {
+    const now = Date.now();
+    for (const [key, value] of userCache) {
+      if (now - value.cachedAt > USER_CACHE_TTL_MS) {
+        userCache.delete(key);
+      }
+    }
+  }
+  
+  userCache.set(telegramId, { user, cachedAt: Date.now() });
+}
+
+/**
  * Extract initData from request headers or cookies
  * The client should send initData in the X-Telegram-Init-Data header
  */
@@ -40,15 +73,7 @@ function getInitDataFromRequest(req: NextRequest): string | null {
 
 /**
  * Authenticate request using Telegram initData
- * 
- * Usage:
- * ```ts
- * const auth = await authenticateRequest(req);
- * if (!auth.ok) {
- *   return NextResponse.json({ error: auth.error }, { status: auth.status });
- * }
- * const user = auth.user;
- * ```
+ * OPTIMIZED: Uses cache to avoid DB queries on repeated requests
  */
 export async function authenticateRequest(req: NextRequest): Promise<AuthResult> {
   const initData = getInitDataFromRequest(req);
@@ -56,7 +81,6 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
   if (!initData) {
     // Allow dev mode bypass
     if (process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" && process.env.NODE_ENV === "development") {
-      // Return mock user for development
       const mockUser = await prisma.user.findFirst({
         orderBy: { id: "asc" },
       });
@@ -133,32 +157,45 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
     };
   }
   
-  // Find or create user in database
-  const user = await prisma.user.upsert({
-    where: { telegramId: String(tgUser.id) },
-    update: {
-      username: tgUser.username ?? null,
-      firstName: tgUser.first_name ?? null,
-      lastName: tgUser.last_name ?? null,
-    },
-    create: {
-      telegramId: String(tgUser.id),
-      username: tgUser.username ?? null,
-      firstName: tgUser.first_name ?? null,
-      lastName: tgUser.last_name ?? null,
-    },
+  const telegramId = String(tgUser.id);
+  
+  // ═══ OPTIMIZED: Check cache first ═══
+  const cachedUser = getCachedUser(telegramId);
+  if (cachedUser) {
+    return { ok: true, user: cachedUser };
+  }
+  
+  // ═══ OPTIMIZED: Use findUnique first, only upsert if not found ═══
+  let user = await prisma.user.findUnique({
+    where: { telegramId },
   });
   
-  return {
-    ok: true,
-    user: {
-      id: user.id,
-      telegramId: user.telegramId,
-      username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
-    },
+  if (!user) {
+    // User doesn't exist — create
+    user = await prisma.user.create({
+      data: {
+        telegramId,
+        username: tgUser.username ?? null,
+        firstName: tgUser.first_name ?? null,
+        lastName: tgUser.last_name ?? null,
+      },
+    });
+  }
+  // Note: We don't update existing users on every request anymore
+  // Profile updates can be handled separately if needed
+  
+  const authUser: AuthUser = {
+    id: user.id,
+    telegramId: user.telegramId,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
   };
+  
+  // Cache the user
+  setCachedUser(telegramId, authUser);
+  
+  return { ok: true, user: authUser };
 }
 
 /**
@@ -177,7 +214,6 @@ export function unauthorizedResponse(error: string = "Unauthorized"): NextRespon
 const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || "").split(",").filter(Boolean);
 
 export function isAdmin(telegramId: string): boolean {
-  // Always allow dev-mock in development
   if (process.env.NODE_ENV === "development" && telegramId === "dev-mock") {
     return true;
   }
@@ -204,4 +240,3 @@ export async function authenticateAdmin(req: NextRequest): Promise<AuthResult> {
   
   return auth;
 }
-
