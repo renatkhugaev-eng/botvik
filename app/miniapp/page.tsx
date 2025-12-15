@@ -143,6 +143,30 @@ type LeaderboardPosition = {
   topScore: number;
 };
 
+type WeeklyLeaderboard = {
+  week: {
+    label: string;
+    timeRemaining: number;
+    isEnding: boolean;
+  };
+  myPosition: {
+    place: number;
+    score: number;
+    quizzes: number;
+  } | null;
+  leaderboard: {
+    place: number;
+    user: { id: number; firstName: string | null; photoUrl: string | null };
+    score: number;
+  }[];
+  totalParticipants: number;
+  lastWeekWinners: {
+    place: number;
+    user: { id: number; firstName: string | null; photoUrl: string | null };
+    score: number;
+  }[];
+};
+
 // Animations
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 
@@ -256,6 +280,10 @@ export default function MiniAppPage() {
   
   // Leaderboard position
   const [myPosition, setMyPosition] = useState<LeaderboardPosition | null>(null);
+  
+  // Weekly leaderboard
+  const [weeklyData, setWeeklyData] = useState<WeeklyLeaderboard | null>(null);
+  const [weeklyTimeLeft, setWeeklyTimeLeft] = useState<string>("");
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -381,29 +409,30 @@ export default function MiniAppPage() {
     };
   }, []);
 
-  // Fetch GLOBAL leaderboard position (sum of all quiz scores)
+  // Fetch WEEKLY leaderboard
   useEffect(() => {
     if (session.status !== "ready") return;
     
-    // Fetch global leaderboard (no quizId = global)
-    fetchWithAuth(`/api/leaderboard`)
+    // Fetch weekly leaderboard
+    fetchWithAuth(`/api/leaderboard/weekly?userId=${session.user.id}`)
       .then((r) => r.json())
-      .then((entries: { place: number; user: { id: number }; score: number }[]) => {
-        const myEntry = entries.find((e) => e.user.id === session.user.id);
-        if (myEntry) {
+      .then((data: WeeklyLeaderboard) => {
+        setWeeklyData(data);
+        
+        // Set myPosition from weekly data
+        if (data.myPosition) {
           setMyPosition({
-            place: myEntry.place,
-            score: myEntry.score,
-            totalPlayers: entries.length,
-            topScore: entries[0]?.score ?? 0,
+            place: data.myPosition.place,
+            score: data.myPosition.score,
+            totalPlayers: data.totalParticipants,
+            topScore: data.leaderboard[0]?.score ?? 0,
           });
-        } else if (entries.length > 0) {
-          // User not in leaderboard yet
+        } else {
           setMyPosition({
             place: 0,
             score: 0,
-            totalPlayers: entries.length,
-            topScore: entries[0]?.score ?? 0,
+            totalPlayers: data.totalParticipants,
+            topScore: data.leaderboard[0]?.score ?? 0,
           });
         }
       })
@@ -411,6 +440,32 @@ export default function MiniAppPage() {
         // Ignore errors
       });
   }, [session]);
+  
+  // Update weekly timer every second
+  useEffect(() => {
+    if (!weeklyData?.week?.timeRemaining) return;
+    
+    const formatTime = (ms: number): string => {
+      if (ms <= 0) return "Завершено";
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      if (days > 0) return `${days}д ${hours}ч`;
+      if (hours > 0) return `${hours}ч ${minutes}м`;
+      return `${minutes}м`;
+    };
+    
+    let remaining = weeklyData.week.timeRemaining;
+    setWeeklyTimeLeft(formatTime(remaining));
+    
+    const timer = setInterval(() => {
+      remaining -= 1000;
+      setWeeklyTimeLeft(formatTime(remaining));
+      if (remaining <= 0) clearInterval(timer);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [weeklyData?.week?.timeRemaining]);
 
   // Check channel subscription
   const checkSubscription = useCallback(async () => {
@@ -724,7 +779,7 @@ export default function MiniAppPage() {
             {/* Divider */}
             <div className="w-px bg-gradient-to-b from-transparent via-white/10 to-transparent my-2" />
 
-            {/* Leaderboard Position */}
+            {/* Weekly Leaderboard Position */}
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => {
@@ -757,17 +812,22 @@ export default function MiniAppPage() {
                 </div>
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-[13px] font-bold text-white">
-                  {!myPosition || myPosition.place === 0 
-                    ? "Лидерборд" 
-                    : `${myPosition.place} место`
-                  }
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[13px] font-bold text-white">
+                    {!myPosition || myPosition.place === 0 
+                      ? "Лидерборд" 
+                      : `${myPosition.place} место`
+                    }
+                  </p>
+                  {weeklyData?.week?.isEnding && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded animate-pulse">
+                      ФИНАЛ
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-white/40">
-                  {myPosition?.score 
-                    ? `${myPosition.score.toLocaleString()} очков →` 
-                    : "Открыть топ →"
-                  }
+                  {weeklyTimeLeft ? `⏱ ${weeklyTimeLeft}` : "Открыть топ →"}
+                  {myPosition?.score ? ` • ${myPosition.score.toLocaleString()} очков` : ""}
                 </p>
               </div>
             </motion.button>

@@ -126,7 +126,7 @@ export default function QuizPlayPage() {
   // Animated score
   const animatedScore = useMotionValue(0);
   const displayScore = useTransform(animatedScore, (v) => Math.round(v));
-  
+
   // Performance optimization - detect device capabilities
   const perf = usePerformance();
 

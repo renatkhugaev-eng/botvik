@@ -31,6 +31,10 @@ model User {
   sessions   QuizSession[]
   leaderboardEntries LeaderboardEntry[]
   
+  // Weekly competition
+  weeklyScores  WeeklyScore[]
+  weeklyWins    WeeklyWinner[]
+  
   // Friends relationships
   friendsAdded    Friendship[] @relation("FriendshipUser")
   friendsReceived Friendship[] @relation("FriendshipFriend")
@@ -143,4 +147,39 @@ model LeaderboardEntry {
 
   @@unique([userId, quizId, periodType])
   @@index([quizId, periodType, score])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEEKLY COMPETITION SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Weekly scores - resets every Sunday at 23:59
+model WeeklyScore {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  weekStart DateTime // Monday 00:00 of the week
+  score     Int      @default(0)
+  quizzes   Int      @default(0) // Number of quizzes played this week
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, weekStart])
+  @@index([weekStart, score])
+}
+
+// Archive of weekly winners
+model WeeklyWinner {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  weekStart DateTime // Monday 00:00 of the week
+  weekEnd   DateTime // Sunday 23:59 of the week
+  place     Int      // 1, 2, or 3
+  score     Int
+  prize     String?  // Prize description
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([weekStart, place])
+  @@index([userId])
+  @@index([weekStart])
 }

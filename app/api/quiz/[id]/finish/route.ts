@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateQuizXp, getLevelProgress, getLevelTitle, type XpBreakdown } from "@/lib/xp";
 import { notifyLevelUp } from "@/lib/notifications";
+import { getWeekStart } from "@/lib/week";
 
 export const runtime = "nodejs";
 
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // Также сохраняем лучший результат для отображения
   const bestScore = Math.max(...allSessions.map(s => s.totalScore));
 
-  // Обновляем лидерборд
+  // Обновляем лидерборд (all-time)
   await prisma.leaderboardEntry.upsert({
     where: {
       userId_quizId_periodType: {
@@ -145,6 +146,31 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       score: normalizedScore,
     },
   });
+
+  // ═══ WEEKLY SCORE UPDATE ═══
+  // Add this session's score to weekly competition (only if not already finished)
+  if (!alreadyFinished) {
+    const weekStart = getWeekStart();
+    
+    await prisma.weeklyScore.upsert({
+      where: {
+        userId_weekStart: {
+          userId: session.userId,
+          weekStart,
+        },
+      },
+      update: {
+        score: { increment: finishedSession.totalScore },
+        quizzes: { increment: 1 },
+      },
+      create: {
+        userId: session.userId,
+        weekStart,
+        score: finishedSession.totalScore,
+        quizzes: 1,
+      },
+    });
+  }
 
   // Статистика попыток
   const attemptStats = {
