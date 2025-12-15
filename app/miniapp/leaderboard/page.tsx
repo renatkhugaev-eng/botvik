@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonLeaderboardEntry, SkeletonPodium } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
+import { api } from "@/lib/api";
 
 type LeaderboardEntry = {
   place: number;
@@ -15,10 +16,25 @@ type LeaderboardEntry = {
   score: number;
 };
 
+type WeeklyLeaderboardResponse = {
+  week: {
+    label: string;
+    start: string;
+    end: string;
+    timeRemaining: number;
+    isEnding: boolean;
+  };
+  leaderboard: LeaderboardEntry[];
+  myPosition: { place: number; score: number; quizzes: number } | null;
+  totalParticipants: number;
+};
+
 type QuizSummary = {
   id: number;
   title: string;
 };
+
+type TabMode = "weekly" | "alltime";
 
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 
@@ -32,6 +48,13 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSelect, setShowSelect] = useState(false);
+  
+  // Tab mode: "weekly" or "alltime"
+  const [tabMode, setTabMode] = useState<TabMode>("weekly");
+  
+  // Weekly specific data
+  const [weeklyInfo, setWeeklyInfo] = useState<{ label: string; timeRemaining: number; isEnding: boolean } | null>(null);
+  const [weeklyMyPosition, setWeeklyMyPosition] = useState<{ place: number; score: number } | null>(null);
 
   // Current user ID
   const currentUserId = session.status === "ready" ? session.user.id : null;
@@ -40,8 +63,8 @@ export default function LeaderboardPage() {
     const initial = searchParams.get("quizId");
     if (initial) {
       setQuizId(Number(initial));
+      setTabMode("alltime"); // If specific quiz, use alltime
     } else {
-      // Reset to global leaderboard when no quizId in URL
       setQuizId(null);
     }
   }, [searchParams]);
@@ -66,14 +89,33 @@ export default function LeaderboardPage() {
       setLoading(true);
       setError(null);
       try {
-        // If quizId is null, fetch global leaderboard
-        const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error("leaderboard_load_error");
+        if (tabMode === "weekly" && quizId === null) {
+          // Weekly leaderboard
+          const userId = session.status === "ready" ? session.user.id : null;
+          const url = userId ? `/api/leaderboard/weekly?userId=${userId}` : `/api/leaderboard/weekly`;
+          const data = await api.get<WeeklyLeaderboardResponse>(url);
+          
+          setEntries(data.leaderboard);
+          setWeeklyInfo({
+            label: data.week.label,
+            timeRemaining: data.week.timeRemaining,
+            isEnding: data.week.isEnding,
+          });
+          if (data.myPosition) {
+            setWeeklyMyPosition({ place: data.myPosition.place, score: data.myPosition.score });
+          } else {
+            setWeeklyMyPosition(null);
+          }
+        } else {
+          // All-time or per-quiz leaderboard
+          const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("leaderboard_load_error");
+          const data = (await res.json()) as LeaderboardEntry[];
+          setEntries(data);
+          setWeeklyInfo(null);
+          setWeeklyMyPosition(null);
         }
-        const data = (await res.json()) as LeaderboardEntry[];
-        setEntries(data);
       } catch (err) {
         console.error("Failed to load leaderboard", err);
         setError("Не удалось загрузить лидерборд");
@@ -83,18 +125,21 @@ export default function LeaderboardPage() {
     };
 
     fetchLeaderboard();
-  }, [quizId]);
+  }, [quizId, tabMode, session.status, session.status === "ready" ? session.user.id : null]);
 
   const currentQuiz = useMemo(() => {
-    if (quizId === null) return null; // Global
+    if (quizId === null) return null;
     return quizzes.find((q) => q.id === quizId);
   }, [quizId, quizzes]);
 
-  // Find current user's position
+  // Find current user's position (for alltime mode)
   const myPosition = useMemo(() => {
+    if (tabMode === "weekly" && weeklyMyPosition) {
+      return { place: weeklyMyPosition.place, score: weeklyMyPosition.score, user: { id: currentUserId } } as LeaderboardEntry;
+    }
     if (!currentUserId) return null;
     return entries.find((e) => e.user.id === currentUserId);
-  }, [entries, currentUserId]);
+  }, [entries, currentUserId, tabMode, weeklyMyPosition]);
 
   const top3 = entries.slice(0, 3);
   const rest = entries.slice(3);
@@ -104,18 +149,39 @@ export default function LeaderboardPage() {
   const handleRefresh = useCallback(async () => {
     setLoading(true);
     try {
-      const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = (await res.json()) as LeaderboardEntry[];
-        setEntries(data);
+      if (tabMode === "weekly" && quizId === null) {
+        const userId = session.status === "ready" ? session.user.id : null;
+        const url = userId ? `/api/leaderboard/weekly?userId=${userId}` : `/api/leaderboard/weekly`;
+        const data = await api.get<WeeklyLeaderboardResponse>(url);
+        setEntries(data.leaderboard);
+        if (data.myPosition) {
+          setWeeklyMyPosition({ place: data.myPosition.place, score: data.myPosition.score });
+        }
+      } else {
+        const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = (await res.json()) as LeaderboardEntry[];
+          setEntries(data);
+        }
       }
     } catch {
       // Ignore
     } finally {
       setLoading(false);
     }
-  }, [quizId]);
+  }, [quizId, tabMode, session.status, session.status === "ready" ? session.user.id : null]);
+
+  // Format time remaining
+  const formatTimeRemaining = (ms: number): string => {
+    if (ms <= 0) return "Завершено";
+    const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    if (days > 0) return `${days}д ${hours}ч`;
+    if (hours > 0) return `${hours}ч ${minutes}м`;
+    return `${minutes}м`;
+  };
 
   // Get gradient for position
   const getPositionGradient = (place: number) => {
@@ -164,6 +230,82 @@ export default function LeaderboardPage() {
       </motion.header>
 
       {/* ═══════════════════════════════════════════════════════════════════
+          TABS: WEEKLY / ALL TIME
+      ═══════════════════════════════════════════════════════════════════ */}
+      {quizId === null && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex gap-2 p-1 rounded-2xl bg-slate-100"
+        >
+          <button
+            onClick={() => {
+              haptic.selection();
+              setTabMode("weekly");
+            }}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-[13px] font-bold transition-all ${
+              tabMode === "weekly"
+                ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/25"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <span className="flex items-center justify-center gap-1.5">
+              🏆 Неделя
+              {weeklyInfo?.isEnding && tabMode === "weekly" && (
+                <span className="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full animate-pulse">
+                  СКОРО
+                </span>
+              )}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              haptic.selection();
+              setTabMode("alltime");
+            }}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-[13px] font-bold transition-all ${
+              tabMode === "alltime"
+                ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/25"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            🌍 Всё время
+          </button>
+        </motion.div>
+      )}
+
+      {/* Weekly info banner */}
+      {tabMode === "weekly" && weeklyInfo && quizId === null && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`relative overflow-hidden rounded-2xl p-3 ${
+            weeklyInfo.isEnding 
+              ? "bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30" 
+              : "bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/20"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⏱️</span>
+              <div>
+                <p className="text-[11px] font-medium text-slate-500">{weeklyInfo.label}</p>
+                <p className={`text-[14px] font-bold ${weeklyInfo.isEnding ? "text-red-600" : "text-slate-700"}`}>
+                  До сброса: {formatTimeRemaining(weeklyInfo.timeRemaining)}
+                </p>
+              </div>
+            </div>
+            {weeklyInfo.isEnding && (
+              <span className="px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded-full animate-pulse">
+                🔥 ФИНИШ
+              </span>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
           MY POSITION CARD (if user is in leaderboard)
       ═══════════════════════════════════════════════════════════════════ */}
       {myPosition && (
@@ -198,8 +340,9 @@ export default function LeaderboardPage() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════
-          QUIZ SELECTOR
+          QUIZ SELECTOR (only for alltime mode or when quiz is selected)
       ═══════════════════════════════════════════════════════════════════ */}
+      {(tabMode === "alltime" || quizId !== null) && (
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -229,6 +372,7 @@ export default function LeaderboardPage() {
             </div>
           </div>
         </motion.button>
+      )}
 
       {/* Quiz selector modal */}
       <AnimatePresence>
@@ -410,7 +554,7 @@ export default function LeaderboardPage() {
                   <div className="flex items-center justify-center gap-2 mb-6">
                     <img src="/icons/54.PNG" alt="" className="h-12 w-12 object-contain" />
                     <h3 className="text-[13px] font-bold uppercase tracking-[0.15em] text-white/50">
-                      Топ игроки
+                      {tabMode === "weekly" && quizId === null ? "Топ недели" : "Топ игроки"}
                     </h3>
                   </div>
                   
