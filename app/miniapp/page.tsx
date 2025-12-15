@@ -1408,7 +1408,7 @@ function Row({
 }: {
   icon: React.ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   trailing?: React.ReactNode;
   onClick?: () => void;
 }) {
