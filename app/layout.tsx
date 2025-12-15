@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Manrope } from "next/font/google";
 import "./globals.css";
+import { PosthogProvider } from "@/components/PosthogProvider";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -29,7 +30,9 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${manrope.variable} antialiased`}
       >
-        {children}
+        <PosthogProvider>
+          {children}
+        </PosthogProvider>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import Script from "next/script";
 import { NotificationProvider } from "@/components/InAppNotification";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUser, addBreadcrumb } from "@/lib/sentry";
+import { identifyUser } from "@/lib/posthog";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -147,6 +148,13 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
             username: data.user.username,
           });
           addBreadcrumb("User authenticated", "auth", { userId: data.user.id });
+          // Identify user for Posthog analytics
+          identifyUser({
+            id: data.user.id,
+            telegramId: data.user.telegramId,
+            username: data.user.username,
+            firstName: data.user.firstName,
+          });
         }
       } catch (err) {
         console.error("Auth error", err);
