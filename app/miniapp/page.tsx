@@ -578,11 +578,7 @@ export default function MiniAppPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5"
         >
-          {/* Pulsing red dot */}
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
-          </span>
+          <img src="/icons/6.PNG" alt="" className="h-6 w-6 object-contain" />
           <span className="text-xs font-medium text-white whitespace-nowrap">
             <span className="font-bold tabular-nums">{onlinePlayers}</span> <span className="text-white/50">играют сейчас</span>
           </span>
@@ -651,7 +647,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-1.5 pr-3 py-1 shadow-lg shadow-amber-500/25"
           >
-            <img src="/icons/energy.png" alt="" className="h-7 w-7 object-contain" />
+            <img src="/icons/11.PNG" alt="" className="h-8 w-8 object-contain" />
             <span className="text-sm font-bold text-white tabular-nums">{userStats?.minEnergy ?? 5}</span>
           </motion.div>
           
@@ -662,7 +658,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.3 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-1.5 pr-3 py-1 shadow-lg shadow-violet-500/25"
           >
-            <img src="/icons/7.PNG" alt="" className="h-7 w-7 object-contain" />
+            <img src="/icons/7.PNG" alt="" className="h-8 w-8 object-contain" />
             <span className="text-sm font-bold text-white tabular-nums">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
           </motion.div>
         </div>
@@ -729,7 +725,7 @@ export default function MiniAppPage() {
                       : "bg-gradient-to-br from-violet-500 to-indigo-600"
                 }`}>
                   {!myPosition || myPosition.place === 0 ? (
-                    <img src="/icons/trophy.png" alt="" className="h-7 w-7 object-contain" />
+                    <img src="/icons/54.PNG" alt="" className="h-9 w-9 object-contain" />
                   ) : myPosition.place === 1 ? (
                     <img src="/icons/fire-medal.png" alt="1" className="h-8 w-8 object-contain" />
                   ) : myPosition.place === 2 ? (
@@ -793,7 +789,7 @@ export default function MiniAppPage() {
         }}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[16px] font-semibold text-white shadow-xl shadow-black/20"
       >
-        <img src="/icons/trophy.png" alt="" className="h-10 w-10 object-contain" />
+        <img src="/icons/54.PNG" alt="" className="h-12 w-12 object-contain" />
         Таблица лидеров
       </motion.button>
 
@@ -952,22 +948,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   const items = [...quizzes, ...demos.slice(0, Math.max(0, 5 - quizzes.length))];
 
   const tournaments = [
-    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <MaskIcon />, bg: "from-[#2d132c] to-[#1a1a2e]" },
-    { id: "t2", title: "Ночь культов", time: "12ч", icon: (
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-        <path d="M12 2c.5 3.5 2 5 4 6.5-2 1-3 2.5-3 5.5 0-3-1-4.5-3-5.5 2-1.5 3.5-3 2-6.5z" fill="url(#candleFlame)"/>
-        <rect x="9" y="14" width="6" height="8" rx="1" fill="url(#candleBody)"/>
-        <defs>
-          <linearGradient id="candleFlame" x1="9" y1="2" x2="16" y2="14"><stop stopColor="#FBBF24"/><stop offset="0.5" stopColor="#F97316"/><stop offset="1" stopColor="#EF4444"/></linearGradient>
-          <linearGradient id="candleBody" x1="9" y1="14" x2="15" y2="22"><stop stopColor="#FEF3C7"/><stop offset="1" stopColor="#FCD34D"/></linearGradient>
-        </defs>
-      </svg>
-    ), bg: "from-[#1e3a5f] to-[#0d1b2a]" },
+    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <img src="/icons/55.PNG" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#2d132c] to-[#1a1a2e]" },
+    { id: "t2", title: "Ночь культов", time: "12ч", icon: <img src="/icons/49.PNG" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#1e3a5f] to-[#0d1b2a]" },
   ];
 
   const events = [
-    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <SearchIcon /> },
-    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <SnowflakeIcon /> },
+    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <img src="/icons/28.PNG" alt="" className="h-8 w-8 object-contain" /> },
+    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <img src="/icons/29.PNG" alt="" className="h-8 w-8 object-contain" /> },
   ];
 
   return (
@@ -1203,13 +1190,18 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 </motion.h2>
               </div>
               
-              {/* Trophy */}
+              {/* Treasure Chest with glow */}
               <motion.div
                 animate={{ rotate: [0, 5, -5, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30"
+                className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center"
               >
-                <img src="/icons/trophy.png" alt="" className="h-10 w-10 object-contain" />
+                {/* Glow effect */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400/40 via-purple-500/30 to-pink-500/40 blur-xl animate-pulse" />
+                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-300/30 to-purple-400/20 blur-lg" />
+                
+                {/* Chest image */}
+                <img src="/icons/17.PNG" alt="" className="relative h-20 w-20 object-contain drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
               </motion.div>
             </div>
 
@@ -1298,15 +1290,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               className="mb-4 flex h-12 items-center justify-center gap-4 rounded-xl bg-white/[0.03]"
             >
               {[
-                { icon: (
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="6" width="20" height="12" rx="3" fill="url(#gamepadGrad)"/>
-                    <circle cx="8" cy="12" r="2" fill="#1a1a2e"/>
-                    <circle cx="16" cy="10" r="1" fill="#1a1a2e"/>
-                    <circle cx="16" cy="14" r="1" fill="#1a1a2e"/>
-                    <defs><linearGradient id="gamepadGrad" x1="2" y1="6" x2="22" y2="18"><stop stopColor="#A78BFA"/><stop offset="1" stopColor="#8B5CF6"/></linearGradient></defs>
-                  </svg>
-                ), label: "Играй" },
+                { icon: <img src="/icons/56.PNG" alt="" className="h-7 w-7 object-contain" />, label: "Играй" },
                 { icon: (
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
                     <path d="M3 20L9 14l4 4 8-10" stroke="url(#chartGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1314,7 +1298,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     <defs><linearGradient id="chartGrad" x1="3" y1="20" x2="21" y2="8"><stop stopColor="#34D399"/><stop offset="1" stopColor="#10B981"/></linearGradient></defs>
                   </svg>
                 ), label: "Набирай" },
-                { icon: <img src="/icons/trophy.png" alt="" className="h-5 w-5 object-contain" />, label: "Побеждай" },
+                { icon: <img src="/icons/54.PNG" alt="" className="h-7 w-7 object-contain" />, label: "Побеждай" },
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
@@ -1357,12 +1341,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           TOURNAMENTS
       ───────────────────────────────────────────────────────────────── */}
       <Card title="Турниры" badge={
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="url(#targetGrad)" strokeWidth="2"/>
-          <circle cx="12" cy="12" r="6" stroke="url(#targetGrad)" strokeWidth="2"/>
-          <circle cx="12" cy="12" r="2" fill="url(#targetGrad)"/>
-          <defs><linearGradient id="targetGrad" x1="2" y1="2" x2="22" y2="22"><stop stopColor="#F472B6"/><stop offset="1" stopColor="#EC4899"/></linearGradient></defs>
-        </svg>
+        <img src="/icons/2.PNG" alt="" className="h-8 w-8 object-contain rotate-90" />
       }>
         <div className="flex flex-col gap-2">
           {tournaments.map((t) => (
@@ -1374,7 +1353,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 </div>
               }
               title={t.title}
-              subtitle={`Через ${t.time}`}
+              subtitle={<span className="flex items-center gap-1"><img src="/icons/30.PNG" alt="" className="h-4 w-4 object-contain" /> Через {t.time}</span>}
               trailing={<Chevron />}
             />
           ))}
@@ -1384,7 +1363,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           SPECIAL EVENTS — 2 columns
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Спецпроекты" badge={<img src="/icons/5.PNG" alt="" className="h-5 w-5 object-contain" />}>
+      <Card title="Спецпроекты" badge={<img src="/icons/8.PNG" alt="" className="h-8 w-8 object-contain" />}>
         <div className="grid grid-cols-2 gap-3">
           {events.map((e) => (
             <motion.div

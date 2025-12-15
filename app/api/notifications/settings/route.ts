@@ -33,12 +33,17 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  if (!user) {
-    return NextResponse.json({ error: "user_not_found" }, { status: 404 });
-  }
+  // Return default settings if user not found
+  const defaultSettings = {
+    notifyLevelUp: true,
+    notifyEnergyFull: true,
+    notifyDailyReminder: true,
+    notifyLeaderboard: true,
+    notifyFriends: true,
+  };
 
   return NextResponse.json({
-    settings: user,
+    settings: user ?? defaultSettings,
   });
 }
 

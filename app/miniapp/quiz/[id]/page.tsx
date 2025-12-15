@@ -195,6 +195,15 @@ export default function QuizPlayPage() {
     setAnswerResult({ correct: false, scoreDelta: 0, totalScore });
     setSelectedOption(-1); // -1 = timeout marker
     
+    // Sync timeout with server (so page refresh works correctly)
+    if (sessionId && currentQuestion) {
+      fetch(`/api/quiz/${quizId}/timeout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, questionId: currentQuestion.id }),
+      }).catch(console.error);
+    }
+    
     // Auto-advance after 2 seconds - use ref to prevent cleanup from cancelling
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
     autoAdvanceRef.current = setTimeout(() => {
@@ -304,41 +313,58 @@ export default function QuizPlayPage() {
 
         if (!res.ok) throw new Error("failed_to_start");
 
-        const data = (await res.json()) as StartResponse;
+        const data = (await res.json()) as StartResponse & { 
+          finished?: boolean; 
+          skippedQuestions?: number;
+        };
+        
+        // Если сервер уже завершил квиз (все вопросы пропущены по timeout)
+        if (data.finished) {
+          setQuestions(data.questions);
+          setSessionId(data.sessionId);
+          setTotalScore(data.totalScore ?? 0);
+          setFinished(true);
+          if (data.skippedQuestions && data.skippedQuestions > 0) {
+            notify.error("Timeout", `Пропущено вопросов: ${data.skippedQuestions}`);
+          }
+          setLoading(false);
+          return;
+        }
+        
         setQuestions(data.questions);
         setSessionId(data.sessionId);
         setTotalScore(data.totalScore ?? 0);
         setAttemptNumber(data.attemptNumber ?? 1);
         setRemainingAttempts(data.remainingAttempts ?? null);
         
-        // Восстанавливаем позицию если это возобновлённая сессия
+        // Восстанавливаем позицию (сервер уже обработал timeout'ы)
         if (data.currentQuestionIndex !== undefined && data.currentQuestionIndex > 0) {
           setCurrentIndex(data.currentQuestionIndex);
+          // Показываем уведомление если были пропущены вопросы
+          if (data.skippedQuestions && data.skippedQuestions > 0) {
+            notify.error("Timeout", `Пропущено вопросов: ${data.skippedQuestions}`);
+          }
         }
+        
         // Восстанавливаем streak с сервера
         if (data.currentStreak !== undefined) {
           setStreak(data.currentStreak);
           setMaxStreak((m) => Math.max(m, data.currentStreak ?? 0));
         }
         
-        // Рассчитываем оставшееся время если это возобновлённая сессия
+        // Рассчитываем оставшееся время (сервер гарантирует, что время не истекло)
         if (data.questionStartedAt && data.serverTime) {
           const serverNow = new Date(data.serverTime).getTime();
           const questionStart = new Date(data.questionStartedAt).getTime();
           const elapsedSeconds = Math.floor((serverNow - questionStart) / 1000);
-          const remaining = Math.max(0, QUESTION_TIME - elapsedSeconds);
+          const remaining = Math.max(1, QUESTION_TIME - elapsedSeconds); // Минимум 1 секунда
           
-          console.log("[Timer] Restored from server:", { elapsedSeconds, remaining, questionStart: data.questionStartedAt });
+          console.log("[Timer] Restored from server:", { elapsedSeconds, remaining });
           
-          if (remaining > 0 && remaining < QUESTION_TIME) {
-            // Сохраняем в ref ДО установки state (ref обновляется мгновенно)
+          if (remaining < QUESTION_TIME) {
             timeRestoredRef.current = true;
             initialTimeLeftRef.current = remaining;
             setTimeLeft(remaining);
-          } else if (remaining <= 0) {
-            // Время истекло — помечаем как timeout
-            setTimeLeft(0);
-            setTimeoutHandled(true);
           }
         }
       } catch (err) {
@@ -378,7 +404,18 @@ export default function QuizPlayPage() {
 
         if (!res.ok) throw new Error("failed_to_answer");
 
-        const data = (await res.json()) as AnswerResponse;
+        const data = (await res.json()) as AnswerResponse & { timeout?: boolean };
+        
+        // Если сервер определил timeout (время истекло на сервере)
+        if (data.timeout) {
+          haptic.error();
+          setStreak(0);
+          setAnswerResult({ correct: false, scoreDelta: 0, totalScore: data.totalScore });
+          setSelectedOption(-1); // -1 = timeout marker
+          notify.error("Timeout", "Время истекло на сервере");
+          return;
+        }
+        
         setAnswerResult(data);
         setTotalScore(data.totalScore);
         
@@ -516,7 +553,7 @@ export default function QuizPlayPage() {
               transition={{ duration: 2, repeat: Infinity }}
               className="text-7xl mb-6"
             >
-              {isRateLimited ? "⏱️" : "⚡"}
+              {isRateLimited ? <img src="/icons/52.PNG" alt="" className="h-16 w-16 object-contain" /> : <img src="/icons/53.PNG" alt="" className="h-16 w-16 object-contain" />}
             </motion.div>
             
             <h2 className="text-2xl font-bold text-white mb-3">
@@ -561,7 +598,7 @@ export default function QuizPlayPage() {
             {isEnergyDepleted && (
               <div className="mb-6 space-y-3">
                 <div className="flex items-center justify-center gap-2 text-white/40 text-sm">
-                  <img src="/icons/energy.png" alt="" className="h-6 w-6 object-contain" />
+                  <img src="/icons/11.PNG" alt="" className="h-8 w-8 object-contain" />
                   <span>Энергия:</span>
                   <span className="font-bold text-white">{rateLimitInfo.usedAttempts}/{rateLimitInfo.maxAttempts}</span>
                   <span className="text-white/30">• +1 каждые {rateLimitInfo.hoursPerAttempt ?? 4}ч</span>
@@ -789,7 +826,10 @@ export default function QuizPlayPage() {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 blur-2xl" />
                 <div className="relative inline-block rounded-3xl bg-[#15151f]/90 border border-white/10 px-12 py-6">
-                  <p className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-3">Твой результат</p>
+                  <p className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
+                    <img src="/icons/26.PNG" alt="" className="h-6 w-6 object-contain" />
+                    Твой результат
+                  </p>
                   <motion.p
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -849,7 +889,7 @@ export default function QuizPlayPage() {
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
               />
               <span className="relative flex items-center justify-center gap-3">
-                <img src="/icons/trophy.png" alt="" className="h-10 w-10 object-contain" />
+                <img src="/icons/54.PNG" alt="" className="h-12 w-12 object-contain" />
                 Таблица лидеров
               </span>
             </motion.button>

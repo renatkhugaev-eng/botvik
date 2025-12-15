@@ -96,38 +96,130 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     },
   });
 
-  // Если есть незавершённая сессия - возвращаем её БЕЗ сброса времени
+  // Если есть незавершённая сессия - возвращаем её с проверкой timeout
   if (existingSession) {
     const questions = await getQuestions(quizId);
     const now = new Date();
+    const QUESTION_TIME_MS = 15000; // 15 секунд на вопрос
     
     // Получаем полную сессию с временем начала вопроса
-    const fullSession = await prisma.quizSession.findUnique({
+    let session = await prisma.quizSession.findUnique({
       where: { id: existingSession.id },
-      select: { currentQuestionStartedAt: true },
+      select: { 
+        id: true,
+        currentQuestionStartedAt: true,
+        currentQuestionIndex: true,
+        currentStreak: true,
+        totalScore: true,
+        attemptNumber: true,
+      },
     });
     
-    // Если время вопроса не было установлено — устанавливаем сейчас
-    let questionStartedAt = fullSession?.currentQuestionStartedAt;
-    if (!questionStartedAt) {
-      questionStartedAt = now;
+    if (!session) {
+      return NextResponse.json({ error: "session_not_found" }, { status: 404 });
+    }
+    
+    // ═══ SERVER-SIDE TIMEOUT CHECK ═══
+    // Автоматически пропускаем вопросы с истёкшим временем
+    let questionStartedAt = session.currentQuestionStartedAt;
+    let currentIndex = session.currentQuestionIndex;
+    let currentStreak = session.currentStreak;
+    let skippedQuestions = 0;
+    
+    while (currentIndex < questions.length) {
+      // Если время не установлено — устанавливаем сейчас
+      if (!questionStartedAt) {
+        questionStartedAt = now;
+        await prisma.quizSession.update({
+          where: { id: session.id },
+          data: { currentQuestionStartedAt: now },
+        });
+        break;
+      }
+      
+      // Проверяем, истекло ли время
+      const elapsedMs = now.getTime() - questionStartedAt.getTime();
+      
+      if (elapsedMs < QUESTION_TIME_MS) {
+        // Время ещё есть — выходим из цикла
+        break;
+      }
+      
+      // Время истекло — записываем timeout и переходим к следующему вопросу
+      const currentQuestion = questions[currentIndex];
+      
+      // Проверяем, не был ли уже записан ответ
+      const existingAnswer = await prisma.answer.findUnique({
+        where: { sessionId_questionId: { sessionId: session.id, questionId: currentQuestion.id } },
+      });
+      
+      if (!existingAnswer) {
+        // Записываем timeout как ответ
+        await prisma.answer.create({
+          data: {
+            sessionId: session.id,
+            questionId: currentQuestion.id,
+            optionId: null, // Timeout - no option selected
+            isCorrect: false,
+            timeSpentMs: QUESTION_TIME_MS,
+            scoreDelta: 0,
+          },
+        });
+        skippedQuestions++;
+      }
+      
+      // Переходим к следующему вопросу
+      currentIndex++;
+      currentStreak = 0; // Reset streak on timeout
+      questionStartedAt = now; // Новое время для следующего вопроса
+      
+      // Обновляем сессию
       await prisma.quizSession.update({
-        where: { id: existingSession.id },
-        data: { currentQuestionStartedAt: now },
+        where: { id: session.id },
+        data: {
+          currentQuestionIndex: currentIndex,
+          currentQuestionStartedAt: now,
+          currentStreak: 0,
+        },
+      });
+    }
+    
+    // Если пропустили все вопросы — завершаем квиз
+    if (currentIndex >= questions.length) {
+      const finishedSession = await prisma.quizSession.update({
+        where: { id: session.id },
+        data: { finishedAt: now },
+        select: { totalScore: true },
+      });
+      
+      return NextResponse.json({
+        sessionId: session.id,
+        quizId,
+        attemptNumber: session.attemptNumber,
+        totalQuestions: questions.length,
+        totalScore: finishedSession.totalScore,
+        currentQuestionIndex: currentIndex,
+        currentStreak: 0,
+        questions,
+        serverTime: now.toISOString(),
+        questionStartedAt: now.toISOString(),
+        finished: true,
+        skippedQuestions,
       });
     }
     
     return NextResponse.json({
-      sessionId: existingSession.id,
+      sessionId: session.id,
       quizId,
-      attemptNumber: existingSession.attemptNumber,
+      attemptNumber: session.attemptNumber,
       totalQuestions: questions.length,
-      totalScore: existingSession.totalScore,
-      currentQuestionIndex: existingSession.currentQuestionIndex,
-      currentStreak: existingSession.currentStreak,
+      totalScore: session.totalScore,
+      currentQuestionIndex: currentIndex,
+      currentStreak: currentStreak,
       questions,
       serverTime: now.toISOString(),
-      questionStartedAt: questionStartedAt.toISOString(), // Когда начался текущий вопрос
+      questionStartedAt: questionStartedAt?.toISOString() ?? now.toISOString(),
+      skippedQuestions: skippedQuestions > 0 ? skippedQuestions : undefined,
     });
   }
 

@@ -248,8 +248,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "correct_option_missing" }, { status: 400 });
   }
 
-  // ═══ SERVER-SIDE TIME CALCULATION ═══
+  // ═══ SERVER-SIDE TIME CALCULATION & TIMEOUT CHECK ═══
   const now = new Date();
+  const QUESTION_TIME_MS = 15000; // 15 секунд на вопрос
+  const GRACE_PERIOD_MS = 2000;   // 2 секунды grace period для сетевых задержек
+  
   let serverTimeSpentMs = timeSpentMs; // Fallback на клиентское время
   
   if (session.currentQuestionStartedAt) {
@@ -257,6 +260,42 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     
     // Защита от отрицательного времени (в случае проблем с синхронизацией)
     if (serverTimeSpentMs < 0) serverTimeSpentMs = timeSpentMs;
+    
+    // ═══ TIMEOUT CHECK ═══
+    // Если время истекло (с grace period для сетевых задержек) — записываем timeout
+    if (serverTimeSpentMs > QUESTION_TIME_MS + GRACE_PERIOD_MS) {
+      // Записываем как timeout
+      await prisma.$transaction(async (tx) => {
+        await tx.answer.create({
+          data: {
+            sessionId,
+            questionId,
+            optionId: null, // Timeout - no option selected
+            isCorrect: false,
+            timeSpentMs: QUESTION_TIME_MS,
+            scoreDelta: 0,
+          },
+        });
+        
+        await tx.quizSession.update({
+          where: { id: sessionId },
+          data: {
+            currentQuestionIndex: session.currentQuestionIndex + 1,
+            currentQuestionStartedAt: now,
+            currentStreak: 0,
+          },
+        });
+      });
+      
+      return NextResponse.json({
+        correct: false,
+        scoreDelta: 0,
+        totalScore: session.totalScore,
+        streak: 0,
+        timeout: true,
+        message: "Время истекло",
+      });
+    }
     
     // Максимум 60 секунд (защита от зависших сессий)
     if (serverTimeSpentMs > 60000) serverTimeSpentMs = 60000;

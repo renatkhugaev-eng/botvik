@@ -113,17 +113,18 @@ model QuizSession {
 }
 
 model Answer {
-  id          Int          @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   sessionId   Int
   questionId  Int
-  optionId    Int
+  optionId    Int?          // Nullable for timeout (no answer selected)
   isCorrect   Boolean
   timeSpentMs Int
   scoreDelta  Int
-  createdAt   DateTime     @default(now())
-  session     QuizSession  @relation(fields: [sessionId], references: [id])
-  question    Question     @relation("QuestionResponses", fields: [questionId], references: [id])
-  option      AnswerOption @relation(fields: [optionId], references: [id])
+  isTimeout   Boolean       @default(false) // Flag for timeout answers
+  createdAt   DateTime      @default(now())
+  session     QuizSession   @relation(fields: [sessionId], references: [id])
+  question    Question      @relation("QuestionResponses", fields: [questionId], references: [id])
+  option      AnswerOption? @relation(fields: [optionId], references: [id])
   
   @@unique([sessionId, questionId]) // Защита от повторных ответов на один вопрос
   @@index([sessionId])
