@@ -1054,17 +1054,24 @@ export default function QuizPlayPage() {
       <AnimatePresence>
         {showConfetti && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center"
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 pointer-events-none z-50 overflow-hidden"
           >
             <Lottie
               animationData={confettiAnimation}
               loop={false}
               autoplay={true}
-              className="w-full h-full absolute inset-0"
-              style={{ maxWidth: '100vw', maxHeight: '100vh' }}
+              className="absolute"
+              style={{ 
+                width: '200%',
+                height: '200%',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
             />
           </motion.div>
         )}
