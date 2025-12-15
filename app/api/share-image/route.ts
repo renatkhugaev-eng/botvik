@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Generate beautiful share images for Stories using htmlcsstoimage.com
- * Format: 9:16 (540x960 - will be scaled up by service)
- * Style: True Crime Neon Detective
+ * High-quality Stories share image (1080x1920)
+ * Design: Matches app style with Manrope font, violet/pink gradients
  */
 
 const HCTI_USER_ID = process.env.HCTI_USER_ID;
@@ -31,549 +30,434 @@ export async function POST(request: NextRequest) {
 
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
     
-    // Generate rank based on stars
+    // Rank based on stars - matches app exactly
     const getRankInfo = (starCount: number) => {
-      if (starCount >= 5) return { 
-        title: "ЛЕГЕНДА", 
-        color: "#fbbf24", 
-        glow: "rgba(251, 191, 36, 0.6)",
-        gradient: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)"
-      };
-      if (starCount >= 4) return { 
-        title: "МАСТЕР", 
-        color: "#a855f7", 
-        glow: "rgba(168, 85, 247, 0.6)",
-        gradient: "linear-gradient(135deg, #a855f7 0%, #8b5cf6 100%)"
-      };
-      if (starCount >= 3) return { 
-        title: "ДЕТЕКТИВ", 
-        color: "#3b82f6", 
-        glow: "rgba(59, 130, 246, 0.6)",
-        gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
-      };
-      if (starCount >= 2) return { 
-        title: "АГЕНТ", 
-        color: "#22c55e", 
-        glow: "rgba(34, 197, 94, 0.5)",
-        gradient: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
-      };
-      if (starCount >= 1) return { 
-        title: "НОВИЧОК", 
-        color: "#64748b", 
-        glow: "rgba(100, 116, 139, 0.4)",
-        gradient: "linear-gradient(135deg, #64748b 0%, #475569 100%)"
-      };
-      return { 
-        title: "ПОПРОБУЙ ЕЩЁ", 
-        color: "#64748b", 
-        glow: "rgba(100, 116, 139, 0.3)",
-        gradient: "linear-gradient(135deg, #64748b 0%, #475569 100%)"
-      };
+      if (starCount >= 5) return { title: "ЛЕГЕНДА", color: "#FBBF24", emoji: "👑" };
+      if (starCount >= 4) return { title: "МАСТЕР", color: "#A855F7", emoji: "⚡" };
+      if (starCount >= 3) return { title: "ДЕТЕКТИВ", color: "#3B82F6", emoji: "🔍" };
+      if (starCount >= 2) return { title: "АГЕНТ", color: "#22C55E", emoji: "🎯" };
+      if (starCount >= 1) return { title: "НОВИЧОК", color: "#94A3B8", emoji: "🌟" };
+      return { title: "ПОПРОБУЙ ЕЩЁ", color: "#64748B", emoji: "💪" };
     };
     
-    const rankInfo = getRankInfo(stars);
+    const rank = getRankInfo(stars);
     
-    // Generate stars HTML with custom styling
-    const starsHtml = [1, 2, 3, 4, 5]
-      .map(
-        (star) =>
-          `<div class="star ${star <= stars ? "active" : "inactive"}">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-          </div>`
-      )
-      .join("");
+    // Base URL for icons (production domain)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://botvik.app";
+    
+    // Generate filled/empty stars using custom icon
+    const starsHTML = [1, 2, 3, 4, 5].map(i => 
+      `<img class="star ${i <= stars ? 'filled' : 'empty'}" src="${baseUrl}/icons/5.PNG" alt="★">`
+    ).join('');
 
-    // Get accuracy color
-    const getAccuracyColor = (acc: number) => {
-      if (acc >= 80) return "#22c55e";
-      if (acc >= 60) return "#fbbf24";
-      if (acc >= 40) return "#f97316";
-      return "#ef4444";
-    };
-
-    const html = `
-      <div class="card">
-        <!-- Background effects -->
-        <div class="bg-gradient"></div>
-        <div class="glow glow-1"></div>
-        <div class="glow glow-2"></div>
-        <div class="glow glow-3"></div>
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="card">
+    <!-- Background glows -->
+    <div class="glow glow-top"></div>
+    <div class="glow glow-center"></div>
+    <div class="glow glow-bottom"></div>
+    
+    <!-- Content -->
+    <div class="content">
+      <!-- Logo/Quiz badge -->
+      <div class="badge">
+        <img class="badge-icon" src="${baseUrl}/icons/36.PNG" alt="">
+        <span class="badge-text">${quizTitle}</span>
+      </div>
+      
+      <!-- Player -->
+      ${player ? `<div class="player">${player}</div>` : ''}
+      
+      <!-- Rank -->
+      <div class="rank" style="--rank-color: ${rank.color}">
+        <img class="rank-icon" src="${baseUrl}/icons/trophy.png" alt="">
+        <span class="rank-text">${rank.title}</span>
+      </div>
+      
+      <!-- Stars -->
+      <div class="stars">${starsHTML}</div>
+      
+      <!-- Score Card -->
+      <div class="score-card">
+        <div class="score-label">МОЙ РЕЗУЛЬТАТ</div>
+        <div class="score-value">${score.toLocaleString()}</div>
+        <div class="score-unit">очков</div>
         
-        <!-- Floating particles -->
-        ${[...Array(16)].map((_, i) => `
-          <div class="particle" style="
-            left: ${8 + (i * 6) % 85}%;
-            top: ${10 + (i * 7) % 80}%;
-            width: ${i % 3 === 0 ? 6 : 4}px;
-            height: ${i % 3 === 0 ? 6 : 4}px;
-            background: ${i % 4 === 0 ? '#fbbf24' : i % 3 === 0 ? '#a855f7' : i % 2 === 0 ? '#ec4899' : '#3b82f6'};
-            opacity: ${0.2 + (i % 5) * 0.1};
-          "></div>
-        `).join('')}
-        
-        <!-- Content -->
-        <div class="content">
-          
-          <!-- Quiz badge -->
-          <div class="quiz-badge">
-            <span class="badge-icon">🔍</span>
-            <span class="badge-text">${quizTitle}</span>
+        <!-- Stats -->
+        <div class="stats">
+          <div class="stat">
+            <img class="stat-icon" src="${baseUrl}/icons/38.PNG" alt="">
+            <div class="stat-value" style="color: #22C55E">${correct}/${total}</div>
+            <div class="stat-label">верных</div>
           </div>
-          
-          <!-- Player name -->
-          ${player ? `
-          <div class="player-name">
-            <span class="player-icon">👤</span>
-            <span>${player}</span>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <img class="stat-icon" src="${baseUrl}/icons/medal.png" alt="">
+            <div class="stat-value" style="color: ${accuracy >= 70 ? '#22C55E' : accuracy >= 50 ? '#FBBF24' : '#EF4444'}">${accuracy}%</div>
+            <div class="stat-label">точность</div>
           </div>
-          ` : ''}
-          
-          <!-- Rank title -->
-          <div class="rank-container" style="--rank-color: ${rankInfo.color}; --rank-glow: ${rankInfo.glow};">
-            <div class="rank-badge">
-              <span class="rank-text">${rankInfo.title}</span>
-            </div>
-          </div>
-          
-          <!-- Stars -->
-          <div class="stars-container">
-            ${starsHtml}
-          </div>
-          
-          <!-- Score card -->
-          <div class="score-card">
-            <div class="score-header">
-              <span class="trophy">🏆</span>
-              <span>МОЙ РЕЗУЛЬТАТ</span>
-            </div>
-            
-            <div class="score-value">
-              <span class="coin">💰</span>
-              <span class="score-number">${score.toLocaleString()}</span>
-            </div>
-            <div class="score-label">очков</div>
-            
-            <!-- Stats row -->
-            <div class="stats-row">
-              <div class="stat-item stat-correct">
-                <div class="stat-icon">✅</div>
-                <div class="stat-value">${correct}/${total}</div>
-                <div class="stat-label">верных</div>
-              </div>
-              
-              <div class="stat-item stat-accuracy" style="--acc-color: ${getAccuracyColor(accuracy)};">
-                <div class="stat-icon">🎯</div>
-                <div class="stat-value">${accuracy}%</div>
-                <div class="stat-label">точность</div>
-              </div>
-              
-              <div class="stat-item stat-streak">
-                <div class="stat-icon">🔥</div>
-                <div class="stat-value">${streak}</div>
-                <div class="stat-label">серия</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- CTA -->
-          <div class="cta-section">
-            <div class="cta-challenge">
-              <span>💀</span>
-              <span>Сможешь лучше?</span>
-            </div>
-            
-            <div class="bot-link">
-              <div class="online-dot"></div>
-              <span>@truecrimetg_bot</span>
-            </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <img class="stat-icon" src="${baseUrl}/icons/fire-medal.png" alt="">
+            <div class="stat-value" style="color: #F97316">${streak}</div>
+            <div class="stat-label">серия</div>
           </div>
         </div>
-        
-        <!-- Corner frames -->
-        <div class="corner tl"></div>
-        <div class="corner tr"></div>
-        <div class="corner bl"></div>
-        <div class="corner br"></div>
       </div>
-    `;
+      
+      <!-- CTA -->
+      <div class="cta">
+        <img class="cta-icon" src="${baseUrl}/icons/49.PNG" alt="">
+        <div class="cta-text">Сможешь лучше? Проверь себя!</div>
+      </div>
+      
+      <!-- Bot link -->
+      <div class="bot-link">
+        <span class="dot"></span>
+        <span>@truecrimetg_bot</span>
+      </div>
+    </div>
+    
+    <!-- Decorative corners -->
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+  </div>
+</body>
+</html>`;
 
     const css = `
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      .card {
-        width: 540px;
-        height: 960px;
-        position: relative;
-        overflow: hidden;
-        font-family: 'Inter', -apple-system, sans-serif;
-      }
-      
-      /* Background */
-      .bg-gradient {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(180deg, 
-          #0a0a12 0%, 
-          #0f0a18 25%, 
-          #150d20 50%, 
-          #0f0a18 75%, 
-          #0a0a12 100%
-        );
-      }
-      
-      /* Glows */
-      .glow {
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(80px);
-      }
-      
-      .glow-1 {
-        width: 400px;
-        height: 400px;
-        left: 50%;
-        top: 30%;
-        transform: translateX(-50%);
-        background: ${rankInfo.glow};
-      }
-      
-      .glow-2 {
-        width: 300px;
-        height: 300px;
-        left: 20%;
-        top: 5%;
-        background: rgba(139, 92, 246, 0.35);
-      }
-      
-      .glow-3 {
-        width: 350px;
-        height: 350px;
-        right: 5%;
-        bottom: 10%;
-        background: rgba(236, 72, 153, 0.25);
-      }
-      
-      /* Particles */
-      .particle {
-        position: absolute;
-        border-radius: 50%;
-        box-shadow: 0 0 8px currentColor;
-      }
-      
-      /* Content */
-      .content {
-        position: relative;
-        z-index: 10;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 48px 32px;
-      }
-      
-      /* Quiz badge */
-      .quiz-badge {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.1) 100%);
-        border: 1px solid rgba(139, 92, 246, 0.25);
-        border-radius: 100px;
-        padding: 14px 28px;
-        margin-bottom: 20px;
-      }
-      
-      .badge-icon {
-        font-size: 24px;
-      }
-      
-      .badge-text {
-        color: rgba(255, 255, 255, 0.95);
-        font-weight: 700;
-        font-size: 18px;
-      }
-      
-      /* Player name */
-      .player-name {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 16px;
-      }
-      
-      .player-icon {
-        font-size: 18px;
-      }
-      
-      /* Rank container */
-      .rank-container {
-        margin-bottom: 24px;
-      }
-      
-      .rank-badge {
-        position: relative;
-        padding: 14px 40px;
-        background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 100%);
-        border: 2px solid var(--rank-color);
-        border-radius: 16px;
-        box-shadow: 0 0 30px var(--rank-glow), 0 0 60px var(--rank-glow);
-      }
-      
-      .rank-text {
-        font-size: 22px;
-        font-weight: 900;
-        color: var(--rank-color);
-        letter-spacing: 6px;
-        text-shadow: 0 0 30px var(--rank-glow);
-      }
-      
-      /* Stars */
-      .stars-container {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 32px;
-      }
-      
-      .star {
-        width: 52px;
-        height: 52px;
-      }
-      
-      .star svg {
-        width: 100%;
-        height: 100%;
-      }
-      
-      .star.active svg {
-        fill: #fbbf24;
-        filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.8));
-      }
-      
-      .star.inactive svg {
-        fill: rgba(255, 255, 255, 0.1);
-      }
-      
-      /* Score card */
-      .score-card {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        max-width: 440px;
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 32px;
-        padding: 36px 28px;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-      }
-      
-      .score-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 20px;
-      }
-      
-      .trophy {
-        font-size: 24px;
-      }
-      
-      .score-header span:last-child {
-        color: rgba(255, 255, 255, 0.5);
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 4px;
-      }
-      
-      .score-value {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-      }
-      
-      .coin {
-        font-size: 40px;
-      }
-      
-      .score-number {
-        font-size: 72px;
-        font-weight: 900;
-        background: linear-gradient(135deg, #ffffff 0%, #e9d5ff 50%, #f9a8d4 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        line-height: 1;
-      }
-      
-      .score-label {
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 16px;
-        font-weight: 600;
-        letter-spacing: 3px;
-        margin-top: 8px;
-        margin-bottom: 32px;
-      }
-      
-      /* Stats row */
-      .stats-row {
-        display: flex;
-        gap: 16px;
-        width: 100%;
-        padding-top: 28px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      
-      .stat-item {
-        flex: 1;
-        text-align: center;
-        padding: 16px 8px;
-        border-radius: 16px;
-      }
-      
-      .stat-correct {
-        background: rgba(34, 197, 94, 0.08);
-        border: 1px solid rgba(34, 197, 94, 0.15);
-      }
-      
-      .stat-accuracy {
-        background: rgba(251, 191, 36, 0.08);
-        border: 1px solid rgba(251, 191, 36, 0.15);
-      }
-      
-      .stat-streak {
-        background: rgba(249, 115, 22, 0.08);
-        border: 1px solid rgba(249, 115, 22, 0.15);
-      }
-      
-      .stat-icon {
-        font-size: 24px;
-        margin-bottom: 8px;
-      }
-      
-      .stat-item .stat-value {
-        font-size: 24px;
-        font-weight: 800;
-        color: #ffffff;
-        line-height: 1;
-      }
-      
-      .stat-correct .stat-value {
-        color: #22c55e;
-      }
-      
-      .stat-accuracy .stat-value {
-        color: var(--acc-color, #fbbf24);
-      }
-      
-      .stat-streak .stat-value {
-        color: #f97316;
-      }
-      
-      .stat-item .stat-label {
-        color: rgba(255, 255, 255, 0.5);
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-top: 6px;
-      }
-      
-      /* CTA section */
-      .cta-section {
-        margin-top: 32px;
-        text-align: center;
-      }
-      
-      .cta-challenge {
-        display: inline-flex;
-        align-items: center;
-        gap: 12px;
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(236, 72, 153, 0.2) 100%);
-        border: 1px solid rgba(139, 92, 246, 0.3);
-        border-radius: 20px;
-        padding: 16px 32px;
-        margin-bottom: 24px;
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 18px;
-        font-weight: 700;
-      }
-      
-      .bot-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-      }
-      
-      .online-dot {
-        width: 10px;
-        height: 10px;
-        background: #22c55e;
-        border-radius: 50%;
-        box-shadow: 0 0 12px #22c55e, 0 0 24px #22c55e;
-      }
-      
-      .bot-link span {
-        color: #a78bfa;
-        font-size: 18px;
-        font-weight: 700;
-        letter-spacing: 1px;
-      }
-      
-      /* Corners */
-      .corner {
-        position: absolute;
-        width: 60px;
-        height: 60px;
-      }
-      
-      .corner.tl {
-        top: 20px;
-        left: 20px;
-        border-left: 3px solid rgba(139, 92, 246, 0.5);
-        border-top: 3px solid rgba(139, 92, 246, 0.5);
-        border-top-left-radius: 16px;
-      }
-      
-      .corner.tr {
-        top: 20px;
-        right: 20px;
-        border-right: 3px solid rgba(139, 92, 246, 0.5);
-        border-top: 3px solid rgba(139, 92, 246, 0.5);
-        border-top-right-radius: 16px;
-      }
-      
-      .corner.bl {
-        bottom: 20px;
-        left: 20px;
-        border-left: 3px solid rgba(236, 72, 153, 0.5);
-        border-bottom: 3px solid rgba(236, 72, 153, 0.5);
-        border-bottom-left-radius: 16px;
-      }
-      
-      .corner.br {
-        bottom: 20px;
-        right: 20px;
-        border-right: 3px solid rgba(236, 72, 153, 0.5);
-        border-bottom: 3px solid rgba(236, 72, 153, 0.5);
-        border-bottom-right-radius: 16px;
-      }
-    `;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-    // Call htmlcsstoimage API
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  width: 1080px;
+  height: 1920px;
+  background: linear-gradient(180deg, #0A0A12 0%, #0F0A18 30%, #150D20 50%, #0F0A18 70%, #0A0A12 100%);
+  position: relative;
+  overflow: hidden;
+  font-family: 'Manrope', -apple-system, sans-serif;
+}
+
+/* Glows - app style */
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.glow-top {
+  width: 800px;
+  height: 800px;
+  left: 50%;
+  top: -200px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 60%);
+}
+
+.glow-center {
+  width: 1000px;
+  height: 1000px;
+  left: 50%;
+  top: 35%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 50%);
+}
+
+.glow-bottom {
+  width: 700px;
+  height: 700px;
+  right: -200px;
+  bottom: 100px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.3) 0%, transparent 60%);
+}
+
+/* Content */
+.content {
+  position: relative;
+  z-index: 10;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100px 60px 80px;
+}
+
+/* Badge */
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.1) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 100px;
+  padding: 24px 48px;
+  margin-bottom: 40px;
+}
+
+.badge-icon {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.badge-text {
+  color: #FFFFFF;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Player */
+.player {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+
+/* Rank */
+.rank {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 100%);
+  border: 3px solid var(--rank-color);
+  border-radius: 24px;
+  padding: 24px 60px;
+  margin-bottom: 50px;
+  box-shadow: 0 0 60px color-mix(in srgb, var(--rank-color) 40%, transparent);
+}
+
+.rank-icon {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.rank-text {
+  color: var(--rank-color);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  text-shadow: 0 0 30px color-mix(in srgb, var(--rank-color) 60%, transparent);
+}
+
+/* Stars */
+.stars {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 60px;
+}
+
+.star {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
+
+.star.filled {
+  filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 40px rgba(251, 191, 36, 0.5));
+}
+
+.star.empty {
+  opacity: 0.2;
+  filter: grayscale(1);
+}
+
+/* Score Card */
+.score-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 900px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 48px;
+  padding: 60px 50px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+}
+
+.score-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  margin-bottom: 30px;
+}
+
+.score-value {
+  font-size: 160px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #FFFFFF 0%, #E9D5FF 50%, #F9A8D4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.score-unit {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  margin-bottom: 50px;
+}
+
+/* Stats */
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding-top: 50px;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  width: 100%;
+  justify-content: center;
+}
+
+.stat {
+  text-align: center;
+  padding: 0 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  margin-bottom: 12px;
+}
+
+.stat-value {
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 22px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 10px;
+}
+
+.stat-divider {
+  width: 2px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* CTA */
+.cta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 50px;
+  margin-bottom: 40px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(236, 72, 153, 0.2) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 30px;
+  padding: 30px 60px;
+}
+
+.cta-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.cta-text {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 32px;
+  font-weight: 700;
+}
+
+/* Bot link */
+.bot-link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  background: #22C55E;
+  border-radius: 50%;
+  box-shadow: 0 0 20px #22C55E, 0 0 40px #22C55E;
+}
+
+.bot-link span:last-child {
+  color: #A78BFA;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+/* Corners */
+.corner {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+}
+
+.corner.tl {
+  top: 40px;
+  left: 40px;
+  border-left: 4px solid rgba(139, 92, 246, 0.5);
+  border-top: 4px solid rgba(139, 92, 246, 0.5);
+  border-top-left-radius: 24px;
+}
+
+.corner.tr {
+  top: 40px;
+  right: 40px;
+  border-right: 4px solid rgba(139, 92, 246, 0.5);
+  border-top: 4px solid rgba(139, 92, 246, 0.5);
+  border-top-right-radius: 24px;
+}
+
+.corner.bl {
+  bottom: 40px;
+  left: 40px;
+  border-left: 4px solid rgba(236, 72, 153, 0.5);
+  border-bottom: 4px solid rgba(236, 72, 153, 0.5);
+  border-bottom-left-radius: 24px;
+}
+
+.corner.br {
+  bottom: 40px;
+  right: 40px;
+  border-right: 4px solid rgba(236, 72, 153, 0.5);
+  border-bottom: 4px solid rgba(236, 72, 153, 0.5);
+  border-bottom-right-radius: 24px;
+}
+`;
+
+    // Call htmlcsstoimage API with higher quality settings
     const response = await fetch("https://hcti.io/v1/image", {
       method: "POST",
       headers: {
@@ -585,7 +469,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         html,
         css,
-        google_fonts: "Inter",
+        google_fonts: "Manrope:400,500,600,700,800",
+        device_scale: 2, // Retina quality
       }),
     });
 
