@@ -6,6 +6,7 @@ import { useMiniAppSession } from "../../layout";
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 import { useNotify } from "@/components/InAppNotification";
+import { usePerformance } from "@/lib/usePerformance";
 
 type StartResponse = {
   sessionId: number;
@@ -122,11 +123,15 @@ export default function QuizPlayPage() {
   // Animated score
   const animatedScore = useMotionValue(0);
   const displayScore = useTransform(animatedScore, (v) => Math.round(v));
+  
+  // Performance optimization - detect device capabilities
+  const perf = usePerformance();
 
-  // Pre-calculated confetti particles for performance
+  // Pre-calculated confetti particles for performance - reduced based on device
   const confettiParticles = useMemo(() => {
     const colors = ["#8b5cf6", "#ec4899", "#22c55e", "#eab308", "#3b82f6", "#f43f5e", "#06b6d4"];
-    return Array.from({ length: 25 }, (_, i) => ({
+    const particleCount = perf.level === "high" ? 25 : perf.level === "medium" ? 15 : 8;
+    return Array.from({ length: particleCount }, (_, i) => ({
       id: i,
       startX: 5 + (i * 3.6) + (Math.random() * 10 - 5),
       color: colors[i % colors.length],
@@ -543,9 +548,9 @@ export default function QuizPlayPage() {
         className="flex flex-col items-center justify-center min-h-[60vh]"
       >
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a0a0f] to-[#1a1a2e] p-8 text-center max-w-sm mx-auto">
-          {/* Background glow */}
-          <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-amber-500/20 blur-[60px]" />
-          <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-violet-500/20 blur-[60px]" />
+          {/* Background glow - optimized for mobile */}
+          <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full glow-amber" />
+          <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full glow-violet" />
           
           <div className="relative">
             <motion.div
@@ -722,13 +727,14 @@ export default function QuizPlayPage() {
           
           <div className="relative m-[2px] rounded-[30px] bg-[#0a0a0f] overflow-hidden">
             {/* Celebratory background - reduced blur for mobile */}
+            {/* Background glow - GPU optimized, no blur */}
             <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-violet-600/20 blur-2xl" />
-              <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-pink-600/15 blur-2xl" />
+              <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full glow-violet" />
+              <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full glow-pink" />
             </div>
             
-            {/* Floating sparkles */}
-            {[...Array(8)].map((_, i) => (
+            {/* Floating sparkles - performance optimized */}
+            {perf.enableParticles && [...Array(perf.particleCount)].map((_, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0 }}
@@ -739,10 +745,10 @@ export default function QuizPlayPage() {
                 }}
                 transition={{
                   duration: 2,
-                  repeat: Infinity,
+                  repeat: perf.enableInfiniteAnimations ? Infinity : 3,
                   delay: i * 0.2,
                 }}
-                className="absolute text-lg"
+                className="absolute text-lg gpu-accelerated"
                 style={{
                   left: `${10 + i * 11}%`,
                   top: `${25 + (i % 3) * 20}%`,
@@ -824,7 +830,8 @@ export default function QuizPlayPage() {
                 transition={{ delay: 0.9, ...spring }}
                 className="relative mb-8"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 blur-2xl" />
+                {/* Soft glow without blur - GPU optimized */}
+                <div className="absolute inset-0 rounded-3xl soft-glow opacity-60" />
                 <div className="relative inline-block rounded-3xl bg-[#15151f]/90 border border-white/10 px-12 py-6">
                   <p className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
                     <img src="/icons/26.PNG" alt="" className="h-6 w-6 object-contain" />
@@ -1100,15 +1107,15 @@ export default function QuizPlayPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl bg-[#0a0a0f] p-4"
       >
-        {/* Background glow - optimized */}
-        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-violet-600/15 blur-xl" />
-        <div className="absolute -bottom-10 -left-10 w-24 h-24 rounded-full bg-indigo-600/15 blur-2xl" />
+        {/* Background glow - GPU optimized, no blur */}
+        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full glow-violet opacity-60" />
+        <div className="absolute -bottom-10 -left-10 w-24 h-24 rounded-full glow-violet opacity-50" />
         
         <div className="relative flex items-center justify-between">
           {/* Score */}
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl blur-sm opacity-50" />
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/50 to-yellow-600/50 rounded-xl" />
               <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500">
                 <img src="/icons/7.PNG" alt="" className="h-11 w-11 object-contain" />
               </div>
@@ -1220,16 +1227,16 @@ export default function QuizPlayPage() {
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="relative gpu-accelerated"
           >
-            {/* Card glow - reduced for mobile */}
-            <div className="absolute -inset-1 rounded-[28px] bg-gradient-to-r from-violet-500/30 via-purple-500/30 to-pink-500/30 blur-lg opacity-40" />
+            {/* Card glow - GPU optimized shadow */}
+            <div className="absolute -inset-1 rounded-[28px] soft-glow opacity-30" />
             
             {/* Animated border - CSS optimized */}
             <div className="absolute -inset-[1px] rounded-[28px] bg-[conic-gradient(from_0deg,#8b5cf6,#ec4899,#8b5cf6)] opacity-60 animate-spin-slow gpu-accelerated" />
             
             <div className="relative overflow-hidden rounded-[27px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1025]">
-              {/* Background effects - optimized for mobile */}
-              <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full bg-violet-600/15 blur-2xl" />
-              <div className="absolute -right-16 -bottom-16 h-32 w-32 rounded-full bg-pink-600/10 blur-2xl" />
+              {/* Background effects - GPU optimized, no blur */}
+              <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full glow-violet opacity-60" />
+              <div className="absolute -right-16 -bottom-16 h-32 w-32 rounded-full glow-pink opacity-50" />
               
               <div className="relative p-6 pt-5">
                 {/* ═══ TOP ROW: Quiz Info ═══ */}

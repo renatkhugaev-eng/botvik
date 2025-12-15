@@ -7,6 +7,7 @@ import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonProfilePage, SkeletonFriendCard } from "@/components/Skeleton";
+import { usePerformance } from "@/lib/usePerformance";
 
 type SummaryResponse = {
   user: {
@@ -569,14 +570,14 @@ export default function ProfilePage() {
             }}
           />
           
-          {/* Outer glow - simplified, smaller to avoid overflow */}
-          <div className={`absolute -inset-2 rounded-[30px] bg-gradient-to-r ${rank.color} opacity-20 blur-lg gpu-accelerated`} />
+          {/* Outer glow - GPU optimized, no blur */}
+          <div className={`absolute -inset-2 rounded-[30px] bg-gradient-to-r ${rank.color} opacity-15 gpu-accelerated`} />
           
           {/* Main card */}
           <div className="relative overflow-hidden rounded-[26px] bg-[#0a0a0f]">
-            {/* Static gradient orbs - no animation */}
-            <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full bg-violet-600/20 blur-[60px] gpu-accelerated" />
-            <div className="absolute -bottom-20 -right-20 h-60 w-60 rounded-full bg-cyan-600/15 blur-[60px] gpu-accelerated" />
+            {/* Static gradient orbs - GPU optimized, no blur */}
+            <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full glow-violet gpu-accelerated" />
+            <div className="absolute -bottom-20 -right-20 h-60 w-60 rounded-full glow-emerald opacity-60 gpu-accelerated" />
 
             {/* Floating particles - reduced to 6, CSS animation */}
             {[...Array(6)].map((_, i) => (
@@ -1272,7 +1273,7 @@ style={{
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
             onClick={() => {
               setShowAddFriend(false);
               setFriendUsername("");

@@ -7,6 +7,7 @@ import { useMiniAppSession } from "./layout";
 import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
+import { usePerformance } from "@/lib/usePerformance";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -604,10 +605,18 @@ export default function MiniAppPage() {
           }}
           className="relative mb-4"
         >
+          {/* Diffused glow behind avatar - GPU optimized with box-shadow */}
+          <div 
+            className="absolute -inset-4 rounded-full gpu-accelerated"
+            style={{
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.3) 40%, transparent 70%)',
+              filter: 'blur(12px)',
+            }}
+          />
           {/* Animated gradient ring — outer glow */}
-          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-60 animate-spin-slow blur-md" />
+          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-50 animate-spin-slow gpu-accelerated" />
           {/* Animated gradient ring — sharp edge */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow" />
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-pink-500 to-amber-500 opacity-80 animate-spin-slow gpu-accelerated" />
           
           {photoUrl ? (
             <img 
@@ -673,8 +682,8 @@ export default function MiniAppPage() {
         transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
         className="relative"
       >
-        {/* Single unified glassmorphism card */}
-        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/95 to-[#1a1a2e]/95 backdrop-blur-xl p-1">
+        {/* Single unified glassmorphism card - optimized */}
+        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1">
           {/* Animated border glow */}
           <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-amber-500/20 opacity-60" />
           
@@ -689,7 +698,7 @@ export default function MiniAppPage() {
             >
               {/* Telegram icon with glow */}
               <div className="relative">
-                <div className="absolute inset-0 rounded-xl bg-[#2AABEE] blur-md opacity-50" />
+                <div className="absolute inset-0 rounded-xl bg-[#2AABEE]/30" />
                 <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#2AABEE] to-[#1E96D1]">
                   <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
@@ -716,7 +725,7 @@ export default function MiniAppPage() {
             >
               {/* Position badge with glow */}
               <div className="relative">
-                <div className="absolute inset-0 rounded-xl bg-violet-500 blur-md opacity-40" />
+                <div className="absolute inset-0 rounded-xl bg-violet-500/25" />
                 <div className={`relative flex h-10 w-10 items-center justify-center rounded-xl ${
                   !myPosition || myPosition.place === 0
                     ? "bg-white/10"
@@ -802,7 +811,7 @@ export default function MiniAppPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
             onClick={() => setShowSubscribeModal(false)}
           >
             <motion.div
@@ -818,7 +827,7 @@ export default function MiniAppPage() {
                 <motion.div
                   animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm"
+                  className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10"
                 >
                   <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none">
                     <rect x="3" y="11" width="18" height="11" rx="2" fill="url(#lockBody)"/>
@@ -1101,8 +1110,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         style={{ perspective: 1000 }}
         className="relative"
       >
-        {/* Animated spinning border */}
-        <div className="absolute -inset-[2px] rounded-[22px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-60 blur-md" />
+        {/* Animated spinning border - GPU optimized */}
+        <div className="absolute -inset-[2px] rounded-[22px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 opacity-40" />
         <div className="absolute -inset-[2px] rounded-[22px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-70 animate-spin-medium" />
         
         {/* Main container */}
@@ -1196,9 +1205,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center"
               >
-                {/* Glow effect */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400/40 via-purple-500/30 to-pink-500/40 blur-xl animate-pulse" />
-                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-300/30 to-purple-400/20 blur-lg" />
+                {/* Glow effect - GPU optimized */}
+                <div className="absolute inset-0 rounded-full glow-amber animate-pulse gpu-accelerated" />
+                <div className="absolute inset-2 rounded-full glow-violet opacity-50" />
                 
                 {/* Chest image */}
                 <img src="/icons/17.PNG" alt="" className="relative h-20 w-20 object-contain drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
@@ -1210,7 +1219,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4, ...spring }}
-              className="relative mb-4 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] px-4 py-4 backdrop-blur-sm"
+              className="relative mb-4 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] px-4 py-4"
             >
               {/* Shimmer effect */}
               <motion.div
@@ -1250,7 +1259,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                   transition={{ delay: 0.6 + i * 0.1, ...spring }}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
-                  className={`flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r ${tier.bg} px-3 ring-1 ${tier.ring} backdrop-blur-sm`}
+                  className={`flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r ${tier.bg} px-3 ring-1 ${tier.ring}`}
                 >
                   {/* Place badge */}
                   <div className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${tier.gradient} shadow-lg ${tier.shadow}`}>

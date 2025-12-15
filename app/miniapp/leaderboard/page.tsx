@@ -7,6 +7,7 @@ import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonLeaderboardEntry, SkeletonPodium } from "@/components/Skeleton";
+import { usePerformance } from "@/lib/usePerformance";
 
 type LeaderboardEntry = {
   place: number;
@@ -169,7 +170,7 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 p-4"
         >
-          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/5" />
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-[18px] font-black text-white">
@@ -208,7 +209,7 @@ export default function LeaderboardPage() {
           }}
           className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4"
         >
-          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-600/20 blur-2xl" />
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full glow-violet opacity-70" />
           <div className="relative flex items-center justify-between">
             <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-1">Рейтинг</p>
@@ -234,7 +235,7 @@ export default function LeaderboardPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
             onClick={() => setShowSelect(false)}
           >
             <motion.div
@@ -383,9 +384,9 @@ export default function LeaderboardPage() {
               
               {/* Inner card */}
               <div className="relative m-[1px] rounded-[23px] bg-[#0a0a0f] overflow-hidden">
-                {/* Gradient orbs */}
-                <div className="absolute -left-20 -top-20 h-48 w-48 rounded-full bg-violet-600/20 blur-[60px]" />
-                <div className="absolute -right-20 -bottom-20 h-48 w-48 rounded-full bg-indigo-600/15 blur-[60px]" />
+                {/* Gradient orbs - GPU optimized */}
+                <div className="absolute -left-20 -top-20 h-48 w-48 rounded-full glow-violet" />
+                <div className="absolute -right-20 -bottom-20 h-48 w-48 rounded-full glow-violet opacity-60" />
                 
                 {/* Floating particles */}
                 {[...Array(6)].map((_, i) => (
@@ -422,7 +423,7 @@ export default function LeaderboardPage() {
                         className={`flex flex-col items-center w-[80px] ${top3[1].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
                       >
                         <div className="relative mb-2">
-                          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-slate-400 to-slate-300 opacity-50 blur-sm" />
+                          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-slate-400 to-slate-300 opacity-30" />
                           {top3[1].user.photoUrl ? (
                             <img src={top3[1].user.photoUrl} alt="" className="relative h-12 w-12 rounded-full object-cover ring-2 ring-white/10" />
                           ) : (
@@ -456,7 +457,7 @@ export default function LeaderboardPage() {
                         className={`flex flex-col items-center w-[90px] -mt-4 ${top3[0].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
                       >
                         <div className="relative mb-2">
-                          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-60 blur-md animate-pulse" />
+                          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-40 animate-pulse gpu-accelerated" />
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 animate-spin-slow" />
                           {top3[0].user.photoUrl ? (
                             <img src={top3[0].user.photoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white/20" />
@@ -493,7 +494,7 @@ export default function LeaderboardPage() {
                         className={`flex flex-col items-center w-[75px] ${top3[2].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
                       >
                         <div className="relative mb-2">
-                          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 opacity-50 blur-sm" />
+                          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 opacity-30" />
                           {top3[2].user.photoUrl ? (
                             <img src={top3[2].user.photoUrl} alt="" className="relative h-10 w-10 rounded-full object-cover ring-2 ring-white/10" />
                           ) : (
@@ -533,7 +534,7 @@ export default function LeaderboardPage() {
               transition={{ delay: 0.3 }}
               className="rounded-2xl bg-white shadow-xl shadow-black/5 overflow-hidden"
             >
-              <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm px-4 py-3 border-b border-slate-100">
+              <div className="sticky top-0 z-10 bg-white/98 px-4 py-3 border-b border-slate-100">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[13px] font-bold text-[#1a1a2e]">Все участники</h3>
                   <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">

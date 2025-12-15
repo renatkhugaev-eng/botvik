@@ -241,4 +241,98 @@ body {
     30% { opacity: 1; }
     100% { opacity: 0; }
   }
+  
+  /* Disable all infinite animations for battery saving */
+  .animate-spin-slow,
+  .animate-spin-medium,
+  .animate-spin-fast,
+  .animate-float,
+  .animate-shimmer,
+  .animate-bounce-subtle,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERFORMANCE OPTIMIZATIONS FOR MOBILE
+═══════════════════════════════════════════════════════════════════ */
+
+/* Blur-free glow effect - MUCH faster than blur on iOS */
+.glow-violet {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+}
+
+.glow-pink {
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.25) 0%, transparent 70%);
+}
+
+.glow-amber {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%);
+}
+
+.glow-emerald {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%);
+}
+
+/* Soft shadow alternative to blur - uses box-shadow which is GPU accelerated */
+.soft-glow {
+  box-shadow: 
+    0 0 40px rgba(139, 92, 246, 0.3),
+    0 0 80px rgba(139, 92, 246, 0.1);
+}
+
+/* Image optimization - prevent layout shift */
+img {
+  content-visibility: auto;
+}
+
+/* Optimize list rendering */
+.virtual-list > * {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+}
+
+/* iOS-specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Fix iOS Safari bounce and overscroll */
+  .ios-fix {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  
+  /* Reduce blur intensity on iOS for performance */
+  .blur-xl, .blur-2xl, .blur-3xl {
+    --tw-blur: blur(12px) !important;
+  }
+}
+
+/* Pause animations when page is not visible (saves battery) */
+.pause-when-hidden {
+  animation-play-state: running;
+}
+
+html:not(:focus-within) .pause-when-hidden {
+  animation-play-state: paused;
+}
+
+/* Contain paint for complex components */
+.contain-paint {
+  contain: paint;
+}
+
+.contain-layout {
+  contain: layout;
+}
+
+.contain-strict {
+  contain: strict;
+}
+
+/* Force GPU layer for smooth animations */
+.force-gpu {
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
