@@ -8,7 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
-import { fetchWithAuth } from "@/lib/api";
+import { fetchWithAuth, api } from "@/lib/api";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -414,9 +414,8 @@ export default function MiniAppPage() {
     if (session.status !== "ready") return;
     
     // Fetch weekly leaderboard
-    fetchWithAuth(`/api/leaderboard/weekly?userId=${session.user.id}`)
-      .then((r) => r.json())
-      .then((data: WeeklyLeaderboard) => {
+    api.get<WeeklyLeaderboard>(`/api/leaderboard/weekly?userId=${session.user.id}`)
+      .then((data) => {
         setWeeklyData(data);
         
         // Set myPosition from weekly data
