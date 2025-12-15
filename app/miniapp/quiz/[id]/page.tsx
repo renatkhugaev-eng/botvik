@@ -8,6 +8,8 @@ import { haptic } from "@/lib/haptic";
 import { useNotify } from "@/components/InAppNotification";
 import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth } from "@/lib/api";
+import Lottie from "lottie-react";
+import confettiAnimation from "@/public/animations/confetti.json";
 
 type StartResponse = {
   sessionId: number;
@@ -129,24 +131,6 @@ export default function QuizPlayPage() {
 
   // Performance optimization - detect device capabilities
   const perf = usePerformance();
-
-  // Pre-calculated confetti particles for performance - reduced based on device
-  const confettiParticles = useMemo(() => {
-    const colors = ["#8b5cf6", "#ec4899", "#22c55e", "#eab308", "#3b82f6", "#f43f5e", "#06b6d4"];
-    const particleCount = perf.level === "high" ? 25 : perf.level === "medium" ? 15 : 8;
-    return Array.from({ length: particleCount }, (_, i) => ({
-      id: i,
-      startX: 5 + (i * 3.6) + (Math.random() * 10 - 5),
-      color: colors[i % colors.length],
-      width: i % 3 === 0 ? 4 : 8 + (i % 4),
-      height: i % 4 === 0 ? 12 : 8,
-      isCircle: i % 5 === 0,
-      duration: 2 + (i % 3) * 0.3,
-      delay: (i % 8) * 0.05,
-      drift: (i % 2 === 0 ? 1 : -1) * (20 + (i % 5) * 15),
-      rotation: 360 + (i % 4) * 180,
-    }));
-  }, []);
 
   const currentQuestion = useMemo(
     () => (questions.length > 0 && currentIndex < questions.length ? questions[currentIndex] : null),
@@ -440,7 +424,7 @@ export default function QuizPlayPage() {
             return newStreak;
           });
           setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 2000);
+          setTimeout(() => setShowConfetti(false), 4000); // Lottie animation duration
         } else {
           haptic.error();
           setStreak(0);
@@ -1066,48 +1050,22 @@ export default function QuizPlayPage() {
 
   return (
     <div className="flex flex-col gap-4">
-{/* Confetti Effect - CSS optimized for mobile */}
+{/* Confetti Effect - Lottie Animation */}
       <AnimatePresence>
         {showConfetti && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 pointer-events-none z-50 overflow-hidden"
+            className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center"
           >
-            {confettiParticles.map((particle) => (
-              <div
-                key={particle.id}
-                className="absolute gpu-accelerated"
-                style={{
-                  left: `${particle.startX}%`,
-                  top: -20,
-                  width: particle.width,
-                  height: particle.height,
-                  background: particle.color,
-                  borderRadius: particle.isCircle ? '50%' : '2px',
-                  boxShadow: `0 0 4px ${particle.color}`,
-                  animation: `confetti-fall ${particle.duration}s ease-out ${particle.delay}s forwards`,
-                  ['--drift' as string]: `${particle.drift}px`,
-                  ['--rotation' as string]: `${particle.rotation}deg`,
-                }}
-              />
-            ))}
-            
-            {/* Sparkles - reduced */}
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={`sparkle-${i}`}
-                className="absolute text-xl gpu-accelerated"
-                style={{ 
-                  left: `${15 + i * 17}%`,
-                  top: '40%',
-                  animation: `sparkle-pop 1s ease-out ${i * 0.1}s forwards`,
-                }}
-              >
-                ✨
-              </div>
-            ))}
+            <Lottie
+              animationData={confettiAnimation}
+              loop={false}
+              autoplay={true}
+              className="w-full h-full absolute inset-0"
+              style={{ maxWidth: '100vw', maxHeight: '100vh' }}
+            />
           </motion.div>
         )}
       </AnimatePresence>

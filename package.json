@@ -24,6 +24,7 @@
     "@vercel/og": "^0.8.5",
     "framer-motion": "^11.11.17",
     "html2canvas": "^1.4.1",
+    "lottie-react": "^2.4.1",
     "next": "16.0.8",
     "posthog-js": "^1.306.1",
     "react": "19.2.1",

@@ -553,7 +553,7 @@ export default function ProfilePage() {
             <span className="text-lg">⚙️</span>
           </motion.button>
         ) : (
-          <div className="w-11" />
+        <div className="w-11" />
         )}
       </motion.header>
 
