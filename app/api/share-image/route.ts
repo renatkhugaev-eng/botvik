@@ -140,9 +140,13 @@ export async function POST(request: NextRequest) {
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
   padding: 0;
+  width: 1080px;
+  height: 1920px;
+  background: #0A0A12;
+  overflow: hidden;
 }
 
 .card {
@@ -457,7 +461,7 @@ body {
 }
 `;
 
-    // Call htmlcsstoimage API with higher quality settings
+    // Call htmlcsstoimage API with exact Stories dimensions
     const response = await fetch("https://hcti.io/v1/image", {
       method: "POST",
       headers: {
@@ -470,7 +474,11 @@ body {
         html,
         css,
         google_fonts: "Manrope:400,500,600,700,800",
-        device_scale: 2, // Retina quality
+        viewport_width: 1080,
+        viewport_height: 1920,
+        device_scale: 1, // Use 1 since we already specify full size
+        full_page: true,
+        transparent: false, // Ensure no white artifacts
       }),
     });
 
