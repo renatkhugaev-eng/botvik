@@ -149,11 +149,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // ═══ WEEKLY SCORE UPDATE ═══
   // Add this session's score to weekly competition (only if not already finished)
+  console.log("[finish] alreadyFinished:", alreadyFinished, "userId:", session.userId, "score:", finishedSession.totalScore);
+  
   if (!alreadyFinished) {
     try {
       const weekStart = getWeekStart();
+      console.log("[finish] Updating weekly score for user", session.userId, "weekStart:", weekStart.toISOString());
       
-      await prisma.weeklyScore.upsert({
+      const weeklyResult = await prisma.weeklyScore.upsert({
         where: {
           userId_weekStart: {
             userId: session.userId,
@@ -171,6 +174,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           quizzes: 1,
         },
       });
+      console.log("[finish] Weekly score updated:", weeklyResult);
     } catch (weeklyError) {
       // Don't fail the whole request if weekly update fails
       console.error("[finish] Weekly score update failed:", weeklyError);
