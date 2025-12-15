@@ -21,6 +21,7 @@ const MAX_ATTEMPTS = 5;
 const HOURS_PER_ATTEMPT = 4;
 const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000;
 const QUESTION_TIME_MS = 15000;
+const SESSION_ABANDON_MS = 30 * 60 * 1000; // 30 минут — считаем сессию заброшенной
 
 const bypassLimits = 
   process.env.BYPASS_LIMITS === "true" && 
@@ -73,73 +74,100 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const now = new Date();
 
-  // ═══ EXISTING SESSION — Resume with timeout check ═══
+  // ═══ EXISTING SESSION — Check if should resume or abandon ═══
   if (existingSession) {
-    const questions = await getQuestionsOptimized(quizId);
-    
-    let questionStartedAt = existingSession.currentQuestionStartedAt;
-    let currentIndex = existingSession.currentQuestionIndex;
-    let currentStreak = existingSession.currentStreak;
-    let skippedQuestions = 0;
+    const sessionAge = existingSession.currentQuestionStartedAt 
+      ? now.getTime() - existingSession.currentQuestionStartedAt.getTime()
+      : SESSION_ABANDON_MS + 1; // No start time = abandoned
 
-    // Check for timeouts
-    if (questionStartedAt) {
-      const elapsedMs = now.getTime() - questionStartedAt.getTime();
-      
-      if (elapsedMs >= QUESTION_TIME_MS && currentIndex < questions.length) {
-        // Timeout — skip to next question
-        const currentQuestion = questions[currentIndex];
-        
-        // Check if answer already exists
-        const existingAnswer = await prisma.answer.findUnique({
-          where: { sessionId_questionId: { sessionId: existingSession.id, questionId: currentQuestion.id } },
-          select: { id: true },
-        });
-
-        if (!existingAnswer) {
-          // Record timeout and move to next
-          await prisma.$transaction([
-            prisma.answer.create({
-              data: {
-                sessionId: existingSession.id,
-                questionId: currentQuestion.id,
-                optionId: null,
-                isCorrect: false,
-                timeSpentMs: QUESTION_TIME_MS,
-                scoreDelta: 0,
-              },
-            }),
-            prisma.quizSession.update({
-              where: { id: existingSession.id },
-              data: {
-                currentQuestionIndex: currentIndex + 1,
-                currentQuestionStartedAt: now,
-                currentStreak: 0,
-              },
-            }),
-          ]);
-          
-          currentIndex++;
-          currentStreak = 0;
-          questionStartedAt = now;
-          skippedQuestions = 1;
-        }
-      }
-    } else {
-      // Set start time for current question
-      await prisma.quizSession.update({
-        where: { id: existingSession.id },
-        data: { currentQuestionStartedAt: now },
-      });
-      questionStartedAt = now;
-    }
-
-    // Check if quiz is finished
-    if (currentIndex >= questions.length) {
+    // ═══ ABANDON OLD SESSION ═══
+    // If session is older than 30 minutes, mark as finished and create new one
+    if (sessionAge > SESSION_ABANDON_MS) {
       await prisma.quizSession.update({
         where: { id: existingSession.id },
         data: { finishedAt: now },
       });
+      // Continue to create new session below
+    } else {
+      // ═══ RESUME ACTIVE SESSION ═══
+      const questions = await getQuestionsOptimized(quizId);
+      
+      let questionStartedAt = existingSession.currentQuestionStartedAt;
+      let currentIndex = existingSession.currentQuestionIndex;
+      let currentStreak = existingSession.currentStreak;
+      let skippedQuestions = 0;
+
+      // Check for timeouts (only if within reasonable time)
+      if (questionStartedAt) {
+        const elapsedMs = now.getTime() - questionStartedAt.getTime();
+        
+        if (elapsedMs >= QUESTION_TIME_MS && currentIndex < questions.length) {
+          // Timeout — skip to next question
+          const currentQuestion = questions[currentIndex];
+          
+          const existingAnswer = await prisma.answer.findUnique({
+            where: { sessionId_questionId: { sessionId: existingSession.id, questionId: currentQuestion.id } },
+            select: { id: true },
+          });
+
+          if (!existingAnswer) {
+            await prisma.$transaction([
+              prisma.answer.create({
+                data: {
+                  sessionId: existingSession.id,
+                  questionId: currentQuestion.id,
+                  optionId: null,
+                  isCorrect: false,
+                  timeSpentMs: QUESTION_TIME_MS,
+                  scoreDelta: 0,
+                },
+              }),
+              prisma.quizSession.update({
+                where: { id: existingSession.id },
+                data: {
+                  currentQuestionIndex: currentIndex + 1,
+                  currentQuestionStartedAt: now,
+                  currentStreak: 0,
+                },
+              }),
+            ]);
+            
+            currentIndex++;
+            currentStreak = 0;
+            questionStartedAt = now;
+            skippedQuestions = 1;
+          }
+        }
+      } else {
+        await prisma.quizSession.update({
+          where: { id: existingSession.id },
+          data: { currentQuestionStartedAt: now },
+        });
+        questionStartedAt = now;
+      }
+
+      // Check if quiz is finished
+      if (currentIndex >= questions.length) {
+        await prisma.quizSession.update({
+          where: { id: existingSession.id },
+          data: { finishedAt: now },
+        });
+
+        return NextResponse.json({
+          sessionId: existingSession.id,
+          quizId,
+          attemptNumber: existingSession.attemptNumber,
+          totalQuestions: questions.length,
+          totalScore: existingSession.totalScore,
+          currentQuestionIndex: currentIndex,
+          currentStreak: 0,
+          questions,
+          serverTime: now.toISOString(),
+          questionStartedAt: now.toISOString(),
+          finished: true,
+          skippedQuestions,
+        });
+      }
 
       return NextResponse.json({
         sessionId: existingSession.id,
@@ -148,28 +176,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         totalQuestions: questions.length,
         totalScore: existingSession.totalScore,
         currentQuestionIndex: currentIndex,
-        currentStreak: 0,
+        currentStreak: currentStreak,
         questions,
         serverTime: now.toISOString(),
-        questionStartedAt: now.toISOString(),
-        finished: true,
-        skippedQuestions,
+        questionStartedAt: questionStartedAt?.toISOString() ?? now.toISOString(),
+        skippedQuestions: skippedQuestions > 0 ? skippedQuestions : undefined,
       });
     }
-
-    return NextResponse.json({
-      sessionId: existingSession.id,
-      quizId,
-      attemptNumber: existingSession.attemptNumber,
-      totalQuestions: questions.length,
-      totalScore: existingSession.totalScore,
-      currentQuestionIndex: currentIndex,
-      currentStreak: currentStreak,
-      questions,
-      serverTime: now.toISOString(),
-      questionStartedAt: questionStartedAt?.toISOString() ?? now.toISOString(),
-      skippedQuestions: skippedQuestions > 0 ? skippedQuestions : undefined,
-    });
   }
 
   // ═══ NEW SESSION — Check energy and create ═══
