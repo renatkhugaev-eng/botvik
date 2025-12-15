@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Script from "next/script";
 import { NotificationProvider } from "@/components/InAppNotification";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { setUser, addBreadcrumb } from "@/lib/sentry";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -138,6 +140,13 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
         if (!aborted) {
           setSession({ status: "ready", user: data.user });
+          // Set user context for Sentry
+          setUser({
+            id: data.user.id,
+            telegramId: data.user.telegramId,
+            username: data.user.username,
+          });
+          addBreadcrumb("User authenticated", "auth", { userId: data.user.id });
         }
       } catch (err) {
         console.error("Auth error", err);
@@ -181,15 +190,17 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
   return (
     <MiniAppContext.Provider value={session}>
       <NotificationProvider>
-        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-        <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
-          <div 
-            className="w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
-            style={{ overflowX: 'clip', maxWidth: '100%' }}
-          >
-            {content}
+        <ErrorBoundary>
+          <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+          <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
+            <div 
+              className="w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
+              style={{ overflowX: 'clip', maxWidth: '100%' }}
+            >
+              {content}
+            </div>
           </div>
-        </div>
+        </ErrorBoundary>
       </NotificationProvider>
     </MiniAppContext.Provider>
   );
