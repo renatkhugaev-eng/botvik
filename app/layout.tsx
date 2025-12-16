@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Manrope } from "next/font/google";
 import "./globals.css";
 import { PosthogProvider } from "@/components/PosthogProvider";
+import { Analytics } from "@vercel/analytics/react";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -33,6 +34,7 @@ export default function RootLayout({
         <PosthogProvider>
           {children}
         </PosthogProvider>
+        <Analytics />
       </body>
     </html>
   );
