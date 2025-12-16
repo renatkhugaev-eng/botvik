@@ -145,7 +145,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
-                src="/icons/36.PNG" 
+                src="/icons/36.webp" 
                 alt="" 
                 style={{ width: 32, height: 32, objectFit: "contain" }}
               />
@@ -220,7 +220,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                 )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
-                  src="/icons/5.PNG" 
+                  src="/icons/5.webp" 
                   alt="" 
                   style={{ 
                     position: "relative",
@@ -276,7 +276,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
               }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
-                  src="/icons/trophy.png" 
+                  src="/icons/trophy.webp" 
                   alt="" 
                   style={{ width: 28, height: 28, objectFit: "contain" }}
                 />
@@ -301,7 +301,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
               }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
-                  src="/icons/coin.png" 
+                  src="/icons/coin.webp" 
                   alt="" 
                   style={{ width: 48, height: 48, objectFit: "contain" }}
                 />
@@ -348,7 +348,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
-                    src="/icons/38.PNG" 
+                    src="/icons/38.webp" 
                     alt="" 
                     style={{ 
                       width: 32, 
@@ -398,7 +398,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
-                    src="/icons/medal.png" 
+                    src="/icons/medal.webp" 
                     alt="" 
                     style={{ 
                       width: 32, 
@@ -440,7 +440,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
-                    src="/icons/fire-medal.png" 
+                    src="/icons/fire-medal.webp" 
                     alt="" 
                     style={{ 
                       width: 32, 
@@ -490,7 +490,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
               }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
-                  src="/icons/51.PNG" 
+                  src="/icons/51.webp" 
                   alt="" 
                   style={{ width: 24, height: 24, objectFit: "contain" }}
                 />
@@ -517,7 +517,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
-                src="/icons/49.PNG" 
+                src="/icons/49.webp" 
                 alt="" 
                 style={{ width: 28, height: 28, objectFit: "contain" }}
               />

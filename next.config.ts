@@ -5,49 +5,94 @@ const nextConfig: NextConfig = {
   // React Compiler for automatic optimizations
   reactCompiler: true,
   
-  // Image optimization
+  // Image optimization for LCP
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
     deviceSizes: [640, 750, 828, 1080, 1200],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    // Domains for external images (Telegram avatars)
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 't.me',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.telegram.org',
+      },
+    ],
   },
   
   // Experimental optimizations
   experimental: {
-    // Optimize CSS
+    // Optimize CSS for faster first paint
     optimizeCss: true,
-    // Optimize package imports
-    optimizePackageImports: ['framer-motion', '@sentry/nextjs'],
+    // Optimize package imports for smaller bundles
+    optimizePackageImports: [
+      'framer-motion',
+      '@sentry/nextjs',
+      'posthog-js',
+      'lottie-react',
+    ],
+  },
+  
+  // Compiler optimizations
+  compiler: {
+    // Remove console.log in production
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
+  
+  // Headers for caching and performance
+  async headers() {
+    return [
+      {
+        // Cache static assets aggressively
+        source: '/icons/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // Cache animations
+        source: '/animations/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // Preload hints for Telegram
+        source: '/miniapp/:path*',
+        headers: [
+          {
+            key: 'Link',
+            value: '<https://telegram.org>; rel=preconnect',
+          },
+        ],
+      },
+    ];
   },
 };
 
 // Sentry configuration options
 const sentryConfig = {
-  // For all available options, see:
-  // https://github.com/getsentry/sentry-webpack-plugin#options
-
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-
-  // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
-
-  // Upload source maps for better stack traces
   widenClientFileUpload: true,
-
-  // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
-
-  // Hides source maps from generated client bundles
   hideSourceMaps: true,
-
-  // Automatically instrument React components (experimental)
   reactComponentAnnotation: {
     enabled: true,
   },
-
-  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers
   tunnelRoute: "/monitoring",
 };
 

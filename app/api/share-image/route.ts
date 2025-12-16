@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     
     // Generate filled/empty stars using custom icon
     const starsHTML = [1, 2, 3, 4, 5].map(i => 
-      `<img class="star ${i <= stars ? 'filled' : 'empty'}" src="${baseUrl}/icons/5.PNG" alt="★">`
+      `<img class="star ${i <= stars ? 'filled' : 'empty'}" src="${baseUrl}/icons/5.webp" alt="★">`
     ).join('');
 
     const html = `<!DOCTYPE html>
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     <div class="content">
       <!-- Logo/Quiz badge -->
       <div class="badge">
-        <img class="badge-icon" src="${baseUrl}/icons/36.PNG" alt="">
+        <img class="badge-icon" src="${baseUrl}/icons/36.webp" alt="">
         <span class="badge-text">${quizTitle}</span>
       </div>
       
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       
       <!-- Rank -->
       <div class="rank" style="--rank-color: ${rank.color}">
-        <img class="rank-icon" src="${baseUrl}/icons/trophy.png" alt="">
+        <img class="rank-icon" src="${baseUrl}/icons/trophy.webp" alt="">
         <span class="rank-text">${rank.title}</span>
       </div>
       
@@ -92,19 +92,19 @@ export async function POST(request: NextRequest) {
         <!-- Stats -->
         <div class="stats">
           <div class="stat">
-            <img class="stat-icon" src="${baseUrl}/icons/38.PNG" alt="">
+            <img class="stat-icon" src="${baseUrl}/icons/38.webp" alt="">
             <div class="stat-value" style="color: #22C55E">${correct}/${total}</div>
             <div class="stat-label">верных</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <img class="stat-icon" src="${baseUrl}/icons/medal.png" alt="">
+            <img class="stat-icon" src="${baseUrl}/icons/medal.webp" alt="">
             <div class="stat-value" style="color: ${accuracy >= 70 ? '#22C55E' : accuracy >= 50 ? '#FBBF24' : '#EF4444'}">${accuracy}%</div>
             <div class="stat-label">точность</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <img class="stat-icon" src="${baseUrl}/icons/fire-medal.png" alt="">
+            <img class="stat-icon" src="${baseUrl}/icons/fire-medal.webp" alt="">
             <div class="stat-value" style="color: #F97316">${streak}</div>
             <div class="stat-label">серия</div>
           </div>
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       
       <!-- CTA -->
       <div class="cta">
-        <img class="cta-icon" src="${baseUrl}/icons/49.PNG" alt="">
+        <img class="cta-icon" src="${baseUrl}/icons/49.webp" alt="">
         <div class="cta-text">Сможешь лучше? Проверь себя!</div>
       </div>
       

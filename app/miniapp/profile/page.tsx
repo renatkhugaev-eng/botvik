@@ -98,11 +98,11 @@ function formatDate(value: string | Date | null | undefined) {
 }
 
 const ranks = [
-  { min: 0, label: "Новичок", icon: "/icons/36.PNG?v=2", color: "from-slate-400 to-slate-500", accent: "#64748b" },
-  { min: 500, label: "Следопыт", icon: "/icons/51.PNG?v=2", color: "from-emerald-500 to-teal-600", accent: "#10b981" },
-  { min: 1000, label: "Детектив", icon: "/icons/55.PNG?v=2", color: "from-blue-500 to-indigo-600", accent: "#3b82f6" },
-  { min: 2000, label: "Профайлер", icon: "/icons/36.PNG?v=2", color: "from-violet-500 to-purple-600", accent: "#8b5cf6" },
-  { min: 5000, label: "Легенда", icon: "/icons/38.PNG?v=2", color: "from-amber-400 to-orange-500", accent: "#f59e0b" },
+  { min: 0, label: "Новичок", icon: "/icons/36.webp?v=2", color: "from-slate-400 to-slate-500", accent: "#64748b" },
+  { min: 500, label: "Следопыт", icon: "/icons/51.webp?v=2", color: "from-emerald-500 to-teal-600", accent: "#10b981" },
+  { min: 1000, label: "Детектив", icon: "/icons/55.webp?v=2", color: "from-blue-500 to-indigo-600", accent: "#3b82f6" },
+  { min: 2000, label: "Профайлер", icon: "/icons/36.webp?v=2", color: "from-violet-500 to-purple-600", accent: "#8b5cf6" },
+  { min: 5000, label: "Легенда", icon: "/icons/38.webp?v=2", color: "from-amber-400 to-orange-500", accent: "#f59e0b" },
 ];
 
 function getRank(score: number) {
@@ -768,7 +768,7 @@ export default function ProfilePage() {
                 >
                   <div className="flex items-center justify-between text-[12px] mb-2">
                   <span className="text-white/50 flex items-center gap-1.5">
-                    <img src="/icons/34.PNG" alt="" className="h-5 w-5 object-contain" /> Уровень {xp.level}
+                    <img src="/icons/34.webp" alt="" className="h-5 w-5 object-contain" /> Уровень {xp.level}
                   </span>
                   <span className="font-mono text-white/70 tabular-nums">{xp.xpInCurrentLevel} / {xp.xpNeededForNext} XP</span>
                   </div>
@@ -800,7 +800,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <img src="/icons/7.PNG" alt="" className="h-10 w-10 object-contain" />
+                      <img src="/icons/7.webp" alt="" className="h-10 w-10 object-contain" />
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
                     </div>
                     <p
@@ -838,7 +838,7 @@ style={{
                     transition={{ delay: 0.9 }}
                     className="mt-4 flex items-center justify-center gap-2"
                   >
-                    <img src="/icons/54.PNG" alt="" className="h-6 w-6 object-contain" />
+                    <img src="/icons/54.webp" alt="" className="h-6 w-6 object-contain" />
                     <span className="text-[13px] font-semibold text-white/60">
                       Место в общем рейтинге:
                     </span>
@@ -869,9 +869,9 @@ style={{
         className="flex gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-black/5"
       >
         {[
-          { id: "stats" as const, label: "Статистика", icon: <img src="/icons/22.PNG" alt="" className="h-5 w-5 object-contain" /> },
-          { id: "history" as const, label: "Рекорды", icon: <img src="/icons/19.PNG" alt="" className="h-6 w-6 object-contain" /> },
-          { id: "friends" as const, label: "Друзья", icon: <img src="/icons/6.PNG" alt="" className="h-6 w-6 object-contain" /> },
+          { id: "stats" as const, label: "Статистика", icon: <img src="/icons/22.webp" alt="" className="h-5 w-5 object-contain" /> },
+          { id: "history" as const, label: "Рекорды", icon: <img src="/icons/19.webp" alt="" className="h-6 w-6 object-contain" /> },
+          { id: "friends" as const, label: "Друзья", icon: <img src="/icons/6.webp" alt="" className="h-6 w-6 object-contain" /> },
         ].map((tab) => (
           <motion.button
             key={tab.id}
@@ -922,10 +922,10 @@ style={{
             {/* Stats — 2x2 Grid */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { icon: <img src="/icons/56.PNG" alt="" className="h-6 w-6 object-contain" />, label: "Игры", value: data.stats.totalQuizzesPlayed, color: "#6366f1" },
-                { icon: <img src="/icons/31.PNG" alt="" className="h-6 w-6 object-contain" />, label: "Попытки", value: data.stats.totalSessions, color: "#06b6d4" },
-                { icon: <img src="/icons/51.PNG" alt="" className="h-6 w-6 object-contain" />, label: "Верные", value: data.stats.totalCorrectAnswers, color: "#10b981" },
-                { icon: <img src="/icons/22.PNG" alt="" className="h-6 w-6 object-contain" />, label: "Точность", value: accuracy, suffix: "%", color: "#f59e0b" },
+                { icon: <img src="/icons/56.webp" alt="" className="h-6 w-6 object-contain" />, label: "Игры", value: data.stats.totalQuizzesPlayed, color: "#6366f1" },
+                { icon: <img src="/icons/31.webp" alt="" className="h-6 w-6 object-contain" />, label: "Попытки", value: data.stats.totalSessions, color: "#06b6d4" },
+                { icon: <img src="/icons/51.webp" alt="" className="h-6 w-6 object-contain" />, label: "Верные", value: data.stats.totalCorrectAnswers, color: "#10b981" },
+                { icon: <img src="/icons/22.webp" alt="" className="h-6 w-6 object-contain" />, label: "Точность", value: accuracy, suffix: "%", color: "#f59e0b" },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -983,7 +983,7 @@ style={{
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-2xl shadow-lg">
-                  {data.stats.totalQuizzesPlayed >= 10 ? <img src="/icons/51.PNG" alt="" className="h-10 w-10 object-contain" /> : data.stats.totalQuizzesPlayed >= 5 ? <img src="/icons/19.PNG" alt="" className="h-10 w-10 object-contain" /> : <img src="/icons/22.PNG" alt="" className="h-10 w-10 object-contain" />}
+                  {data.stats.totalQuizzesPlayed >= 10 ? <img src="/icons/51.webp" alt="" className="h-10 w-10 object-contain" /> : data.stats.totalQuizzesPlayed >= 5 ? <img src="/icons/19.webp" alt="" className="h-10 w-10 object-contain" /> : <img src="/icons/22.webp" alt="" className="h-10 w-10 object-contain" />}
                 </div>
                 <div className="flex-1">
                   <p className="text-[14px] font-bold text-[#1a1a2e]">
@@ -1027,7 +1027,7 @@ style={{
                 <div className="relative bg-white rounded-2xl overflow-hidden">
                 <div className="bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] p-4">
                   <div className="flex items-center gap-2">
-                    <img src="/icons/31.PNG" alt="" className="h-6 w-6 object-contain" />
+                    <img src="/icons/31.webp" alt="" className="h-6 w-6 object-contain" />
                     <span className="text-[13px] font-semibold text-white/80">Последняя игра</span>
                   </div>
                 </div>
@@ -1065,7 +1065,7 @@ style={{
           >
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img src="/icons/54.PNG" alt="" className="h-10 w-10 object-contain" />
+                <img src="/icons/54.webp" alt="" className="h-10 w-10 object-contain" />
                 <h3 className="font-display text-[17px] font-bold text-[#1a1a2e]">Лучшие результаты</h3>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-500">
@@ -1075,7 +1075,7 @@ style={{
             
             {data.stats.bestScoreByQuiz.length === 0 ? (
               <div className="flex flex-col items-center py-12">
-                <img src="/icons/22.PNG" alt="" className="h-20 w-20 object-contain animate-bounce" />
+                <img src="/icons/22.webp" alt="" className="h-20 w-20 object-contain animate-bounce" />
                 <p className="mt-6 text-[16px] font-semibold text-slate-600">Пока нет рекордов</p>
                 <p className="mt-2 text-[14px] text-slate-400">Пройди свою первую викторину!</p>
                 <motion.button
@@ -1169,7 +1169,7 @@ style={{
                 {incomingRequests.length > 0 && (
                   <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 p-4 shadow-lg">
                     <div className="flex items-center gap-2 mb-3">
-                      <img src="/icons/6.PNG" alt="" className="h-6 w-6 object-contain" />
+                      <img src="/icons/6.webp" alt="" className="h-6 w-6 object-contain" />
                       <h3 className="text-[14px] font-bold text-white">Заявки в друзья</h3>
                       <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">
                         {incomingRequests.length}
@@ -1260,7 +1260,7 @@ style={{
                 {/* Friends List */}
                 {friends.length === 0 && incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
                   <div className="rounded-2xl bg-white p-8 shadow-lg shadow-black/5 text-center">
-                    <img src="/icons/6.PNG" alt="" className="h-16 w-16 mx-auto mb-4 object-contain" />
+                    <img src="/icons/6.webp" alt="" className="h-16 w-16 mx-auto mb-4 object-contain" />
                     <p className="text-[16px] font-bold text-[#1a1a2e]">Пока нет друзей</p>
                     <p className="text-[14px] text-slate-400 mt-2">
                       Отправь заявку по username,<br />друг получит уведомление
@@ -1270,7 +1270,7 @@ style={{
                   <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100">
                       <h3 className="text-[14px] font-bold text-[#1a1a2e] flex items-center gap-2">
-                        <img src="/icons/6.PNG" alt="" className="h-6 w-6 object-contain" />
+                        <img src="/icons/6.webp" alt="" className="h-6 w-6 object-contain" />
                         Мои друзья ({friends.length})
                       </h3>
                     </div>
@@ -1315,7 +1315,7 @@ style={{
                             <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
                               <div className="text-center flex-1">
                                 <div className="flex items-center justify-center gap-1">
-                                  <img src="/icons/7.PNG" alt="" className="h-9 w-9 object-contain" />
+                                  <img src="/icons/7.webp" alt="" className="h-9 w-9 object-contain" />
                                   <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.totalScore}</p>
                                 </div>
                                 <p className="text-[10px] text-slate-400">очков</p>
@@ -1380,7 +1380,7 @@ style={{
             >
               <div className="text-center mb-6">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600">
-                  <img src="/icons/6.PNG" alt="" className="h-10 w-10 object-contain" />
+                  <img src="/icons/6.webp" alt="" className="h-10 w-10 object-contain" />
                 </div>
                 <h2 className="font-display text-[20px] font-bold text-[#1a1a2e]">Добавить друга</h2>
                 <p className="text-[14px] text-slate-400 mt-1">Введи username друга в Telegram</p>
@@ -1454,28 +1454,28 @@ style={{
           <NotificationToggle
             label="Level Up"
             description="Когда достигаешь нового уровня"
-            icon={<img src="/icons/38.PNG" alt="" className="h-7 w-7 object-contain" />}
+            icon={<img src="/icons/38.webp" alt="" className="h-7 w-7 object-contain" />}
             enabled={notifySettings.notifyLevelUp}
             onChange={(v) => updateNotifySetting("notifyLevelUp", v)}
           />
           <NotificationToggle
             label="Энергия"
             description="Когда энергия восстановлена"
-            icon={<img src="/icons/11.PNG" alt="" className="h-7 w-7 object-contain" />}
+            icon={<img src="/icons/11.webp" alt="" className="h-7 w-7 object-contain" />}
             enabled={notifySettings.notifyEnergyFull}
             onChange={(v) => updateNotifySetting("notifyEnergyFull", v)}
           />
           <NotificationToggle
             label="Напоминания"
             description="Ежедневные напоминания об игре"
-            icon={<img src="/icons/30.PNG" alt="" className="h-7 w-7 object-contain" />}
+            icon={<img src="/icons/30.webp" alt="" className="h-7 w-7 object-contain" />}
             enabled={notifySettings.notifyDailyReminder}
             onChange={(v) => updateNotifySetting("notifyDailyReminder", v)}
           />
           <NotificationToggle
             label="Друзья"
             description="Активность друзей"
-            icon={<img src="/icons/6.PNG" alt="" className="h-7 w-7 object-contain" />}
+            icon={<img src="/icons/6.webp" alt="" className="h-7 w-7 object-contain" />}
             enabled={notifySettings.notifyFriends}
             onChange={(v) => updateNotifySetting("notifyFriends", v)}
           />

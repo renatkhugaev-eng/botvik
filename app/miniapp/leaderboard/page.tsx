@@ -499,7 +499,7 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col items-center justify-center py-16"
         >
-          <img src="/icons/22.PNG" alt="" className="h-20 w-20 object-contain mb-4" />
+          <img src="/icons/22.webp" alt="" className="h-20 w-20 object-contain mb-4" />
           <p className="text-[16px] font-bold text-[#1a1a2e]">Пока нет результатов</p>
           <p className="text-[14px] text-slate-400 mt-1">Будь первым!</p>
           <motion.button
@@ -552,7 +552,7 @@ export default function LeaderboardPage() {
                 
                 <div className="relative p-5">
                   <div className="flex items-center justify-center gap-2 mb-6">
-                    <img src="/icons/54.PNG" alt="" className="h-12 w-12 object-contain" />
+                    <img src="/icons/54.webp" alt="" className="h-12 w-12 object-contain" />
                     <h3 className="text-[13px] font-bold uppercase tracking-[0.15em] text-white/50">
                       {tabMode === "weekly" && quizId === null ? "Топ недели" : "Топ игроки"}
                     </h3>
@@ -585,7 +585,7 @@ export default function LeaderboardPage() {
                             </div>
                           )}
                         </div>
-                        <img src="/icons/medal.png" alt="2" className="h-10 w-10 object-contain mb-1" />
+                        <img src="/icons/medal.webp" alt="2" className="h-10 w-10 object-contain mb-1" />
                         <p className="text-[11px] font-semibold text-white/70 truncate w-full text-center">
                           {top3[1].user.id === currentUserId ? "Ты" : (top3[1].user.username ?? top3[1].user.firstName ?? "Игрок")}
                         </p>
@@ -620,7 +620,7 @@ export default function LeaderboardPage() {
                             </div>
                           )}
                         </div>
-                        <img src="/icons/fire-medal.png" alt="1" className="h-12 w-12 object-contain mb-1" />
+                        <img src="/icons/fire-medal.webp" alt="1" className="h-12 w-12 object-contain mb-1" />
                         <p className="text-[12px] font-bold text-white truncate w-full text-center">
                           {top3[0].user.id === currentUserId ? "Ты" : (top3[0].user.username ?? top3[0].user.firstName ?? "Игрок")}
                         </p>
@@ -656,7 +656,7 @@ export default function LeaderboardPage() {
                             </div>
                           )}
                         </div>
-                        <img src="/icons/medal.png" alt="3" className="h-9 w-9 object-contain mb-1 opacity-80" />
+                        <img src="/icons/medal.webp" alt="3" className="h-9 w-9 object-contain mb-1 opacity-80" />
                         <p className="text-[10px] font-semibold text-white/60 truncate w-full text-center">
                           {top3[2].user.id === currentUserId ? "Ты" : (top3[2].user.username ?? top3[2].user.firstName ?? "Игрок")}
                         </p>
@@ -766,9 +766,9 @@ export default function LeaderboardPage() {
             className="grid grid-cols-3 gap-3"
           >
             {[
-              { label: "Участников", value: entries.length, icon: null, img: "/icons/41.PNG" },
-              { label: "Лучший счёт", value: leaderScore, icon: null, img: "/icons/7.PNG" },
-              { label: "Средний счёт", value: entries.length > 0 ? Math.round(entries.reduce((s, e) => s + e.score, 0) / entries.length) : 0, icon: null, img: "/icons/22.PNG" },
+              { label: "Участников", value: entries.length, icon: null, img: "/icons/41.webp" },
+              { label: "Лучший счёт", value: leaderScore, icon: null, img: "/icons/7.webp" },
+              { label: "Средний счёт", value: entries.length > 0 ? Math.round(entries.reduce((s, e) => s + e.score, 0) / entries.length) : 0, icon: null, img: "/icons/22.webp" },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl bg-white p-3 shadow-lg shadow-black/5 text-center">
                 {stat.img ? (
