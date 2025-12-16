@@ -26,8 +26,8 @@ export function WebVitalsOverlay() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Always show for debugging (change to false after testing)
-    const DEBUG_ALWAYS_SHOW = true;
+    // Set to true for debugging, false for production
+    const DEBUG_ALWAYS_SHOW = false;
     
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
