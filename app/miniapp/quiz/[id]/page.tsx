@@ -500,7 +500,7 @@ export default function QuizPlayPage() {
   // Loading
   if (loading) {
     return (
-      <div className="flex flex-col gap-4 animate-pulse">
+      <div className="flex flex-col gap-4 animate-pulse" style={{ contain: 'layout', minHeight: 500 }}>
         <div className="h-20 rounded-3xl bg-gradient-to-r from-violet-900/50 to-indigo-900/50" />
         <div className="h-[400px] rounded-3xl bg-gradient-to-br from-[#0a0a0f] to-[#1a1a2e]" />
       </div>
@@ -1008,7 +1008,7 @@ export default function QuizPlayPage() {
   const isWarning = timeLeft <= 10 && timeLeft > 5;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" style={{ contain: 'layout' }}>
 {/* Confetti Effect - Lottie Animation */}
       <AnimatePresence>
         {showConfetti && (

@@ -537,6 +537,7 @@ export default function LeaderboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               className="relative overflow-hidden rounded-[24px] bg-[#0a0a0f]"
+              style={{ contain: 'layout' }}
             >
               {/* Conic gradient border */}
               <div className="absolute -inset-[1px] rounded-[24px] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#06b6d4,#8b5cf6)] opacity-40 animate-spin-slow" />
@@ -568,7 +569,7 @@ export default function LeaderboardPage() {
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-slate-400 to-slate-300 opacity-30" />
                           {top3[1].user.photoUrl ? (
-                            <img src={top3[1].user.photoUrl} alt="" className="relative h-12 w-12 rounded-full object-cover ring-2 ring-white/10" />
+                            <img src={top3[1].user.photoUrl} alt="" width={48} height={48} className="relative h-12 w-12 rounded-full object-cover ring-2 ring-white/10" style={{ aspectRatio: '1/1' }} />
                           ) : (
                             <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-300 to-slate-400 ring-2 ring-white/10">
                               <span className="text-base font-black text-white">
@@ -603,7 +604,7 @@ export default function LeaderboardPage() {
                           <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-40 animate-pulse gpu-accelerated" />
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 animate-spin-slow" />
                           {top3[0].user.photoUrl ? (
-                            <img src={top3[0].user.photoUrl} alt="" className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white/20" />
+                            <img src={top3[0].user.photoUrl} alt="" width={64} height={64} className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white/20" style={{ aspectRatio: '1/1' }} />
                           ) : (
                             <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 ring-2 ring-white/20">
                               <span className="text-xl font-black text-white">
@@ -639,7 +640,7 @@ export default function LeaderboardPage() {
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 opacity-30" />
                           {top3[2].user.photoUrl ? (
-                            <img src={top3[2].user.photoUrl} alt="" className="relative h-10 w-10 rounded-full object-cover ring-2 ring-white/10" />
+                            <img src={top3[2].user.photoUrl} alt="" width={40} height={40} className="relative h-10 w-10 rounded-full object-cover ring-2 ring-white/10" style={{ aspectRatio: '1/1' }} />
                           ) : (
                             <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 ring-2 ring-white/10">
                               <span className="text-sm font-black text-white">
@@ -676,6 +677,7 @@ export default function LeaderboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               className="rounded-2xl bg-white shadow-xl shadow-black/5 overflow-hidden"
+              style={{ contain: 'layout' }}
             >
               <div className="sticky top-0 z-10 bg-white/98 px-4 py-3 border-b border-slate-100">
                 <div className="flex items-center justify-between">
@@ -713,7 +715,7 @@ export default function LeaderboardPage() {
                         {/* Avatar */}
                         <div className="relative">
                           {entry.user.photoUrl ? (
-                            <img src={entry.user.photoUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+                            <img src={entry.user.photoUrl} alt="" width={36} height={36} className="h-9 w-9 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
                           ) : (
                             <div className={`flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br ${getPositionGradient(entry.place)} text-[12px] font-bold text-white`}>
                               {name[0].toUpperCase()}

@@ -602,7 +602,7 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...smoothSpring, delay: 0.1 }}
         className="relative gpu-accelerated"
-        style={{ perspective: isTouch ? "none" : 1000 }}
+        style={{ perspective: isTouch ? "none" : 1000, contain: 'layout' }}
       >
         <div
           ref={cardRef}
@@ -710,7 +710,10 @@ export default function ProfilePage() {
                       <img 
                         src={photoUrl} 
                         alt={displayName}
+                        width={96}
+                        height={96}
                         className="relative h-24 w-24 rounded-full object-cover ring-4 ring-black gpu-accelerated"
+                        style={{ aspectRatio: '1/1' }}
                       />
                     </motion.div>
                   ) : (
@@ -929,6 +932,7 @@ style={{
             exit={{ opacity: 0, x: 30 }}
             transition={{ duration: 0.2 }}
             className="flex flex-col gap-4"
+            style={{ contain: 'layout' }}
           >
             {/* Stats — 2x2 Grid */}
             <div className="grid grid-cols-2 gap-3">
@@ -1192,7 +1196,7 @@ style={{
                         return (
                           <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
                             {req.photoUrl ? (
-                              <img src={req.photoUrl} alt={reqName} className="h-10 w-10 rounded-full object-cover" />
+                              <img src={req.photoUrl} alt={reqName} width={40} height={40} className="h-10 w-10 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
                             ) : (
                               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-[13px] font-bold text-white">
                                 {reqName[0].toUpperCase()}
@@ -1242,7 +1246,7 @@ style={{
                         return (
                           <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
                             {req.photoUrl ? (
-                              <img src={req.photoUrl} alt={reqName} className="h-10 w-10 rounded-full object-cover" />
+                              <img src={req.photoUrl} alt={reqName} width={40} height={40} className="h-10 w-10 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
                             ) : (
                               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[13px] font-bold text-white">
                                 {reqName[0].toUpperCase()}
@@ -1302,7 +1306,7 @@ style={{
 <div className="relative">
                             <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
                             {friend.photoUrl ? (
-                              <img src={friend.photoUrl} alt={friendName} className="relative h-12 w-12 rounded-full object-cover" />
+                              <img src={friend.photoUrl} alt={friendName} width={48} height={48} className="relative h-12 w-12 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
                             ) : (
                               <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
                                 {friendName[0].toUpperCase()}
