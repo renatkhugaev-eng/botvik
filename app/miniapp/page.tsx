@@ -1061,11 +1061,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" style={{ contain: 'layout' }}>
       {/* ─────────────────────────────────────────────────────────────────
           CAROUSEL SECTION
       ───────────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-col gap-4" style={{ contain: 'layout' }}>
         {/* Header — Height: 24px */}
         <div className="flex h-6 items-center justify-between">
           <h2 className="font-display text-[17px] font-bold text-[#1a1a2e]">Активные</h2>
@@ -1323,7 +1323,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                         className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg shadow-${item.glow}-500/30 ring-2 ring-white/20`}
                       >
                         {item.isImg ? (
-                          <img src={item.icon} alt="" className="w-9 h-9 object-contain" />
+                          <img src={item.icon} alt="" width={36} height={36} className="w-9 h-9 object-contain" style={{ aspectRatio: '1/1' }} />
                         ) : (
                           <span className="text-3xl">{item.icon}</span>
                         )}
