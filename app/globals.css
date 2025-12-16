@@ -362,6 +362,7 @@ html:not(:focus-within) .pause-when-hidden {
    Applied via .perf class on container when scrolling detected
 ═══════════════════════════════════════════════════════════════════ */
 
+/* Backdrop blur - very expensive on mobile */
 .perf .glass,
 .perf [class*="backdrop-blur"],
 .perf [class*="backdrop-filter"] {
@@ -369,6 +370,18 @@ html:not(:focus-within) .pause-when-hidden {
   -webkit-backdrop-filter: none !important;
 }
 
+/* CSS blur classes - expensive filter operations */
+.perf .blur-sm,
+.perf .blur,
+.perf .blur-md,
+.perf .blur-lg,
+.perf .blur-xl,
+.perf .blur-2xl,
+.perf .blur-3xl {
+  filter: none !important;
+}
+
+/* Glow effects - reduce opacity */
 .perf .glow-violet,
 .perf .glow-pink,
 .perf .glow-amber,
@@ -381,18 +394,87 @@ html:not(:focus-within) .pause-when-hidden {
   box-shadow: none;
 }
 
+/* Heavy shadows - simplify to basic shadow */
+.perf .shadow-2xl {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+/* Drop shadows - expensive filter */
+.perf [class*="drop-shadow"] {
+  filter: none !important;
+}
+
+/* Pause CSS animations */
 .perf .animate-spin-slow,
 .perf .animate-spin-medium,
 .perf .animate-float,
 .perf .animate-shimmer,
-.perf .animate-pulse {
+.perf .animate-pulse,
+.perf .animate-bounce {
   animation-play-state: paused !important;
 }
 
-/* Restore effects when scroll stops */
+/* Inline style blur fallback (for elements with style={{ filter: 'blur(...)' }}) */
+.perf [style*="filter: blur("],
+.perf [style*="filter:blur("] {
+  filter: none !important;
+}
+
+.perf [style*="backdrop-filter: blur("],
+.perf [style*="backdrop-filter:blur("] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Disable transitions during scroll to avoid jerky effects */
+.perf [class*="backdrop-blur"],
+.perf .blur,
+.perf .blur-sm,
+.perf .blur-md,
+.perf .blur-lg,
+.perf .blur-xl,
+.perf .blur-2xl,
+.perf .blur-3xl,
+.perf [class*="drop-shadow"],
+.perf .shadow-2xl {
+  transition: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESTORE EFFECTS - Smooth transitions when scroll stops
+   Applied when .perf class is removed from container
+═══════════════════════════════════════════════════════════════════ */
+
+/* Backdrop blur - smooth return */
+:not(.perf) [class*="backdrop-blur"] {
+  transition: backdrop-filter 0.2s ease-in-out, -webkit-backdrop-filter 0.2s ease-in-out;
+}
+
+/* CSS blur classes - smooth return */
+:not(.perf) .blur,
+:not(.perf) .blur-sm,
+:not(.perf) .blur-md,
+:not(.perf) .blur-lg,
+:not(.perf) .blur-xl,
+:not(.perf) .blur-2xl,
+:not(.perf) .blur-3xl {
+  transition: filter 0.2s ease-in-out;
+}
+
+/* Drop shadows - smooth return */
+:not(.perf) [class*="drop-shadow"] {
+  transition: filter 0.2s ease-in-out;
+}
+
+/* Heavy shadows - smooth return */
+:not(.perf) .shadow-2xl {
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+/* Glow effects - smooth return */
 :not(.perf) .glow-violet,
 :not(.perf) .glow-pink,
 :not(.perf) .glow-amber,
 :not(.perf) .glow-emerald {
-  transition: opacity 0.3s ease-in;
+  transition: opacity 0.2s ease-in-out;
 }

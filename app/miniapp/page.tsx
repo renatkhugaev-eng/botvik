@@ -11,6 +11,7 @@ import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth, api } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
+import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -273,8 +274,12 @@ export default function MiniAppPage() {
   const session = useMiniAppSession();
   const router = useRouter();
   const isAndroid = useIsAndroid();
+  const { config } = useDeviceTier();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isScrolling = useScrollPerfMode({ target: scrollRef, debounceMs: 160 });
+  const isScrolling = useScrollPerfMode({ 
+    target: scrollRef, 
+    debounceMs: config.scrollDebounceMs 
+  });
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState(0);
   const [greeting] = useState(() => getGreeting());
@@ -608,7 +613,7 @@ export default function MiniAppPage() {
     <PullToRefresh 
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
-      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={0.5} />}
+      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={config.riveOpacityHome} />}
     >
     <div className={`relative flex flex-col gap-6 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════

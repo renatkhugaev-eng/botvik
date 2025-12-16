@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRive, Layout, Fit, Alignment } from "@rive-app/react-canvas";
 
 type ParticlesRiveLayerProps = {
@@ -23,6 +23,9 @@ type ParticlesRiveLayerProps = {
  * Renders as a single canvas element, much more performant than DOM particles.
  * 
  * Position this as an absolute layer UNDER your UI content.
+ * 
+ * If the .riv file is missing or fails to load, component renders nothing.
+ * No HEAD requests, no retries — just direct Rive initialization.
  */
 export function ParticlesRiveLayer({
   pause = false,
@@ -32,23 +35,8 @@ export function ParticlesRiveLayer({
   stateMachine = "State Machine 1",
   className = "",
 }: ParticlesRiveLayerProps) {
-  const [isAvailable, setIsAvailable] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
-  // Check if .riv file exists
-  useEffect(() => {
-    fetch(src, { method: "HEAD" })
-      .then((res) => {
-        setIsAvailable(res.ok);
-        if (!res.ok) {
-          console.warn(`[ParticlesRiveLayer] File not found: ${src}`);
-        }
-      })
-      .catch(() => {
-        setIsAvailable(false);
-        console.warn(`[ParticlesRiveLayer] Failed to check file: ${src}`);
-      });
-  }, [src]);
+  const hasErrorRef = useRef(false);
+  const warnedRef = useRef(false);
 
   const { rive, RiveComponent } = useRive({
     src,
@@ -60,8 +48,12 @@ export function ParticlesRiveLayer({
       alignment: Alignment.Center,
     }),
     onLoadError: () => {
-      setHasError(true);
-      console.warn(`[ParticlesRiveLayer] Failed to load: ${src}`);
+      hasErrorRef.current = true;
+      // Warn once in development only
+      if (process.env.NODE_ENV === "development" && !warnedRef.current) {
+        warnedRef.current = true;
+        console.warn(`[ParticlesRiveLayer] Failed to load: ${src}`);
+      }
     },
   });
 
@@ -76,8 +68,8 @@ export function ParticlesRiveLayer({
     }
   }, [rive, pause]);
 
-  // Don't render if file not available or error
-  if (!isAvailable || hasError) {
+  // Don't render if error occurred
+  if (hasErrorRef.current) {
     return null;
   }
 
@@ -93,4 +85,3 @@ export function ParticlesRiveLayer({
 }
 
 export default ParticlesRiveLayer;
-
