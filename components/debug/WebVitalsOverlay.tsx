@@ -26,10 +26,12 @@ export function WebVitalsOverlay() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Only show if ?debug=vitals in URL
+    // Always show for debugging (change to false after testing)
+    const DEBUG_ALWAYS_SHOW = true;
+    
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("debug") === "vitals") {
+      if (DEBUG_ALWAYS_SHOW || params.get("debug") === "vitals") {
         setVisible(true);
       }
     }
