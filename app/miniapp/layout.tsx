@@ -6,8 +6,7 @@ import { NotificationProvider } from "@/components/InAppNotification";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUser, addBreadcrumb } from "@/lib/sentry";
 import { identifyUser } from "@/lib/posthog";
-import { PerfModeProvider, usePerfMode } from "@/components/context/PerfModeContext";
-import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
+import { PerfModeProvider } from "@/components/context/PerfModeContext";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -47,48 +46,6 @@ const MiniAppContext = createContext<MiniAppSession>({ status: "loading" });
 
 export function useMiniAppSession() {
   return useContext(MiniAppContext);
-}
-
-/**
- * Rive overlay component - fixed at top of screen
- * Doesn't scroll with content
- */
-function RiveOverlay() {
-  const [mounted, setMounted] = useState(false);
-  const { isPerfMode } = usePerfMode();
-  
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  
-  if (!mounted) return null;
-  
-  return (
-    <div 
-      className="fixed top-0 left-0 right-0 pointer-events-none overflow-hidden"
-      style={{ 
-        height: '350px', 
-        width: '100%',
-        zIndex: 0,
-        maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
-        WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
-      }}
-    >
-      {/* Scale up animation to cover full width */}
-      <div 
-        className="absolute w-full h-full"
-        style={{ 
-          transform: 'scale(1.8) translateY(-25%)',
-          transformOrigin: 'center top',
-        }}
-      >
-        <ParticlesRiveLayer 
-          pause={isPerfMode} 
-          opacity={0.7}
-        />
-      </div>
-    </div>
-  );
 }
 
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
@@ -247,7 +204,6 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
             <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
             <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
               {/* Single Rive overlay instance for all pages */}
-              <RiveOverlay />
               <div 
                 className="relative z-10 w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
                 style={{ overflowX: 'clip', maxWidth: '100%' }}

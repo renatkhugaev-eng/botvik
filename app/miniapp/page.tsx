@@ -1191,8 +1191,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         transition={{ ...spring, duration: 0.8 }}
         className="relative"
       >
-        {/* Outer glow - box-shadow for Android, blur for others */}
-        <div className={`absolute -inset-4 rounded-[32px] bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 ${isAndroid ? 'shadow-[0_0_60px_30px_rgba(139,92,246,0.15)]' : 'blur-2xl'}`} />
+        {/* Outer glow - radial gradient on Android, blur on others */}
+        <div 
+          className={`absolute -inset-4 rounded-[32px] fx-glow ${isAndroid ? '' : 'bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 blur-2xl'}`}
+          style={isAndroid ? {
+            background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.15) 0%, rgba(217,70,239,0.1) 40%, transparent 70%)'
+          } : undefined}
+        />
         
         {/* Animated border */}
         <div className="absolute -inset-[2px] rounded-[24px] overflow-hidden">
@@ -1300,8 +1305,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     transition={{ duration: 3, repeat: Infinity }}
                     className="relative"
                   >
-                    {/* Glow behind chest - box-shadow for Android, blur for others */}
-                    <div className={`absolute inset-0 rounded-full scale-150 ${isAndroid ? 'bg-amber-400/50 shadow-[0_0_30px_15px_rgba(251,191,36,0.5)]' : 'bg-amber-400/40 blur-xl'}`} />
+                    {/* Glow behind chest - radial gradient on Android, blur on others */}
+                    <div 
+                      className={`absolute inset-0 rounded-full scale-150 fx-glow ${isAndroid ? '' : 'bg-amber-400/40 blur-xl'}`}
+                      style={isAndroid ? {
+                        background: 'radial-gradient(circle, rgba(251,191,36,0.4) 0%, rgba(251,191,36,0.2) 40%, transparent 70%)'
+                      } : undefined}
+                    />
                     <img loading="lazy" decoding="async" src="/icons/17.webp" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? 'drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
                   </motion.div>
                 </div>
@@ -1459,9 +1469,19 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                   backgroundSize: '24px 24px'
                 }} />
                 
-                {/* Glowing orb in background - box-shadow for Android */}
-                <div className={`absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full ${isAndroid ? 'shadow-[0_0_60px_40px_rgba(139,92,246,0.2)]' : 'blur-3xl'}`} />
-                <div className={`absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/15 rounded-full ${isAndroid ? 'shadow-[0_0_60px_40px_rgba(245,158,11,0.15)]' : 'blur-3xl'}`} />
+                {/* Glowing orb in background - radial gradient on Android */}
+                <div 
+                  className={`absolute -top-20 -right-20 w-40 h-40 rounded-full fx-glow ${isAndroid ? '' : 'bg-violet-500/20 blur-3xl'}`}
+                  style={isAndroid ? {
+                    background: 'radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 60%)'
+                  } : undefined}
+                />
+                <div 
+                  className={`absolute -bottom-20 -left-20 w-40 h-40 rounded-full fx-glow ${isAndroid ? '' : 'bg-amber-500/15 blur-3xl'}`}
+                  style={isAndroid ? {
+                    background: 'radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 60%)'
+                  } : undefined}
+                />
 
                 {/* Title */}
                 <div className="relative flex items-center gap-2.5 mb-5">
@@ -1496,12 +1516,17 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                       transition={{ delay: 0.7 + i * 0.15, type: "spring", stiffness: 300 }}
                       className="relative flex flex-col items-center z-10"
                     >
-                      {/* Glow behind circle - box-shadow for Android */}
+                      {/* Glow behind circle - radial gradient on Android */}
                       <motion.div
                         animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
                         transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                        className={`absolute top-0 w-16 h-16 rounded-full bg-${item.glow}-500/40 ${isAndroid ? 'shadow-[0_0_25px_12px_currentColor]' : 'blur-xl'}`}
-                        style={isAndroid ? { color: item.glow === 'violet' ? 'rgba(139,92,246,0.4)' : item.glow === 'fuchsia' ? 'rgba(217,70,239,0.4)' : item.glow === 'cyan' ? 'rgba(6,182,212,0.4)' : 'rgba(245,158,11,0.4)' } : undefined}
+                        className={`absolute top-0 w-16 h-16 rounded-full fx-glow ${isAndroid ? '' : `bg-${item.glow}-500/40 blur-xl`}`}
+                        style={isAndroid ? {
+                          background: item.glow === 'violet' ? 'radial-gradient(circle, rgba(139,92,246,0.4) 0%, transparent 70%)' :
+                                     item.glow === 'fuchsia' ? 'radial-gradient(circle, rgba(217,70,239,0.4) 0%, transparent 70%)' :
+                                     item.glow === 'cyan' ? 'radial-gradient(circle, rgba(6,182,212,0.4) 0%, transparent 70%)' :
+                                     'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)'
+                        } : undefined}
                       />
                       
                       {/* Step circle */}

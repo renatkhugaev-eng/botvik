@@ -64,6 +64,12 @@ img {
   max-width: 100vw;
   max-width: 100dvw;
   overflow-x: clip;
+}
+
+/* Stable layer composition - prevents WebView artifacts */
+.app-container {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   overscroll-behavior-x: none;
 }
 
@@ -388,6 +394,17 @@ html:not(:focus-within) .pause-when-hidden {
 .perf .glow-emerald {
   opacity: 0.15;
   transition: opacity 0.1s ease-out;
+}
+
+/* Decorative glow layers - hide completely in perf mode */
+/* Use .fx-glow class on blur circles that are purely decorative */
+.perf .fx-glow {
+  opacity: 0 !important;
+}
+
+/* Also catch decorative blur layers with pointer-events-none */
+.perf .pointer-events-none[class*="blur"] {
+  opacity: 0 !important;
 }
 
 .perf .soft-glow {
