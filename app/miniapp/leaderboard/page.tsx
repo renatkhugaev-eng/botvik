@@ -10,8 +10,8 @@ import { SkeletonLeaderboardEntry, SkeletonPodium } from "@/components/Skeleton"
 import { usePerformance } from "@/lib/usePerformance";
 import { api } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
-import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
+import { usePerfMode } from "@/components/context/PerfModeContext";
 
 type LeaderboardEntry = {
   place: number;
@@ -46,11 +46,18 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const session = useMiniAppSession();
   const { config } = useDeviceTier();
+  const { setPerfMode } = usePerfMode();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolling = useScrollPerfMode({ 
     target: scrollRef, 
     debounceMs: config.scrollDebounceMs 
   });
+  
+  // Sync scroll state to global perf mode
+  useEffect(() => {
+    setPerfMode(isScrolling);
+  }, [isScrolling, setPerfMode]);
+  
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [quizId, setQuizId] = useState<number | null>(null); // null = global
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -204,7 +211,6 @@ export default function LeaderboardPage() {
     <PullToRefresh 
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
-      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={config.riveOpacityInner} />}
     >
     <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════

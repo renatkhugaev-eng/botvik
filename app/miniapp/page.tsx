@@ -10,8 +10,8 @@ import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth, api } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
-import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
+import { usePerfMode } from "@/components/context/PerfModeContext";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -275,11 +275,18 @@ export default function MiniAppPage() {
   const router = useRouter();
   const isAndroid = useIsAndroid();
   const { config } = useDeviceTier();
+  const { setPerfMode } = usePerfMode();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolling = useScrollPerfMode({ 
     target: scrollRef, 
     debounceMs: config.scrollDebounceMs 
   });
+  
+  // Sync scroll state to global perf mode (for Rive overlay in layout)
+  useEffect(() => {
+    setPerfMode(isScrolling);
+  }, [isScrolling, setPerfMode]);
+  
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState(0);
   const [greeting] = useState(() => getGreeting());
@@ -613,7 +620,6 @@ export default function MiniAppPage() {
     <PullToRefresh 
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
-      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={config.riveOpacityHome} />}
     >
     <div className={`relative flex flex-col gap-6 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════

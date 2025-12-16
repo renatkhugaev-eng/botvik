@@ -1,74 +1,83 @@
 # Rive Particles Animation
 
-## Текущий статус
-⚠️ **TODO**: Добавить файл `particles.riv`
+## Требуется файл: `particles.riv`
 
-Компонент `ParticlesRiveLayer` автоматически проверяет наличие файла и не рендерится, если файл не найден.
+Этот файл нужен для фоновой анимации частиц в приложении.
 
-## Как создать particles.riv
+---
 
-### Вариант 1: Rive Editor (рекомендуется)
-1. Откройте https://rive.app/editor
-2. Создайте новый файл
-3. Добавьте несколько кругов/точек с:
-   - Subtle opacity animation (0.3 → 0.8 → 0.3)
-   - Y-axis drift (плавное движение вверх/вниз)
-   - Random delays и durations
-4. Добавьте State Machine с именем "State Machine 1"
-5. Экспортируйте как `.riv`
-6. Положите файл в `/public/rive/particles.riv`
+## Как получить файл:
 
-### Вариант 2: Rive Community
-1. Найдите готовый эффект на https://rive.app/community
-2. Поиск: "particles", "dust", "sparkles", "ambient"
-3. Скачайте `.riv` файл
-4. Переименуйте в `particles.riv`
-5. Положите в `/public/rive/`
+### Вариант 1: Rive Community (рекомендуется)
 
-### Вариант 3: Готовые ресурсы
-- https://rive.app/community/6181-12367-particles/
-- https://rive.app/community/5671-11211-dust-particles/
+1. Перейти на **https://rive.app/community/**
+2. Искать по запросам:
+   - `particles`
+   - `floating dots`
+   - `dust`
+   - `sparkles`
+   - `ambient`
+   - `bokeh`
 
-## Требования к анимации
+3. **Рекомендуемые файлы** (проверь доступность):
+   - https://rive.app/community/3315-6723-particles/
+   - https://rive.app/community/2481-4939-floating-particles/
+   - https://rive.app/community/4567-9123-dust-particles/
 
-1. **Artboard**: любой (компонент автоматически подстроит)
-2. **State Machine**: "State Machine 1" (или укажите другое имя в props)
-3. **Производительность**: ≤20 элементов, без blur/filter внутри Rive
-4. **Цвета**: нейтральные (белый/серый с opacity) для совместимости с темным UI
+4. Нажать **"Open in Rive"** → **File → Download → .riv**
 
-## Использование компонента
+---
 
-```tsx
-import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
-import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
+### Вариант 2: Создать свой в Rive Editor
 
-function MyPage() {
-  const isScrolling = useScrollPerfMode();
-  
-  return (
-    <div className="relative">
-      <ParticlesRiveLayer 
-        pause={isScrolling}    // Пауза при скролле
-        opacity={0.5}          // Прозрачность слоя
-        src="/rive/particles.riv" // Путь к файлу (по умолчанию)
-        stateMachine="State Machine 1" // Имя state machine
-      />
-      {/* Контент страницы */}
-    </div>
-  );
-}
-```
+1. Перейти на **https://rive.app/**
+2. Создать новый файл
+3. Добавить 10-20 маленьких кругов/эллипсов (2-6px)
+4. Цвета: белый/серый с opacity 20-60%
+5. Анимировать плавное движение вверх-вниз, влево-вправо
+6. Назвать State Machine: `State Machine 1`
+7. Export → Download .riv
 
-## Perf Mode CSS
+---
 
-Когда `isScrolling = true`, на контейнер добавляется класс `.perf`:
+## Требования к файлу:
 
-```css
-/* В globals.css */
-.perf .glass { backdrop-filter: none }
-.perf .glow-violet { opacity: 0.15 }
-.perf .animate-float { animation-play-state: paused }
-```
+| Параметр | Значение |
+|----------|----------|
+| **Количество частиц** | ≤ 20 элементов |
+| **Анимация** | Бесконечный loop |
+| **Цвета** | Нейтральные (white/gray) с opacity |
+| **Размер файла** | < 50KB |
+| **State Machine** | `State Machine 1` |
+| **Без blur/glow** | Все эффекты внутри Rive, не DOM |
 
-Это временно отключает тяжелые эффекты во время скролла для плавной работы.
+---
 
+## Проверка:
+
+После добавления файла:
+
+1. Файл лежит: `public/rive/particles.riv`
+2. Размер > 100 байт (не placeholder)
+3. Приложение отображает частицы на фоне
+4. FPS не падает при скролле (pause работает)
+5. На low-tier устройствах opacity ниже
+
+---
+
+## Лицензия:
+
+Если файл из Rive Community требует атрибуции, укажите здесь:
+
+- **Автор**: _____
+- **Источник**: _____
+- **Лицензия**: _____
+
+---
+
+## Текущий статус:
+
+✅ **Файл добавлен** — `particles.riv` (wave-form animation)
+
+- **Источник**: Rive Community
+- **ID**: 4533-9212-wave-form

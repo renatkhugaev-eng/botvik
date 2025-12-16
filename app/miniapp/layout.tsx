@@ -6,6 +6,9 @@ import { NotificationProvider } from "@/components/InAppNotification";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUser, addBreadcrumb } from "@/lib/sentry";
 import { identifyUser } from "@/lib/posthog";
+import { PerfModeProvider, usePerfMode } from "@/components/context/PerfModeContext";
+import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
+import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -45,6 +48,21 @@ const MiniAppContext = createContext<MiniAppSession>({ status: "loading" });
 
 export function useMiniAppSession() {
   return useContext(MiniAppContext);
+}
+
+/**
+ * Rive overlay component - single instance for all miniapp pages
+ */
+function RiveOverlay() {
+  const { isPerfMode } = usePerfMode();
+  const { config } = useDeviceTier();
+  
+  return (
+    <ParticlesRiveLayer 
+      pause={isPerfMode} 
+      opacity={config.riveOpacityHome} 
+    />
+  );
 }
 
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
@@ -197,19 +215,23 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
   return (
     <MiniAppContext.Provider value={session}>
-      <NotificationProvider>
-        <ErrorBoundary>
-          <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-          <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
-            <div 
-              className="w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
-              style={{ overflowX: 'clip', maxWidth: '100%' }}
-            >
-              {content}
+      <PerfModeProvider>
+        <NotificationProvider>
+          <ErrorBoundary>
+            <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+            <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
+              {/* Single Rive overlay instance for all pages */}
+              <RiveOverlay />
+              <div 
+                className="relative z-10 w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
+                style={{ overflowX: 'clip', maxWidth: '100%' }}
+              >
+                {content}
+              </div>
             </div>
-          </div>
-        </ErrorBoundary>
-      </NotificationProvider>
+          </ErrorBoundary>
+        </NotificationProvider>
+      </PerfModeProvider>
     </MiniAppContext.Provider>
   );
 }
