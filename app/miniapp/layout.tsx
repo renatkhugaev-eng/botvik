@@ -208,6 +208,9 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
               {/* Safe area padding for iPhone X+ notch */}
               <div 
                 className="relative z-10 w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
+                tabIndex={0}
+                role="main"
+                aria-label="Основное содержимое"
                 style={{ 
                   overflowX: 'clip', 
                   maxWidth: '100%',

@@ -1,0 +1,65 @@
+{
+  "title": "Методы расследования",
+  "description": "Как работают криминалисты и следователи? Проверь свои знания!",
+  "prizeTitle": "Книга о криминалистике",
+  "prizeDescription": "Электронная книга 'Современные методы расследования'",
+  "isActive": true,
+  "questions": [
+    {
+      "text": "Что такое 'профайлинг' в криминалистике?",
+      "difficulty": 1,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Составление психологического портрета преступника", "isCorrect": true },
+        { "text": "Анализ ДНК", "isCorrect": false },
+        { "text": "Снятие отпечатков пальцев", "isCorrect": false },
+        { "text": "Допрос свидетелей", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой метод используется для определения времени смерти?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Только осмотр тела", "isCorrect": false },
+        { "text": "Анализ температуры тела, трупного окоченения, ливидности", "isCorrect": true },
+        { "text": "Опрос соседей", "isCorrect": false },
+        { "text": "Проверка камер наблюдения", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что такое 'modus operandi' преступника?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Его настоящее имя", "isCorrect": false },
+        { "text": "Характерный способ совершения преступлений", "isCorrect": true },
+        { "text": "Место жительства", "isCorrect": false },
+        { "text": "Мотив преступления", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Для чего используется люминол на месте преступления?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Для освещения тёмных помещений", "isCorrect": false },
+        { "text": "Для обнаружения следов крови", "isCorrect": true },
+        { "text": "Для сбора отпечатков пальцев", "isCorrect": false },
+        { "text": "Для фотографирования улик", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что такое 'signature' (подпись) серийного убийцы?",
+      "difficulty": 3,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Его автограф на месте преступления", "isCorrect": false },
+        { "text": "Ритуальные действия, удовлетворяющие психологические потребности", "isCorrect": true },
+        { "text": "Способ связи с полицией", "isCorrect": false },
+        { "text": "Тип используемого оружия", "isCorrect": false }
+      ]
+    }
+  ]
+}
+

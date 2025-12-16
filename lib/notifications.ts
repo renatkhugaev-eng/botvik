@@ -25,7 +25,8 @@ export type NotificationType =
   | "energy_full"
   | "daily_reminder"
   | "leaderboard_change"
-  | "friend_activity";
+  | "friend_activity"
+  | "weekly_winner";
 
 type NotificationConfig = {
   type: NotificationType;
@@ -39,6 +40,7 @@ const NOTIFICATION_PREFERENCES = {
   daily_reminder: "notifyDailyReminder",
   leaderboard_change: "notifyLeaderboard",
   friend_activity: "notifyFriends",
+  weekly_winner: "notifyLeaderboard", // Winners always get notified via leaderboard preference
 } as const;
 
 const NOTIFICATION_TEMPLATES: Record<NotificationType, (data: Record<string, unknown>) => string> = {
@@ -92,6 +94,22 @@ ${data.friendName} ${data.action === "beat_score"
   : `присоединился к игре!`}
 
 [▶️ Посмотреть](https://t.me/truecrimetg_bot/app)
+  `.trim(),
+
+  weekly_winner: (data) => `
+🏆 *Поздравляем!*
+
+Ты занял *${data.place === 1 ? "🥇 1-е" : data.place === 2 ? "🥈 2-е" : "🥉 3-е"} место* в еженедельном соревновании!
+
+📊 Твой результат: *${data.score}* очков
+🎮 Сыграно игр: ${data.quizzes}
+⭐ Лучший результат: ${data.bestScore}
+
+${data.prize ? `\n🎁 ${data.prize}` : ""}
+
+Новая неделя — новые возможности! 🚀
+
+[▶️ Играть](https://t.me/truecrimetg_bot/app)
   `.trim(),
 };
 
@@ -165,6 +183,7 @@ async function canSendNotification(
     daily_reminder: user.notifyDailyReminder,
     leaderboard_change: user.notifyLeaderboard,
     friend_activity: user.notifyFriends,
+    weekly_winner: user.notifyLeaderboard, // Winners use leaderboard preference
   };
 
   if (!preferenceMap[type]) {
@@ -284,6 +303,26 @@ export async function notifyFriendActivity(
     action, 
     quizTitle, 
     friendScore 
+  });
+}
+
+/**
+ * Notify user about weekly competition win
+ */
+export async function notifyWeeklyWinner(
+  userId: number,
+  place: 1 | 2 | 3,
+  score: number,
+  bestScore: number,
+  quizzes: number,
+  prize?: string
+): Promise<boolean> {
+  return sendNotification(userId, "weekly_winner", { 
+    place, 
+    score, 
+    bestScore, 
+    quizzes, 
+    prize 
   });
 }
 

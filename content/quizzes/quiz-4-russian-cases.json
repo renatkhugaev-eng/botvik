@@ -1,0 +1,65 @@
+{
+  "title": "Российские криминальные дела",
+  "description": "Громкие дела из истории России и СССР",
+  "prizeTitle": "Видео-разбор дела",
+  "prizeDescription": "Эксклюзивный видео-разбор от автора канала",
+  "isActive": true,
+  "questions": [
+    {
+      "text": "Как назывался маньяк, орудовавший в Ростовской области в 1978-1990 годах?",
+      "difficulty": 1,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Ростовский потрошитель", "isCorrect": false },
+        { "text": "Андрей Чикатило", "isCorrect": true },
+        { "text": "Битцевский маньяк", "isCorrect": false },
+        { "text": "Белый чулок", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Сколько жертв официально приписывают Чикатило?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "21", "isCorrect": false },
+        { "text": "52", "isCorrect": true },
+        { "text": "35", "isCorrect": false },
+        { "text": "17", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Кто такой 'Битцевский маньяк'?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Александр Пичушкин", "isCorrect": true },
+        { "text": "Сергей Ткач", "isCorrect": false },
+        { "text": "Михаил Попков", "isCorrect": false },
+        { "text": "Анатолий Оноприенко", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой милиционер-маньяк орудовал в Ангарске?",
+      "difficulty": 3,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Сергей Ткач", "isCorrect": false },
+        { "text": "Михаил Попков", "isCorrect": true },
+        { "text": "Андрей Чикатило", "isCorrect": false },
+        { "text": "Александр Пичушкин", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "За что Александр Пичушкин получил своё прозвище?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Совершал преступления в Битцевском парке", "isCorrect": true },
+        { "text": "Использовал шахматную доску", "isCorrect": false },
+        { "text": "Жил на Битцевской улице", "isCorrect": false },
+        { "text": "Работал в Битце", "isCorrect": false }
+      ]
+    }
+  ]
+}
+

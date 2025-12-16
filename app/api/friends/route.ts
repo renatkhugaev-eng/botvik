@@ -59,52 +59,76 @@ export async function GET(req: NextRequest) {
     });
 
     // Process accepted friends with stats
-    // Используем leaderboard score для согласованности с лидербордом
-    const friendsWithStats = await Promise.all(
-      acceptedFriendships.map(async (f) => {
-        const friendData = f.userId === userId ? f.friend : f.user;
-        
-        // Считаем количество уникальных квизов (игр)
-        const gamesPlayed = await prisma.quizSession.groupBy({
-          by: ["quizId"],
-          where: { userId: friendData.id, finishedAt: { not: null } },
-        });
-        
-        // Получаем все leaderboard entries для суммарного score
-        const leaderboardEntries = await prisma.leaderboardEntry.findMany({
-          where: { userId: friendData.id },
-          select: { bestScore: true, attempts: true },
-        });
-        
-        // Сумма best scores (согласовано с новой системой)
-        const totalBestScore = leaderboardEntries.reduce((sum, e) => sum + e.bestScore, 0);
-        const totalAttempts = leaderboardEntries.reduce((sum, e) => sum + e.attempts, 0);
-        
-        // Итоговый score по формуле: Best + Activity Bonus
-        const activityBonus = Math.min(totalAttempts * 50, 500);
-        const totalScore = totalBestScore + activityBonus;
-        
-        // Лучший результат за одну игру
-        const bestScore = leaderboardEntries.length > 0 
-          ? Math.max(...leaderboardEntries.map(e => e.bestScore))
-          : 0;
-
-        return {
-          friendshipId: f.id,
-          id: friendData.id,
-          username: friendData.username,
-          firstName: friendData.firstName,
-          telegramId: friendData.telegramId,
-          photoUrl: friendData.photoUrl,
-          stats: {
-            totalScore,                          // Сумма weighted scores
-            gamesPlayed: gamesPlayed.length,     // Количество уникальных квизов
-            bestScore,                           // Лучший weighted score
-          },
-          addedAt: f.createdAt,
-        };
-      })
+    // OPTIMIZED: Batch queries instead of N+1
+    
+    // Extract all friend IDs
+    const friendIds = acceptedFriendships.map(f => 
+      f.userId === userId ? f.friend.id : f.user.id
     );
+    
+    // Batch query: Get all leaderboard entries for all friends at once
+    const allLeaderboardEntries = friendIds.length > 0 
+      ? await prisma.leaderboardEntry.findMany({
+          where: { userId: { in: friendIds } },
+          select: { userId: true, bestScore: true, attempts: true },
+        })
+      : [];
+    
+    // Batch query: Get games played count for all friends at once
+    const allGamesCounts = friendIds.length > 0
+      ? await prisma.quizSession.groupBy({
+          by: ["userId", "quizId"],
+          where: { 
+            userId: { in: friendIds }, 
+            finishedAt: { not: null } 
+          },
+        })
+      : [];
+    
+    // Create lookup maps for O(1) access
+    const leaderboardByUser = new Map<number, typeof allLeaderboardEntries>();
+    for (const entry of allLeaderboardEntries) {
+      const existing = leaderboardByUser.get(entry.userId) || [];
+      existing.push(entry);
+      leaderboardByUser.set(entry.userId, existing);
+    }
+    
+    const gamesCountByUser = new Map<number, number>();
+    for (const game of allGamesCounts) {
+      const current = gamesCountByUser.get(game.userId) || 0;
+      gamesCountByUser.set(game.userId, current + 1);
+    }
+    
+    // Process friends using pre-fetched data (no additional queries)
+    const friendsWithStats = acceptedFriendships.map((f) => {
+      const friendData = f.userId === userId ? f.friend : f.user;
+      const entries = leaderboardByUser.get(friendData.id) || [];
+      const gamesPlayed = gamesCountByUser.get(friendData.id) || 0;
+      
+      // Calculate scores from cached data
+      const totalBestScore = entries.reduce((sum, e) => sum + e.bestScore, 0);
+      const totalAttempts = entries.reduce((sum, e) => sum + e.attempts, 0);
+      const activityBonus = Math.min(totalAttempts * 50, 500);
+      const totalScore = totalBestScore + activityBonus;
+      const bestScore = entries.length > 0 
+        ? Math.max(...entries.map(e => e.bestScore))
+        : 0;
+
+      return {
+        friendshipId: f.id,
+        id: friendData.id,
+        username: friendData.username,
+        firstName: friendData.firstName,
+        telegramId: friendData.telegramId,
+        photoUrl: friendData.photoUrl,
+        stats: {
+          totalScore,
+          gamesPlayed,
+          bestScore,
+        },
+        addedAt: f.createdAt,
+      };
+    });
 
     // Process incoming requests
     const incoming = incomingRequests.map((r) => ({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWeekStart, getWeekEnd } from "@/lib/week";
 import { calculateTotalScore } from "@/lib/scoring";
+import { notifyWeeklyWinner } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -116,10 +117,36 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // TODO: Send Telegram notifications to winners
-  // This would require the Telegram bot to send messages
+  // Send Telegram notifications to winners
+  const notificationResults = { sent: 0, failed: 0 };
+  
+  for (const winner of winners) {
+    try {
+      const success = await notifyWeeklyWinner(
+        winner.user.id,
+        winner.place as 1 | 2 | 3,
+        winner.score,
+        winner.bestScore,
+        winner.quizzes,
+        winner.prize
+      );
+      
+      if (success) {
+        notificationResults.sent++;
+        console.log(`[Weekly Reset] Notification sent to winner #${winner.place}`);
+      } else {
+        notificationResults.failed++;
+      }
+      
+      // Small delay to avoid Telegram rate limiting
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (error) {
+      console.error(`[Weekly Reset] Failed to notify winner #${winner.place}:`, error);
+      notificationResults.failed++;
+    }
+  }
 
-  console.log(`[Weekly Reset] Saved ${winners.length} winners`);
+  console.log(`[Weekly Reset] Saved ${winners.length} winners, notified ${notificationResults.sent}`);
 
   return NextResponse.json({
     success: true,
@@ -129,6 +156,7 @@ export async function POST(req: NextRequest) {
     },
     totalParticipants: allScores.length,
     winners,
+    notifications: notificationResults,
     scoringFormula: "TotalScore = BestScore + ActivityBonus (max 500 for 10 games)",
   });
 }

@@ -633,8 +633,9 @@ export default function MiniAppPage() {
             router.push("/");
           }}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm"
+          aria-label="Назад"
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </motion.button>
@@ -673,21 +674,37 @@ export default function MiniAppPage() {
           className="relative mb-4"
         >
           {/* Large diffused glow behind avatar - cyan/violet */}
-          {/* On Android: use box-shadow instead of filter:blur for better performance */}
-          <div 
-            className="absolute -inset-8 rounded-full gpu-accelerated animate-pulse"
-            style={{
-              background: 'radial-gradient(circle, rgba(6, 182, 212, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
-              ...(isAndroid ? { boxShadow: '0 0 40px 20px rgba(6, 182, 212, 0.3)' } : { filter: 'blur(20px)' }),
-            }}
-          />
-          <div 
-            className="absolute -inset-5 rounded-full gpu-accelerated"
-            style={{
-              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)',
-              ...(isAndroid ? { boxShadow: '0 0 30px 15px rgba(139, 92, 246, 0.25)' } : { filter: 'blur(15px)' }),
-            }}
-          />
+          {/* On Android: use layered box-shadow for smooth glow without blur */}
+          {isAndroid ? (
+            <div 
+              className="absolute inset-0 rounded-full gpu-accelerated animate-pulse"
+              style={{
+                boxShadow: `
+                  0 0 20px 8px rgba(6, 182, 212, 0.5),
+                  0 0 40px 16px rgba(139, 92, 246, 0.4),
+                  0 0 60px 24px rgba(236, 72, 153, 0.3),
+                  0 0 80px 32px rgba(139, 92, 246, 0.2)
+                `,
+              }}
+            />
+          ) : (
+            <>
+              <div 
+                className="absolute -inset-8 rounded-full gpu-accelerated animate-pulse"
+                style={{
+                  background: 'radial-gradient(circle, rgba(6, 182, 212, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
+                  filter: 'blur(20px)',
+                }}
+              />
+              <div 
+                className="absolute -inset-5 rounded-full gpu-accelerated"
+                style={{
+                  background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)',
+                  filter: 'blur(15px)',
+                }}
+              />
+            </>
+          )}
           {/* Animated gradient ring — outer glow */}
           <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-60 animate-spin-slow gpu-accelerated" />
           {/* Animated gradient ring — sharp edge */}
@@ -1097,8 +1114,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
             <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-4 bg-gradient-to-l from-slate-100 to-transparent" />
             
             <div
-              className="flex gap-3 overflow-x-auto pb-1 snap-x"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              className="flex gap-3 overflow-x-auto pb-1 snap-x gpu-accelerated"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none", contain: 'layout' }}
             >
               {items.map((q, i) => {
                 const c = palette[i % palette.length];
@@ -1110,6 +1127,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     transition={{ ...spring, delay: i * 0.05 }}
                     whileTap={{ scale: 0.98 }}
                     className={`flex h-[200px] w-[168px] flex-shrink-0 snap-start flex-col rounded-2xl bg-gradient-to-br ${c.bg} p-4`}
+                    style={{ contain: 'layout' }}
                   >
                     {/* Row 1: Icon + Badge */}
                       <div className="flex items-center justify-between">
@@ -1139,6 +1157,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                           animate={{ rotate: 360 }}
                           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                           className="h-4 w-4"
+                          style={{ willChange: 'transform' }}
                         >
                           <svg className="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                             <circle cx="12" cy="12" r="10" />
@@ -1170,6 +1189,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                           onStart(q.id);
                         }}
                         className={`mt-3 flex h-9 w-full items-center justify-center gap-1 rounded-xl bg-white text-[13px] font-bold ${c.text} disabled:opacity-50`}
+                        style={{ willChange: 'transform' }}
                       >
                         {startingId === q.id ? "..." : "▶ Играть"}
                       </motion.button>

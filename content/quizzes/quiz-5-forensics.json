@@ -1,0 +1,65 @@
+{
+  "title": "Криминалистика и улики",
+  "description": "Как улики помогают раскрывать преступления?",
+  "prizeTitle": "Мерч True Crime",
+  "prizeDescription": "Эксклюзивная футболка с дизайном канала",
+  "isActive": true,
+  "questions": [
+    {
+      "text": "Что означает аббревиатура ДНК?",
+      "difficulty": 1,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Дезоксирибонуклеиновая кислота", "isCorrect": true },
+        { "text": "Детальный номерной код", "isCorrect": false },
+        { "text": "Дактилоскопический номер криминалиста", "isCorrect": false },
+        { "text": "Документ научного контроля", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Когда впервые ДНК-анализ был использован для раскрытия преступления?",
+      "difficulty": 3,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "1970-е", "isCorrect": false },
+        { "text": "1986", "isCorrect": true },
+        { "text": "1995", "isCorrect": false },
+        { "text": "2000", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что такое дактилоскопия?",
+      "difficulty": 1,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Анализ голоса", "isCorrect": false },
+        { "text": "Исследование отпечатков пальцев", "isCorrect": true },
+        { "text": "Изучение почерка", "isCorrect": false },
+        { "text": "Анализ ДНК", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой принцип лежит в основе криминалистики по Эдмону Локару?",
+      "difficulty": 3,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Преступник всегда возвращается на место преступления", "isCorrect": false },
+        { "text": "Каждый контакт оставляет след", "isCorrect": true },
+        { "text": "Улики не лгут", "isCorrect": false },
+        { "text": "Время - главный свидетель", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что изучает баллистика?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Взрывчатые вещества", "isCorrect": false },
+        { "text": "Огнестрельное оружие и следы выстрелов", "isCorrect": true },
+        { "text": "Яды и токсины", "isCorrect": false },
+        { "text": "Документы и подписи", "isCorrect": false }
+      ]
+    }
+  ]
+}
+

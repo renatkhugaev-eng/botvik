@@ -12,6 +12,16 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/lighthouse-results
+/load-test-results.json
+k6.exe
+k6-*.msi
+k6-*.zip
+k6-v*/
+nul
+/.lighthouseci
 
 # next.js
 /.next/

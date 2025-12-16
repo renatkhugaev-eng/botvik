@@ -1,0 +1,65 @@
+{
+  "title": "Знаменитые дела",
+  "description": "Узнай больше о самых громких уголовных делах в истории.",
+  "prizeTitle": "Подборка документалок",
+  "prizeDescription": "Эксклюзивный список лучших документальных фильмов о преступлениях.",
+  "isActive": true,
+  "questions": [
+    {
+      "text": "В каком году был пойман Тед Банди?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "1975", "isCorrect": false },
+        { "text": "1978", "isCorrect": true },
+        { "text": "1980", "isCorrect": false },
+        { "text": "1985", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Сколько жертв официально приписывают Джеффри Дамеру?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "10", "isCorrect": false },
+        { "text": "17", "isCorrect": true },
+        { "text": "25", "isCorrect": false },
+        { "text": "33", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой маньяк известен под прозвищем 'Ночной охотник'?",
+      "difficulty": 3,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Ричард Рамирез", "isCorrect": true },
+        { "text": "Джон Уэйн Гейси", "isCorrect": false },
+        { "text": "Деннис Рейдер", "isCorrect": false },
+        { "text": "Эдмунд Кемпер", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Кто из этих преступников отправлял письма в полицию и прессу?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Тед Банди", "isCorrect": false },
+        { "text": "Зодиак", "isCorrect": true },
+        { "text": "Джеффри Дамер", "isCorrect": false },
+        { "text": "Генри Ли Лукас", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какое прозвище было у Джона Уэйна Гейси?",
+      "difficulty": 1,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Клоун-убийца", "isCorrect": true },
+        { "text": "Ночной странник", "isCorrect": false },
+        { "text": "Бостонский душитель", "isCorrect": false },
+        { "text": "Кливлендский мясник", "isCorrect": false }
+      ]
+    }
+  ]
+}
+

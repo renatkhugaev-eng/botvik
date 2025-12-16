@@ -1,0 +1,41 @@
+{
+  "_comment": "Шаблон для создания нового квиза. Скопируй этот файл и заполни.",
+  
+  "title": "Название квиза",
+  "description": "Описание квиза (1-2 предложения)",
+  "prizeTitle": "Название приза",
+  "prizeDescription": "Описание приза",
+  "isActive": true,
+  
+  "questions": [
+    {
+      "text": "Текст вопроса?",
+      "difficulty": 1,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Вариант 1", "isCorrect": false },
+        { "text": "Вариант 2 (правильный)", "isCorrect": true },
+        { "text": "Вариант 3", "isCorrect": false },
+        { "text": "Вариант 4", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Второй вопрос?",
+      "difficulty": 2,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "A", "isCorrect": false },
+        { "text": "B", "isCorrect": true },
+        { "text": "C", "isCorrect": false },
+        { "text": "D", "isCorrect": false }
+      ]
+    }
+  ],
+  
+  "_notes": {
+    "difficulty": "1 = лёгкий, 2 = средний, 3 = сложный",
+    "timeLimitSeconds": "Время на ответ в секундах (по умолчанию 30)",
+    "answers": "Один вариант должен быть isCorrect: true"
+  }
+}
+
