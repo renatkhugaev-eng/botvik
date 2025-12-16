@@ -356,3 +356,43 @@ html:not(:focus-within) .pause-when-hidden {
   backface-visibility: hidden;
   perspective: 1000px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERF MODE - Disable expensive effects during scroll
+   Applied via .perf class on container when scrolling detected
+═══════════════════════════════════════════════════════════════════ */
+
+.perf .glass,
+.perf [class*="backdrop-blur"],
+.perf [class*="backdrop-filter"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.perf .glow-violet,
+.perf .glow-pink,
+.perf .glow-amber,
+.perf .glow-emerald {
+  opacity: 0.15;
+  transition: opacity 0.1s ease-out;
+}
+
+.perf .soft-glow {
+  box-shadow: none;
+}
+
+.perf .animate-spin-slow,
+.perf .animate-spin-medium,
+.perf .animate-float,
+.perf .animate-shimmer,
+.perf .animate-pulse {
+  animation-play-state: paused !important;
+}
+
+/* Restore effects when scroll stops */
+:not(.perf) .glow-violet,
+:not(.perf) .glow-pink,
+:not(.perf) .glow-amber,
+:not(.perf) .glow-emerald {
+  transition: opacity 0.3s ease-in;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, ReactNode, useEffect } from "react";
+import { useState, useRef, ReactNode, useEffect, RefObject } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 
@@ -8,15 +8,21 @@ type PullToRefreshProps = {
   onRefresh: () => Promise<void>;
   children: ReactNode;
   disabled?: boolean;
+  /** External ref to access the scroll container */
+  scrollRef?: RefObject<HTMLDivElement | null>;
+  /** Overlay content rendered OUTSIDE scroll container (e.g. Rive effects) */
+  overlay?: ReactNode;
 };
 
 const PULL_THRESHOLD = 100; // Need to pull 100px to trigger
 const MAX_PULL = 140;
 const ACTIVATION_DISTANCE = 60; // Start showing indicator after 60px
 
-export function PullToRefresh({ onRefresh, children, disabled = false }: PullToRefreshProps) {
+export function PullToRefresh({ onRefresh, children, disabled = false, scrollRef, overlay }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const internalRef = useRef<HTMLDivElement>(null);
+  // Use external ref if provided, otherwise use internal
+  const containerRef = scrollRef ?? internalRef;
   const startY = useRef(0);
   const startScrollTop = useRef(0);
   const isPulling = useRef(false);
@@ -110,6 +116,9 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
 
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ overflowX: 'clip' }}>
+      {/* Overlay layer - rendered OUTSIDE scroll container (z-0, pointer-events-none) */}
+      {overlay}
+      
       {/* Pull indicator */}
       <AnimatePresence>
         {(pullDistance.get() > 0 || isRefreshing) && (
@@ -140,10 +149,10 @@ export function PullToRefresh({ onRefresh, children, disabled = false }: PullToR
         )}
       </AnimatePresence>
 
-      {/* Content */}
+      {/* Scrollable content (z-10, above overlay) */}
       <div 
         ref={containerRef}
-        className="h-full w-full overflow-y-auto overscroll-none touch-pan-y"
+        className="relative z-10 h-full w-full overflow-y-auto overscroll-none touch-pan-y"
       >
         {children}
       </div>

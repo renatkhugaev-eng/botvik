@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../layout";
@@ -9,6 +9,8 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonLeaderboardEntry, SkeletonPodium } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
 import { api } from "@/lib/api";
+import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
+import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
 
 type LeaderboardEntry = {
   place: number;
@@ -42,6 +44,8 @@ export default function LeaderboardPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const session = useMiniAppSession();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isScrolling = useScrollPerfMode({ target: scrollRef, debounceMs: 160 });
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [quizId, setQuizId] = useState<number | null>(null); // null = global
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -192,8 +196,12 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-    <div className="flex flex-col gap-5 pb-10 w-full overflow-x-hidden">
+    <PullToRefresh 
+      onRefresh={handleRefresh} 
+      scrollRef={scrollRef}
+      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={0.4} />}
+    >
+    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}

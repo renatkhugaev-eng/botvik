@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "./layout";
@@ -9,6 +9,8 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth, api } from "@/lib/api";
+import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
+import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -271,6 +273,8 @@ export default function MiniAppPage() {
   const session = useMiniAppSession();
   const router = useRouter();
   const isAndroid = useIsAndroid();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isScrolling = useScrollPerfMode({ target: scrollRef, debounceMs: 160 });
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState(0);
   const [greeting] = useState(() => getGreeting());
@@ -601,8 +605,12 @@ export default function MiniAppPage() {
   const avatarLetter = name.slice(0, 1).toUpperCase();
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-    <div className="flex flex-col gap-6 w-full overflow-x-hidden">
+    <PullToRefresh 
+      onRefresh={handleRefresh} 
+      scrollRef={scrollRef}
+      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={0.5} />}
+    >
+    <div className={`relative flex flex-col gap-6 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER — Height: 56px
       ═══════════════════════════════════════════════════════════════════ */}

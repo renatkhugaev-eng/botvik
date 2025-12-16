@@ -9,6 +9,8 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonProfilePage, SkeletonFriendCard } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth } from "@/lib/api";
+import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
+import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -201,6 +203,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const session = useMiniAppSession();
   const isAndroid = useIsAndroid();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isScrolling = useScrollPerfMode({ target: scrollRef, debounceMs: 160 });
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -516,8 +520,12 @@ export default function ProfilePage() {
     : null;
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-    <div className="flex flex-col gap-5 pb-10 w-full overflow-x-hidden">
+    <PullToRefresh 
+      onRefresh={handleRefresh} 
+      scrollRef={scrollRef}
+      overlay={<ParticlesRiveLayer pause={isScrolling} opacity={0.4} />}
+    >
+    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}
