@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "./layout";
@@ -9,6 +9,15 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonQuizCard, SkeletonProfileHeader } from "@/components/Skeleton";
 import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth, api } from "@/lib/api";
+
+// Detect Android for blur fallbacks (Android WebView has poor blur performance)
+function useIsAndroid() {
+  const [isAndroid, setIsAndroid] = useState(false);
+  useEffect(() => {
+    setIsAndroid(/android/i.test(navigator.userAgent));
+  }, []);
+  return isAndroid;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -261,6 +270,7 @@ const CHANNEL_URL = "https://t.me/dark_bookshelf";
 export default function MiniAppPage() {
   const session = useMiniAppSession();
   const router = useRouter();
+  const isAndroid = useIsAndroid();
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState(0);
   const [greeting] = useState(() => getGreeting());
@@ -846,6 +856,7 @@ export default function MiniAppPage() {
             onStart={handleStart}
             myPosition={myPosition}
             weeklyTimeLeft={weeklyTimeLeft}
+            isAndroid={isAndroid}
           />
         </motion.div>
       </AnimatePresence>
@@ -1006,9 +1017,10 @@ type QuizViewProps = {
   onStart: (id: number) => void;
   myPosition: LeaderboardPosition | null;
   weeklyTimeLeft: string;
+  isAndroid: boolean;
 };
 
-function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft }: QuizViewProps) {
+function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft, isAndroid }: QuizViewProps) {
   const router = useRouter();
 
   // Demo data
@@ -1174,8 +1186,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         transition={{ ...spring, duration: 0.8 }}
         className="relative"
       >
-        {/* Outer glow */}
-        <div className="absolute -inset-4 rounded-[32px] bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 blur-2xl" />
+        {/* Outer glow - no blur on Android for performance */}
+        <div className={`absolute -inset-4 rounded-[32px] bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 ${isAndroid ? 'opacity-60' : 'blur-2xl'}`} />
         
         {/* Animated border */}
         <div className="absolute -inset-[2px] rounded-[24px] overflow-hidden">
@@ -1211,7 +1223,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 left: `${8 + i * 8}%`,
                 bottom: "10%",
                 background: i % 3 === 0 ? "#fbbf24" : i % 3 === 1 ? "#a855f7" : "#06b6d4",
-                filter: "blur(1px)",
+                ...(isAndroid ? {} : { filter: "blur(1px)" }),
               }}
             />
           ))}
@@ -1238,9 +1250,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 animate={{ scale: 1, opacity: 1 }}
                 className="relative flex justify-center"
               >
-                {/* Glow behind timer */}
+                {/* Glow behind timer - no blur on Android */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-48 h-16 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30 rounded-full blur-2xl" />
+                  <div className={`w-48 h-16 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30 rounded-full ${isAndroid ? 'opacity-70 scale-150' : 'blur-2xl'}`} />
                 </div>
                 
                 <div className="relative flex items-baseline gap-1">
@@ -1274,9 +1286,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               transition={{ delay: 0.2 }}
               className="relative mb-5 rounded-2xl overflow-hidden"
             >
-              {/* Card background */}
+              {/* Card background - solid overlay on Android instead of blur */}
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-violet-500/10" />
-              <div className="absolute inset-0 backdrop-blur-sm" />
+              <div className={`absolute inset-0 ${isAndroid ? 'bg-black/30' : 'backdrop-blur-sm'}`} />
               
               {/* Shimmer effect */}
               <motion.div
@@ -1311,8 +1323,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     transition={{ duration: 3, repeat: Infinity }}
                     className="relative"
                   >
-                    <div className="absolute inset-0 bg-amber-400/40 rounded-full blur-xl scale-150" />
-                    <img src="/icons/17.PNG" alt="" className="relative h-20 w-20 object-contain drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]" />
+                    {/* Glow behind chest - no blur on Android */}
+                    <div className={`absolute inset-0 bg-amber-400/40 rounded-full scale-150 ${isAndroid ? 'opacity-60' : 'blur-xl'}`} />
+                    <img src="/icons/17.PNG" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? '' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
                   </motion.div>
                 </div>
               </div>
@@ -1469,9 +1482,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                   backgroundSize: '24px 24px'
                 }} />
                 
-                {/* Glowing orb in background */}
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full blur-3xl" />
-                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/15 rounded-full blur-3xl" />
+                {/* Glowing orb in background - no blur on Android */}
+                <div className={`absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full ${isAndroid ? 'opacity-50 scale-125' : 'blur-3xl'}`} />
+                <div className={`absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/15 rounded-full ${isAndroid ? 'opacity-50 scale-125' : 'blur-3xl'}`} />
 
                 {/* Title */}
                 <div className="relative flex items-center gap-2.5 mb-5">
@@ -1506,11 +1519,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                       transition={{ delay: 0.7 + i * 0.15, type: "spring", stiffness: 300 }}
                       className="relative flex flex-col items-center z-10"
                     >
-                      {/* Glow behind circle */}
+                      {/* Glow behind circle - no blur on Android */}
                       <motion.div
                         animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
                         transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                        className={`absolute top-0 w-16 h-16 rounded-full blur-xl bg-${item.glow}-500/40`}
+                        className={`absolute top-0 w-16 h-16 rounded-full bg-${item.glow}-500/40 ${isAndroid ? 'opacity-40 scale-125' : 'blur-xl'}`}
                       />
                       
                       {/* Step circle */}
