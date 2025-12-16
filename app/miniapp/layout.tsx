@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUser, addBreadcrumb } from "@/lib/sentry";
 import { identifyUser } from "@/lib/posthog";
 import { PerfModeProvider } from "@/components/context/PerfModeContext";
+import { WebVitalsOverlay } from "@/components/debug/WebVitalsOverlay";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -210,6 +211,8 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
               >
                 {content}
               </div>
+              {/* Debug overlay — add ?debug=vitals to URL to show */}
+              <WebVitalsOverlay />
             </div>
           </ErrorBoundary>
         </NotificationProvider>
