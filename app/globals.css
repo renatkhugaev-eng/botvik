@@ -313,6 +313,43 @@ img {
   content-visibility: auto;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   CLS OPTIMIZATION - Prevent Layout Shifts
+═══════════════════════════════════════════════════════════════════ */
+
+/* Stable numeric values - prevents width changes when numbers update */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reserve space for dynamic content - use on containers that load data */
+.cls-safe {
+  contain: layout style;
+}
+
+/* Offscreen content optimization - auto content-visibility with intrinsic size */
+.offscreen-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
+}
+
+/* Stable card heights for carousels */
+.card-quiz {
+  min-height: 200px;
+  contain: layout;
+}
+
+/* Hero section - fixed height to prevent CLS */
+.hero-section {
+  contain: layout style;
+}
+
+/* Section with stable height */
+.section-stable {
+  contain: layout;
+  min-height: var(--section-min-height, auto);
+}
+
 /* Optimize list rendering */
 .virtual-list > * {
   content-visibility: auto;

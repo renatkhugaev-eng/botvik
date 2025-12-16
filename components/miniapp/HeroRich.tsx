@@ -53,15 +53,13 @@ export function HeroRich({
       className={`absolute inset-0 overflow-hidden rounded-[22px] ${className}`}
       style={{ height: HERO_HEIGHT }}
     >
-      {/* Outer glow - radial gradient on Android, blur on others */}
-      {!isPerfMode && (
-        <div 
-          className={`absolute -inset-4 rounded-[32px] fx-glow ${isAndroid ? '' : 'bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 blur-2xl'}`}
-          style={isAndroid ? {
-            background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.15) 0%, rgba(217,70,239,0.1) 40%, transparent 70%)'
-          } : undefined}
-        />
-      )}
+      {/* Outer glow - always visible */}
+      <div 
+        className={`absolute -inset-4 rounded-[32px] fx-glow ${isAndroid ? '' : 'bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 blur-2xl'}`}
+        style={isAndroid ? {
+          background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.15) 0%, rgba(217,70,239,0.1) 40%, transparent 70%)'
+        } : undefined}
+      />
       
       {/* Animated border */}
       <div className="absolute -inset-[2px] rounded-[24px] overflow-hidden">
@@ -180,15 +178,13 @@ export function HeroRich({
                   transition={{ duration: 3, repeat: Infinity }}
                   className="relative"
                 >
-                  {/* Glow behind chest */}
-                  {!isPerfMode && (
-                    <div 
-                      className={`absolute inset-0 rounded-full scale-150 fx-glow ${isAndroid ? '' : 'bg-amber-400/40 blur-xl'}`}
-                      style={isAndroid ? {
-                        background: 'radial-gradient(circle, rgba(251,191,36,0.4) 0%, rgba(251,191,36,0.2) 40%, transparent 70%)'
-                      } : undefined}
-                    />
-                  )}
+                  {/* Glow behind chest - always visible */}
+                  <div 
+                    className={`absolute inset-0 rounded-full scale-150 fx-glow ${isAndroid ? '' : 'bg-amber-400/40 blur-xl'}`}
+                    style={isAndroid ? {
+                      background: 'radial-gradient(circle, rgba(251,191,36,0.4) 0%, rgba(251,191,36,0.2) 40%, transparent 70%)'
+                    } : undefined}
+                  />
                   <img 
                     loading="lazy" 
                     decoding="async" 

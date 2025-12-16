@@ -15,8 +15,6 @@ import { usePerfMode } from "@/components/context/PerfModeContext";
 import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
 import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
-import { LottieAnimation } from "@/components/LottieAnimation";
-import wavesAnimation from "@/public/animations/Wave Lines Animation.json";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -663,6 +661,7 @@ export default function MiniAppPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="relative flex flex-col items-center py-4"
+        style={{ contain: 'layout', minHeight: 220 }}
       >
         {/* Centered Avatar — clickable to profile */}
         <motion.button
@@ -697,7 +696,10 @@ export default function MiniAppPage() {
             <img 
               src={photoUrl} 
               alt={name}
+              width={96}
+              height={96}
               className="relative h-24 w-24 rounded-full object-cover ring-[3px] ring-white shadow-xl"
+              style={{ aspectRatio: '1/1' }}
             />
           ) : (
             <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-[3px] ring-white shadow-xl">
@@ -1076,19 +1078,20 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           </span>
         </div>
 
-        {/* Carousel */}
-        {loading ? (
-          <div className="flex gap-3">
-            {[1, 2, 3].map((i) => (
-              <SkeletonQuizCard key={i} />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="flex h-[220px] items-center justify-center rounded-2xl bg-rose-50">
-            <p className="text-[14px] text-rose-600">{error}</p>
-          </div>
-        ) : (
-          <div className="relative">
+        {/* Carousel — Fixed height to prevent CLS */}
+        <div className="relative" style={{ minHeight: 200, contain: 'layout' }}>
+          {loading ? (
+            <div className="flex gap-3">
+              {[1, 2, 3].map((i) => (
+                <SkeletonQuizCard key={i} />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="flex h-[200px] items-center justify-center rounded-2xl bg-rose-50">
+              <p className="text-[14px] text-rose-600">{error}</p>
+            </div>
+          ) : (
+            <div className="relative">
             {/* Fade */}
             <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-4 bg-gradient-to-l from-slate-100 to-transparent" />
             
@@ -1175,7 +1178,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               })}
             </div>
           </div>
-        )}
+          )}
+        </div>
         {/* Error message */}
         {startError && (
           <motion.div
@@ -1218,28 +1222,6 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         )}
       </div>
       
-      {/* ═══ WAVE ANIMATION — Between blocks ═══ */}
-      <div 
-        className="relative -mx-5 pointer-events-none will-change-transform z-10"
-        style={{ 
-          height: '40px',
-          marginTop: '-60px',
-          marginBottom: '-10px'
-        }}
-      >
-        <div
-          className="absolute left-0 right-0 top-1/2 overflow-hidden"
-          style={{ 
-            transform: 'translateY(-30%) scaleY(0.3) translateZ(0)',
-            opacity: 0.5
-          }}
-        >
-          <LottieAnimation 
-            animationData={wavesAnimation} 
-            loop={true}
-          />
-        </div>
-      </div>
       
       {/* Extended content below hero - only show after data loaded */}
       <motion.section
@@ -1533,7 +1515,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
 
 function Card({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-white p-4 shadow-sm offscreen-optimized" style={{ contain: 'layout' }}>
       {/* Header — h-6 */}
       <div className="mb-3 flex h-6 items-center justify-between">
         <h3 className="font-display text-[15px] font-bold text-[#1a1a2e]">{title}</h3>
