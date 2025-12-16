@@ -8,7 +8,6 @@ import { setUser, addBreadcrumb } from "@/lib/sentry";
 import { identifyUser } from "@/lib/posthog";
 import { PerfModeProvider, usePerfMode } from "@/components/context/PerfModeContext";
 import { ParticlesRiveLayer } from "@/components/fx/ParticlesRiveLayer";
-import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -51,17 +50,44 @@ export function useMiniAppSession() {
 }
 
 /**
- * Rive overlay component - single instance for all miniapp pages
+ * Rive overlay component - fixed at top of screen
+ * Doesn't scroll with content
  */
 function RiveOverlay() {
+  const [mounted, setMounted] = useState(false);
   const { isPerfMode } = usePerfMode();
-  const { config } = useDeviceTier();
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  if (!mounted) return null;
   
   return (
-    <ParticlesRiveLayer 
-      pause={isPerfMode} 
-      opacity={config.riveOpacityHome} 
-    />
+    <div 
+      className="fixed top-0 left-0 right-0 pointer-events-none overflow-hidden"
+      style={{ 
+        height: '350px', 
+        width: '100%',
+        zIndex: 0,
+        maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+      }}
+    >
+      {/* Scale up animation to cover full width */}
+      <div 
+        className="absolute w-full h-full"
+        style={{ 
+          transform: 'scale(1.8) translateY(-25%)',
+          transformOrigin: 'center top',
+        }}
+      >
+        <ParticlesRiveLayer 
+          pause={isPerfMode} 
+          opacity={0.7}
+        />
+      </div>
+    </div>
   );
 }
 
