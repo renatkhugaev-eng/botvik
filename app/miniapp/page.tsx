@@ -12,6 +12,9 @@ import { fetchWithAuth, api } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
+import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
+import { HeroRich } from "@/components/miniapp/HeroRich";
+import { useDeferredRender } from "@/components/hooks/useDeferredRender";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -858,6 +861,7 @@ export default function MiniAppPage() {
             myPosition={myPosition}
             weeklyTimeLeft={weeklyTimeLeft}
             isAndroid={isAndroid}
+            isPerfMode={isScrolling}
           />
         </motion.div>
       </AnimatePresence>
@@ -1019,10 +1023,18 @@ type QuizViewProps = {
   myPosition: LeaderboardPosition | null;
   weeklyTimeLeft: string;
   isAndroid: boolean;
+  isPerfMode: boolean;
 };
 
-function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft, isAndroid }: QuizViewProps) {
+function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft, isAndroid, isPerfMode }: QuizViewProps) {
   const router = useRouter();
+  
+  // Defer heavy hero rendering for better LCP
+  const showHeroRich = useDeferredRender({ 
+    timeoutMs: 1500, 
+    fallbackMs: 1200,
+    disabled: isPerfMode // Don't defer when scrolling
+  });
 
   // Demo data
   const demos: QuizSummary[] = [
@@ -1179,275 +1191,47 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────
-          🏆 WEEKLY COMPETITION — Premium Design
+          🏆 WEEKLY COMPETITION — LCP Split: HeroShell + HeroRich
       ───────────────────────────────────────────────────────────────── */}
+      
+      {/* Hero Container with fixed height to prevent CLS */}
+      <div className="relative" style={{ height: HERO_HEIGHT }}>
+        {/* HeroShell — always visible immediately, becomes LCP candidate */}
+        <HeroShell />
+        
+        {/* HeroRich — deferred, appears after idle/timer, overlays Shell */}
+        {/* NOTE: Always visible after defer, but animations pause during scroll (isPerfMode) */}
+        {showHeroRich && (
+          <HeroRich
+            weeklyTimeLeft={weeklyTimeLeft}
+            myPosition={myPosition}
+            isAndroid={isAndroid}
+            isPerfMode={isPerfMode}
+            onPlayClick={() => {
+              haptic.heavy();
+              // Scroll to quiz section
+              document.querySelector('[data-quiz-section]')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+        )}
+      </div>
+      
+      {/* Extended content below hero - only show after data loaded */}
       <motion.section
         initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{ opacity: showHeroRich ? 1 : 0, y: showHeroRich ? 0 : 30 }}
         transition={{ ...spring, duration: 0.8 }}
         className="relative"
       >
-        {/* Outer glow - radial gradient on Android, blur on others */}
-        <div 
-          className={`absolute -inset-4 rounded-[32px] fx-glow ${isAndroid ? '' : 'bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 blur-2xl'}`}
-          style={isAndroid ? {
-            background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.15) 0%, rgba(217,70,239,0.1) 40%, transparent 70%)'
-          } : undefined}
-        />
-        
-        {/* Animated border */}
-        <div className="absolute -inset-[2px] rounded-[24px] overflow-hidden">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,#8b5cf6,#d946ef,#f59e0b,#06b6d4,#8b5cf6)]"
-          />
-        </div>
-        
-        {/* Main container */}
-        <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-b from-[#0f0a1a] via-[#0a0a12] to-[#0a0812]">
+        {/* Main container for extended content (GAME PATH etc.) */}
+        <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-b from-[#0f0a1a] via-[#0a0a12] to-[#0a0812] mt-4">
+          {/* Static border */}
+          <div className="absolute -inset-[2px] rounded-[24px] bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-amber-500/30" />
+          
           {/* Content */}
           <div className="relative px-5 py-6">
             
-            {/* ═══ COUNTDOWN TIMER — Hero Section ═══ */}
-            <div className="mb-6">
-              {/* Timer label */}
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                  className="w-2 h-2 rounded-full bg-red-500 shadow-lg shadow-red-500/50"
-                />
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-400">LIVE</span>
-                <span className="text-[11px] font-medium uppercase tracking-widest text-white/40">• До финиша</span>
-              </div>
-              
-              {/* Big timer display */}
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="relative flex justify-center"
-              >
-                {/* Glow behind timer - box-shadow for Android, blur for others */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className={`w-48 h-16 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30 rounded-full ${isAndroid ? 'shadow-[0_0_40px_20px_rgba(139,92,246,0.4)]' : 'blur-2xl'}`} />
-                </div>
-                
-                <div className="relative flex items-baseline gap-1">
-                  <motion.span
-                    animate={{ 
-                      textShadow: [
-                        "0 0 20px rgba(139,92,246,0.5)",
-                        "0 0 40px rgba(217,70,239,0.5)",
-                        "0 0 20px rgba(139,92,246,0.5)",
-                      ]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="text-[52px] font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-fuchsia-200 to-amber-200"
-                    style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}
-                  >
-                    {weeklyTimeLeft || "—"}
-                  </motion.span>
-                </div>
-              </motion.div>
-              
-              {/* Sub-label */}
-              <p className="text-center text-[10px] text-white/30 mt-2">
-                Сброс в воскресенье 00:00 МСК
-              </p>
-            </div>
-
-            {/* ═══ PRIZE POOL — Glassmorphism Card ═══ */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="relative mb-5 rounded-2xl overflow-hidden"
-            >
-              {/* Card background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-violet-500/10" />
-              <div className={`absolute inset-0 ${isAndroid ? 'bg-black/40' : 'backdrop-blur-sm'}`} />
-              
-              {/* Shimmer effect */}
-              <motion.div
-                animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3 }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent skew-x-12"
-              />
-              
-              <div className="relative p-5 border border-white/[0.08] rounded-2xl">
-                <div className="flex items-center justify-between">
-                  {/* Left: Prize info */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
-                        Призовой фонд
-                      </span>
-                    </div>
-                    <div className="flex items-baseline">
-                      <span className="text-[42px] font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-200" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        1 750
-                      </span>
-                      <span className="ml-1.5 text-[20px] font-bold text-amber-400/60">₽</span>
-                    </div>
-                  </div>
-                  
-                  {/* Right: Trophy */}
-                  <motion.div
-                    animate={{ 
-                      rotate: [0, 5, -5, 0],
-                      y: [0, -3, 0],
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    className="relative"
-                  >
-                    {/* Glow behind chest - radial gradient on Android, blur on others */}
-                    <div 
-                      className={`absolute inset-0 rounded-full scale-150 fx-glow ${isAndroid ? '' : 'bg-amber-400/40 blur-xl'}`}
-                      style={isAndroid ? {
-                        background: 'radial-gradient(circle, rgba(251,191,36,0.4) 0%, rgba(251,191,36,0.2) 40%, transparent 70%)'
-                      } : undefined}
-                    />
-                    <img loading="lazy" decoding="async" src="/icons/17.webp" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? 'drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* ═══ PRIZE TIERS — 3D Cards ═══ */}
-            <div className="mb-5 space-y-2.5">
-              {[
-                { 
-                  place: 1, 
-                  amount: "1 000", 
-                  label: "Золото", 
-                  gradient: "from-amber-500/25 via-yellow-500/15 to-orange-500/20",
-                  border: "border-amber-500/40",
-                  glow: "shadow-amber-500/20",
-                  textColor: "text-amber-200",
-                  badge: "bg-gradient-to-br from-amber-400 to-orange-500"
-                },
-                { 
-                  place: 2, 
-                  amount: "500", 
-                  label: "Серебро", 
-                  gradient: "from-slate-400/20 via-slate-300/10 to-slate-500/15",
-                  border: "border-slate-400/30",
-                  glow: "shadow-slate-400/15",
-                  textColor: "text-slate-200",
-                  badge: "bg-gradient-to-br from-slate-300 to-slate-500"
-                },
-                { 
-                  place: 3, 
-                  amount: "250", 
-                  label: "Бронза", 
-                  gradient: "from-orange-600/20 via-orange-500/10 to-amber-600/15",
-                  border: "border-orange-500/30",
-                  glow: "shadow-orange-500/15",
-                  textColor: "text-orange-200",
-                  badge: "bg-gradient-to-br from-orange-500 to-amber-600"
-                },
-              ].map((tier, i) => (
-                <motion.div
-                  key={tier.place}
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + i * 0.1, ...spring }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`relative flex items-center gap-4 p-3.5 rounded-xl bg-gradient-to-r ${tier.gradient} border ${tier.border} shadow-lg ${tier.glow}`}
-                >
-                  {/* Place badge */}
-                  <div className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${tier.badge} shadow-lg`}>
-                    {tier.place === 1 ? (
-                      <>
-                        <motion.div
-                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="absolute inset-0 rounded-xl bg-amber-400"
-                        />
-                        <span className="text-3xl">🥇</span>
-                      </>
-                    ) : (
-                      <span className="text-2xl">{tier.place === 2 ? '🥈' : '🥉'}</span>
-                    )}
-                  </div>
-                  
-                  {/* Label */}
-                  <div className="flex-1">
-                    <p className={`text-[14px] font-bold ${tier.textColor}`}>{tier.label}</p>
-                    <p className="text-[10px] text-white/40">{tier.place} место в рейтинге</p>
-                  </div>
-                  
-                  {/* Amount */}
-                  <div className="text-right">
-                    <span className="text-[18px] font-black text-white">{tier.amount}</span>
-                    <span className="text-[12px] font-medium text-white/40 ml-0.5">₽</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* ═══ YOUR POSITION — Highlight Card ═══ */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 }}
-              className={`relative mb-5 p-4 rounded-2xl overflow-hidden ${
-                myPosition && myPosition.place > 0 && myPosition.place <= 3
-                  ? "bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-cyan-500/20 border border-emerald-500/30"
-                  : "bg-gradient-to-r from-violet-500/15 via-violet-500/10 to-indigo-500/15 border border-violet-500/20"
-              }`}
-            >
-              {/* Sparkle effect for top-3 */}
-              {myPosition && myPosition.place > 0 && myPosition.place <= 3 && (
-                <motion.div
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent"
-                />
-              )}
-              
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Position circle */}
-                  <motion.div
-                    animate={myPosition && myPosition.place > 0 && myPosition.place <= 3 ? { scale: [1, 1.05, 1] } : {}}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className={`flex h-14 w-14 items-center justify-center rounded-full font-black text-[20px] ${
-                      !myPosition || myPosition.place === 0
-                        ? "bg-white/10 text-white/30 border-2 border-dashed border-white/20"
-                        : myPosition.place === 1
-                          ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xl shadow-amber-500/40"
-                          : myPosition.place === 2
-                            ? "bg-gradient-to-br from-slate-300 to-slate-500 text-slate-900 shadow-xl shadow-slate-400/30"
-                            : myPosition.place === 3
-                              ? "bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-xl shadow-orange-500/40"
-                              : "bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-xl shadow-violet-500/30"
-                    }`}
-                  >
-                    {!myPosition || myPosition.place === 0 ? "?" : myPosition.place}
-                  </motion.div>
-                  
-                  <div>
-                    <p className="text-[11px] font-medium text-white/50 uppercase tracking-wide">Твоя позиция</p>
-                    <p className="text-[18px] font-bold text-white">
-                      {myPosition?.score ? `${myPosition.score.toLocaleString()} очков` : "Начни играть!"}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Status badge */}
-                {myPosition && myPosition.place > 0 && (
-                  <div className={`px-3 py-1.5 rounded-full text-[11px] font-bold ${
-                    myPosition.place <= 3
-                      ? "bg-emerald-500/30 text-emerald-300 shadow-lg shadow-emerald-500/20"
-                      : "bg-violet-500/30 text-violet-300"
-                  }`}>
-                    {myPosition.place <= 3 ? "🏆 В призах!" : `До топ-3: ${myPosition.place - 3}`}
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            {/* NOTE: Timer, Prize Pool, Prize Tiers, Your Position moved to HeroShell/HeroRich above */}
 
             {/* ═══ GAME PATH — Road to Victory ═══ */}
             <motion.div
