@@ -13,6 +13,15 @@ import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
 
+// Detect iOS - iOS handles blur effects well, no need to disable during scroll
+function useIsIOS() {
+  const [isIOS, setIsIOS] = useState(false);
+  useEffect(() => {
+    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
+  }, []);
+  return isIOS;
+}
+
 type LeaderboardEntry = {
   place: number;
   user: { id: number; username: string | null; firstName: string | null; photoUrl: string | null };
@@ -45,6 +54,7 @@ export default function LeaderboardPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const session = useMiniAppSession();
+  const isIOS = useIsIOS();
   const { config } = useDeviceTier();
   const { setPerfMode } = usePerfMode();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -212,7 +222,7 @@ export default function LeaderboardPage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
+    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}

@@ -22,6 +22,15 @@ function useIsAndroid() {
   return isAndroid;
 }
 
+// Detect iOS - iOS handles blur effects well, no need to disable during scroll
+function useIsIOS() {
+  const [isIOS, setIsIOS] = useState(false);
+  useEffect(() => {
+    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
+  }, []);
+  return isIOS;
+}
+
 type SummaryResponse = {
   user: {
     id: number;
@@ -204,6 +213,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const session = useMiniAppSession();
   const isAndroid = useIsAndroid();
+  const isIOS = useIsIOS();
   const { config } = useDeviceTier();
   const { setPerfMode } = usePerfMode();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -536,7 +546,7 @@ export default function ProfilePage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
+    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}

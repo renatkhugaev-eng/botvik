@@ -22,6 +22,15 @@ function useIsAndroid() {
   return isAndroid;
 }
 
+// Detect iOS - iOS handles blur effects well, no need to disable during scroll
+function useIsIOS() {
+  const [isIOS, setIsIOS] = useState(false);
+  useEffect(() => {
+    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
+  }, []);
+  return isIOS;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM
    Base unit: 4px
@@ -274,6 +283,7 @@ export default function MiniAppPage() {
   const session = useMiniAppSession();
   const router = useRouter();
   const isAndroid = useIsAndroid();
+  const isIOS = useIsIOS();
   const { config } = useDeviceTier();
   const { setPerfMode } = usePerfMode();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -621,7 +631,7 @@ export default function MiniAppPage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-6 w-full overflow-x-hidden ${isScrolling ? "perf" : ""}`}>
+    <div className={`relative flex flex-col gap-6 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER — Height: 56px
       ═══════════════════════════════════════════════════════════════════ */}
