@@ -673,18 +673,19 @@ export default function MiniAppPage() {
           className="relative mb-4"
         >
           {/* Large diffused glow behind avatar - cyan/violet */}
+          {/* On Android: use box-shadow instead of filter:blur for better performance */}
           <div 
             className="absolute -inset-8 rounded-full gpu-accelerated animate-pulse"
             style={{
               background: 'radial-gradient(circle, rgba(6, 182, 212, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
-              filter: 'blur(20px)',
+              ...(isAndroid ? { boxShadow: '0 0 40px 20px rgba(6, 182, 212, 0.3)' } : { filter: 'blur(20px)' }),
             }}
           />
           <div 
             className="absolute -inset-5 rounded-full gpu-accelerated"
             style={{
               background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)',
-              filter: 'blur(15px)',
+              ...(isAndroid ? { boxShadow: '0 0 30px 15px rgba(139, 92, 246, 0.25)' } : { filter: 'blur(15px)' }),
             }}
           />
           {/* Animated gradient ring — outer glow */}

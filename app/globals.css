@@ -37,6 +37,13 @@ html, body {
   bottom: 0;
   touch-action: pan-y;
   -webkit-touch-callout: none;
+  /* iOS tap highlight removal */
+  -webkit-tap-highlight-color: transparent;
+  /* Safe area for notch devices */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Scroll performance optimizations */
@@ -367,6 +374,39 @@ img {
   /* Reduce blur intensity on iOS for performance */
   .blur-xl, .blur-2xl, .blur-3xl {
     --tw-blur: blur(12px) !important;
+  }
+  
+  /* Safe area padding for notch devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-all {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* Android WebView optimizations */
+@supports not (-webkit-touch-callout: none) {
+  /* Android: disable CSS blur which is expensive */
+  .android-no-blur .blur,
+  .android-no-blur .blur-sm,
+  .android-no-blur .blur-md,
+  .android-no-blur .blur-lg,
+  .android-no-blur .blur-xl,
+  .android-no-blur .blur-2xl,
+  .android-no-blur .blur-3xl {
+    filter: none !important;
+  }
+  
+  /* Android: use box-shadow for glow instead of filter */
+  .android-glow {
+    filter: none !important;
+    box-shadow: 0 0 20px 10px currentColor;
   }
 }
 

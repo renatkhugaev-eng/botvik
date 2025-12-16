@@ -205,9 +205,16 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
             <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
             <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
               {/* Single Rive overlay instance for all pages */}
+              {/* Safe area padding for iPhone X+ notch */}
               <div 
                 className="relative z-10 w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
-                style={{ overflowX: 'clip', maxWidth: '100%' }}
+                style={{ 
+                  overflowX: 'clip', 
+                  maxWidth: '100%',
+                  // Safe area insets for notch devices
+                  paddingTop: 'max(8px, env(safe-area-inset-top))',
+                  paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+                }}
               >
                 {content}
               </div>

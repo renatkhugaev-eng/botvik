@@ -27,6 +27,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: "#f1f5f9",
+  // Critical for iPhone X+ notch support
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
