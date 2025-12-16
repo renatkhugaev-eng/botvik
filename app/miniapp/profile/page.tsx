@@ -588,7 +588,7 @@ export default function ProfilePage() {
           }}
         >
           {/* DIFFUSED LIGHT EFFECT - soft glows without visible edges */}
-          {/* Top cyan glow - very diffused (no blur on Android for performance) */}
+          {/* Top cyan glow - box-shadow for Android, blur for others */}
           <div 
             className="absolute gpu-accelerated animate-pulse"
             style={{
@@ -597,7 +597,7 @@ export default function ProfilePage() {
               right: '10%',
               height: '120px',
               background: 'radial-gradient(ellipse 80% 100% at center, rgba(6, 182, 212, 0.5) 0%, rgba(6, 182, 212, 0.2) 40%, transparent 70%)',
-              ...(isAndroid ? { transform: 'scale(1.5)', opacity: 0.7 } : { filter: 'blur(40px)' }),
+              ...(isAndroid ? { boxShadow: '0 0 60px 40px rgba(6, 182, 212, 0.3)' } : { filter: 'blur(40px)' }),
               borderRadius: '50%',
             }}
           />
@@ -610,7 +610,7 @@ export default function ProfilePage() {
               right: '5%',
               height: '100px',
               background: 'radial-gradient(ellipse 90% 100% at center, rgba(139, 92, 246, 0.4) 0%, rgba(139, 92, 246, 0.15) 50%, transparent 80%)',
-              ...(isAndroid ? { transform: 'scale(1.4)', opacity: 0.6 } : { filter: 'blur(35px)' }),
+              ...(isAndroid ? { boxShadow: '0 0 50px 30px rgba(139, 92, 246, 0.25)' } : { filter: 'blur(35px)' }),
               borderRadius: '50%',
             }}
           />
@@ -623,7 +623,7 @@ export default function ProfilePage() {
               width: '80px',
               height: '60%',
               background: 'radial-gradient(ellipse at center, rgba(6, 182, 212, 0.25) 0%, transparent 70%)',
-              ...(isAndroid ? { transform: 'scale(1.3)', opacity: 0.5 } : { filter: 'blur(30px)' }),
+              ...(isAndroid ? { boxShadow: '0 0 40px 25px rgba(6, 182, 212, 0.2)' } : { filter: 'blur(30px)' }),
               borderRadius: '50%',
             }}
           />
@@ -636,7 +636,7 @@ export default function ProfilePage() {
               width: '80px',
               height: '50%',
               background: 'radial-gradient(ellipse at center, rgba(236, 72, 153, 0.2) 0%, transparent 70%)',
-              ...(isAndroid ? { transform: 'scale(1.3)', opacity: 0.5 } : { filter: 'blur(30px)' }),
+              ...(isAndroid ? { boxShadow: '0 0 40px 25px rgba(236, 72, 153, 0.15)' } : { filter: 'blur(30px)' }),
               borderRadius: '50%',
             }}
           />

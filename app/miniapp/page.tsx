@@ -1186,8 +1186,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         transition={{ ...spring, duration: 0.8 }}
         className="relative"
       >
-        {/* Outer glow - no blur on Android for performance */}
-        <div className={`absolute -inset-4 rounded-[32px] bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 ${isAndroid ? 'opacity-60' : 'blur-2xl'}`} />
+        {/* Outer glow - box-shadow for Android, blur for others */}
+        <div className={`absolute -inset-4 rounded-[32px] bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-amber-500/20 ${isAndroid ? 'shadow-[0_0_60px_30px_rgba(139,92,246,0.15)]' : 'blur-2xl'}`} />
         
         {/* Animated border */}
         <div className="absolute -inset-[2px] rounded-[24px] overflow-hidden">
@@ -1250,9 +1250,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 animate={{ scale: 1, opacity: 1 }}
                 className="relative flex justify-center"
               >
-                {/* Glow behind timer - no blur on Android */}
+                {/* Glow behind timer - box-shadow for Android, blur for others */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className={`w-48 h-16 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30 rounded-full ${isAndroid ? 'opacity-70 scale-150' : 'blur-2xl'}`} />
+                  <div className={`w-48 h-16 bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-amber-500/30 rounded-full ${isAndroid ? 'shadow-[0_0_40px_20px_rgba(139,92,246,0.4)]' : 'blur-2xl'}`} />
                 </div>
                 
                 <div className="relative flex items-baseline gap-1">
@@ -1286,9 +1286,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               transition={{ delay: 0.2 }}
               className="relative mb-5 rounded-2xl overflow-hidden"
             >
-              {/* Card background - solid overlay on Android instead of blur */}
+              {/* Card background */}
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-violet-500/10" />
-              <div className={`absolute inset-0 ${isAndroid ? 'bg-black/30' : 'backdrop-blur-sm'}`} />
+              <div className={`absolute inset-0 ${isAndroid ? 'bg-black/40' : 'backdrop-blur-sm'}`} />
               
               {/* Shimmer effect */}
               <motion.div
@@ -1323,9 +1323,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     transition={{ duration: 3, repeat: Infinity }}
                     className="relative"
                   >
-                    {/* Glow behind chest - no blur on Android */}
-                    <div className={`absolute inset-0 bg-amber-400/40 rounded-full scale-150 ${isAndroid ? 'opacity-60' : 'blur-xl'}`} />
-                    <img src="/icons/17.webp" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? '' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
+                    {/* Glow behind chest - box-shadow for Android, blur for others */}
+                    <div className={`absolute inset-0 rounded-full scale-150 ${isAndroid ? 'bg-amber-400/50 shadow-[0_0_30px_15px_rgba(251,191,36,0.5)]' : 'bg-amber-400/40 blur-xl'}`} />
+                    <img src="/icons/17.webp" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? 'drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
                   </motion.div>
                 </div>
               </div>
@@ -1482,9 +1482,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                   backgroundSize: '24px 24px'
                 }} />
                 
-                {/* Glowing orb in background - no blur on Android */}
-                <div className={`absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full ${isAndroid ? 'opacity-50 scale-125' : 'blur-3xl'}`} />
-                <div className={`absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/15 rounded-full ${isAndroid ? 'opacity-50 scale-125' : 'blur-3xl'}`} />
+                {/* Glowing orb in background - box-shadow for Android */}
+                <div className={`absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full ${isAndroid ? 'shadow-[0_0_60px_40px_rgba(139,92,246,0.2)]' : 'blur-3xl'}`} />
+                <div className={`absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/15 rounded-full ${isAndroid ? 'shadow-[0_0_60px_40px_rgba(245,158,11,0.15)]' : 'blur-3xl'}`} />
 
                 {/* Title */}
                 <div className="relative flex items-center gap-2.5 mb-5">
@@ -1519,11 +1519,12 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                       transition={{ delay: 0.7 + i * 0.15, type: "spring", stiffness: 300 }}
                       className="relative flex flex-col items-center z-10"
                     >
-                      {/* Glow behind circle - no blur on Android */}
+                      {/* Glow behind circle - box-shadow for Android */}
                       <motion.div
                         animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
                         transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                        className={`absolute top-0 w-16 h-16 rounded-full bg-${item.glow}-500/40 ${isAndroid ? 'opacity-40 scale-125' : 'blur-xl'}`}
+                        className={`absolute top-0 w-16 h-16 rounded-full bg-${item.glow}-500/40 ${isAndroid ? 'shadow-[0_0_25px_12px_currentColor]' : 'blur-xl'}`}
+                        style={isAndroid ? { color: item.glow === 'violet' ? 'rgba(139,92,246,0.4)' : item.glow === 'fuchsia' ? 'rgba(217,70,239,0.4)' : item.glow === 'cyan' ? 'rgba(6,182,212,0.4)' : 'rgba(245,158,11,0.4)' } : undefined}
                       />
                       
                       {/* Step circle */}
