@@ -646,7 +646,7 @@ export default function MiniAppPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5"
         >
-          <img loading="lazy" decoding="async" src="/icons/6.webp" alt="" className="h-6 w-6 object-contain" />
+          <span className="text-lg">👥</span>
           <span className="text-xs font-medium text-white whitespace-nowrap">
             <span className="font-bold tabular-nums">{onlinePlayers}</span> <span className="text-white/50">играют сейчас</span>
           </span>
@@ -730,7 +730,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-1.5 pr-3 py-1 shadow-lg shadow-amber-500/25"
           >
-            <img loading="lazy" decoding="async" src="/icons/11.webp" alt="" className="h-8 w-8 object-contain" />
+            <span className="text-2xl">⚡</span>
             <span className="text-sm font-bold text-white tabular-nums">{userStats?.minEnergy ?? 5}</span>
           </motion.div>
           
@@ -741,7 +741,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.3 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-1.5 pr-3 py-1 shadow-lg shadow-violet-500/25"
           >
-            <img loading="lazy" decoding="async" src="/icons/7.webp" alt="" className="h-8 w-8 object-contain" />
+            <span className="text-2xl">💎</span>
             <span className="text-sm font-bold text-white tabular-nums">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
           </motion.div>
         </div>
@@ -813,13 +813,13 @@ export default function MiniAppPage() {
                       : "bg-gradient-to-br from-violet-500 to-indigo-600"
                 }`}>
                   {!myPosition || myPosition.place === 0 ? (
-                    <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-9 w-9 object-contain" />
+                    <span className="text-2xl">🏆</span>
                   ) : myPosition.place === 1 ? (
-                    <img loading="lazy" decoding="async" src="/icons/fire-medal.webp" alt="1" className="h-8 w-8 object-contain" />
+                    <span className="text-2xl">🥇</span>
                   ) : myPosition.place === 2 ? (
-                    <img loading="lazy" decoding="async" src="/icons/medal.webp" alt="2" className="h-7 w-7 object-contain" />
+                    <span className="text-xl">🥈</span>
                   ) : myPosition.place === 3 ? (
-                    <img loading="lazy" decoding="async" src="/icons/medal.webp" alt="3" className="h-7 w-7 object-contain" />
+                    <span className="text-xl">🥉</span>
                   ) : (
                     <span className="text-[14px] font-black text-white">{myPosition.place}</span>
                   )}
@@ -877,7 +877,7 @@ export default function MiniAppPage() {
         }}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[16px] font-semibold text-white shadow-xl shadow-black/20"
       >
-        <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-12 w-12 object-contain" />
+        <span className="text-4xl">🏆</span>
         Таблица лидеров
       </motion.button>
 
@@ -1039,13 +1039,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   const items = [...quizzes, ...demos.slice(0, Math.max(0, 5 - quizzes.length))];
 
   const tournaments = [
-    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <img loading="lazy" decoding="async" src="/icons/55.webp" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#2d132c] to-[#1a1a2e]" },
-    { id: "t2", title: "Ночь культов", time: "12ч", icon: <img loading="lazy" decoding="async" src="/icons/49.webp" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#1e3a5f] to-[#0d1b2a]" },
+    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <span className="text-2xl">🔪</span>, bg: "from-[#2d132c] to-[#1a1a2e]" },
+    { id: "t2", title: "Ночь культов", time: "12ч", icon: <span className="text-2xl">🌙</span>, bg: "from-[#1e3a5f] to-[#0d1b2a]" },
   ];
 
   const events = [
-    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <img loading="lazy" decoding="async" src="/icons/28.webp" alt="" className="h-8 w-8 object-contain" /> },
-    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <img loading="lazy" decoding="async" src="/icons/29.webp" alt="" className="h-8 w-8 object-contain" /> },
+    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <span className="text-2xl">🔍</span> },
+    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <span className="text-2xl">❄️</span> },
   ];
 
   return (
@@ -1369,10 +1369,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                           transition={{ duration: 1.5, repeat: Infinity }}
                           className="absolute inset-0 rounded-xl bg-amber-400"
                         />
-                        <img loading="lazy" decoding="async" src="/icons/fire-medal.webp" alt="1" className="relative h-9 w-9 object-contain" />
+                        <span className="text-3xl">🥇</span>
                       </>
                     ) : (
-                      <img loading="lazy" decoding="async" src="/icons/medal.webp" alt={String(tier.place)} className="h-8 w-8 object-contain" />
+                      <span className="text-2xl">{tier.place === 2 ? '🥈' : '🥉'}</span>
                     )}
                   </div>
                   
@@ -1485,7 +1485,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
 
                 {/* Title */}
                 <div className="relative flex items-center gap-2.5 mb-5">
-                  <img loading="lazy" decoding="async" src="/icons/39.webp" alt="" className="w-8 h-8 object-contain" />
+                  <span className="text-2xl">🛤️</span>
                   <span className="text-[15px] font-bold text-white">Путь к победе</span>
                 </div>
 
@@ -1504,9 +1504,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
 
                   {/* Steps */}
                   {[
-                    { step: 1, icon: "/icons/56.webp", label: "Играй", desc: "квизы", color: "from-violet-500 to-violet-600", glow: "violet", isImg: true },
-                    { step: 2, icon: "/icons/7.webp", label: "Набирай", desc: "очки", color: "from-fuchsia-500 to-pink-500", glow: "fuchsia", isImg: true },
-                    { step: 3, icon: "/icons/54.webp", label: "Расти", desc: "в топе", color: "from-cyan-500 to-blue-500", glow: "cyan", isImg: true },
+                    { step: 1, icon: "🎮", label: "Играй", desc: "квизы", color: "from-violet-500 to-violet-600", glow: "violet", isImg: false },
+                    { step: 2, icon: "💎", label: "Набирай", desc: "очки", color: "from-fuchsia-500 to-pink-500", glow: "fuchsia", isImg: false },
+                    { step: 3, icon: "🏆", label: "Расти", desc: "в топе", color: "from-cyan-500 to-blue-500", glow: "cyan", isImg: false },
                     { step: 4, icon: "/icons/17.webp", label: "Получай", desc: "призы", color: "from-amber-500 to-orange-500", glow: "amber", isImg: true },
                   ].map((item, i) => (
                     <motion.div
@@ -1535,7 +1535,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                         whileTap={{ scale: 0.95 }}
                         className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg shadow-${item.glow}-500/30 ring-2 ring-white/20`}
                       >
-                        <img src={item.icon} alt="" className="w-9 h-9 object-contain" />
+                        {item.isImg ? (
+                          <img src={item.icon} alt="" className="w-9 h-9 object-contain" />
+                        ) : (
+                          <span className="text-3xl">{item.icon}</span>
+                        )}
                         
                         {/* Step number badge */}
                         <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-900 border-2 border-white/30 flex items-center justify-center">
@@ -1555,17 +1559,17 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 {/* Full Rules Section */}
                 <div className="relative mt-6 pt-4 border-t border-white/[0.08]">
                   <div className="flex items-center gap-2 mb-4 justify-center">
-                    <img loading="lazy" decoding="async" src="/icons/24.webp" alt="" className="w-6 h-6 object-contain" />
+                    <span className="text-lg">📋</span>
                     <span className="text-[13px] font-bold text-white/80">Правила участия</span>
                   </div>
                   
                   <div className="space-y-2.5 mb-4">
                     {[
-                      { icon: "/icons/30.webp", title: "Еженедельный турнир", desc: "Соревнование длится с понедельника по воскресенье" },
-                      { icon: "/icons/alarm.webp", title: "Сброс рейтинга", desc: "Каждое воскресенье в 00:00 МСК очки обнуляются" },
-                      { icon: "/icons/fire-medal.webp", title: "Топ-3 получают призы", desc: "1 место — 1000₽, 2 место — 500₽, 3 место — 250₽" },
-                      { icon: "/icons/coin.webp", title: "Быстрая выплата", desc: "Призы переводятся на карту в течение 24 часов" },
-                      { icon: "/icons/31.webp", title: "Минимум участников", desc: "Для розыгрыша нужно минимум 3 игрока" },
+                      { icon: "📅", title: "Еженедельный турнир", desc: "Соревнование длится с понедельника по воскресенье" },
+                      { icon: "🔄", title: "Сброс рейтинга", desc: "Каждое воскресенье в 00:00 МСК очки обнуляются" },
+                      { icon: "🥇", title: "Топ-3 получают призы", desc: "1 место — 1000₽, 2 место — 500₽, 3 место — 250₽" },
+                      { icon: "💰", title: "Быстрая выплата", desc: "Призы переводятся на карту в течение 24 часов" },
+                      { icon: "👥", title: "Минимум участников", desc: "Для розыгрыша нужно минимум 3 игрока" },
                     ].map((rule, i) => (
                       <motion.div
                         key={i}
@@ -1575,7 +1579,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]"
                       >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 flex items-center justify-center flex-shrink-0">
-                          <img src={rule.icon} alt="" className="w-6 h-6 object-contain" />
+                          <span className="text-lg">{rule.icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[12px] font-bold text-white/90">{rule.title}</p>
@@ -1658,7 +1662,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               
               {/* Button content */}
               <div className="relative flex items-center justify-center gap-3 h-full">
-                <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-6 w-6 object-contain" />
+                <span className="text-xl">🏆</span>
                 <span className="text-[15px] font-bold text-white">Смотреть рейтинг</span>
                 <motion.span
                   animate={{ x: [0, 5, 0] }}
@@ -1677,7 +1681,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           TOURNAMENTS
       ───────────────────────────────────────────────────────────────── */}
       <Card title="Турниры" badge={
-        <img loading="lazy" decoding="async" src="/icons/2.webp" alt="" className="h-8 w-8 object-contain rotate-90" />
+        <span className="text-2xl">⚔️</span>
       }>
         <div className="flex flex-col gap-2">
           {tournaments.map((t) => (
@@ -1689,7 +1693,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 </div>
               }
               title={t.title}
-              subtitle={<span className="flex items-center gap-1"><img loading="lazy" decoding="async" src="/icons/30.webp" alt="" className="h-4 w-4 object-contain" /> Через {t.time}</span>}
+              subtitle={<span className="flex items-center gap-1"><span className="text-xs">⏰</span> Через {t.time}</span>}
               trailing={<Chevron />}
             />
           ))}
@@ -1699,7 +1703,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           SPECIAL EVENTS — 2 columns
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Спецпроекты" badge={<img loading="lazy" decoding="async" src="/icons/8.webp" alt="" className="h-8 w-8 object-contain" />}>
+      <Card title="Спецпроекты" badge={<span className="text-2xl">🎯</span>}>
         <div className="grid grid-cols-2 gap-3">
           {events.map((e) => (
             <motion.div

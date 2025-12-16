@@ -553,7 +553,7 @@ export default function QuizPlayPage() {
               transition={{ duration: 2, repeat: Infinity }}
               className="text-7xl mb-6"
             >
-              {isRateLimited ? <img loading="lazy" decoding="async" src="/icons/52.webp" alt="" className="h-16 w-16 object-contain" /> : <img loading="lazy" decoding="async" src="/icons/53.webp" alt="" className="h-16 w-16 object-contain" />}
+              {isRateLimited ? <span className="text-5xl">⏳</span> : <span className="text-5xl">🚀</span>}
             </motion.div>
             
             <h2 className="text-2xl font-bold text-white mb-3">
@@ -598,7 +598,7 @@ export default function QuizPlayPage() {
             {isEnergyDepleted && (
               <div className="mb-6 space-y-3">
                 <div className="flex items-center justify-center gap-2 text-white/40 text-sm">
-                  <img loading="lazy" decoding="async" src="/icons/11.webp" alt="" className="h-8 w-8 object-contain" />
+                  <span className="text-2xl">⚡</span>
                   <span>Энергия:</span>
                   <span className="font-bold text-white">{rateLimitInfo.usedAttempts}/{rateLimitInfo.maxAttempts}</span>
                   <span className="text-white/30">• +1 каждые {rateLimitInfo.hoursPerAttempt ?? 4}ч</span>
@@ -748,15 +748,13 @@ export default function QuizPlayPage() {
                     }}
                     className="relative"
                   >
-                    <img 
-                      src="/icons/5.webp" 
-                      alt="" 
-                      className={`h-12 w-12 object-contain ${
+                    <span 
+                      className={`text-4xl ${
                         star <= starCount 
                           ? "drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" 
                           : "opacity-30 grayscale"
                       }`}
-                    />
+                    >⭐</span>
                   </motion.div>
                 ))}
               </div>
@@ -790,7 +788,7 @@ export default function QuizPlayPage() {
                 <div className="absolute inset-0 rounded-3xl soft-glow opacity-60" />
                 <div className="relative inline-block rounded-3xl bg-[#15151f]/90 border border-white/10 px-12 py-6">
                   <p className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
-                    <img loading="lazy" decoding="async" src="/icons/26.webp" alt="" className="h-6 w-6 object-contain" />
+                    <span className="text-xl">🎊</span>
                     Твой результат
                   </p>
                   <motion.p
@@ -852,7 +850,7 @@ export default function QuizPlayPage() {
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
               />
               <span className="relative flex items-center justify-center gap-3">
-                <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-12 w-12 object-contain" />
+                <span className="text-4xl">🏆</span>
                 Таблица лидеров
               </span>
             </motion.button>
@@ -1054,7 +1052,7 @@ export default function QuizPlayPage() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/50 to-yellow-600/50 rounded-xl" />
               <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500">
-                <img loading="lazy" decoding="async" src="/icons/7.webp" alt="" className="h-11 w-11 object-contain" />
+                <span className="text-4xl">💎</span>
               </div>
             </div>
             <div>
@@ -1113,11 +1111,7 @@ export default function QuizPlayPage() {
                     style={{ transition: "stroke-dasharray 1s linear" }}
                   />
                 </svg>
-                <img 
-                  src={isUrgent ? "/icons/alarm.webp" : "/icons/hourglass.webp"} 
-                  alt="" 
-                  className="relative w-8 h-8 object-contain z-10" 
-                />
+                <span className="relative text-2xl z-10">{isUrgent ? "⏰" : "⏳"}</span>
               </div>
             </div>
           </div>
