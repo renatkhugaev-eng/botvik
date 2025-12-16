@@ -445,7 +445,7 @@ export default function MiniAppPage() {
       const days = Math.floor(ms / (1000 * 60 * 60 * 24));
       const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-      if (days > 0) return `${days}д ${hours}ч`;
+      if (days > 0) return `${days}д ${hours}ч ${minutes}м`;
       if (hours > 0) return `${hours}ч ${minutes}м`;
       return `${minutes}м`;
     };
