@@ -387,36 +387,22 @@ export default function MiniAppPage() {
       });
   }, [session]);
 
-  // Real-time online players via Server-Sent Events
+  // Online players count via polling (every 30 seconds)
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
-    
-    const connect = () => {
-      eventSource = new EventSource('/api/online');
-      
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setOnlinePlayers(data.count);
-        } catch {
-          // Ignore parse errors
-        }
-      };
-      
-      eventSource.onerror = () => {
-        eventSource?.close();
-        // Reconnect after 5 seconds
-        reconnectTimeout = setTimeout(connect, 5000);
-      };
+    const fetchOnlineCount = () => {
+      fetch('/api/online')
+        .then(res => res.json())
+        .then(data => setOnlinePlayers(data.count))
+        .catch(() => setOnlinePlayers(5)); // Fallback
     };
     
-    connect();
+    // Initial fetch
+    fetchOnlineCount();
     
-    return () => {
-      eventSource?.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    };
+    // Poll every 30 seconds
+    const interval = setInterval(fetchOnlineCount, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch WEEKLY leaderboard
