@@ -655,22 +655,6 @@ export default function ProfilePage() {
             <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full glow-violet gpu-accelerated" />
             <div className="absolute -bottom-20 -right-20 h-60 w-60 rounded-full glow-emerald opacity-60 gpu-accelerated" />
 
-            {/* Floating particles - reduced to 6, CSS animation */}
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full bg-white/60 animate-float gpu-accelerated"
-                style={{
-                  width: 2 + (i % 3),
-                  height: 2 + (i % 3),
-                  left: `${15 + i * 14}%`,
-                  top: `${40 + (i % 3) * 15}%`,
-                  animationDelay: `${i * 0.5}s`,
-                  animationDuration: `${3 + i * 0.5}s`,
-                }}
-              />
-            ))}
-
             {/* Content */}
             <div className="relative p-6">
               {/* Top section: Avatar + Info */}

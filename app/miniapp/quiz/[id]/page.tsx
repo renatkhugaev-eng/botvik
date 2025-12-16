@@ -728,36 +728,11 @@ export default function QuizPlayPage() {
               <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full glow-pink" />
             </div>
             
-            {/* Floating sparkles - performance optimized */}
-            {perf.enableParticles && [...Array(perf.particleCount)].map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ 
-                  opacity: [0, 1, 0],
-                  scale: [0.5, 1, 0.5],
-                  y: [0, -20, 0],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: perf.enableInfiniteAnimations ? Infinity : 3,
-                  delay: i * 0.2,
-                }}
-                className="absolute text-lg gpu-accelerated"
-                style={{
-                  left: `${10 + i * 11}%`,
-                  top: `${25 + (i % 3) * 20}%`,
-                }}
-              >
-                ✨
-              </motion.div>
-            ))}
-            
             <div className="relative p-8 text-center">
-              {/* 5-Star Rating */}
+              {/* 5-Star Rating - optimized without blur animations */}
               <div className="flex justify-center gap-2 mb-6">
                 {[1, 2, 3, 4, 5].map((star) => (
-              <motion.div
+                  <motion.div
                     key={star}
                     initial={{ opacity: 0, scale: 0, rotate: -180 }}
                     animate={{ 
@@ -772,27 +747,13 @@ export default function QuizPlayPage() {
                       damping: 15,
                     }}
                     className="relative"
-              >
-                    {/* Diffused glow effect */}
-                    {star <= starCount && (
-                      <motion.div
-                        animate={{ 
-                          opacity: [0.5, 0.9, 0.5],
-                          scale: [1.2, 1.5, 1.2],
-                        }}
-                        transition={{ duration: 2, repeat: Infinity, delay: star * 0.1, ease: "easeInOut" }}
-                        className="absolute inset-0"
-                        style={{ filter: "blur(8px) brightness(1.8) saturate(2)" }}
-                      >
-                        <img loading="lazy" decoding="async" src="/icons/5.webp" alt="" className="h-12 w-12 object-contain" />
-              </motion.div>
-                    )}
+                  >
                     <img 
                       src="/icons/5.webp" 
                       alt="" 
-                      className={`relative h-12 w-12 object-contain ${
+                      className={`h-12 w-12 object-contain ${
                         star <= starCount 
-                          ? "" 
+                          ? "drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" 
                           : "opacity-30 grayscale"
                       }`}
                     />

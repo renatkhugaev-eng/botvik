@@ -1186,34 +1186,6 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         
         {/* Main container */}
         <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-b from-[#0f0a1a] via-[#0a0a12] to-[#0a0812]">
-          
-          {/* Animated background particles */}
-          {[...Array(12)].map((_, i) => (
-            <motion.div
-              key={i}
-              animate={{
-                y: [0, -100, 0],
-                x: [0, Math.sin(i) * 20, 0],
-                opacity: [0, 0.6, 0],
-                scale: [0.5, 1, 0.5],
-              }}
-              transition={{
-                duration: 4 + i * 0.5,
-                repeat: Infinity,
-                delay: i * 0.4,
-              }}
-              className="absolute rounded-full"
-              style={{
-                width: 3 + (i % 3),
-                height: 3 + (i % 3),
-                left: `${8 + i * 8}%`,
-                bottom: "10%",
-                background: i % 3 === 0 ? "#fbbf24" : i % 3 === 1 ? "#a855f7" : "#06b6d4",
-                ...(isAndroid ? {} : { filter: "blur(1px)" }),
-              }}
-            />
-          ))}
-
           {/* Content */}
           <div className="relative px-5 py-6">
             

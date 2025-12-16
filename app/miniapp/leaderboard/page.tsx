@@ -534,22 +534,6 @@ export default function LeaderboardPage() {
                 <div className="absolute -left-20 -top-20 h-48 w-48 rounded-full glow-violet" />
                 <div className="absolute -right-20 -bottom-20 h-48 w-48 rounded-full glow-violet opacity-60" />
                 
-                {/* Floating particles */}
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute rounded-full bg-white/50 animate-float"
-                    style={{
-                      width: 2 + (i % 3),
-                      height: 2 + (i % 3),
-                      left: `${10 + i * 15}%`,
-                      top: `${30 + (i % 3) * 20}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${3 + i * 0.4}s`,
-                    }}
-                  />
-                ))}
-                
                 <div className="relative p-5">
                   <div className="flex items-center justify-center gap-2 mb-6">
                     <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-12 w-12 object-contain" />
