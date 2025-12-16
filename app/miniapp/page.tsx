@@ -15,6 +15,8 @@ import { usePerfMode } from "@/components/context/PerfModeContext";
 import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
 import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
+import { LottieAnimation } from "@/components/LottieAnimation";
+import wavesAnimation from "@/public/animations/Wave Lines Animation.json";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -1214,6 +1216,29 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
             }}
           />
         )}
+      </div>
+      
+      {/* ═══ WAVE ANIMATION — Between blocks ═══ */}
+      <div 
+        className="relative -mx-5 pointer-events-none will-change-transform z-10"
+        style={{ 
+          height: '40px',
+          marginTop: '-60px',
+          marginBottom: '-10px'
+        }}
+      >
+        <div
+          className="absolute left-0 right-0 top-1/2 overflow-hidden"
+          style={{ 
+            transform: 'translateY(-30%) scaleY(0.3) translateZ(0)',
+            opacity: 0.5
+          }}
+        >
+          <LottieAnimation 
+            animationData={wavesAnimation} 
+            loop={true}
+          />
+        </div>
       </div>
       
       {/* Extended content below hero - only show after data loaded */}
