@@ -278,31 +278,67 @@ export default function ProfilePage() {
   const photoUrl = session.status === "ready" ? session.user.photoUrl : null;
   const avatarLetter = displayName ? displayName.slice(0, 1).toUpperCase() : "U";
 
-  useEffect(() => {
-    const load = async () => {
-      if (session.status !== "ready") {
-        setError("Пользователь не авторизован");
-        setLoading(false);
-        return;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OPTIMIZED DATA LOADING - All requests in parallel for faster LCP
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const loadAllData = useCallback(async () => {
+    if (session.status !== "ready") {
+      setError("Пользователь не авторизован");
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    setFriendsLoading(true);
+    setError(null);
+    
+    try {
+      // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
+      const [profileRes, friendsRes, notifyRes] = await Promise.all([
+        // 1. Profile summary
+        fetchWithAuth(`/api/me/summary?userId=${session.user.id}`),
+        // 2. Friends data
+        fetchWithAuth(`/api/friends?userId=${session.user.id}`).catch(() => null),
+        // 3. Notification settings (non-critical)
+        fetchWithAuth(`/api/notifications/settings?userId=${session.user.id}`).catch(() => null),
+      ]);
+      
+      // Process profile data
+      if (!profileRes.ok) throw new Error("summary_load_failed");
+      const profileData = (await profileRes.json()) as SummaryResponse;
+      setData(profileData);
+      
+      // Process friends data
+      if (friendsRes?.ok) {
+        const friendsData: FriendsData = await friendsRes.json();
+        setFriends(friendsData.friends);
+        setIncomingRequests(friendsData.incomingRequests);
+        setOutgoingRequests(friendsData.outgoingRequests);
       }
-      try {
-        setError(null);
-        setLoading(true);
-        const res = await fetchWithAuth(`/api/me/summary?userId=${session.user.id}`);
-        if (!res.ok) throw new Error("summary_load_failed");
-        const json = (await res.json()) as SummaryResponse;
-        setData(json);
-      } catch (err) {
-        console.error("Failed to load profile summary", err);
-        setError("Не удалось загрузить профиль");
-      } finally {
-        setLoading(false);
+      
+      // Process notification settings
+      if (notifyRes?.ok) {
+        const notifyData = await notifyRes.json();
+        if (notifyData.settings) {
+          setNotifySettings(notifyData.settings);
+        }
       }
-    };
-    load();
+    } catch (err) {
+      console.error("Failed to load profile data", err);
+      setError("Не удалось загрузить профиль");
+    } finally {
+      setLoading(false);
+      setFriendsLoading(false);
+    }
   }, [session]);
-
-  // Fetch friends
+  
+  // Initial data fetch - single effect for all data
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+  
+  // Refresh friends separately (for when user adds/removes friends)
   const loadFriends = useCallback(async () => {
     if (session.status !== "ready") return;
     
@@ -321,31 +357,6 @@ export default function ProfilePage() {
       setFriendsLoading(false);
     }
   }, [session]);
-  
-  useEffect(() => {
-    loadFriends();
-  }, [loadFriends]);
-  
-  // Fetch notification settings
-  const loadNotifySettings = useCallback(async () => {
-    if (session.status !== "ready") return;
-    
-    try {
-      const res = await fetchWithAuth(`/api/notifications/settings?userId=${session.user.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.settings) {
-          setNotifySettings(data.settings);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load notification settings", err);
-    }
-  }, [session]);
-  
-  useEffect(() => {
-    loadNotifySettings();
-  }, [loadNotifySettings]);
   
   // Update notification setting
   const updateNotifySetting = async (key: string, value: boolean) => {
@@ -371,23 +382,10 @@ export default function ProfilePage() {
     }
   };
 
-  // Pull to refresh handler
+  // Pull to refresh handler - reuses optimized fetch
   const handleRefresh = useCallback(async () => {
-    if (session.status !== "ready") return;
-    
-    try {
-      // Refresh profile data
-      const res = await fetchWithAuth(`/api/me/summary?userId=${session.user.id}`);
-      if (res.ok) {
-        const json = (await res.json()) as SummaryResponse;
-        setData(json);
-      }
-      // Refresh friends
-      await loadFriends();
-    } catch (err) {
-      console.error("Failed to refresh", err);
-    }
-  }, [session, loadFriends]);
+    await loadAllData();
+  }, [loadAllData]);
 
   // Add friend (send request)
   const handleAddFriend = async () => {

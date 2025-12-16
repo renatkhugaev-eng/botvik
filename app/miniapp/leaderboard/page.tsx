@@ -95,63 +95,69 @@ export default function LeaderboardPage() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const fetchQuizzes = async () => {
-      try {
-        const res = await fetch("/api/quiz");
-        if (!res.ok) throw new Error("quiz_load_error");
-        const data = (await res.json()) as QuizSummary[];
-        setQuizzes(data);
-      } catch (err) {
-        console.error("Failed to load quizzes", err);
-      }
-    };
-
-    fetchQuizzes();
-  }, []);
-
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (tabMode === "weekly" && quizId === null) {
-          // Weekly leaderboard
-          const userId = session.status === "ready" ? session.user.id : null;
-          const url = userId ? `/api/leaderboard/weekly?userId=${userId}` : `/api/leaderboard/weekly`;
-          const data = await api.get<WeeklyLeaderboardResponse>(url);
-          
-          setEntries(data.leaderboard);
-          setWeeklyInfo({
-            label: data.week.label,
-            timeRemaining: data.week.timeRemaining,
-            isEnding: data.week.isEnding,
-          });
-          if (data.myPosition) {
-            setWeeklyMyPosition({ place: data.myPosition.place, score: data.myPosition.score });
-          } else {
-            setWeeklyMyPosition(null);
-          }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OPTIMIZED DATA LOADING - All requests in parallel for faster LCP
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const userId = session.status === "ready" ? session.user.id : null;
+      
+      // Determine leaderboard URL based on mode
+      const leaderboardUrl = tabMode === "weekly" && quizId === null
+        ? userId ? `/api/leaderboard/weekly?userId=${userId}` : `/api/leaderboard/weekly`
+        : quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
+      
+      // 🚀 PARALLEL REQUESTS - Quizzes and leaderboard load simultaneously
+      const [quizzesRes, leaderboardData] = await Promise.all([
+        // 1. Quizzes list (for dropdown)
+        fetch("/api/quiz").then(r => r.ok ? r.json() : []).catch(() => []),
+        // 2. Leaderboard data
+        tabMode === "weekly" && quizId === null
+          ? api.get<WeeklyLeaderboardResponse>(leaderboardUrl)
+          : fetch(leaderboardUrl).then(r => {
+              if (!r.ok) throw new Error("leaderboard_load_error");
+              return r.json();
+            }),
+      ]);
+      
+      // Process quizzes
+      setQuizzes(quizzesRes as QuizSummary[]);
+      
+      // Process leaderboard
+      if (tabMode === "weekly" && quizId === null) {
+        const weeklyData = leaderboardData as WeeklyLeaderboardResponse;
+        setEntries(weeklyData.leaderboard);
+        setWeeklyInfo({
+          label: weeklyData.week.label,
+          timeRemaining: weeklyData.week.timeRemaining,
+          isEnding: weeklyData.week.isEnding,
+        });
+        if (weeklyData.myPosition) {
+          setWeeklyMyPosition({ place: weeklyData.myPosition.place, score: weeklyData.myPosition.score });
         } else {
-          // All-time or per-quiz leaderboard
-          const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("leaderboard_load_error");
-          const data = (await res.json()) as LeaderboardEntry[];
-          setEntries(data);
-          setWeeklyInfo(null);
           setWeeklyMyPosition(null);
         }
-      } catch (err) {
-        console.error("Failed to load leaderboard", err);
-        setError("Не удалось загрузить лидерборд");
-      } finally {
-        setLoading(false);
+      } else {
+        setEntries(leaderboardData as LeaderboardEntry[]);
+        setWeeklyInfo(null);
+        setWeeklyMyPosition(null);
       }
-    };
-
-    fetchLeaderboard();
+    } catch (err) {
+      console.error("Failed to load leaderboard", err);
+      setError("Не удалось загрузить лидерборд");
+    } finally {
+      setLoading(false);
+    }
   }, [quizId, tabMode, session.status, session.status === "ready" ? session.user.id : null]);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const currentQuiz = useMemo(() => {
     if (quizId === null) return null;
@@ -171,32 +177,10 @@ export default function LeaderboardPage() {
   const rest = entries.slice(3);
   const leaderScore = entries[0]?.score ?? 0;
 
-  // Pull to refresh handler
+  // Pull to refresh handler - reuses optimized fetch
   const handleRefresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (tabMode === "weekly" && quizId === null) {
-        const userId = session.status === "ready" ? session.user.id : null;
-        const url = userId ? `/api/leaderboard/weekly?userId=${userId}` : `/api/leaderboard/weekly`;
-        const data = await api.get<WeeklyLeaderboardResponse>(url);
-        setEntries(data.leaderboard);
-        if (data.myPosition) {
-          setWeeklyMyPosition({ place: data.myPosition.place, score: data.myPosition.score });
-        }
-      } else {
-        const url = quizId ? `/api/leaderboard?quizId=${quizId}` : `/api/leaderboard`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = (await res.json()) as LeaderboardEntry[];
-          setEntries(data);
-        }
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [quizId, tabMode, session.status, session.status === "ready" ? session.user.id : null]);
+    await fetchAllData();
+  }, [fetchAllData]);
 
   // Format time remaining
   const formatTimeRemaining = (ms: number): string => {

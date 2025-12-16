@@ -321,23 +321,41 @@ export default function MiniAppPage() {
   const [weeklyData, setWeeklyData] = useState<WeeklyLeaderboard | null>(null);
   const [weeklyTimeLeft, setWeeklyTimeLeft] = useState<string>("");
 
-  // Fetch all data
-  const fetchData = useCallback(async () => {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OPTIMIZED DATA LOADING - All requests in parallel for faster LCP
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const fetchAllData = useCallback(async () => {
     if (session.status !== "ready") return;
     
     setLoading(true);
     setError(null);
+    
     try {
-      // Передаём userId для получения информации о лимитах
-      const quizzesRes = await fetchWithAuth(`/api/quiz?userId=${session.user.id}`);
+      // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
+      const [quizzesRes, statsRes, weeklyRes, onlineRes, subscriptionRes] = await Promise.all([
+        // 1. Quizzes with limits
+        fetchWithAuth(`/api/quiz?userId=${session.user.id}`),
+        // 2. User stats
+        fetchWithAuth(`/api/me/summary?userId=${session.user.id}`),
+        // 3. Weekly leaderboard
+        api.get<WeeklyLeaderboard>(`/api/leaderboard/weekly?userId=${session.user.id}`).catch(() => null),
+        // 4. Online count (non-critical, can fail silently)
+        fetch('/api/online').then(r => r.json()).catch(() => ({ count: 5 })),
+        // 5. Subscription check
+        fetch("/api/check-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ telegramUserId: session.user.telegramId }),
+        }).then(r => r.json()).catch(() => ({ subscribed: null })),
+      ]);
+      
+      // Process quizzes
       const quizzesData = await quizzesRes.json() as QuizSummary[];
       setQuizzes(quizzesData);
       
-      // Инициализируем countdowns из серверных данных
-      // ВАЖНО: Energy в приоритете над Rate limit (если энергия кончилась, показываем её)
+      // Process countdowns from quiz data
       const newCountdowns: Record<number, number> = {};
-      
-      // Глобальная энергия — берём из первого квиза (теперь одинаковая для всех)
       const firstQuiz = quizzesData[0];
       const globalEnergy = firstQuiz?.limitInfo?.remaining ?? 5;
       const maxEnergy = firstQuiz?.limitInfo?.maxAttempts ?? 5;
@@ -345,24 +363,49 @@ export default function MiniAppPage() {
       for (const quiz of quizzesData) {
         if (quiz.limitInfo) {
           if (quiz.limitInfo.energyWaitMs && quiz.limitInfo.energyWaitMs > 0) {
-            // Energy depleted — показываем сколько ждать до +1 энергии
             newCountdowns[quiz.id] = Math.ceil(quiz.limitInfo.energyWaitMs / 1000);
           } else if (quiz.limitInfo.rateLimitWaitSeconds && quiz.limitInfo.rateLimitWaitSeconds > 0) {
-            // Rate limit — секунды между попытками
             newCountdowns[quiz.id] = quiz.limitInfo.rateLimitWaitSeconds;
           }
         }
       }
       setCountdowns(newCountdowns);
       
-      // Обновляем глобальную энергию в userStats
-      setUserStats(prev => ({ 
-        ...prev, 
-        totalQuizzesPlayed: prev?.totalQuizzesPlayed ?? 0,
-        totalScore: prev?.totalScore ?? 0,
-        minEnergy: globalEnergy, 
-        maxEnergy 
-      }));
+      // Process user stats
+      const statsData = await statsRes.json();
+      setUserStats({
+        totalQuizzesPlayed: statsData.stats?.totalQuizzesPlayed ?? 0,
+        totalScore: statsData.stats?.totalScore ?? 0,
+        minEnergy: globalEnergy,
+        maxEnergy,
+      });
+      
+      // Process weekly leaderboard
+      if (weeklyRes) {
+        setWeeklyData(weeklyRes);
+        if (weeklyRes.myPosition) {
+          setMyPosition({
+            place: weeklyRes.myPosition.place,
+            score: weeklyRes.myPosition.score,
+            totalPlayers: weeklyRes.totalParticipants,
+            topScore: weeklyRes.leaderboard[0]?.score ?? 0,
+          });
+        } else {
+          setMyPosition({
+            place: 0,
+            score: 0,
+            totalPlayers: weeklyRes.totalParticipants,
+            topScore: weeklyRes.leaderboard[0]?.score ?? 0,
+          });
+        }
+      }
+      
+      // Process online count
+      setOnlinePlayers(onlineRes.count ?? 5);
+      
+      // Process subscription
+      setIsSubscribed(subscriptionRes.subscribed ?? null);
+      
     } catch {
       setError("Ошибка загрузки");
     } finally {
@@ -370,97 +413,28 @@ export default function MiniAppPage() {
     }
   }, [session]);
 
-  // Initial fetch
+  // Initial data fetch - single effect for all data
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // Pull to refresh handler
+  // Pull to refresh handler - reuses the optimized fetch
   const handleRefresh = useCallback(async () => {
-    await fetchData();
-    if (session.status === "ready") {
-      // Also refresh user stats
-      try {
-        const statsRes = await fetchWithAuth(`/api/me/summary?userId=${session.user.id}`);
-        const data = await statsRes.json();
-        setUserStats(prev => ({
-          totalQuizzesPlayed: data.stats?.totalQuizzesPlayed ?? 0,
-          totalScore: data.stats?.totalScore ?? 0,
-          minEnergy: prev?.minEnergy ?? 5,
-          maxEnergy: prev?.maxEnergy ?? 5,
-        }));
-      } catch {
-        // Ignore
-      }
-    }
-  }, [fetchData, session]);
+    await fetchAllData();
+  }, [fetchAllData]);
 
-  // Fetch user stats
+  // Online players polling (non-blocking, runs after initial load)
   useEffect(() => {
-    if (session.status !== "ready") return;
-    fetchWithAuth(`/api/me/summary?userId=${session.user.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setUserStats(prev => ({
-          totalQuizzesPlayed: data.stats?.totalQuizzesPlayed ?? 0,
-          totalScore: data.stats?.totalScore ?? 0,
-          minEnergy: prev?.minEnergy ?? 5,
-          maxEnergy: prev?.maxEnergy ?? 5,
-        }));
-      })
-      .catch(() => {
-        setUserStats({ totalQuizzesPlayed: 0, totalScore: 0, minEnergy: 5, maxEnergy: 5 });
-      });
-  }, [session]);
-
-  // Online players count via polling (every 30 seconds)
-  useEffect(() => {
-    const fetchOnlineCount = () => {
+    // Poll every 30 seconds (initial fetch already done in fetchAllData)
+    const interval = setInterval(() => {
       fetch('/api/online')
         .then(res => res.json())
         .then(data => setOnlinePlayers(data.count))
-        .catch(() => setOnlinePlayers(5)); // Fallback
-    };
-    
-    // Initial fetch
-    fetchOnlineCount();
-    
-    // Poll every 30 seconds
-    const interval = setInterval(fetchOnlineCount, 30000);
+        .catch(() => {}); // Silent fail
+    }, 30000);
     
     return () => clearInterval(interval);
   }, []);
-
-  // Fetch WEEKLY leaderboard
-  useEffect(() => {
-    if (session.status !== "ready") return;
-    
-    // Fetch weekly leaderboard
-    api.get<WeeklyLeaderboard>(`/api/leaderboard/weekly?userId=${session.user.id}`)
-      .then((data) => {
-        setWeeklyData(data);
-        
-        // Set myPosition from weekly data
-        if (data.myPosition) {
-          setMyPosition({
-            place: data.myPosition.place,
-            score: data.myPosition.score,
-            totalPlayers: data.totalParticipants,
-            topScore: data.leaderboard[0]?.score ?? 0,
-          });
-        } else {
-          setMyPosition({
-            place: 0,
-            score: 0,
-            totalPlayers: data.totalParticipants,
-            topScore: data.leaderboard[0]?.score ?? 0,
-          });
-        }
-      })
-      .catch(() => {
-        // Ignore errors
-      });
-  }, [session]);
   
   // Update weekly timer every second
   useEffect(() => {
@@ -509,13 +483,6 @@ export default function MiniAppPage() {
       setCheckingSubscription(false);
     }
   }, [session]);
-
-  // Check subscription on load
-  useEffect(() => {
-    if (session.status === "ready") {
-      checkSubscription();
-    }
-  }, [session, checkSubscription]);
 
   // Countdown timers for all quizzes
   useEffect(() => {
@@ -593,15 +560,34 @@ export default function MiniAppPage() {
     [router, session, checkSubscription],
   );
 
-  // Loading state
+  // Loading state - show skeleton immediately for better LCP
   if (session.status === "loading") {
     return (
-      <div className="flex h-[400px] items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="h-8 w-8 rounded-full border-[3px] border-slate-200 border-t-indigo-600"
-        />
+      <div className="relative flex flex-col gap-6 w-full overflow-x-hidden animate-pulse">
+        {/* Header skeleton */}
+        <header className="relative flex h-14 items-center justify-between">
+          <div className="h-11 w-11 rounded-2xl bg-slate-200" />
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-slate-200" />
+            <div className="h-11 w-11 rounded-full bg-slate-200" />
+          </div>
+        </header>
+        
+        {/* Profile header skeleton */}
+        <SkeletonProfileHeader />
+        
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="h-20 rounded-2xl bg-slate-200" />
+          <div className="h-20 rounded-2xl bg-slate-200" />
+          <div className="h-20 rounded-2xl bg-slate-200" />
+        </div>
+        
+        {/* Quiz cards skeleton */}
+        <div className="flex gap-3 overflow-hidden">
+          <SkeletonQuizCard />
+          <SkeletonQuizCard />
+        </div>
       </div>
     );
   }
