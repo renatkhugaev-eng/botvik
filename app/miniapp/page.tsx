@@ -627,7 +627,7 @@ export default function MiniAppPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5"
         >
-          <img src="/icons/6.webp" alt="" className="h-6 w-6 object-contain" />
+          <img loading="lazy" decoding="async" src="/icons/6.webp" alt="" className="h-6 w-6 object-contain" />
           <span className="text-xs font-medium text-white whitespace-nowrap">
             <span className="font-bold tabular-nums">{onlinePlayers}</span> <span className="text-white/50">играют сейчас</span>
           </span>
@@ -711,7 +711,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-1.5 pr-3 py-1 shadow-lg shadow-amber-500/25"
           >
-            <img src="/icons/11.webp" alt="" className="h-8 w-8 object-contain" />
+            <img loading="lazy" decoding="async" src="/icons/11.webp" alt="" className="h-8 w-8 object-contain" />
             <span className="text-sm font-bold text-white tabular-nums">{userStats?.minEnergy ?? 5}</span>
           </motion.div>
           
@@ -722,7 +722,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.3 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-1.5 pr-3 py-1 shadow-lg shadow-violet-500/25"
           >
-            <img src="/icons/7.webp" alt="" className="h-8 w-8 object-contain" />
+            <img loading="lazy" decoding="async" src="/icons/7.webp" alt="" className="h-8 w-8 object-contain" />
             <span className="text-sm font-bold text-white tabular-nums">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
           </motion.div>
         </div>
@@ -794,13 +794,13 @@ export default function MiniAppPage() {
                       : "bg-gradient-to-br from-violet-500 to-indigo-600"
                 }`}>
                   {!myPosition || myPosition.place === 0 ? (
-                    <img src="/icons/54.webp" alt="" className="h-9 w-9 object-contain" />
+                    <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-9 w-9 object-contain" />
                   ) : myPosition.place === 1 ? (
-                    <img src="/icons/fire-medal.webp" alt="1" className="h-8 w-8 object-contain" />
+                    <img loading="lazy" decoding="async" src="/icons/fire-medal.webp" alt="1" className="h-8 w-8 object-contain" />
                   ) : myPosition.place === 2 ? (
-                    <img src="/icons/medal.webp" alt="2" className="h-7 w-7 object-contain" />
+                    <img loading="lazy" decoding="async" src="/icons/medal.webp" alt="2" className="h-7 w-7 object-contain" />
                   ) : myPosition.place === 3 ? (
-                    <img src="/icons/medal.webp" alt="3" className="h-7 w-7 object-contain" />
+                    <img loading="lazy" decoding="async" src="/icons/medal.webp" alt="3" className="h-7 w-7 object-contain" />
                   ) : (
                     <span className="text-[14px] font-black text-white">{myPosition.place}</span>
                   )}
@@ -858,7 +858,7 @@ export default function MiniAppPage() {
         }}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[16px] font-semibold text-white shadow-xl shadow-black/20"
       >
-        <img src="/icons/54.webp" alt="" className="h-12 w-12 object-contain" />
+        <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-12 w-12 object-contain" />
         Таблица лидеров
       </motion.button>
 
@@ -1020,13 +1020,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   const items = [...quizzes, ...demos.slice(0, Math.max(0, 5 - quizzes.length))];
 
   const tournaments = [
-    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <img src="/icons/55.webp" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#2d132c] to-[#1a1a2e]" },
-    { id: "t2", title: "Ночь культов", time: "12ч", icon: <img src="/icons/49.webp" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#1e3a5f] to-[#0d1b2a]" },
+    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <img loading="lazy" decoding="async" src="/icons/55.webp" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#2d132c] to-[#1a1a2e]" },
+    { id: "t2", title: "Ночь культов", time: "12ч", icon: <img loading="lazy" decoding="async" src="/icons/49.webp" alt="" className="h-8 w-8 object-contain" />, bg: "from-[#1e3a5f] to-[#0d1b2a]" },
   ];
 
   const events = [
-    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <img src="/icons/28.webp" alt="" className="h-8 w-8 object-contain" /> },
-    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <img src="/icons/29.webp" alt="" className="h-8 w-8 object-contain" /> },
+    { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <img loading="lazy" decoding="async" src="/icons/28.webp" alt="" className="h-8 w-8 object-contain" /> },
+    { id: "e2", title: "Cold Cases", tag: "Нераскрытые", icon: <img loading="lazy" decoding="async" src="/icons/29.webp" alt="" className="h-8 w-8 object-contain" /> },
   ];
 
   return (
@@ -1311,7 +1311,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                   >
                     {/* Glow behind chest - box-shadow for Android, blur for others */}
                     <div className={`absolute inset-0 rounded-full scale-150 ${isAndroid ? 'bg-amber-400/50 shadow-[0_0_30px_15px_rgba(251,191,36,0.5)]' : 'bg-amber-400/40 blur-xl'}`} />
-                    <img src="/icons/17.webp" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? 'drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
+                    <img loading="lazy" decoding="async" src="/icons/17.webp" alt="" className={`relative h-20 w-20 object-contain ${isAndroid ? 'drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]'}`} />
                   </motion.div>
                 </div>
               </div>
@@ -1368,10 +1368,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                           transition={{ duration: 1.5, repeat: Infinity }}
                           className="absolute inset-0 rounded-xl bg-amber-400"
                         />
-                        <img src="/icons/fire-medal.webp" alt="1" className="relative h-9 w-9 object-contain" />
+                        <img loading="lazy" decoding="async" src="/icons/fire-medal.webp" alt="1" className="relative h-9 w-9 object-contain" />
                       </>
                     ) : (
-                      <img src="/icons/medal.webp" alt={String(tier.place)} className="h-8 w-8 object-contain" />
+                      <img loading="lazy" decoding="async" src="/icons/medal.webp" alt={String(tier.place)} className="h-8 w-8 object-contain" />
                     )}
                   </div>
                   
@@ -1474,7 +1474,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
 
                 {/* Title */}
                 <div className="relative flex items-center gap-2.5 mb-5">
-                  <img src="/icons/39.webp" alt="" className="w-8 h-8 object-contain" />
+                  <img loading="lazy" decoding="async" src="/icons/39.webp" alt="" className="w-8 h-8 object-contain" />
                   <span className="text-[15px] font-bold text-white">Путь к победе</span>
                 </div>
 
@@ -1539,7 +1539,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 {/* Full Rules Section */}
                 <div className="relative mt-6 pt-4 border-t border-white/[0.08]">
                   <div className="flex items-center gap-2 mb-4 justify-center">
-                    <img src="/icons/24.webp" alt="" className="w-6 h-6 object-contain" />
+                    <img loading="lazy" decoding="async" src="/icons/24.webp" alt="" className="w-6 h-6 object-contain" />
                     <span className="text-[13px] font-bold text-white/80">Правила участия</span>
                   </div>
                   
@@ -1642,7 +1642,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               
               {/* Button content */}
               <div className="relative flex items-center justify-center gap-3 h-full">
-                <img src="/icons/54.webp" alt="" className="h-6 w-6 object-contain" />
+                <img loading="lazy" decoding="async" src="/icons/54.webp" alt="" className="h-6 w-6 object-contain" />
                 <span className="text-[15px] font-bold text-white">Смотреть рейтинг</span>
                 <motion.span
                   animate={{ x: [0, 5, 0] }}
@@ -1661,7 +1661,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           TOURNAMENTS
       ───────────────────────────────────────────────────────────────── */}
       <Card title="Турниры" badge={
-        <img src="/icons/2.webp" alt="" className="h-8 w-8 object-contain rotate-90" />
+        <img loading="lazy" decoding="async" src="/icons/2.webp" alt="" className="h-8 w-8 object-contain rotate-90" />
       }>
         <div className="flex flex-col gap-2">
           {tournaments.map((t) => (
@@ -1673,7 +1673,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 </div>
               }
               title={t.title}
-              subtitle={<span className="flex items-center gap-1"><img src="/icons/30.webp" alt="" className="h-4 w-4 object-contain" /> Через {t.time}</span>}
+              subtitle={<span className="flex items-center gap-1"><img loading="lazy" decoding="async" src="/icons/30.webp" alt="" className="h-4 w-4 object-contain" /> Через {t.time}</span>}
               trailing={<Chevron />}
             />
           ))}
@@ -1683,7 +1683,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           SPECIAL EVENTS — 2 columns
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Спецпроекты" badge={<img src="/icons/8.webp" alt="" className="h-8 w-8 object-contain" />}>
+      <Card title="Спецпроекты" badge={<img loading="lazy" decoding="async" src="/icons/8.webp" alt="" className="h-8 w-8 object-contain" />}>
         <div className="grid grid-cols-2 gap-3">
           {events.map((e) => (
             <motion.div
