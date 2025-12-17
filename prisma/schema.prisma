@@ -20,6 +20,10 @@ model User {
   xp              Int       @default(0)      // Total experience points
   lastQuizAt      DateTime?                  // Last quiz completion (for daily bonus tracking)
   
+  // Daily Rewards System
+  dailyRewardStreak   Int       @default(0)      // Текущая серия дней (1-7, сбрасывается после 7)
+  lastDailyRewardAt   DateTime?                  // Когда последний раз забрал награду
+  
   // Notification Preferences
   notifyLevelUp       Boolean   @default(true)   // Level up notifications
   notifyEnergyFull    Boolean   @default(true)   // Energy restored notifications

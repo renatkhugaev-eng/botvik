@@ -15,6 +15,8 @@ import { usePerfMode } from "@/components/context/PerfModeContext";
 import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
 import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
+import { DailyRewardModal, DailyRewardButton } from "@/components/DailyRewardModal";
+import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -323,6 +325,10 @@ export default function MiniAppPage() {
   // Weekly leaderboard
   const [weeklyData, setWeeklyData] = useState<WeeklyLeaderboard | null>(null);
   const [weeklyTimeLeft, setWeeklyTimeLeft] = useState<string>("");
+  
+  // Daily Rewards
+  const [dailyRewardStatus, setDailyRewardStatus] = useState<DailyRewardStatus | null>(null);
+  const [showDailyRewardModal, setShowDailyRewardModal] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OPTIMIZED DATA LOADING - All requests in parallel for faster LCP
@@ -336,7 +342,7 @@ export default function MiniAppPage() {
     
     try {
       // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
-      const [quizzesRes, statsRes, weeklyRes, onlineRes, subscriptionRes] = await Promise.all([
+      const [quizzesRes, statsRes, weeklyRes, onlineRes, subscriptionRes, dailyRewardRes] = await Promise.all([
         // 1. Quizzes with limits
         fetchWithAuth(`/api/quiz?userId=${session.user.id}`),
         // 2. User stats
@@ -351,6 +357,8 @@ export default function MiniAppPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ telegramUserId: session.user.telegramId }),
         }).then(r => r.json()).catch(() => ({ subscribed: null })),
+        // 6. Daily reward status
+        api.get<DailyRewardStatus>("/api/daily-reward").catch(() => null),
       ]);
       
       // Process quizzes
@@ -408,6 +416,16 @@ export default function MiniAppPage() {
       
       // Process subscription
       setIsSubscribed(subscriptionRes.subscribed ?? null);
+      
+      // Process daily reward status
+      if (dailyRewardRes) {
+        setDailyRewardStatus(dailyRewardRes);
+        // Автоматически показываем модалку если есть награда
+        if (dailyRewardRes.canClaim && !dailyRewardRes.claimedToday) {
+          // Небольшая задержка чтобы страница успела загрузиться
+          setTimeout(() => setShowDailyRewardModal(true), 500);
+        }
+      }
       
     } catch {
       setError("Ошибка загрузки");
@@ -614,6 +632,14 @@ export default function MiniAppPage() {
   const name = session.user.firstName ?? session.user.username ?? "друг";
   const photoUrl = session.user.photoUrl;
   const avatarLetter = name.slice(0, 1).toUpperCase();
+  
+  // Daily Reward handlers
+  const handleDailyRewardClaim = useCallback((reward: DailyReward, newXp: number, levelUp: boolean) => {
+    // Обновляем статистику пользователя с новым XP
+    setUserStats(prev => prev ? { ...prev, totalScore: prev.totalScore } : prev);
+    // Обновляем статус daily reward
+    setDailyRewardStatus(prev => prev ? { ...prev, canClaim: false, claimedToday: true } : prev);
+  }, []);
 
   return (
     <PullToRefresh 
@@ -652,6 +678,12 @@ export default function MiniAppPage() {
           </span>
         </motion.div>
 
+        {/* Daily Reward Button — right side */}
+        <DailyRewardButton
+          onClick={() => setShowDailyRewardModal(true)}
+          hasReward={dailyRewardStatus?.canClaim ?? false}
+          streak={dailyRewardStatus?.currentStreak ?? 0}
+        />
       </header>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -1042,6 +1074,15 @@ export default function MiniAppPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          DAILY REWARD MODAL
+      ═══════════════════════════════════════════════════════════════════ */}
+      <DailyRewardModal
+        isOpen={showDailyRewardModal}
+        onClose={() => setShowDailyRewardModal(false)}
+        onClaim={handleDailyRewardClaim}
+      />
     </div>
     </PullToRefresh>
   );
