@@ -217,10 +217,13 @@ function ChatContent({ user }: ChatContentProps) {
                           : "bg-white shadow-md text-slate-800 rounded-bl-md"
                       }`}
                     >
-                      {/* Username (only for others) */}
+                      {/* Username with level (only for others) */}
                       {!isOwn && showAvatar && (
-                        <p className="text-[11px] font-semibold text-violet-600 mb-0.5">
-                          {msg.firstName || msg.username || "Игрок"}
+                        <p className="text-[11px] font-semibold text-violet-600 mb-0.5 flex items-center gap-1">
+                          <span>{msg.firstName || msg.username || "Игрок"}</span>
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 text-[9px] font-bold text-violet-700">
+                            {msg.levelIcon} {msg.level}
+                          </span>
                         </p>
                       )}
                       
@@ -229,9 +232,12 @@ function ChatContent({ user }: ChatContentProps) {
                         {msg.text}
                       </p>
                       
-                      {/* Time */}
-                      <p className={`text-[10px] mt-1 ${isOwn ? "text-white/60" : "text-slate-400"}`}>
-                        {formatTime(msg.createdAt)}
+                      {/* Time and level */}
+                      <p className={`text-[10px] mt-1 flex items-center gap-1.5 ${isOwn ? "text-white/60" : "text-slate-400"}`}>
+                        <span>{formatTime(msg.createdAt)}</span>
+                        {isOwn && (
+                          <span className="opacity-70">{msg.levelIcon} Lv.{msg.level}</span>
+                        )}
                       </p>
                     </div>
                   </div>

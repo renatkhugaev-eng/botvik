@@ -37,6 +37,8 @@ export type ChatMessagePayload = {
   username: string | null;
   firstName: string | null;
   photoUrl: string | null;
+  level: number;
+  levelIcon: string;
   text: string;
   createdAt: string;
 };
@@ -51,13 +53,13 @@ export type PresenceUser = {
 
 /**
  * Создаёт канал для глобального чата
- * Naming convention: scope:id:entity
+ * @param presenceKey - уникальный ключ для presence (обычно odId пользователя)
  */
-export function createChatChannel(): RealtimeChannel {
-  return supabase.channel("global:chat:messages", {
+export function createChatChannel(presenceKey?: string): RealtimeChannel {
+  return supabase.channel("global:chat:broadcast", {
     config: {
-      broadcast: { self: true }, // Получать свои сообщения тоже
-      presence: { key: "" }, // Будет установлен при track()
+      broadcast: { self: false }, // Не получать свои сообщения (уже добавляем локально)
+      presence: { key: presenceKey || "" },
     },
   });
 }

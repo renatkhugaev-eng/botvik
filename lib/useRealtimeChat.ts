@@ -108,13 +108,13 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
     }
 
     // Supabase Realtime
-    const channel = createChatChannel();
+    const channel = createChatChannel(`user:${userId}`);
     channelRef.current = channel;
 
     channel
       // Слушаем новые сообщения
       .on("broadcast", { event: "new_message" }, ({ payload }) => {
-        console.log("[useRealtimeChat] New message:", payload);
+        console.log("[useRealtimeChat] New message via broadcast:", payload);
         setMessages((prev) => {
           // Проверяем дубликаты
           if (prev.some((m) => m.id === payload.id)) return prev;
@@ -126,12 +126,14 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
         const state = channel.presenceState();
         const users: OnlineUser[] = [];
         
-        Object.values(state).forEach((presences: any[]) => {
-          presences.forEach((p) => {
-            if (p.odId) users.push(p);
+        Object.values(state).forEach((presences: unknown[]) => {
+          presences.forEach((p: unknown) => {
+            const presence = p as OnlineUser;
+            if (presence.odId) users.push(presence);
           });
         });
         
+        console.log("[useRealtimeChat] Presence sync:", users.length, "users online");
         setOnlineUsers(users);
       })
       .on("presence", { event: "join" }, ({ newPresences }) => {
@@ -158,6 +160,9 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
           setIsConnected(false);
         }
       });
+
+    // Fallback polling каждые 5 секунд (на случай проблем с broadcast)
+    pollingIntervalRef.current = setInterval(loadMessages, 5000);
 
     // Cleanup
     return () => {

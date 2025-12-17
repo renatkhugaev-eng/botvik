@@ -4,6 +4,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { supabase, isSupabaseConfigured, ChatMessagePayload } from "@/lib/supabase";
+import { levelFromXp, getLevelTitle } from "@/lib/xp";
 
 /**
  * Chat API — GET для истории, POST для отправки
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
             username: true,
             firstName: true,
             photoUrl: true,
+            xp: true,
           },
         },
       },
@@ -73,15 +75,21 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      messages: chronological.map((m) => ({
-        id: m.id,
-        userId: m.userId,
-        username: m.user.username,
-        firstName: m.user.firstName,
-        photoUrl: m.user.photoUrl,
-        text: m.text,
-        createdAt: m.createdAt.toISOString(),
-      })),
+      messages: chronological.map((m) => {
+        const level = levelFromXp(m.user.xp);
+        const { icon } = getLevelTitle(level);
+        return {
+          id: m.id,
+          userId: m.userId,
+          username: m.user.username,
+          firstName: m.user.firstName,
+          photoUrl: m.user.photoUrl,
+          level,
+          levelIcon: icon,
+          text: m.text,
+          createdAt: m.createdAt.toISOString(),
+        };
+      }),
       hasMore: messages.length === limit,
       nextCursor: messages.length > 0 ? messages[0].id : null,
     });
@@ -144,10 +152,15 @@ export async function POST(request: NextRequest) {
             username: true,
             firstName: true,
             photoUrl: true,
+            xp: true,
           },
         },
       },
     });
+
+    // Calculate level
+    const level = levelFromXp(message.user.xp);
+    const { icon: levelIcon } = getLevelTitle(level);
 
     // Prepare payload for broadcast
     const payload: ChatMessagePayload = {
@@ -156,6 +169,8 @@ export async function POST(request: NextRequest) {
       username: message.user.username,
       firstName: message.user.firstName,
       photoUrl: message.user.photoUrl,
+      level,
+      levelIcon,
       text: message.text,
       createdAt: message.createdAt.toISOString(),
     };
@@ -163,11 +178,33 @@ export async function POST(request: NextRequest) {
     // Broadcast via Supabase Realtime (if configured)
     if (isSupabaseConfigured()) {
       try {
-        const channel = supabase.channel("global:chat:messages");
-        await channel.send({
-          type: "broadcast",
-          event: "new_message",
-          payload,
+        const channel = supabase.channel("global:chat:broadcast");
+        
+        // Subscribe first, then send, then unsubscribe
+        await new Promise<void>((resolve, reject) => {
+          channel.subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              channel
+                .send({
+                  type: "broadcast",
+                  event: "new_message",
+                  payload,
+                })
+                .then(() => {
+                  supabase.removeChannel(channel);
+                  resolve();
+                })
+                .catch(reject);
+            } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+              reject(new Error(`Channel error: ${status}`));
+            }
+          });
+          
+          // Timeout after 3 seconds
+          setTimeout(() => {
+            supabase.removeChannel(channel);
+            resolve(); // Don't fail the request
+          }, 3000);
         });
       } catch (broadcastError) {
         // Don't fail the request if broadcast fails
