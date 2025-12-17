@@ -10,6 +10,11 @@ Sentry.init({
   // Performance Monitoring - sample 10% of transactions in production
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 
+  // Enable Sentry Logs
+  _experiments: {
+    enableLogs: true,
+  },
+
   // Enable debug mode in development
   debug: process.env.NODE_ENV !== "production",
 
