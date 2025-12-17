@@ -3,14 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { supabase, isSupabaseConfigured, ChatMessagePayload } from "@/lib/supabase";
+import { ChatMessagePayload } from "@/lib/supabase";
 import { levelFromXp, getLevelTitle } from "@/lib/xp";
 
 /**
  * Chat API — GET для истории, POST для отправки
  * 
+ * Оптимизации:
+ * - Инкрементальная загрузка (after parameter)
+ * - Убран серверный broadcast (клиенты сами обмениваются через Supabase)
+ * - Кеширование на стороне клиента
+ * 
  * Rate Limits:
- * - GET: 30 requests per minute
+ * - GET: 60 requests per minute (увеличено для polling)
  * - POST: 10 messages per minute (anti-spam)
  */
 
@@ -19,7 +24,7 @@ const redis = Redis.fromEnv();
 
 const getMessagesLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(30, "1 m"),
+  limiter: Ratelimit.slidingWindow(60, "1 m"), // Увеличено для polling
   prefix: "chat:get",
 });
 
@@ -30,7 +35,12 @@ const sendMessageLimiter = new Ratelimit({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /api/chat — Получить последние сообщения
+// GET /api/chat — Получить сообщения
+// 
+// Query params:
+// - limit: количество (default 50, max 100)
+// - after: ID сообщения, после которого загружать (для инкрементальной загрузки)
+// - before: ID сообщения, до которого загружать (для пагинации назад)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
@@ -50,12 +60,21 @@ export async function GET(request: NextRequest) {
     // Get query params
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
-    const before = searchParams.get("before"); // cursor for pagination
+    const after = searchParams.get("after"); // Для инкрементальной загрузки новых
+    const before = searchParams.get("before"); // Для пагинации старых
+
+    // Build where clause
+    let whereClause = {};
+    if (after) {
+      whereClause = { id: { gt: parseInt(after) } };
+    } else if (before) {
+      whereClause = { id: { lt: parseInt(before) } };
+    }
 
     // Fetch messages
     const messages = await prisma.chatMessage.findMany({
-      where: before ? { id: { lt: parseInt(before) } } : undefined,
-      orderBy: { createdAt: "desc" },
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+      orderBy: { createdAt: after ? "asc" : "desc" }, // asc для after, desc для before/initial
       take: limit,
       include: {
         user: {
@@ -70,28 +89,33 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Reverse to get chronological order
-    const chronological = messages.reverse();
+    // Для initial load и before — реверсим для хронологического порядка
+    const chronological = after ? messages : messages.reverse();
+
+    // Map to payload
+    const mappedMessages: ChatMessagePayload[] = chronological.map((m) => {
+      const level = levelFromXp(m.user.xp);
+      const { icon } = getLevelTitle(level);
+      return {
+        id: m.id,
+        odId: m.userId,
+        username: m.user.username,
+        firstName: m.user.firstName,
+        photoUrl: m.user.photoUrl,
+        level,
+        levelIcon: icon,
+        text: m.text,
+        createdAt: m.createdAt.toISOString(),
+      };
+    });
 
     return NextResponse.json({
       ok: true,
-      messages: chronological.map((m) => {
-        const level = levelFromXp(m.user.xp);
-        const { icon } = getLevelTitle(level);
-        return {
-          id: m.id,
-          userId: m.userId,
-          username: m.user.username,
-          firstName: m.user.firstName,
-          photoUrl: m.user.photoUrl,
-          level,
-          levelIcon: icon,
-          text: m.text,
-          createdAt: m.createdAt.toISOString(),
-        };
-      }),
+      messages: mappedMessages,
       hasMore: messages.length === limit,
-      nextCursor: messages.length > 0 ? messages[0].id : null,
+      // Для пагинации
+      oldestId: chronological.length > 0 ? chronological[0].id : null,
+      newestId: chronological.length > 0 ? chronological[chronological.length - 1].id : null,
     });
   } catch (error) {
     console.error("[Chat GET] Error:", error);
@@ -101,6 +125,9 @@ export async function GET(request: NextRequest) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/chat — Отправить сообщение
+// 
+// Broadcast теперь делается на клиенте через Supabase Realtime
+// Это быстрее и надёжнее чем серверный broadcast
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(request: NextRequest) {
@@ -132,10 +159,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "MESSAGE_TOO_LONG" }, { status: 400 });
     }
 
-    // Basic content moderation (можно расширить)
-    const bannedWords = ["спам", "реклама"]; // TODO: расширить список
-    const lowerText = text.toLowerCase();
-    if (bannedWords.some((w) => lowerText.includes(w))) {
+    // Basic content moderation
+    const bannedPatterns = [
+      /https?:\/\/[^\s]+/i, // URLs (можно убрать если нужны ссылки)
+      /спам/i,
+      /реклама/i,
+    ];
+    if (bannedPatterns.some((pattern) => pattern.test(text))) {
       return NextResponse.json({ ok: false, error: "CONTENT_BLOCKED" }, { status: 400 });
     }
 
@@ -162,10 +192,10 @@ export async function POST(request: NextRequest) {
     const level = levelFromXp(message.user.xp);
     const { icon: levelIcon } = getLevelTitle(level);
 
-    // Prepare payload for broadcast
+    // Prepare payload
     const payload: ChatMessagePayload = {
       id: message.id,
-      userId: message.userId,
+      odId: message.userId,
       username: message.user.username,
       firstName: message.user.firstName,
       photoUrl: message.user.photoUrl,
@@ -175,42 +205,9 @@ export async function POST(request: NextRequest) {
       createdAt: message.createdAt.toISOString(),
     };
 
-    // Broadcast via Supabase Realtime (if configured)
-    if (isSupabaseConfigured()) {
-      try {
-        const channel = supabase.channel("global:chat:broadcast");
-        
-        // Subscribe first, then send, then unsubscribe
-        await new Promise<void>((resolve, reject) => {
-          channel.subscribe((status) => {
-            if (status === "SUBSCRIBED") {
-              channel
-                .send({
-                  type: "broadcast",
-                  event: "new_message",
-                  payload,
-                })
-                .then(() => {
-                  supabase.removeChannel(channel);
-                  resolve();
-                })
-                .catch(reject);
-            } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-              reject(new Error(`Channel error: ${status}`));
-            }
-          });
-          
-          // Timeout after 3 seconds
-          setTimeout(() => {
-            supabase.removeChannel(channel);
-            resolve(); // Don't fail the request
-          }, 3000);
-        });
-      } catch (broadcastError) {
-        // Don't fail the request if broadcast fails
-        console.error("[Chat] Broadcast error:", broadcastError);
-      }
-    }
+    // NOTE: Broadcast теперь делается на клиенте!
+    // Клиент сам отправляет через Supabase channel.send()
+    // Это быстрее (нет серверного round-trip) и надёжнее
 
     return NextResponse.json({
       ok: true,

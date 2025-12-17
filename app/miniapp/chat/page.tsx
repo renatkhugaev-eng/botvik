@@ -176,8 +176,8 @@ function ChatContent({ user }: ChatContentProps) {
         ) : (
           <AnimatePresence initial={false}>
             {messages.map((msg, index) => {
-              const isOwn = msg.userId === user.id;
-              const showAvatar = index === 0 || messages[index - 1].userId !== msg.userId;
+              const isOwn = msg.odId === user.id;
+              const showAvatar = index === 0 || messages[index - 1].odId !== msg.odId;
               
               return (
                 <motion.div
