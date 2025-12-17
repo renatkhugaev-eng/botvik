@@ -108,7 +108,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           totalScore: true, 
           finishedAt: true,
           attemptNumber: true,
-          maxStreak: true,
           answers: {
             select: { isCorrect: true },
           },
