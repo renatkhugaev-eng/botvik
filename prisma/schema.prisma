@@ -48,6 +48,9 @@ model User {
   
   // Chat messages
   chatMessages    ChatMessage[]
+  
+  // Achievements
+  achievements    UserAchievement[]
 }
 
 model Friendship {
@@ -209,4 +212,25 @@ model ChatMessage {
   
   @@index([createdAt(sort: Desc)]) // Для быстрой выборки последних сообщений
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACHIEVEMENTS SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+model UserAchievement {
+  id            Int      @id @default(autoincrement())
+  
+  userId        Int
+  achievementId String   // ID достижения из lib/achievements.ts (например "first_quiz")
+  
+  unlockedAt    DateTime @default(now())  // Когда разблокировано
+  progress      Int      @default(0)      // Прогресс для многоэтапных достижений
+  notified      Boolean  @default(false)  // Показали ли уведомление пользователю
+  
+  user          User     @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, achievementId]) // Одно достижение на пользователя
+  @@index([userId])
+  @@index([achievementId])
 }

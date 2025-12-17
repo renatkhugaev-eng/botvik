@@ -12,6 +12,7 @@ import { fetchWithAuth } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
+import { AchievementsSection } from "@/components/AchievementsSection";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -230,7 +231,7 @@ export default function ProfilePage() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"stats" | "history" | "friends">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "history" | "friends" | "achievements">("stats");
   
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -885,6 +886,7 @@ style={{
       >
         {[
           { id: "stats" as const, label: "Статистика", icon: <span className="text-base">📊</span> },
+          { id: "achievements" as const, label: "Ачивки", icon: <span className="text-lg">🏆</span> },
           { id: "history" as const, label: "Рекорды", icon: <span className="text-lg">🏅</span> },
           { id: "friends" as const, label: "Друзья", icon: <span className="text-lg">👥</span> },
         ].map((tab) => (
@@ -1069,6 +1071,16 @@ style={{
                 </div>
               </motion.div>
             )}
+          </motion.div>
+        ) : activeTab === "achievements" ? (
+          <motion.div
+            key="achievements"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AchievementsSection />
           </motion.div>
         ) : activeTab === "history" ? (
           <motion.div

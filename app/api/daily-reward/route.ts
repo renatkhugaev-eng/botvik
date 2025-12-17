@@ -10,6 +10,7 @@ import {
   isToday,
 } from "@/lib/daily-rewards";
 import { getLevelProgress, getLevelTitle } from "@/lib/xp";
+import { checkAndUnlockAchievements } from "@/lib/achievement-checker";
 
 export const runtime = "nodejs";
 
@@ -189,6 +190,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
       (levelUp ? ` (Level up! ${result.oldLevelInfo.level} → ${newLevelInfo.level})` : "")
     );
 
+    // Проверяем достижения (streak-related)
+    let newAchievements: { id: string; name: string; icon: string; xpReward: number }[] = [];
+    try {
+      const achievementResult = await checkAndUnlockAchievements(auth.user.id);
+      if (achievementResult.newlyUnlocked.length > 0) {
+        newAchievements = achievementResult.newlyUnlocked.map(u => ({
+          id: u.achievement.id,
+          name: u.achievement.name,
+          icon: u.achievement.icon,
+          xpReward: u.achievement.xpReward,
+        }));
+      }
+    } catch (err) {
+      console.error("[daily-reward] Achievement check failed:", err);
+    }
+
     return NextResponse.json({
       ok: true,
       reward: result.reward,
@@ -203,6 +220,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
         title: levelTitle.title,
         icon: levelTitle.icon,
       },
+      achievements: newAchievements,
     });
     
   } catch (error) {

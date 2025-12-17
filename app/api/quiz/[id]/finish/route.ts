@@ -10,6 +10,11 @@ import {
   MAX_ACTIVITY_BONUS,
   MAX_GAMES_FOR_BONUS 
 } from "@/lib/scoring";
+import {
+  checkAndUnlockAchievements,
+  checkTimeBasedAchievements,
+  checkSpeedDemonAchievement,
+} from "@/lib/achievement-checker";
 
 export const runtime = "nodejs";
 
@@ -291,6 +296,48 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // Score breakdown for client
   const scoreBreakdown = getScoreBreakdown(newBestScore, newAttempts);
 
+  // ═══ ACHIEVEMENTS CHECK ═══
+  let newAchievements: { id: string; name: string; icon: string; xpReward: number }[] = [];
+  
+  if (!alreadyFinished) {
+    try {
+      // Собираем специальные достижения для проверки
+      const specialAchievements: string[] = [...checkTimeBasedAchievements()];
+      
+      // Проверяем Speed Demon (все ответы < 3 сек)
+      const isSpeedDemon = await checkSpeedDemonAchievement(sessionId);
+      if (isSpeedDemon) {
+        specialAchievements.push("speed_demon");
+      }
+      
+      // Проверяем идеальную игру
+      if (serverCorrectCount === serverTotalQuestions && serverTotalQuestions > 0) {
+        // perfect_game будет проверен автоматически через perfect_games stat
+      }
+      
+      // Проверяем и разблокируем достижения
+      const achievementResult = await checkAndUnlockAchievements(
+        session.userId,
+        specialAchievements
+      );
+      
+      if (achievementResult.newlyUnlocked.length > 0) {
+        newAchievements = achievementResult.newlyUnlocked.map(u => ({
+          id: u.achievement.id,
+          name: u.achievement.name,
+          icon: u.achievement.icon,
+          xpReward: u.achievement.xpReward,
+        }));
+        
+        console.log(
+          `[finish] User ${session.userId} unlocked ${newAchievements.length} achievements`
+        );
+      }
+    } catch (achievementError) {
+      console.error("[finish] Achievement check failed:", achievementError);
+    }
+  }
+
   return NextResponse.json({ 
     // Current game result
     gameScore: currentGameScore,
@@ -336,5 +383,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       maxActivityBonus: MAX_ACTIVITY_BONUS,
       maxGamesForBonus: MAX_GAMES_FOR_BONUS,
     },
+    
+    // New achievements unlocked
+    achievements: newAchievements,
   });
 }
