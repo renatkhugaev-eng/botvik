@@ -3,6 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import {
+  Card,
+  Button,
+  TextInput,
+  Textarea,
+  ToggleSwitch,
+  Spinner,
+  Badge,
+} from "flowbite-react";
+import {
+  HiArrowLeft,
+  HiSave,
+} from "react-icons/hi";
 
 type Answer = {
   id?: number;
@@ -88,7 +101,7 @@ export default function EditQuizPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+        <Spinner size="xl" color="purple" />
       </div>
     );
   }
@@ -98,7 +111,7 @@ export default function EditQuizPage() {
       <div className="text-center py-12">
         <div className="text-6xl mb-4">😕</div>
         <h2 className="text-xl font-bold text-white mb-2">Квиз не найден</h2>
-        <Link href="/admin/quizzes" className="text-violet-400 hover:text-violet-300">
+        <Link href="/admin/quizzes" className="text-purple-400 hover:text-purple-300">
           Вернуться к списку
         </Link>
       </div>
@@ -108,140 +121,124 @@ export default function EditQuizPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link
-          href="/admin/quizzes"
-          className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-slate-400 hover:text-white"
-        >
-          ←
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+        <Link href="/admin/quizzes">
+          <Button color="gray" size="sm">
+            <HiArrowLeft className="w-5 h-5" />
+          </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-white mb-1">Редактирование квиза</h1>
-          <p className="text-slate-400">ID: {quiz.id}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Редактирование квиза</h1>
+          <p className="text-gray-400">ID: {quiz.id}</p>
         </div>
-        <button
+        <Button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-green-500/25 flex items-center gap-2"
+          color="success"
+          size="lg"
         >
           {saving ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <Spinner size="sm" className="mr-2" />
           ) : (
-            <span>💾</span>
+            <HiSave className="w-5 h-5 mr-2" />
           )}
           Сохранить
-        </button>
+        </Button>
       </div>
 
       {/* Quiz Info */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 mb-8">
+      <Card className="bg-gray-800 border-gray-700 mb-8">
         <h2 className="text-xl font-bold text-white mb-6">Основная информация</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Название квиза
-            </label>
-            <input
-              type="text"
+            <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">Название квиза</label>
+            <TextInput
+              id="title"
               value={quiz.title}
               onChange={(e) => setQuiz({ ...quiz, title: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
+              color="gray"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Название приза
-            </label>
-            <input
-              type="text"
+            <label htmlFor="prizeTitle" className="block text-sm font-medium text-gray-300 mb-2">Название приза</label>
+            <TextInput
+              id="prizeTitle"
               value={quiz.prizeTitle}
               onChange={(e) => setQuiz({ ...quiz, prizeTitle: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
+              color="gray"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Описание
-            </label>
-            <textarea
+            <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">Описание</label>
+            <Textarea
+              id="description"
               value={quiz.description || ""}
               onChange={(e) => setQuiz({ ...quiz, description: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 resize-none"
               rows={3}
+              color="gray"
             />
           </div>
           <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isActive"
+            <ToggleSwitch
               checked={quiz.isActive}
-              onChange={(e) => setQuiz({ ...quiz, isActive: e.target.checked })}
-              className="w-5 h-5 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500"
+              label="Активен (виден пользователям)"
+              onChange={(checked) => setQuiz({ ...quiz, isActive: checked })}
             />
-            <label htmlFor="isActive" className="text-slate-300">
-              Активен (виден пользователям)
-            </label>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Questions Preview */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+      <Card className="bg-gray-800 border-gray-700">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">
             Вопросы ({quiz.questions.length})
           </h2>
-          <span className="text-sm text-slate-400">
+          <Badge color="gray">
             Редактирование вопросов в разработке
-          </span>
+          </Badge>
         </div>
 
         <div className="space-y-4">
           {quiz.questions.map((question, index) => (
             <div
               key={question.id || index}
-              className="bg-slate-700/50 rounded-xl p-4 border border-slate-600"
+              className="bg-gray-700/50 rounded-xl p-4 border border-gray-600"
             >
               <div className="flex items-start gap-4">
-                <div className="w-8 h-8 bg-violet-500/20 text-violet-400 rounded-lg flex items-center justify-center font-bold text-sm">
+                <div className="w-8 h-8 bg-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0">
                   {index + 1}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="text-white mb-2">{question.text}</div>
                   <div className="flex flex-wrap gap-2">
                     {question.answers.map((answer, aIndex) => (
-                      <span
+                      <Badge
                         key={aIndex}
-                        className={`px-3 py-1 rounded-lg text-sm ${
-                          answer.isCorrect
-                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                            : "bg-slate-600/50 text-slate-400"
-                        }`}
+                        color={answer.isCorrect ? "success" : "gray"}
+                        size="sm"
                       >
                         {answer.isCorrect && "✓ "}
                         {answer.text}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    question.difficulty === 1
-                      ? "bg-green-500/20 text-green-400"
-                      : question.difficulty === 2
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "bg-red-500/20 text-red-400"
-                  }`}
+                <Badge
+                  color={
+                    question.difficulty === 1 ? "success" :
+                    question.difficulty === 2 ? "warning" : "failure"
+                  }
+                  size="sm"
                 >
                   {question.difficulty === 1 ? "Легкий" : question.difficulty === 2 ? "Средний" : "Сложный"}
-                </span>
+                </Badge>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
-

@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card, Spinner, Progress, Avatar, Badge } from "flowbite-react";
+import {
+  HiCalendar,
+  HiStar,
+  HiChartBar,
+} from "react-icons/hi";
 
 type StatsData = {
   dailyStats: { date: string; sessions: number; users: number }[];
@@ -41,133 +47,134 @@ export default function AdminStats() {
     fetchStats();
   }, []);
 
+  const maxSessions = Math.max(...(stats?.dailyStats.map(d => d.sessions) || [1]));
+  const maxQuizSessions = Math.max(...(stats?.quizStats.map(q => q.sessions) || [1]));
+
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Статистика</h1>
-        <p className="text-slate-400">Детальная аналитика приложения</p>
+        <p className="text-gray-400">Детальная аналитика приложения</p>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-slate-800 rounded-2xl p-6 border border-slate-700 animate-pulse">
-              <div className="h-6 bg-slate-700 rounded w-1/3 mb-4" />
-              <div className="h-40 bg-slate-700 rounded" />
-            </div>
-          ))}
+        <div className="flex items-center justify-center py-12">
+          <Spinner size="xl" color="purple" />
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Daily Activity Chart Placeholder */}
-          <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+          {/* Daily Activity Chart */}
+          <Card className="bg-gray-800 border-gray-700">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-              <span>📅</span> Активность за 7 дней
+              <HiCalendar className="w-5 h-5 text-purple-400" />
+              Активность за 7 дней
             </h2>
             <div className="grid grid-cols-7 gap-2">
               {stats?.dailyStats.map((day, index) => (
                 <div key={index} className="text-center">
-                  <div className="text-xs text-slate-400 mb-2">
+                  <div className="text-xs text-gray-400 mb-2">
                     {new Date(day.date).toLocaleDateString("ru-RU", { weekday: "short" })}
                   </div>
                   <div 
-                    className="bg-gradient-to-t from-violet-600 to-violet-400 rounded-lg mx-auto"
+                    className="bg-gradient-to-t from-purple-600 to-purple-400 rounded-lg mx-auto transition-all"
                     style={{ 
                       width: "100%",
-                      height: Math.max(20, (day.sessions / Math.max(...stats.dailyStats.map(d => d.sessions || 1))) * 100),
+                      height: Math.max(20, (day.sessions / maxSessions) * 100),
                     }}
                   />
                   <div className="text-sm text-white mt-2 font-semibold">{day.sessions}</div>
-                  <div className="text-xs text-slate-400">игр</div>
+                  <div className="text-xs text-gray-400">игр</div>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Players */}
-            <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+            <Card className="bg-gray-800 border-gray-700">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                <span>🏆</span> Топ игроки
+                <HiStar className="w-5 h-5 text-amber-400" />
+                Топ игроки
               </h2>
               <div className="space-y-3">
                 {stats?.topPlayers.slice(0, 10).map((player, index) => (
                   <div
                     key={player.id}
-                    className="flex items-center gap-4 p-3 bg-slate-700/50 rounded-xl"
+                    className="flex items-center gap-4 p-3 bg-gray-700/50 rounded-xl"
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
                       index === 0 ? "bg-amber-500 text-white" :
-                      index === 1 ? "bg-slate-400 text-white" :
+                      index === 1 ? "bg-gray-400 text-white" :
                       index === 2 ? "bg-amber-700 text-white" :
-                      "bg-slate-600 text-slate-300"
+                      "bg-gray-600 text-gray-300"
                     }`}>
                       {index + 1}
                     </div>
+                    <Avatar
+                      placeholderInitials={(player.firstName?.[0] || player.username?.[0] || "?").toUpperCase()}
+                      rounded
+                      size="sm"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="text-white font-medium truncate">
                         {player.firstName || player.username || "Аноним"}
                       </div>
-                      <div className="text-xs text-slate-400">
+                      <div className="text-xs text-gray-400">
                         {player.gamesPlayed} игр
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-violet-400 font-bold">
-                        {player.totalScore.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-400">очков</div>
+                      <Badge color="purple" size="sm">
+                        {player.totalScore.toLocaleString()} очков
+                      </Badge>
                     </div>
                   </div>
                 ))}
                 {(!stats?.topPlayers || stats.topPlayers.length === 0) && (
-                  <div className="text-center py-8 text-slate-400">
+                  <div className="text-center py-8 text-gray-400">
                     Нет данных
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
 
             {/* Quiz Performance */}
-            <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+            <Card className="bg-gray-800 border-gray-700">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                <span>🎮</span> Популярность квизов
+                <HiChartBar className="w-5 h-5 text-pink-400" />
+                Популярность квизов
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {stats?.quizStats.map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="p-4 bg-slate-700/50 rounded-xl"
+                    className="p-4 bg-gray-700/50 rounded-xl"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-white font-medium">{quiz.title}</div>
-                      <div className="text-sm text-slate-400">{quiz.sessions} игр</div>
+                      <Badge color="gray">{quiz.sessions} игр</Badge>
                     </div>
-                    <div className="w-full h-2 bg-slate-600 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full"
-                        style={{
-                          width: `${(quiz.sessions / Math.max(...(stats?.quizStats.map(q => q.sessions) || [1]))) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="text-xs text-slate-400 mt-2">
+                    <Progress
+                      progress={(quiz.sessions / maxQuizSessions) * 100}
+                      color="purple"
+                      size="sm"
+                    />
+                    <div className="text-xs text-gray-400 mt-2">
                       Средний результат: {Math.round(quiz.avgScore).toLocaleString()} очков
                     </div>
                   </div>
                 ))}
                 {(!stats?.quizStats || stats.quizStats.length === 0) && (
-                  <div className="text-center py-8 text-slate-400">
+                  <div className="text-center py-8 text-gray-400">
                     Нет данных
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       )}
     </div>
   );
 }
-

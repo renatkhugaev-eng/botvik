@@ -3,6 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  Card,
+  Button,
+  TextInput,
+  Textarea,
+  ToggleSwitch,
+  Select,
+  Spinner,
+  Badge,
+} from "flowbite-react";
+import {
+  HiArrowLeft,
+  HiPlus,
+  HiTrash,
+  HiCheck,
+  HiSave,
+} from "react-icons/hi";
 
 type Answer = {
   text: string;
@@ -45,13 +62,13 @@ export default function NewQuizPage() {
     ]);
   };
 
-  const updateQuestion = (index: number, field: string, value: any) => {
+  const updateQuestion = (index: number, field: string, value: string | number) => {
     setQuestions((prev) =>
       prev.map((q, i) => (i === index ? { ...q, [field]: value } : q))
     );
   };
 
-  const updateAnswer = (qIndex: number, aIndex: number, field: string, value: any) => {
+  const updateAnswer = (qIndex: number, aIndex: number, field: string, value: string | boolean) => {
     setQuestions((prev) =>
       prev.map((q, i) =>
         i === qIndex
@@ -59,7 +76,6 @@ export default function NewQuizPage() {
               ...q,
               answers: q.answers.map((a, j) => {
                 if (field === "isCorrect" && value === true) {
-                  // Only one correct answer
                   return j === aIndex ? { ...a, isCorrect: true } : { ...a, isCorrect: false };
                 }
                 return j === aIndex ? { ...a, [field]: value } : a;
@@ -137,158 +153,140 @@ export default function NewQuizPage() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link
-          href="/admin/quizzes"
-          className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-slate-400 hover:text-white"
-        >
-          ←
+        <Link href="/admin/quizzes">
+          <Button color="gray" size="sm">
+            <HiArrowLeft className="w-5 h-5" />
+          </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">Новый квиз</h1>
-          <p className="text-slate-400">Создайте квиз с вопросами</p>
+          <p className="text-gray-400">Создайте квиз с вопросами</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Quiz Info */}
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+        <Card className="bg-gray-800 border-gray-700">
           <h2 className="text-xl font-bold text-white mb-6">Основная информация</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Название квиза *
-              </label>
-              <input
-                type="text"
+              <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">Название квиза *</label>
+              <TextInput
+                id="title"
                 value={quiz.title}
                 onChange={(e) => setQuiz({ ...quiz, title: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
                 placeholder="Например: Серийные убийцы США"
+                color="gray"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Название приза *
-              </label>
-              <input
-                type="text"
+              <label htmlFor="prizeTitle" className="block text-sm font-medium text-gray-300 mb-2">Название приза *</label>
+              <TextInput
+                id="prizeTitle"
                 value={quiz.prizeTitle}
                 onChange={(e) => setQuiz({ ...quiz, prizeTitle: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
                 placeholder="Например: Мастер профайлинга"
+                color="gray"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Описание
-              </label>
-              <textarea
+              <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">Описание</label>
+              <Textarea
+                id="description"
                 value={quiz.description}
                 onChange={(e) => setQuiz({ ...quiz, description: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 resize-none"
-                rows={3}
                 placeholder="Краткое описание квиза..."
+                rows={3}
+                color="gray"
               />
             </div>
             <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="isActive"
+              <ToggleSwitch
                 checked={quiz.isActive}
-                onChange={(e) => setQuiz({ ...quiz, isActive: e.target.checked })}
-                className="w-5 h-5 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500"
+                label="Активен (виден пользователям)"
+                onChange={(checked) => setQuiz({ ...quiz, isActive: checked })}
               />
-              <label htmlFor="isActive" className="text-slate-300">
-                Активен (виден пользователям)
-              </label>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Questions */}
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+        <Card className="bg-gray-800 border-gray-700">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">
               Вопросы ({questions.length})
             </h2>
-            <button
-              type="button"
-              onClick={addQuestion}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-            >
-              <span>➕</span> Добавить вопрос
-            </button>
+            <Button color="purple" onClick={addQuestion} type="button">
+              <HiPlus className="w-5 h-5 mr-2" />
+              Добавить вопрос
+            </Button>
           </div>
 
           {questions.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
+            <div className="text-center py-12 text-gray-400">
               <div className="text-4xl mb-4">❓</div>
-              <p>Нажмите "Добавить вопрос" чтобы начать</p>
+              <p>Нажмите &quot;Добавить вопрос&quot; чтобы начать</p>
             </div>
           ) : (
             <div className="space-y-6">
               {questions.map((question, qIndex) => (
                 <div
                   key={qIndex}
-                  className="bg-slate-700/50 rounded-xl p-5 border border-slate-600"
+                  className="bg-gray-700/50 rounded-xl p-5 border border-gray-600"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <span className="text-sm font-medium text-violet-400">
-                      Вопрос {qIndex + 1}
-                    </span>
-                    <button
-                      type="button"
+                    <Badge color="purple">Вопрос {qIndex + 1}</Badge>
+                    <Button
+                      size="xs"
+                      color="failure"
                       onClick={() => removeQuestion(qIndex)}
-                      className="text-red-400 hover:text-red-300 text-sm"
+                      type="button"
                     >
+                      <HiTrash className="w-4 h-4 mr-1" />
                       Удалить
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex gap-4">
                       <div className="flex-1">
-                        <input
-                          type="text"
+                        <TextInput
                           value={question.text}
                           onChange={(e) => updateQuestion(qIndex, "text", e.target.value)}
-                          className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
                           placeholder="Текст вопроса..."
+                          color="gray"
                         />
                       </div>
-                      <select
+                      <Select
                         value={question.difficulty}
                         onChange={(e) => updateQuestion(qIndex, "difficulty", Number(e.target.value))}
-                        className="px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-violet-500"
+                        color="gray"
                       >
                         <option value={1}>🟢 Легкий</option>
                         <option value={2}>🟡 Средний</option>
                         <option value={3}>🔴 Сложный</option>
-                      </select>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {question.answers.map((answer, aIndex) => (
                         <div key={aIndex} className="flex items-center gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
+                            color={answer.isCorrect ? "success" : "gray"}
                             onClick={() => updateAnswer(qIndex, aIndex, "isCorrect", true)}
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                              answer.isCorrect
-                                ? "bg-green-500 text-white"
-                                : "bg-slate-600 text-slate-400 hover:bg-slate-500"
-                            }`}
-                            title={answer.isCorrect ? "Правильный ответ" : "Сделать правильным"}
+                            type="button"
                           >
-                            ✓
-                          </button>
-                          <input
-                            type="text"
+                            <HiCheck className="w-4 h-4" />
+                          </Button>
+                          <TextInput
                             value={answer.text}
                             onChange={(e) => updateAnswer(qIndex, aIndex, "text", e.target.value)}
-                            className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-violet-500 text-sm"
                             placeholder={`Вариант ${aIndex + 1}`}
+                            color="gray"
+                            sizing="sm"
+                            className="flex-1"
                           />
                         </div>
                       ))}
@@ -298,35 +296,33 @@ export default function NewQuizPage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Submit */}
         <div className="flex items-center justify-end gap-4">
-          <Link
-            href="/admin/quizzes"
-            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors"
-          >
-            Отмена
+          <Link href="/admin/quizzes">
+            <Button color="gray">Отмена</Button>
           </Link>
-          <button
+          <Button
             type="submit"
             disabled={saving}
-            className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-green-500/25 flex items-center gap-2"
+            color="success"
+            size="lg"
           >
             {saving ? (
               <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Spinner size="sm" className="mr-2" />
                 Сохранение...
               </>
             ) : (
               <>
-                <span>💾</span> Создать квиз
+                <HiSave className="w-5 h-5 mr-2" />
+                Создать квиз
               </>
             )}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
   );
 }
-

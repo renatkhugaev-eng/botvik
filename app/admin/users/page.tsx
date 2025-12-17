@@ -2,6 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import {
+  Card,
+  TextInput,
+  Button,
+  Spinner,
+  Toast,
+  ToastToggle,
+  Avatar,
+  Badge,
+} from "flowbite-react";
+import { HiSearch, HiLightningBolt, HiCheck } from "react-icons/hi";
 
 type User = {
   id: number;
@@ -15,20 +26,6 @@ type User = {
     sessions: number;
   };
 };
-
-// Toast notification component
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div className="fixed bottom-20 left-4 right-4 sm:bottom-6 sm:right-6 sm:left-auto bg-green-500 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg shadow-green-500/30 z-50 text-center sm:text-left">
-      ✅ {message}
-    </div>
-  );
-}
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
@@ -69,6 +66,14 @@ export default function AdminUsers() {
     fetchUsers();
   }, []);
 
+  // Auto-hide toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const filteredUsers = users.filter((user) => {
     const searchLower = search.toLowerCase();
     return (
@@ -84,47 +89,41 @@ export default function AdminUsers() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Пользователи</h1>
-          <p className="text-slate-400 text-sm">Всего: {users.length}</p>
+          <p className="text-gray-400 text-sm">Всего: {users.length}</p>
         </div>
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск..."
-            className="w-full sm:w-64 pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
-          />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-            🔍
-          </span>
-        </div>
+        <TextInput
+          icon={HiSearch}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск..."
+          className="w-full sm:w-64"
+          color="gray"
+        />
       </div>
 
       {/* Users List */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-24 bg-slate-800 rounded-xl animate-pulse" />
-          ))}
+        <div className="flex items-center justify-center py-12">
+          <Spinner size="xl" color="purple" />
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700">
-          <p className="text-slate-400">
+        <Card className="bg-gray-800 border-gray-700 text-center">
+          <p className="text-gray-400">
             {search ? "Пользователи не найдены" : "Нет пользователей"}
           </p>
-        </div>
+        </Card>
       ) : (
         <div className="space-y-3 pb-8">
           {filteredUsers.map((user) => (
-            <div
-              key={user.id}
-              className="bg-slate-800 rounded-xl p-4 border border-slate-700"
-            >
-              <div className="flex items-start gap-3">
+            <Card key={user.id} className="bg-gray-800 border-gray-700">
+              <div className="flex items-start gap-4">
                 {/* Avatar */}
-                <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                  {user.firstName?.[0] || user.username?.[0] || "?"}
-                </div>
+                <Avatar
+                  placeholderInitials={user.firstName?.[0] || user.username?.[0] || "?"}
+                  rounded
+                  size="md"
+                  color="purple"
+                />
                 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
@@ -133,47 +132,58 @@ export default function AdminUsers() {
                       <div className="text-white font-semibold truncate">
                         {user.firstName} {user.lastName}
                       </div>
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-gray-400">
                         @{user.username || "—"}
                       </div>
                     </div>
                     
                     {/* Reset Button */}
-                    <button
+                    <Button
+                      size="sm"
+                      color="warning"
                       onClick={() => resetEnergy(user.id, user.firstName || user.username || "Пользователь")}
                       disabled={resettingId === user.id}
-                      className="px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 flex-shrink-0"
                     >
                       {resettingId === user.id ? (
-                        <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                        <Spinner size="sm" />
                       ) : (
-                        <span>⚡</span>
+                        <HiLightningBolt className="w-4 h-4 mr-1" />
                       )}
                       <span className="hidden sm:inline">Сброс</span>
-                    </button>
+                    </Button>
                   </div>
                   
                   {/* Stats */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
-                    <span className="text-amber-400 font-medium">
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <Badge color="warning">
                       {user.xp.toLocaleString()} XP
-                    </span>
-                    <span className="text-slate-400">
+                    </Badge>
+                    <Badge color="gray">
                       {user._count.sessions} игр
-                    </span>
-                    <span className="text-slate-500 text-xs">
+                    </Badge>
+                    <span className="text-gray-500 text-xs">
                       {new Date(user.createdAt).toLocaleDateString("ru-RU")}
                     </span>
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
       {/* Toast notification */}
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Toast>
+            <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-500">
+              <HiCheck className="h-5 w-5" />
+            </div>
+            <div className="ml-3 text-sm font-normal text-white">{toast}</div>
+            <ToastToggle onDismiss={() => setToast(null)} />
+          </Toast>
+        </div>
+      )}
     </div>
   );
 }
