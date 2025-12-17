@@ -166,6 +166,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
           // Начисляем бонусную энергию если она есть в награде
           ...(reward.bonusEnergy > 0 && {
             bonusEnergy: { increment: reward.bonusEnergy },
+            bonusEnergyEarned: { increment: reward.bonusEnergy }, // Для достижений
           }),
         },
         select: {

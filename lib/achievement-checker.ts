@@ -79,6 +79,8 @@ export async function getUserStats(userId: number): Promise<UserStats> {
         xp: true,
         dailyRewardStreak: true,
         bonusEnergy: true,
+        bonusEnergyEarned: true,
+        bonusEnergyUsed: true,
         createdAt: true,
       },
     }),
@@ -207,8 +209,8 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     fastAnswers,
     weeklyTop: Number(weeklyTopCount[0]?.count ?? 0),
     weeklyWins,
-    bonusEnergyEarned: 0, // TODO: track this separately
-    bonusEnergyUsed: 0,   // TODO: track this separately
+    bonusEnergyEarned: user?.bonusEnergyEarned ?? 0,
+    bonusEnergyUsed: user?.bonusEnergyUsed ?? 0,
     differentQuizzes: differentQuizzes.length,
     loginDays: Number(loginDays[0]?.count ?? 0),
     accountAgeDays,

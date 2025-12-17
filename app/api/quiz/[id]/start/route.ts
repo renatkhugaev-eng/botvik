@@ -228,7 +228,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       // Используем бонусную энергию вместо обычной
       await prisma.user.update({
         where: { id: userId },
-        data: { bonusEnergy: { decrement: 1 } },
+        data: { 
+          bonusEnergy: { decrement: 1 },
+          bonusEnergyUsed: { increment: 1 }, // Для достижений
+        },
       });
       usedBonusEnergy = true;
       console.log(`[quiz/start] User ${userId} used bonus energy (${bonusEnergy} → ${bonusEnergy - 1})`);

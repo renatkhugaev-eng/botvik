@@ -25,7 +25,9 @@ model User {
   lastDailyRewardAt   DateTime?                  // Когда последний раз забрал награду
   
   // Bonus Energy System (from Daily Rewards)
-  bonusEnergy         Int       @default(0)      // Бонусные попытки (используются когда обычная энергия = 0)
+  bonusEnergy         Int       @default(0)      // Текущий баланс бонусной энергии
+  bonusEnergyEarned   Int       @default(0)      // Всего заработано (для достижений)
+  bonusEnergyUsed     Int       @default(0)      // Всего использовано (для достижений)
   
   // Notification Preferences
   notifyLevelUp       Boolean   @default(true)   // Level up notifications
