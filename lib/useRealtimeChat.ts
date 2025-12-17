@@ -77,9 +77,13 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
         return { ok: false, error: data.error };
       }
       
-      // Сообщение придёт через broadcast, но если нет Supabase — добавляем вручную
-      if (!isSupabaseConfigured() && data.message) {
-        setMessages((prev) => [...prev, data.message!]);
+      // Сразу добавляем сообщение локально (дубликаты отфильтруются в broadcast handler)
+      if (data.message) {
+        setMessages((prev) => {
+          // Проверяем дубликаты
+          if (prev.some((m) => m.id === data.message!.id)) return prev;
+          return [...prev, data.message!];
+        });
       }
       
       return { ok: true };
