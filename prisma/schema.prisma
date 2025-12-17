@@ -38,6 +38,9 @@ model User {
   // Friends relationships
   friendsAdded    Friendship[] @relation("FriendshipUser")
   friendsReceived Friendship[] @relation("FriendshipFriend")
+  
+  // Chat messages
+  chatMessages    ChatMessage[]
 }
 
 model Friendship {
@@ -183,4 +186,20 @@ model WeeklyWinner {
   @@unique([weekStart, place])
   @@index([userId])
   @@index([weekStart])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GLOBAL CHAT SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  text      String   @db.VarChar(500) // Максимум 500 символов
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@index([createdAt(sort: Desc)]) // Для быстрой выборки последних сообщений
+  @@index([userId])
 }

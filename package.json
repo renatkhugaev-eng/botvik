@@ -36,6 +36,7 @@
     "@prisma/client": "^7.1.0",
     "@rive-app/react-canvas": "^4.24.0",
     "@sentry/nextjs": "^10.30.0",
+    "@supabase/supabase-js": "^2.88.0",
     "@upstash/ratelimit": "^2.0.7",
     "@upstash/redis": "^1.35.8",
     "@vercel/analytics": "^1.6.1",

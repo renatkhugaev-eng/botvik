@@ -891,17 +891,33 @@ export default function MiniAppPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           FOOTER — Height: 56px
       ═══════════════════════════════════════════════════════════════════ */}
-      <motion.button
-        whileTap={{ scale: 0.98 }}
-        onClick={() => {
-          haptic.heavy();
-          router.push("/miniapp/leaderboard");
-        }}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[16px] font-semibold text-white shadow-xl shadow-black/20"
-      >
-        <span className="text-4xl">🏆</span>
-        Таблица лидеров
-      </motion.button>
+      <div className="flex gap-3">
+        {/* Leaderboard button */}
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            haptic.heavy();
+            router.push("/miniapp/leaderboard");
+          }}
+          className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[15px] font-semibold text-white shadow-xl shadow-black/20"
+        >
+          <span className="text-3xl">🏆</span>
+          Лидеры
+        </motion.button>
+        
+        {/* Chat button */}
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            haptic.heavy();
+            router.push("/miniapp/chat");
+          }}
+          className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[15px] font-semibold text-white shadow-xl shadow-violet-500/20"
+        >
+          <span className="text-3xl">💬</span>
+          Чат
+        </motion.button>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
           SUBSCRIPTION MODAL
