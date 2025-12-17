@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase, isSupabaseConfigured, ChatMessagePayload, createChatChannel } from "./supabase";
+import { api } from "./api";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /**
@@ -43,14 +44,17 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
   // ═══ Загрузка истории сообщений ═══
   const loadMessages = useCallback(async () => {
     try {
-      const res = await fetch("/api/chat?limit=50");
-      const data = await res.json();
+      const data = await api.get<{
+        ok: boolean;
+        messages?: ChatMessagePayload[];
+        error?: string;
+      }>("/api/chat?limit=50");
       
-      if (data.ok) {
+      if (data.ok && data.messages) {
         setMessages(data.messages);
         setError(null);
       } else {
-        setError(data.error);
+        setError(data.error || "UNKNOWN_ERROR");
       }
     } catch (err) {
       console.error("[useRealtimeChat] Load error:", err);
@@ -63,21 +67,19 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
   // ═══ Отправка сообщения ═══
   const sendMessage = useCallback(async (text: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      
-      const data = await res.json();
+      const data = await api.post<{
+        ok: boolean;
+        message?: ChatMessagePayload;
+        error?: string;
+      }>("/api/chat", { text });
       
       if (!data.ok) {
-        return { ok: false, error: data.error || data.message };
+        return { ok: false, error: data.error };
       }
       
       // Сообщение придёт через broadcast, но если нет Supabase — добавляем вручную
-      if (!isSupabaseConfigured()) {
-        setMessages((prev) => [...prev, data.message]);
+      if (!isSupabaseConfigured() && data.message) {
+        setMessages((prev) => [...prev, data.message!]);
       }
       
       return { ok: true };
