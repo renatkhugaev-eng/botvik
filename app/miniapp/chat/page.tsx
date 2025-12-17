@@ -148,7 +148,7 @@ function ChatContent({ user }: ChatContentProps) {
         
         {/* Online count */}
         <div className="flex h-11 min-w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-black/5 px-3">
-          <span className="text-[12px] font-bold text-green-600">🟢 {onlineCount || 1}</span>
+          <span className="text-[12px] font-bold text-green-600">🟢 {onlineCount}</span>
         </div>
       </motion.header>
 

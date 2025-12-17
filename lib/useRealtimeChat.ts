@@ -124,16 +124,20 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
       // Слушаем присутствие
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
-        const users: OnlineUser[] = [];
+        const uniqueUsers = new Map<number, OnlineUser>();
         
+        // Собираем уникальных пользователей по odId
         Object.values(state).forEach((presences: unknown[]) => {
           presences.forEach((p: unknown) => {
             const presence = p as OnlineUser;
-            if (presence.odId) users.push(presence);
+            if (presence.odId && !uniqueUsers.has(presence.odId)) {
+              uniqueUsers.set(presence.odId, presence);
+            }
           });
         });
         
-        console.log("[useRealtimeChat] Presence sync:", users.length, "users online");
+        const users = Array.from(uniqueUsers.values());
+        console.log("[useRealtimeChat] Presence sync:", users.length, "unique users online", users.map(u => u.odFirstName || u.odUsername));
         setOnlineUsers(users);
       })
       .on("presence", { event: "join" }, ({ newPresences }) => {
@@ -186,7 +190,7 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
   return {
     messages,
     onlineUsers,
-    onlineCount: onlineUsers.length,
+    onlineCount: Math.max(1, onlineUsers.length), // Минимум 1 (текущий пользователь)
     isConnected,
     isLoading,
     error,
