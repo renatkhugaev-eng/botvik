@@ -278,6 +278,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const newScore = Math.max(0, session.totalScore + scoreDelta);
 
   // ═══ OPTIMIZED: Single transaction with batch operations ═══
+  // currentQuestionStartedAt = null — таймер следующего вопроса начнётся
+  // когда клиент вызовет /view (показ вопроса пользователю)
   await prisma.$transaction([
     prisma.answer.create({
       data: {
@@ -294,7 +296,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       data: {
         totalScore: newScore,
         currentQuestionIndex: session.currentQuestionIndex + 1,
-        currentQuestionStartedAt: now,
+        currentQuestionStartedAt: null,
         currentStreak: newStreak,
       },
     }),

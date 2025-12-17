@@ -139,6 +139,20 @@ export default function QuizPlayPage() {
 
   const progress = questions.length > 0 ? ((currentIndex) / questions.length) * 100 : 0;
 
+  // Сигнал серверу что вопрос показан (запускает серверный таймер)
+  const signalQuestionView = useCallback(async (questionIdx: number) => {
+    if (!sessionId) return;
+    try {
+      await fetchWithAuth(`/api/quiz/${quizId}/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, questionIndex: questionIdx }),
+      });
+    } catch (err) {
+      console.error("[View] Failed to signal:", err);
+    }
+  }, [quizId, sessionId]);
+
   // Timer effect - reset on new question
   useEffect(() => {
     if (loading || finished || answerResult || !currentQuestion) return;
@@ -151,8 +165,10 @@ export default function QuizPlayPage() {
       timeRestoredRef.current = false;
       initialTimeLeftRef.current = null;
     } else {
-    // Reset for new question
-    setTimeLeft(QUESTION_TIME);
+      // Reset for new question
+      setTimeLeft(QUESTION_TIME);
+      // Сигнализируем серверу что показали вопрос (запускает серверный таймер)
+      signalQuestionView(currentIndex);
     }
     setTimeoutHandled(false);
     
@@ -169,7 +185,7 @@ export default function QuizPlayPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentIndex, loading, finished, currentQuestion]);
+  }, [currentIndex, loading, finished, currentQuestion, answerResult, signalQuestionView]);
 
   // Handle timeout - when timer reaches 0
   useEffect(() => {
@@ -312,6 +328,7 @@ export default function QuizPlayPage() {
         const data = (await res.json()) as StartResponse & { 
           finished?: boolean; 
           skippedQuestions?: number;
+          needsViewSignal?: boolean;
         };
         
         // Если сервер уже завершил квиз (все вопросы пропущены по timeout)
@@ -348,12 +365,13 @@ export default function QuizPlayPage() {
           setMaxStreak((m) => Math.max(m, data.currentStreak ?? 0));
         }
         
-        // Рассчитываем оставшееся время (сервер гарантирует, что время не истекло)
-        if (data.questionStartedAt && data.serverTime) {
+        // Если needsViewSignal — таймер запустится с полных 15 сек (через timer effect)
+        // Иначе рассчитываем оставшееся время
+        if (!data.needsViewSignal && data.questionStartedAt && data.serverTime) {
           const serverNow = new Date(data.serverTime).getTime();
           const questionStart = new Date(data.questionStartedAt).getTime();
           const elapsedSeconds = Math.floor((serverNow - questionStart) / 1000);
-          const remaining = Math.max(1, QUESTION_TIME - elapsedSeconds); // Минимум 1 секунда
+          const remaining = Math.max(1, QUESTION_TIME - elapsedSeconds);
           
           console.log("[Timer] Restored from server:", { elapsedSeconds, remaining });
           

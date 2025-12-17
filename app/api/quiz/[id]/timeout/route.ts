@@ -106,11 +106,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     });
     
     // Update session - advance to next question, reset streak
+    // currentQuestionStartedAt = null — таймер начнётся когда клиент вызовет /view
     const updatedSession = await tx.quizSession.update({
       where: { id: sessionId },
       data: {
         currentQuestionIndex: session.currentQuestionIndex + 1,
-        currentQuestionStartedAt: now,
+        currentQuestionStartedAt: null,
         currentStreak: 0,
       },
       select: { 

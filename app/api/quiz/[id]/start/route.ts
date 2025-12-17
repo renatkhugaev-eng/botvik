@@ -97,12 +97,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       let currentStreak = existingSession.currentStreak;
       let skippedQuestions = 0;
 
-      // Check for timeouts (only if within reasonable time)
+      // Check for timeouts (only if timer was started)
       if (questionStartedAt) {
         const elapsedMs = now.getTime() - questionStartedAt.getTime();
         
-        if (elapsedMs >= QUESTION_TIME_MS && currentIndex < questions.length) {
-          // Timeout — skip to next question
+        // Обрабатываем ВСЕ пропущенные вопросы в цикле
+        while (elapsedMs >= QUESTION_TIME_MS && currentIndex < questions.length) {
           const currentQuestion = questions[currentIndex];
           
           const existingAnswer = await prisma.answer.findUnique({
@@ -110,41 +110,48 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             select: { id: true },
           });
 
-          if (!existingAnswer) {
-            await prisma.$transaction([
-              prisma.answer.create({
-                data: {
-                  sessionId: existingSession.id,
-                  questionId: currentQuestion.id,
-                  optionId: null,
-                  isCorrect: false,
-                  timeSpentMs: QUESTION_TIME_MS,
-                  scoreDelta: 0,
-                },
-              }),
-              prisma.quizSession.update({
-                where: { id: existingSession.id },
-                data: {
-                  currentQuestionIndex: currentIndex + 1,
-                  currentQuestionStartedAt: now,
-                  currentStreak: 0,
-                },
-              }),
-            ]);
-            
+          if (existingAnswer) {
+            // Уже отвечен — пропускаем
             currentIndex++;
-            currentStreak = 0;
-            questionStartedAt = now;
-            skippedQuestions = 1;
+            continue;
           }
+
+          // Записываем timeout
+          await prisma.answer.create({
+            data: {
+              sessionId: existingSession.id,
+              questionId: currentQuestion.id,
+              optionId: null,
+              isCorrect: false,
+              timeSpentMs: QUESTION_TIME_MS,
+              scoreDelta: 0,
+            },
+          });
+          
+          currentIndex++;
+          currentStreak = 0;
+          skippedQuestions++;
+          
+          // Пересчитываем время для следующего вопроса
+          const newElapsed = now.getTime() - (questionStartedAt.getTime() + skippedQuestions * QUESTION_TIME_MS);
+          if (newElapsed < QUESTION_TIME_MS) break;
         }
-      } else {
-        await prisma.quizSession.update({
-          where: { id: existingSession.id },
-          data: { currentQuestionStartedAt: now },
-        });
-        questionStartedAt = now;
+        
+        // Обновляем сессию после обработки всех timeout'ов
+        if (skippedQuestions > 0) {
+          await prisma.quizSession.update({
+            where: { id: existingSession.id },
+            data: {
+              currentQuestionIndex: currentIndex,
+              currentQuestionStartedAt: null, // Клиент установит через /view
+              currentStreak: 0,
+            },
+          });
+          questionStartedAt = null;
+        }
       }
+      // Если questionStartedAt = null, НЕ устанавливаем его здесь
+      // Клиент вызовет /view когда покажет вопрос
 
       // Check if quiz is finished
       if (currentIndex >= questions.length) {
@@ -179,7 +186,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         currentStreak: currentStreak,
         questions,
         serverTime: now.toISOString(),
-        questionStartedAt: questionStartedAt?.toISOString() ?? now.toISOString(),
+        questionStartedAt: questionStartedAt?.toISOString() ?? null,
+        // Если таймер не запущен — клиент должен вызвать /view
+        needsViewSignal: !questionStartedAt,
         skippedQuestions: skippedQuestions > 0 ? skippedQuestions : undefined,
       });
     }
