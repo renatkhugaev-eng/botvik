@@ -267,17 +267,21 @@ function checkAchievementCondition(achievement: Achievement, stats: UserStats): 
 /**
  * Проверить и разблокировать достижения для пользователя
  * 
- * УЛУЧШЕНИЯ:
- * - Транзакция для атомарности (create + XP increment)
- * - try/catch для каждого достижения (одно не сломает остальные)
- * - upsert для защиты от race condition
- * - Batch XP update в конце (эффективнее)
+ * АРХИТЕКТУРА:
+ * 1. Параллельное получение stats + unlocked (эффективно)
+ * 2. Вычисление достижений для разблокировки (чистые функции)
+ * 3. ТРАНЗАКЦИЯ: createMany + XP increment (атомарно)
+ * 4. skipDuplicates для защиты от race condition
+ * 5. Логирование всех операций
  */
 export async function checkAndUnlockAchievements(
   userId: number,
   specialAchievementIds?: string[]
 ): Promise<AchievementCheckResult> {
-  // Получаем статистику и разблокированные достижения параллельно
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ЭТАП 1: Параллельное получение данных (минимум запросов)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   const [stats, unlockedIds] = await Promise.all([
     getUserStats(userId),
     prisma.userAchievement.findMany({
@@ -288,7 +292,10 @@ export async function checkAndUnlockAchievements(
   
   const unlockedSet = new Set(unlockedIds.map(u => u.achievementId));
   
-  // Собираем достижения для разблокировки
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ЭТАП 2: Вычисление достижений для разблокировки (без БД)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   const toUnlock: Achievement[] = [];
   
   for (const achievement of ACHIEVEMENTS) {
@@ -312,7 +319,7 @@ export async function checkAndUnlockAchievements(
     }
   }
   
-  // Проверяем достижения-коллекторы
+  // Проверяем достижения-коллекторы (количество разблокированных)
   const achievementMilestones: Record<number, string> = {
     10: "achievements_10",
     25: "achievements_25",
@@ -331,7 +338,7 @@ export async function checkAndUnlockAchievements(
     }
   }
   
-  // Если нечего разблокировать — выходим
+  // Если нечего разблокировать — быстрый выход
   if (toUnlock.length === 0) {
     return {
       newlyUnlocked: [],
@@ -341,64 +348,66 @@ export async function checkAndUnlockAchievements(
     };
   }
   
-  // Разблокируем все достижения в транзакции
-  const newlyUnlocked: UnlockedAchievement[] = [];
-  let xpEarned = 0;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ЭТАП 3: АТОМАРНАЯ ТРАНЗАКЦИЯ — создание достижений + начисление XP
+  // ═══════════════════════════════════════════════════════════════════════════
   
-  for (const achievement of toUnlock) {
-    try {
-      // Используем upsert для защиты от race condition
-      await prisma.userAchievement.upsert({
-        where: {
-          userId_achievementId: { userId, achievementId: achievement.id },
-        },
-        create: {
+  const xpToAdd = toUnlock.reduce((sum, a) => sum + a.xpReward, 0);
+  const now = new Date();
+  
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Batch создание достижений (skipDuplicates для race condition)
+      await tx.userAchievement.createMany({
+        data: toUnlock.map(achievement => ({
           userId,
           achievementId: achievement.id,
           progress: achievement.requirement.value,
-        },
-        update: {}, // Если уже существует — ничего не делаем
+          unlockedAt: now,
+        })),
+        skipDuplicates: true, // Защита от race condition
       });
       
-      newlyUnlocked.push({
-        achievement,
-        unlockedAt: new Date(),
-        isNew: true,
-      });
-      
-      xpEarned += achievement.xpReward;
-      unlockedSet.add(achievement.id);
-    } catch (error) {
-      // Логируем ошибку, но продолжаем с другими достижениями
-      console.error(`[achievements] Failed to unlock ${achievement.id}:`, error);
-    }
-  }
-  
-  // Начисляем XP одним запросом (эффективнее)
-  if (xpEarned > 0) {
-    try {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { xp: { increment: xpEarned } },
-      });
-    } catch (error) {
-      console.error(`[achievements] Failed to add XP for user ${userId}:`, error);
-      // XP не начислен, но достижения уже созданы — это лучше чем наоборот
-    }
-  }
-  
-  if (newlyUnlocked.length > 0) {
+      // 2. Один запрос на XP (атомарно с достижениями)
+      if (xpToAdd > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { xp: { increment: xpToAdd } },
+        });
+      }
+    });
+    
+    // Успешно — формируем результат
+    const newlyUnlocked: UnlockedAchievement[] = toUnlock.map(achievement => ({
+      achievement,
+      unlockedAt: now,
+      isNew: true,
+    }));
+    
     console.log(
-      `[achievements] User ${userId} unlocked ${newlyUnlocked.length} achievements, +${xpEarned} XP`
+      `[achievements] User ${userId} unlocked ${toUnlock.length} achievements: ` +
+      `${toUnlock.map(a => a.id).join(", ")} (+${xpToAdd} XP)`
     );
+    
+    return {
+      newlyUnlocked,
+      totalUnlocked: unlockedSet.size + toUnlock.length,
+      totalAchievements: ACHIEVEMENTS.length,
+      xpEarned: xpToAdd,
+    };
+    
+  } catch (error) {
+    // Транзакция откатилась — ничего не сохранено
+    console.error(`[achievements] Transaction failed for user ${userId}:`, error);
+    
+    // Возвращаем пустой результат (достижения не разблокированы)
+    return {
+      newlyUnlocked: [],
+      totalUnlocked: unlockedSet.size,
+      totalAchievements: ACHIEVEMENTS.length,
+      xpEarned: 0,
+    };
   }
-  
-  return {
-    newlyUnlocked,
-    totalUnlocked: unlockedSet.size,
-    totalAchievements: ACHIEVEMENTS.length,
-    xpEarned,
-  };
 }
 
 /**
