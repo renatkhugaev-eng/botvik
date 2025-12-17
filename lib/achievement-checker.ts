@@ -157,10 +157,10 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     },
   });
 
-  // Максимальная серия правильных ответов (из сессий)
+  // Максимальная серия правильных ответов (из сохранённого maxStreak сессий)
   const maxStreak = await prisma.quizSession.aggregate({
     where: { userId },
-    _max: { currentStreak: true },
+    _max: { maxStreak: true },
   });
 
   // Количество дней захода (уникальные даты сессий)
@@ -201,7 +201,7 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     bestScore: sessionsData._max?.totalScore ?? 0,
     perfectGames: Number(perfectGames[0]?.count ?? 0),
     dailyStreak: user?.dailyRewardStreak ?? 0,
-    maxQuizStreak: maxStreak._max?.currentStreak ?? 0,
+    maxQuizStreak: maxStreak._max?.maxStreak ?? 0,
     friendsCount,
     chatMessages: chatCount,
     level: levelProgress.level,

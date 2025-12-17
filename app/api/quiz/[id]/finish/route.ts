@@ -78,11 +78,29 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Завершаем сессию, если ещё не завершена
   const alreadyFinished = session.finishedAt !== null;
+  
+  // Вычисляем maxStreak до завершения (для сохранения в БД)
+  let sessionMaxStreak = 0;
+  if (!alreadyFinished) {
+    let streak = 0;
+    for (const answer of session.answers) {
+      if (answer.isCorrect) {
+        streak++;
+        sessionMaxStreak = Math.max(sessionMaxStreak, streak);
+      } else {
+        streak = 0;
+      }
+    }
+  }
+  
   const finishedSession = alreadyFinished
     ? session
     : await prisma.quizSession.update({
         where: { id: sessionId },
-        data: { finishedAt: new Date() },
+        data: { 
+          finishedAt: new Date(),
+          maxStreak: sessionMaxStreak, // Сохраняем максимальную серию
+        },
         select: { 
           id: true, 
           quizId: true, 
@@ -90,6 +108,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           totalScore: true, 
           finishedAt: true,
           attemptNumber: true,
+          maxStreak: true,
           answers: {
             select: { isCorrect: true },
           },
