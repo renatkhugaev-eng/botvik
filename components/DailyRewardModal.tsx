@@ -11,7 +11,7 @@ const spring = { type: "spring", stiffness: 400, damping: 30 };
 type DailyRewardModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onClaim: (reward: DailyReward, newXp: number, levelUp: boolean) => void;
+  onClaim: (reward: DailyReward, newXp: number, levelUp: boolean, bonusEnergy?: number) => void;
 };
 
 type ClaimResponse = {
@@ -19,6 +19,7 @@ type ClaimResponse = {
   reward: DailyReward;
   newStreak: number;
   totalXp: number;
+  totalBonusEnergy: number;  // Общая бонусная энергия после claim
   levelUp: boolean;
   newLevel?: number;
   levelInfo: {
@@ -37,6 +38,7 @@ export function DailyRewardModal({ isOpen, onClose, onClaim }: DailyRewardModalP
   const [claimedReward, setClaimedReward] = useState<DailyReward | null>(null);
   const [levelUp, setLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState<number | undefined>();
+  const [error, setError] = useState<string | null>(null);
 
   // Загрузка статуса при открытии
   useEffect(() => {
@@ -66,6 +68,7 @@ export function DailyRewardModal({ isOpen, onClose, onClaim }: DailyRewardModalP
     if (!status?.canClaim || claiming) return;
     
     setClaiming(true);
+    setError(null);
     haptic.medium();
     
     try {
@@ -78,8 +81,8 @@ export function DailyRewardModal({ isOpen, onClose, onClaim }: DailyRewardModalP
         setNewLevel(data.newLevel);
         haptic.success();
         
-        // Уведомляем родителя
-        onClaim(data.reward, data.totalXp, data.levelUp);
+        // Уведомляем родителя (передаём бонусную энергию если она изменилась)
+        onClaim(data.reward, data.totalXp, data.levelUp, data.reward.bonusEnergy > 0 ? data.totalBonusEnergy : undefined);
         
         // Закрываем через 2.5 секунды
         setTimeout(() => {
@@ -90,12 +93,25 @@ export function DailyRewardModal({ isOpen, onClose, onClaim }: DailyRewardModalP
             setClaimedReward(null);
             setLevelUp(false);
             setNewLevel(undefined);
+            setError(null);
           }, 300);
         }, 2500);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to claim daily reward:", err);
       haptic.error();
+      
+      // Обработка специфических ошибок
+      const errorMessage = err instanceof Error ? err.message : "";
+      if (errorMessage.includes("already_claimed")) {
+        setError("Награда уже получена сегодня");
+        // Обновляем статус
+        setStatus(prev => prev ? { ...prev, canClaim: false, claimedToday: true } : prev);
+      } else if (errorMessage.includes("rate_limited")) {
+        setError("Слишком много попыток. Подожди немного.");
+      } else {
+        setError("Ошибка получения награды");
+      }
     } finally {
       setClaiming(false);
     }
@@ -285,6 +301,20 @@ export function DailyRewardModal({ isOpen, onClose, onClaim }: DailyRewardModalP
                     )}
                   </div>
                 </motion.div>
+
+                {/* Error message */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3"
+                    >
+                      <p className="text-[13px] text-red-600 text-center">{error}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Claim button */}
                 <motion.button

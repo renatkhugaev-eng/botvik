@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import {
   getDailyRewardStatus,
   calculateNewStreak,
   getNextReward,
-  type DailyRewardStatus,
+  isToday,
 } from "@/lib/daily-rewards";
 import { getLevelProgress, getLevelTitle } from "@/lib/xp";
 
 export const runtime = "nodejs";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RATE LIMITING — Защита от abuse
+// ═══════════════════════════════════════════════════════════════════════════
+
+const redis = Redis.fromEnv();
+const claimLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, "1 m"), // 3 попытки claim в минуту
+  analytics: false,
+  prefix: "daily-reward:claim",
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /api/daily-reward — Получить статус ежедневной награды
@@ -68,6 +82,7 @@ type ClaimResponse = {
   };
   newStreak: number;
   totalXp: number;
+  totalBonusEnergy: number;  // Общее количество бонусной энергии после claim
   levelUp: boolean;
   newLevel?: number;
   levelInfo: {
@@ -88,81 +103,120 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: auth.user.id },
-    select: {
-      id: true,
-      dailyRewardStreak: true,
-      lastDailyRewardAt: true,
-      xp: true,
-    },
-  });
-
-  if (!user) {
-    return NextResponse.json({ error: "user_not_found" }, { status: 404 });
-  }
-
-  // Проверяем статус
-  const status = getDailyRewardStatus(
-    user.dailyRewardStreak,
-    user.lastDailyRewardAt
-  );
-
-  if (!status.canClaim) {
+  // Rate limiting — защита от abuse
+  const { success } = await claimLimiter.limit(`user:${auth.user.id}`);
+  if (!success) {
     return NextResponse.json(
-      { error: "already_claimed_today" },
-      { status: 400 }
+      { error: "rate_limited" },
+      { status: 429 }
     );
   }
 
-  // Рассчитываем новую серию
-  const newStreak = calculateNewStreak(
-    status.streakBroken ? 0 : user.dailyRewardStreak,
-    user.lastDailyRewardAt
-  );
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ТРАНЗАКЦИЯ — Атомарная операция для предотвращения race condition
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Получаем пользователя с блокировкой (FOR UPDATE через транзакцию)
+      const user = await tx.user.findUnique({
+        where: { id: auth.user.id },
+        select: {
+          id: true,
+          dailyRewardStreak: true,
+          lastDailyRewardAt: true,
+          xp: true,
+        },
+      });
 
-  // Получаем награду
-  const reward = getNextReward(status.streakBroken ? 0 : user.dailyRewardStreak);
+      if (!user) {
+        throw new Error("user_not_found");
+      }
 
-  // Сохраняем старый уровень для проверки level up
-  const oldLevelInfo = getLevelProgress(user.xp);
+      // 2. Double-check: проверяем что награда ещё не получена сегодня
+      //    Это защита от race condition на уровне БД
+      if (user.lastDailyRewardAt && isToday(user.lastDailyRewardAt)) {
+        throw new Error("already_claimed_today");
+      }
 
-  // Обновляем пользователя
-  const updatedUser = await prisma.user.update({
-    where: { id: auth.user.id },
-    data: {
-      dailyRewardStreak: newStreak,
-      lastDailyRewardAt: new Date(),
-      xp: { increment: reward.xp },
-    },
-    select: {
-      xp: true,
-      dailyRewardStreak: true,
-    },
-  });
+      // 3. Рассчитываем новую серию
+      const status = getDailyRewardStatus(
+        user.dailyRewardStreak,
+        user.lastDailyRewardAt
+      );
+      
+      const newStreak = calculateNewStreak(
+        status.streakBroken ? 0 : user.dailyRewardStreak,
+        user.lastDailyRewardAt
+      );
 
-  // Проверяем level up
-  const newLevelInfo = getLevelProgress(updatedUser.xp);
-  const levelUp = newLevelInfo.level > oldLevelInfo.level;
-  const levelTitle = getLevelTitle(newLevelInfo.level);
+      // 4. Получаем награду
+      const reward = getNextReward(status.streakBroken ? 0 : user.dailyRewardStreak);
 
-  console.log(
-    `[daily-reward] User ${auth.user.id} claimed day ${newStreak} reward: +${reward.xp} XP`,
-    levelUp ? `(Level up! ${oldLevelInfo.level} → ${newLevelInfo.level})` : ""
-  );
+      // 5. Сохраняем старый уровень
+      const oldLevelInfo = getLevelProgress(user.xp);
 
-  return NextResponse.json({
-    ok: true,
-    reward,
-    newStreak,
-    totalXp: updatedUser.xp,
-    levelUp,
-    ...(levelUp && { newLevel: newLevelInfo.level }),
-    levelInfo: {
-      level: newLevelInfo.level,
-      progress: newLevelInfo.progress,
-      title: levelTitle.title,
-      icon: levelTitle.icon,
-    },
-  });
+      // 6. Атомарно обновляем пользователя (включая бонусную энергию)
+      const updatedUser = await tx.user.update({
+        where: { id: auth.user.id },
+        data: {
+          dailyRewardStreak: newStreak,
+          lastDailyRewardAt: new Date(),
+          xp: { increment: reward.xp },
+          // Начисляем бонусную энергию если она есть в награде
+          ...(reward.bonusEnergy > 0 && {
+            bonusEnergy: { increment: reward.bonusEnergy },
+          }),
+        },
+        select: {
+          xp: true,
+          dailyRewardStreak: true,
+          bonusEnergy: true,
+        },
+      });
+
+      return { user, updatedUser, reward, newStreak, oldLevelInfo };
+    });
+
+    // Проверяем level up
+    const newLevelInfo = getLevelProgress(result.updatedUser.xp);
+    const levelUp = newLevelInfo.level > result.oldLevelInfo.level;
+    const levelTitle = getLevelTitle(newLevelInfo.level);
+
+    console.log(
+      `[daily-reward] User ${auth.user.id} claimed day ${result.newStreak} reward: +${result.reward.xp} XP` +
+      (result.reward.bonusEnergy > 0 ? ` +${result.reward.bonusEnergy} energy` : "") +
+      (levelUp ? ` (Level up! ${result.oldLevelInfo.level} → ${newLevelInfo.level})` : "")
+    );
+
+    return NextResponse.json({
+      ok: true,
+      reward: result.reward,
+      newStreak: result.newStreak,
+      totalXp: result.updatedUser.xp,
+      totalBonusEnergy: result.updatedUser.bonusEnergy,
+      levelUp,
+      ...(levelUp && { newLevel: newLevelInfo.level }),
+      levelInfo: {
+        level: newLevelInfo.level,
+        progress: newLevelInfo.progress,
+        title: levelTitle.title,
+        icon: levelTitle.icon,
+      },
+    });
+    
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    
+    if (message === "user_not_found") {
+      return NextResponse.json({ error: "user_not_found" }, { status: 404 });
+    }
+    
+    if (message === "already_claimed_today") {
+      return NextResponse.json({ error: "already_claimed_today" }, { status: 400 });
+    }
+    
+    console.error("[daily-reward] Error:", error);
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
+  }
 }

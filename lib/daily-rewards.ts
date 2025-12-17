@@ -56,23 +56,30 @@ export function getNextReward(currentStreak: number): DailyReward {
 // TIME UTILITIES
 // ═══════════════════════════════════════════════════════════════════
 
+const MSK_OFFSET_HOURS = 3; // UTC+3
+
 /**
  * Получить начало дня (полночь) по Московскому времени
- * Используем UTC+3 для консистентности
+ * 
+ * MSK = UTC+3, поэтому:
+ * - 00:00 MSK = 21:00 UTC (предыдущего дня)
+ * - Если сейчас 02:00 MSK (23:00 UTC), то начало дня = 21:00 UTC
+ * - Если сейчас 22:00 MSK (19:00 UTC), то начало дня = 21:00 UTC (того же дня UTC)
  */
 export function getMoscowDayStart(date: Date = new Date()): Date {
-  // Создаём дату в UTC
-  const utc = Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    0, 0, 0, 0
-  );
-  // Вычитаем 3 часа чтобы полночь MSK была в UTC
-  // То есть если сейчас 01:00 MSK (22:00 UTC предыдущего дня),
-  // мы хотим получить 00:00 MSK = 21:00 UTC предыдущего дня
-  const mskOffset = 3 * 60 * 60 * 1000; // 3 hours in ms
-  return new Date(utc - mskOffset);
+  // Получаем текущее время в MSK
+  const mskTime = new Date(date.getTime() + MSK_OFFSET_HOURS * 60 * 60 * 1000);
+  
+  // Получаем дату в MSK (год, месяц, день)
+  const mskYear = mskTime.getUTCFullYear();
+  const mskMonth = mskTime.getUTCMonth();
+  const mskDay = mskTime.getUTCDate();
+  
+  // Создаём полночь MSK как UTC timestamp
+  // 00:00 MSK = 21:00 UTC предыдущего дня
+  const midnightMskAsUtc = Date.UTC(mskYear, mskMonth, mskDay, 0, 0, 0, 0) - MSK_OFFSET_HOURS * 60 * 60 * 1000;
+  
+  return new Date(midnightMskAsUtc);
 }
 
 /**

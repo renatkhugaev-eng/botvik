@@ -140,16 +140,23 @@ export async function GET(req: NextRequest) {
   const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000;
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
 
-  // Считаем ВСЕ сессии пользователя глобально (не по квизам)
-  const globalRecentAttempts = await prisma.quizSession.count({
-    where: {
-      userId: user.id,
-      startedAt: { gte: cooldownAgo },
-    },
-  });
+  // Считаем ВСЕ сессии пользователя глобально (не по квизам) + получаем бонусную энергию
+  const [globalRecentAttempts, userBonusEnergy] = await Promise.all([
+    prisma.quizSession.count({
+      where: {
+        userId: user.id,
+        startedAt: { gte: cooldownAgo },
+      },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { bonusEnergy: true },
+    }),
+  ]);
   
   const globalEnergyUsed = globalRecentAttempts;
   const globalEnergyRemaining = Math.max(0, MAX_ATTEMPTS - globalRecentAttempts);
+  const bonusEnergy = userBonusEnergy?.bonusEnergy ?? 0;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GLOBAL RANK (позиция среди всех игроков)
@@ -242,6 +249,7 @@ export async function GET(req: NextRequest) {
         remaining: globalEnergyRemaining,
         max: MAX_ATTEMPTS,
         hoursPerAttempt: HOURS_PER_ATTEMPT,
+        bonus: bonusEnergy, // Бонусная энергия из Daily Rewards
       },
     },
   });

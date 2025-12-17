@@ -24,6 +24,9 @@ model User {
   dailyRewardStreak   Int       @default(0)      // Текущая серия дней (1-7, сбрасывается после 7)
   lastDailyRewardAt   DateTime?                  // Когда последний раз забрал награду
   
+  // Bonus Energy System (from Daily Rewards)
+  bonusEnergy         Int       @default(0)      // Бонусные попытки (используются когда обычная энергия = 0)
+  
   // Notification Preferences
   notifyLevelUp       Boolean   @default(true)   // Level up notifications
   notifyEnergyFull    Boolean   @default(true)   // Energy restored notifications

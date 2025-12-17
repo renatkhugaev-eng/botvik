@@ -196,10 +196,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // ═══ NEW SESSION — Check energy and create ═══
   
-  // Get recent sessions and last finished in parallel
+  // Get recent sessions, last finished, total attempts, and user's bonus energy in parallel
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
   
-  const [recentSessions, lastFinishedSession, totalAttempts] = await Promise.all([
+  const [recentSessions, lastFinishedSession, totalAttempts, userBonusEnergy] = await Promise.all([
     prisma.quizSession.findMany({
       where: { userId, startedAt: { gte: cooldownAgo } },
       orderBy: { startedAt: "asc" },
@@ -211,33 +211,52 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       select: { finishedAt: true },
     }),
     prisma.quizSession.count({ where: { userId, quizId } }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { bonusEnergy: true },
+    }),
   ]);
 
   const usedAttempts = recentSessions.length;
+  const bonusEnergy = userBonusEnergy?.bonusEnergy ?? 0;
+  let usedBonusEnergy = false;
 
-  // Energy check
+  // Energy check — если обычная энергия закончилась, пробуем бонусную
   if (!bypassLimits && usedAttempts >= MAX_ATTEMPTS) {
-    const oldestSession = recentSessions[0];
-    const nextSlotAt = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
-    const waitMs = nextSlotAt.getTime() - Date.now();
-    const waitMinutes = Math.ceil(waitMs / 60000);
-    const waitHours = Math.floor(waitMinutes / 60);
-    const remainingMinutes = waitMinutes % 60;
-    
-    const waitMessage = waitHours > 0 
-      ? `${waitHours} ч ${remainingMinutes} мин`
-      : `${remainingMinutes} мин`;
+    // Проверяем есть ли бонусная энергия
+    if (bonusEnergy > 0) {
+      // Используем бонусную энергию вместо обычной
+      await prisma.user.update({
+        where: { id: userId },
+        data: { bonusEnergy: { decrement: 1 } },
+      });
+      usedBonusEnergy = true;
+      console.log(`[quiz/start] User ${userId} used bonus energy (${bonusEnergy} → ${bonusEnergy - 1})`);
+    } else {
+      // Нет ни обычной, ни бонусной энергии
+      const oldestSession = recentSessions[0];
+      const nextSlotAt = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
+      const waitMs = nextSlotAt.getTime() - Date.now();
+      const waitMinutes = Math.ceil(waitMs / 60000);
+      const waitHours = Math.floor(waitMinutes / 60);
+      const remainingMinutes = waitMinutes % 60;
+      
+      const waitMessage = waitHours > 0 
+        ? `${waitHours} ч ${remainingMinutes} мин`
+        : `${remainingMinutes} мин`;
 
-    return NextResponse.json({
-      error: "energy_depleted",
-      message: `Энергия закончилась! Восстановление через ${waitMessage}`,
-      usedAttempts,
-      maxAttempts: MAX_ATTEMPTS,
-      nextSlotAt: nextSlotAt.toISOString(),
-      waitMs,
-      waitMessage,
-      hoursPerAttempt: HOURS_PER_ATTEMPT,
-    }, { status: 429 });
+      return NextResponse.json({
+        error: "energy_depleted",
+        message: `Энергия закончилась! Восстановление через ${waitMessage}`,
+        usedAttempts,
+        maxAttempts: MAX_ATTEMPTS,
+        nextSlotAt: nextSlotAt.toISOString(),
+        waitMs,
+        waitMessage,
+        hoursPerAttempt: HOURS_PER_ATTEMPT,
+        bonusEnergy: 0, // Показываем что бонусной энергии тоже нет
+      }, { status: 429 });
+    }
   }
 
   // Rate limit between attempts
@@ -268,11 +287,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const questions = await getQuestionsOptimized(quizId);
 
+  // Рассчитываем оставшуюся бонусную энергию
+  const remainingBonusEnergy = usedBonusEnergy ? bonusEnergy - 1 : bonusEnergy;
+
   return NextResponse.json({
     sessionId: session.id,
     quizId,
     attemptNumber,
-    remainingAttempts: MAX_ATTEMPTS - usedAttempts - 1,
+    remainingAttempts: usedBonusEnergy ? 0 : MAX_ATTEMPTS - usedAttempts - 1,
     totalQuestions: questions.length,
     totalScore: session.totalScore,
     currentStreak: 0,
@@ -280,9 +302,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     serverTime: now.toISOString(),
     questionStartedAt: now.toISOString(),
     energyInfo: {
-      used: usedAttempts + 1,
+      used: usedBonusEnergy ? MAX_ATTEMPTS : usedAttempts + 1,
       max: MAX_ATTEMPTS,
       hoursPerAttempt: HOURS_PER_ATTEMPT,
+      bonusEnergy: remainingBonusEnergy,
+      usedBonusEnergy, // Флаг: была ли использована бонусная энергия
     },
   });
 }

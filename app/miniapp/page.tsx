@@ -160,6 +160,7 @@ type UserStats = {
   totalScore: number;
   minEnergy?: number;      // Минимальная энергия среди всех квизов
   maxEnergy?: number;      // Максимум энергии
+  bonusEnergy?: number;    // Бонусная энергия из Daily Rewards
 };
 
 type LeaderboardPosition = {
@@ -389,6 +390,7 @@ export default function MiniAppPage() {
         totalScore: statsData.stats?.totalScore ?? 0,
         minEnergy: globalEnergy,
         maxEnergy,
+        bonusEnergy: statsData.stats?.globalEnergy?.bonus ?? 0,
       });
       
       // Process weekly leaderboard
@@ -634,9 +636,14 @@ export default function MiniAppPage() {
   const avatarLetter = name.slice(0, 1).toUpperCase();
   
   // Daily Reward handlers
-  const handleDailyRewardClaim = useCallback((reward: DailyReward, newXp: number, levelUp: boolean) => {
-    // Обновляем статистику пользователя с новым XP
-    setUserStats(prev => prev ? { ...prev, totalScore: prev.totalScore } : prev);
+  const handleDailyRewardClaim = useCallback((reward: DailyReward, newXp: number, levelUp: boolean, bonusEnergy?: number) => {
+    // Обновляем статистику пользователя с новым XP и бонусной энергией
+    setUserStats(prev => prev ? { 
+      ...prev, 
+      totalScore: prev.totalScore,
+      // Обновляем бонусную энергию если она была начислена
+      ...(bonusEnergy !== undefined && { bonusEnergy }),
+    } : prev);
     // Обновляем статус daily reward
     setDailyRewardStatus(prev => prev ? { ...prev, canClaim: false, claimedToday: true } : prev);
   }, []);
@@ -784,7 +791,12 @@ export default function MiniAppPage() {
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-1.5 pr-3 py-1 shadow-lg shadow-amber-500/25"
           >
             <span className="text-2xl">⚡</span>
-            <span className="text-sm font-bold text-white tabular-nums">{userStats?.minEnergy ?? 5}</span>
+            <span className="text-sm font-bold text-white tabular-nums">
+              {userStats?.minEnergy ?? 5}
+              {(userStats?.bonusEnergy ?? 0) > 0 && (
+                <span className="text-amber-200">+{userStats?.bonusEnergy}</span>
+              )}
+            </span>
           </motion.div>
           
           {/* Score pill */}
