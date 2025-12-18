@@ -102,6 +102,8 @@ export async function GET(request: NextRequest) {
     stats,
     categories: CATEGORY_INFO,
     rarities: RARITY_INFO,
+    // XP начисленный именно в этом запросе (для обновления UI)
+    justEarnedXp: checkResult.xpEarned,
   });
 }
 

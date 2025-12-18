@@ -41,6 +41,7 @@ type AchievementsResponse = {
   };
   categories: Record<AchievementCategory, { name: string; icon: string; color: string }>;
   rarities: Record<AchievementRarity, { name: string; color: string; glow: string }>;
+  justEarnedXp?: number;  // XP начисленный именно в этом запросе
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -66,9 +67,10 @@ const CATEGORY_ORDER: AchievementCategory[] = [
 
 type AchievementsSectionProps = {
   compact?: boolean;
+  onXpEarned?: (xpAmount: number) => void;  // Callback когда начислен XP
 };
 
-export function AchievementsSection({ compact = false }: AchievementsSectionProps) {
+export function AchievementsSection({ compact = false, onXpEarned }: AchievementsSectionProps) {
   const [data, setData] = useState<AchievementsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory | "all">("all");
@@ -80,6 +82,11 @@ export function AchievementsSection({ compact = false }: AchievementsSectionProp
       try {
         const response = await api.get<AchievementsResponse>("/api/achievements");
         setData(response);
+        
+        // Если был начислен XP СЕЙЧАС — уведомляем родителя для обновления UI
+        if (response.justEarnedXp && response.justEarnedXp > 0 && onXpEarned) {
+          onXpEarned(response.justEarnedXp);
+        }
       } catch (err) {
         console.error("Failed to fetch achievements:", err);
       } finally {
@@ -88,7 +95,7 @@ export function AchievementsSection({ compact = false }: AchievementsSectionProp
     };
 
     fetchAchievements();
-  }, []);
+  }, [onXpEarned]);
 
   // Фильтрация по категории
   const filteredAchievements = data?.achievements.filter(a => 

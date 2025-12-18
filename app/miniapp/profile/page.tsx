@@ -1085,8 +1085,8 @@ style={{
             {/* Реферальная секция */}
             <ReferralSection />
             
-            {/* Достижения */}
-            <AchievementsSection />
+            {/* Достижения — при начислении XP перезагружаем профиль */}
+            <AchievementsSection onXpEarned={() => loadAllData()} />
           </motion.div>
         ) : activeTab === "history" ? (
           <motion.div
