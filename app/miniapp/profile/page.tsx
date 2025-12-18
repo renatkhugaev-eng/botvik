@@ -13,6 +13,7 @@ import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
 import { AchievementsSection } from "@/components/AchievementsSection";
+import { ReferralSection } from "@/components/ReferralSection";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -1079,7 +1080,12 @@ style={{
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -30 }}
             transition={{ duration: 0.2 }}
+            className="space-y-4"
           >
+            {/* Реферальная секция */}
+            <ReferralSection />
+            
+            {/* Достижения */}
             <AchievementsSection />
           </motion.div>
         ) : activeTab === "history" ? (

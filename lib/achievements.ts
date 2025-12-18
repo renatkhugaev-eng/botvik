@@ -70,6 +70,7 @@ export type AchievementRequirementType =
   | "bonus_energy_used"        // Использовано бонусной энергии
   | "different_quizzes"        // Разных квизов сыграно
   | "login_days"               // Дней захода в приложение
+  | "referrals_count"          // Количество приглашённых друзей
   | "special";                 // Особое условие (проверяется кодом)
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1152,6 +1153,61 @@ export const ACHIEVEMENTS: Achievement[] = [
     requirement: { type: "special", value: 1 },
     secret: true,
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REFERRAL — Приглашение друзей (5)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  {
+    id: "referral_1",
+    name: "Первый друг",
+    description: "Пригласи 1 друга",
+    icon: "🤝",
+    category: "social",
+    rarity: "common",
+    xpReward: 25,
+    requirement: { type: "referrals_count", value: 1 },
+  },
+  {
+    id: "referral_3",
+    name: "Трио",
+    description: "Пригласи 3 друзей",
+    icon: "👥",
+    category: "social",
+    rarity: "uncommon",
+    xpReward: 50,
+    requirement: { type: "referrals_count", value: 3 },
+  },
+  {
+    id: "referral_5",
+    name: "Команда",
+    description: "Пригласи 5 друзей",
+    icon: "🎯",
+    category: "social",
+    rarity: "rare",
+    xpReward: 100,
+    requirement: { type: "referrals_count", value: 5 },
+  },
+  {
+    id: "referral_10",
+    name: "Лидер",
+    description: "Пригласи 10 друзей",
+    icon: "⭐",
+    category: "social",
+    rarity: "epic",
+    xpReward: 200,
+    requirement: { type: "referrals_count", value: 10 },
+  },
+  {
+    id: "referral_25",
+    name: "Амбассадор",
+    description: "Пригласи 25 друзей",
+    icon: "👑",
+    category: "social",
+    rarity: "legendary",
+    xpReward: 500,
+    requirement: { type: "referrals_count", value: 25 },
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1209,7 +1265,7 @@ export function getAchievementStats() {
   };
 }
 
-// Проверяем что достижений ровно 100
-if (ACHIEVEMENTS.length !== 100) {
-  console.warn(`[Achievements] Expected 100 achievements, got ${ACHIEVEMENTS.length}`);
+// Проверяем что достижений ровно 105 (100 + 5 referral)
+if (ACHIEVEMENTS.length !== 105) {
+  console.warn(`[Achievements] Expected 105 achievements, got ${ACHIEVEMENTS.length}`);
 }

@@ -38,6 +38,7 @@ export type UserStats = {
   differentQuizzes: number;
   loginDays: number;
   accountAgeDays: number;
+  referralsCount: number;
   userId: number;
 };
 
@@ -71,6 +72,7 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     chatCount,
     weeklyWins,
     differentQuizzes,
+    referralsCount,
   ] = await Promise.all([
     // Данные пользователя
     prisma.user.findUnique({
@@ -124,6 +126,11 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     prisma.quizSession.groupBy({
       by: ["quizId"],
       where: { userId },
+    }),
+    
+    // Количество рефералов (приглашённых друзей)
+    prisma.user.count({
+      where: { referredById: userId },
     }),
   ]);
 
@@ -214,6 +221,7 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     differentQuizzes: differentQuizzes.length,
     loginDays: Number(loginDays[0]?.count ?? 0),
     accountAgeDays,
+    referralsCount,
     userId,
   };
 }
@@ -246,6 +254,7 @@ function getStatValue(stats: UserStats, type: AchievementRequirementType): numbe
     case "bonus_energy_used": return stats.bonusEnergyUsed;
     case "different_quizzes": return stats.differentQuizzes;
     case "login_days": return stats.loginDays;
+    case "referrals_count": return stats.referralsCount;
     case "special": return 0; // Special achievements checked separately
     default: return 0;
   }

@@ -53,6 +53,12 @@ model User {
   
   // Achievements
   achievements    UserAchievement[]
+  
+  // Referral System
+  referralCode    String?   @unique  // Уникальный код для приглашения (генерируется при первом запросе)
+  referredById    Int?               // Кто пригласил этого пользователя
+  referredBy      User?     @relation("ReferralRelation", fields: [referredById], references: [id])
+  referrals       User[]    @relation("ReferralRelation")  // Кого пригласил этот пользователь
 }
 
 model Friendship {

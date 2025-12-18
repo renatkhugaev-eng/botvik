@@ -129,6 +129,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
   // Parse user from initData
   const parsed = parseInitData(initData);
   const userRaw = parsed["user"];
+  const startParam = parsed["start_param"] ?? null; // Реферальный код из deep link
   
   if (!userRaw) {
     return {
@@ -171,15 +172,59 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
   });
   
   if (!user) {
-    // User doesn't exist — create
+    // ═══ REFERRAL SYSTEM: Process referral code if present ═══
+    let referrerId: number | null = null;
+    
+    if (startParam && startParam.startsWith("ref_")) {
+      const referralCode = startParam.replace("ref_", "").toUpperCase();
+      
+      // Найти реферера по коду
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode },
+        select: { id: true },
+      });
+      
+      if (referrer) {
+        referrerId = referrer.id;
+      }
+    }
+    
+    // User doesn't exist — create (с привязкой к рефереру если есть)
     user = await prisma.user.create({
       data: {
         telegramId,
         username: tgUser.username ?? null,
         firstName: tgUser.first_name ?? null,
         lastName: tgUser.last_name ?? null,
+        ...(referrerId && { referredById: referrerId }),
       },
     });
+    
+    // ═══ REFERRAL REWARDS: Начислить награды если есть реферер ═══
+    if (referrerId) {
+      try {
+        // Награда рефереру: +50 XP, +1 бонусная энергия
+        await prisma.user.update({
+          where: { id: referrerId },
+          data: {
+            xp: { increment: 50 },
+            bonusEnergy: { increment: 1 },
+            bonusEnergyEarned: { increment: 1 },
+          },
+        });
+        
+        // Награда новому пользователю: +25 XP
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { xp: { increment: 25 } },
+        });
+        
+        console.log(`[auth] Referral processed: user ${user.id} referred by ${referrerId}`);
+      } catch (refError) {
+        console.error("[auth] Failed to process referral rewards:", refError);
+        // Не блокируем регистрацию если награды не начислились
+      }
+    }
   }
   // Note: We don't update existing users on every request anymore
   // Profile updates can be handled separately if needed
