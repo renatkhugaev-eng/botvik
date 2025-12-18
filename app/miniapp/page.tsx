@@ -194,6 +194,32 @@ type WeeklyLeaderboard = {
   }[];
 };
 
+// Tournament types for home page
+type TournamentSummary = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  icon: string | null;
+  gradient: { from: string; to: string };
+  status: "UPCOMING" | "ACTIVE" | "FINISHED" | "CANCELLED";
+  startsAt: string;
+  endsAt: string;
+  timeRemaining: { ms: number; label: string } | null;
+  participantsCount: number;
+  myParticipation: {
+    rank: number | null;
+    totalScore: number;
+  } | null;
+  prizes: {
+    place: number;
+    title: string;
+    icon: string | null;
+    type: string;
+    value: number;
+  }[];
+};
+
 // Animations
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 
@@ -330,6 +356,10 @@ export default function MiniAppPage() {
   // Daily Rewards
   const [dailyRewardStatus, setDailyRewardStatus] = useState<DailyRewardStatus | null>(null);
   const [showDailyRewardModal, setShowDailyRewardModal] = useState(false);
+  
+  // Tournaments
+  const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
+  const [lastFinishedTournament, setLastFinishedTournament] = useState<TournamentSummary | null>(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OPTIMIZED DATA LOADING - All requests in parallel for faster LCP
@@ -343,7 +373,7 @@ export default function MiniAppPage() {
     
     try {
       // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
-      const [quizzesRes, statsRes, weeklyRes, onlineRes, subscriptionRes, dailyRewardRes] = await Promise.all([
+      const [quizzesRes, statsRes, weeklyRes, onlineRes, subscriptionRes, dailyRewardRes, tournamentsRes, finishedTournamentsRes] = await Promise.all([
         // 1. Quizzes with limits
         fetchWithAuth(`/api/quiz?userId=${session.user.id}`),
         // 2. User stats
@@ -360,6 +390,10 @@ export default function MiniAppPage() {
         }).then(r => r.json()).catch(() => ({ subscribed: null })),
         // 6. Daily reward status
         api.get<DailyRewardStatus>("/api/daily-reward").catch(() => null),
+        // 7. Active/Upcoming tournaments
+        api.get<{ tournaments: TournamentSummary[] }>("/api/tournaments").catch(() => ({ tournaments: [] })),
+        // 8. Last finished tournament (for fallback display)
+        api.get<{ tournaments: TournamentSummary[] }>("/api/tournaments?status=FINISHED").catch(() => ({ tournaments: [] })),
       ]);
       
       // Process quizzes
@@ -427,6 +461,17 @@ export default function MiniAppPage() {
           // Небольшая задержка чтобы страница успела загрузиться
           setTimeout(() => setShowDailyRewardModal(true), 500);
         }
+      }
+      
+      // Process tournaments
+      if (tournamentsRes?.tournaments) {
+        setTournaments(tournamentsRes.tournaments);
+      }
+      
+      // Process last finished tournament (for fallback when no active tournaments)
+      if (finishedTournamentsRes?.tournaments?.length > 0) {
+        // Get the most recently finished tournament
+        setLastFinishedTournament(finishedTournamentsRes.tournaments[0]);
       }
       
     } catch {
@@ -928,6 +973,8 @@ export default function MiniAppPage() {
             weeklyTimeLeft={weeklyTimeLeft}
             isAndroid={isAndroid}
             isPerfMode={isScrolling}
+            tournaments={tournaments}
+            lastFinishedTournament={lastFinishedTournament}
           />
         </motion.div>
       </AnimatePresence>
@@ -1115,9 +1162,11 @@ type QuizViewProps = {
   weeklyTimeLeft: string;
   isAndroid: boolean;
   isPerfMode: boolean;
+  tournaments: TournamentSummary[];
+  lastFinishedTournament: TournamentSummary | null;
 };
 
-function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft, isAndroid, isPerfMode }: QuizViewProps) {
+function QuizView({ quizzes, loading, error, startingId, startError, countdowns, onStart, myPosition, weeklyTimeLeft, isAndroid, isPerfMode, tournaments, lastFinishedTournament }: QuizViewProps) {
   const router = useRouter();
   
   // Defer heavy hero rendering for better LCP
@@ -1137,10 +1186,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   ];
   const items = [...quizzes, ...demos.slice(0, Math.max(0, 5 - quizzes.length))];
 
-  const tournaments = [
-    { id: "t1", title: "True Crime Masters 2025", status: "live", icon: <span className="text-2xl">🔍</span>, bg: "from-[#1a1a2e] to-[#4a1942]" },
-    { id: "t2", title: "Зимнее Расследование", status: "soon", icon: <span className="text-2xl">❄️</span>, bg: "from-[#0f2027] to-[#2c5364]" },
-  ];
+  // Определяем что показывать в блоке турниров
+  const hasActiveTournaments = tournaments.length > 0;
+  const displayTournaments = hasActiveTournaments ? tournaments.slice(0, 2) : [];
+  const showFinishedFallback = !hasActiveTournaments && lastFinishedTournament;
 
   const events = [
     { id: "e1", title: "Неделя загадок", tag: "Марафон", icon: <span className="text-2xl">🔍</span> },
@@ -1568,39 +1617,95 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         <Card title="Турниры" badge={
           <span className="text-2xl">⚔️</span>
         }>
-          <div className="flex flex-col gap-2">
-            {tournaments.map((t) => (
-              <Row
-                key={t.id}
-                icon={
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${t.bg} shadow-lg`}>
-                    {t.icon}
-                  </div>
-                }
-                title={t.title}
-                subtitle={
-                  t.status === "live" ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          {/* Активные/Предстоящие турниры */}
+          {hasActiveTournaments ? (
+            <div className="flex flex-col gap-2">
+              {displayTournaments.map((t) => (
+                <Row
+                  key={t.id}
+                  icon={
+                    <div 
+                      className="flex h-10 w-10 items-center justify-center rounded-xl shadow-lg"
+                      style={{ 
+                        background: `linear-gradient(to bottom right, ${t.gradient.from}, ${t.gradient.to})` 
+                      }}
+                    >
+                      <span className="text-2xl">{t.icon || "🏆"}</span>
+                    </div>
+                  }
+                  title={t.title}
+                  subtitle={
+                    t.status === "ACTIVE" ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                        </span>
+                        <span className="text-emerald-600 font-semibold">
+                          {t.timeRemaining ? `Осталось ${t.timeRemaining.label}` : "Идёт сейчас"}
+                        </span>
                       </span>
-                      <span className="text-emerald-600 font-semibold">Идёт сейчас</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-amber-600">
-                      <span className="text-xs">📅</span> Скоро начнётся
-                    </span>
-                  )
-                }
-                trailing={<Chevron />}
-              />
-            ))}
-          </div>
+                    ) : (
+                      <span className="flex items-center gap-1 text-amber-600">
+                        <span className="text-xs">📅</span> 
+                        {t.timeRemaining ? `Через ${t.timeRemaining.label}` : "Скоро начнётся"}
+                      </span>
+                    )
+                  }
+                  trailing={<Chevron />}
+                />
+              ))}
+            </div>
+          ) : showFinishedFallback ? (
+            /* Показываем последний завершённый турнир */
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50">
+                <div 
+                  className="flex h-12 w-12 items-center justify-center rounded-xl shadow-lg"
+                  style={{ 
+                    background: `linear-gradient(to bottom right, ${lastFinishedTournament.gradient.from}, ${lastFinishedTournament.gradient.to})` 
+                  }}
+                >
+                  <span className="text-2xl">{lastFinishedTournament.icon || "🏆"}</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[13px] font-bold text-slate-700">{lastFinishedTournament.title}</p>
+                  <p className="text-[12px] text-amber-600 font-medium">Завершён • {lastFinishedTournament.participantsCount} участников</p>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-xl">🏅</span>
+                  <span className="text-[10px] text-slate-500">Итоги</span>
+                </div>
+              </div>
+              
+              {/* Призовые места */}
+              {lastFinishedTournament.prizes.length > 0 && (
+                <div className="flex gap-2 justify-center">
+                  {lastFinishedTournament.prizes.slice(0, 3).map((prize, idx) => (
+                    <div key={prize.place} className="flex flex-col items-center px-3 py-2 rounded-lg bg-slate-50">
+                      <span className="text-lg">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}</span>
+                      <span className="text-[11px] font-semibold text-slate-600">
+                        {prize.type === "XP" ? `${prize.value} XP` : prize.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Нет турниров вообще */
+            <div className="flex flex-col items-center py-6 text-center">
+              <span className="text-4xl mb-2">🎮</span>
+              <p className="text-[14px] font-semibold text-slate-600">Турниры скоро появятся</p>
+              <p className="text-[12px] text-slate-400 mt-1">Следите за обновлениями!</p>
+            </div>
+          )}
           
           {/* CTA */}
           <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500/10 to-indigo-500/10 py-3 border border-violet-500/20">
-            <span className="text-sm font-semibold text-violet-600">Смотреть все турниры</span>
+            <span className="text-sm font-semibold text-violet-600">
+              {hasActiveTournaments ? "Смотреть все турниры" : showFinishedFallback ? "Смотреть итоги" : "Все турниры"}
+            </span>
             <svg className="h-4 w-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
