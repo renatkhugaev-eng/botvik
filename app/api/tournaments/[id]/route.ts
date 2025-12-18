@@ -130,7 +130,7 @@ export async function GET(
     status: getStageStatus(stage, tournament.startsAt, tournament.endsAt),
   }));
   
-  // Форматируем лидерборд
+  // Форматируем лидерборд (participants уже отсортированы по totalScore DESC)
   const leaderboard = tournament.participants.map((p, index) => ({
     rank: index + 1,
     score: p.totalScore,
@@ -138,8 +138,14 @@ export async function GET(
     user: p.user,
   }));
   
-  // Моя позиция в общем рейтинге
-  const myRank = myParticipation?.rank ?? null;
+  // Моя АКТУАЛЬНАЯ позиция в общем рейтинге
+  // Вычисляем динамически по отсортированному списку, а не из сохранённого значения
+  // Это гарантирует корректный ранг даже если другие участники набрали больше очков
+  let myRank: number | null = null;
+  if (myParticipation) {
+    const myIndex = tournament.participants.findIndex(p => p.userId === userId);
+    myRank = myIndex >= 0 ? myIndex + 1 : null;
+  }
   
   return NextResponse.json({
     ok: true,
