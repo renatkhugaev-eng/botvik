@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, generalLimiter } from "@/lib/ratelimit";
 import {
   generateReferralCode,
   REFERRAL_REWARDS,
@@ -17,6 +18,12 @@ export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // Rate limiting: 60 запросов в минуту
+  const rateLimitResult = await checkRateLimit(generalLimiter, `referral:${auth.user.id}`);
+  if (rateLimitResult.limited) {
+    return rateLimitResult.response;
   }
 
   try {
@@ -43,25 +50,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "user_not_found" }, { status: 404 });
     }
 
-    // Генерируем код если его нет
+    // Генерируем код если его нет (в транзакции для защиты от race condition)
     let referralCode = user.referralCode;
     if (!referralCode) {
-      // Генерируем уникальный код
-      let attempts = 0;
+      // Генерируем уникальный код в транзакции
       const maxAttempts = 10;
       
-      while (attempts < maxAttempts) {
+      for (let attempts = 0; attempts < maxAttempts; attempts++) {
         const newCode = generateReferralCode();
-        const existing = await prisma.user.findUnique({
-          where: { referralCode: newCode },
-          select: { id: true },
-        });
         
-        if (!existing) {
+        try {
+          // Атомарная проверка + сохранение
+          await prisma.user.update({
+            where: { 
+              id: auth.user.id,
+              referralCode: { equals: null }, // Только если ещё нет кода
+            },
+            data: { referralCode: newCode },
+          });
+          
           referralCode = newCode;
           break;
+        } catch {
+          // Код уже занят или уже есть код — пробуем снова
+          const freshUser = await prisma.user.findUnique({
+            where: { id: auth.user.id },
+            select: { referralCode: true },
+          });
+          
+          if (freshUser?.referralCode) {
+            referralCode = freshUser.referralCode;
+            break;
+          }
         }
-        attempts++;
       }
 
       if (!referralCode) {
@@ -70,12 +91,6 @@ export async function GET(request: NextRequest) {
           { status: 500 }
         );
       }
-
-      // Сохраняем код
-      await prisma.user.update({
-        where: { id: auth.user.id },
-        data: { referralCode },
-      });
     }
 
     // Формируем ссылку

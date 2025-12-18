@@ -181,49 +181,58 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
       // Найти реферера по коду
       const referrer = await prisma.user.findUnique({
         where: { referralCode },
-        select: { id: true },
+        select: { id: true, telegramId: true },
       });
       
-      if (referrer) {
+      // Защита от самореферала
+      if (referrer && referrer.telegramId !== telegramId) {
         referrerId = referrer.id;
       }
     }
     
-    // User doesn't exist — create (с привязкой к рефереру если есть)
-    user = await prisma.user.create({
-      data: {
-        telegramId,
-        username: tgUser.username ?? null,
-        firstName: tgUser.first_name ?? null,
-        lastName: tgUser.last_name ?? null,
-        ...(referrerId && { referredById: referrerId }),
-      },
-    });
-    
-    // ═══ REFERRAL REWARDS: Начислить награды если есть реферер ═══
-    if (referrerId) {
-      try {
-        // Награда рефереру: +50 XP, +1 бонусная энергия
-        await prisma.user.update({
-          where: { id: referrerId },
+    // ═══ АТОМАРНАЯ ТРАНЗАКЦИЯ: Создание пользователя + награды ═══
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        // 1. Создаём пользователя
+        const newUser = await tx.user.create({
           data: {
-            xp: { increment: 50 },
-            bonusEnergy: { increment: 1 },
-            bonusEnergyEarned: { increment: 1 },
+            telegramId,
+            username: tgUser.username ?? null,
+            firstName: tgUser.first_name ?? null,
+            lastName: tgUser.last_name ?? null,
+            xp: referrerId ? 25 : 0, // Награда новичку сразу при создании
+            ...(referrerId && { referredById: referrerId }),
           },
         });
         
-        // Награда новому пользователю: +25 XP
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { xp: { increment: 25 } },
-        });
+        // 2. Награда рефереру (если есть) — в той же транзакции
+        if (referrerId) {
+          await tx.user.update({
+            where: { id: referrerId },
+            data: {
+              xp: { increment: 50 },
+              bonusEnergy: { increment: 1 },
+              bonusEnergyEarned: { increment: 1 },
+            },
+          });
+          
+          console.log(`[auth] Referral processed: user ${newUser.id} referred by ${referrerId}`);
+        }
         
-        console.log(`[auth] Referral processed: user ${user.id} referred by ${referrerId}`);
-      } catch (refError) {
-        console.error("[auth] Failed to process referral rewards:", refError);
-        // Не блокируем регистрацию если награды не начислились
-      }
+        return newUser;
+      });
+    } catch (txError) {
+      console.error("[auth] Transaction failed, creating user without referral:", txError);
+      
+      // Fallback: создаём пользователя без реферала
+      user = await prisma.user.create({
+        data: {
+          telegramId,
+          username: tgUser.username ?? null,
+          firstName: tgUser.first_name ?? null,
+          lastName: tgUser.last_name ?? null,
+        },
+      });
     }
   }
   // Note: We don't update existing users on every request anymore
