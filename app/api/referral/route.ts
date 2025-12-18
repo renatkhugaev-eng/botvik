@@ -50,38 +50,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "user_not_found" }, { status: 404 });
     }
 
-    // Генерируем код если его нет (в транзакции для защиты от race condition)
+    // Генерируем код если его нет
     let referralCode = user.referralCode;
     if (!referralCode) {
-      // Генерируем уникальный код в транзакции
       const maxAttempts = 10;
       
       for (let attempts = 0; attempts < maxAttempts; attempts++) {
         const newCode = generateReferralCode();
         
         try {
-          // Атомарная проверка + сохранение
+          // Проверяем уникальность кода
+          const existing = await prisma.user.findUnique({
+            where: { referralCode: newCode },
+            select: { id: true },
+          });
+          
+          if (existing) continue; // Код занят, пробуем другой
+          
+          // Сохраняем код
           await prisma.user.update({
-            where: { 
-              id: auth.user.id,
-              referralCode: { equals: null }, // Только если ещё нет кода
-            },
+            where: { id: auth.user.id },
             data: { referralCode: newCode },
           });
           
           referralCode = newCode;
           break;
-        } catch {
-          // Код уже занят или уже есть код — пробуем снова
-          const freshUser = await prisma.user.findUnique({
-            where: { id: auth.user.id },
-            select: { referralCode: true },
-          });
-          
-          if (freshUser?.referralCode) {
-            referralCode = freshUser.referralCode;
-            break;
-          }
+        } catch (err) {
+          // Unique constraint violation — код уже занят, пробуем снова
+          console.warn("[Referral] Code generation collision, retrying...", err);
         }
       }
 
