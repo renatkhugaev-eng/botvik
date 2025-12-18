@@ -169,29 +169,16 @@ async function processTournamentStage(
   const passedMinScore = activeStage.minScore === null || tournamentScore >= activeStage.minScore;
 
   // ═══ 6. АТОМАРНАЯ ТРАНЗАКЦИЯ: Сохраняем результат + обновляем ранги ═══
+  // 
+  // АРХИТЕКТУРНОЕ РЕШЕНИЕ о рангах:
+  // - Ранги вычисляются для текущего пользователя внутри транзакции
+  // - Другие участники НЕ обновляются (это было бы O(n) операций)
+  // - При конкурентных запросах возможна временная неточность рангов
+  // - ФИНАЛЬНЫЕ ранги пересчитываются в finalizeTournament() перед раздачей призов
+  // - Это разумный компромисс между точностью и производительностью
+  //
   const result = await prisma.$transaction(async (tx) => {
-    // 6.1 Записываем результат этапа
-    const stageResult = await tx.tournamentStageResult.upsert({
-      where: {
-        stageId_userId: { stageId: activeStage.id, userId },
-      },
-      update: {
-        score: tournamentScore,
-        quizSessionId: sessionId,
-        completedAt: now,
-        passed: passedMinScore, // Учитываем minScore
-      },
-      create: {
-        stageId: activeStage.id,
-        userId,
-        score: tournamentScore,
-        quizSessionId: sessionId,
-        completedAt: now,
-        passed: passedMinScore,
-      },
-    });
-
-    // 6.2 Обновляем участника турнира
+    // 6.1 Обновляем участника турнира (сначала, чтобы получить актуальный totalScore)
     const participant = await tx.tournamentParticipant.update({
       where: {
         tournamentId_userId: {
@@ -202,13 +189,11 @@ async function processTournamentStage(
       data: {
         totalScore: { increment: tournamentScore },
         status: "ACTIVE",
-        // Увеличиваем currentStage только если passed
-        ...(passedMinScore && { currentStage: activeStage.order + 1 }),
       },
       select: { id: true, totalScore: true },
     });
 
-    // 6.3 ОПТИМИЗАЦИЯ: Пересчёт рангов через единый запрос
+    // 6.2 Вычисляем ранг ВНУТРИ транзакции для консистентности
     // Считаем позицию пользователя (сколько участников имеют больше очков)
     const higherScoreCount = await tx.tournamentParticipant.count({
       where: {
@@ -218,41 +203,53 @@ async function processTournamentStage(
     });
     const myRank = higherScoreCount + 1;
 
-    // 6.4 Обновляем ранг участника
-    await tx.tournamentParticipant.update({
-      where: { id: participant.id },
-      data: { rank: myRank },
+    // 6.3 Проверяем topN ВНУТРИ транзакции
+    const passedTopN = activeStage.topN === null || myRank <= activeStage.topN;
+    const passed = passedMinScore && passedTopN;
+
+    // 6.4 Записываем результат этапа с корректным passed статусом
+    const stageResult = await tx.tournamentStageResult.upsert({
+      where: {
+        stageId_userId: { stageId: activeStage.id, userId },
+      },
+      update: {
+        score: tournamentScore,
+        quizSessionId: sessionId,
+        completedAt: now,
+        passed,
+        rank: myRank,
+      },
+      create: {
+        stageId: activeStage.id,
+        userId,
+        score: tournamentScore,
+        quizSessionId: sessionId,
+        completedAt: now,
+        passed,
+        rank: myRank,
+      },
     });
 
-    // 6.5 Обновляем ранг в результате этапа
-    await tx.tournamentStageResult.update({
-      where: { id: stageResult.id },
-      data: { rank: myRank },
+    // 6.5 Обновляем участника с рангом и currentStage
+    await tx.tournamentParticipant.update({
+      where: { id: participant.id },
+      data: { 
+        rank: myRank,
+        // Увеличиваем currentStage только если passed
+        ...(passed && { currentStage: activeStage.order + 1 }),
+      },
     });
 
     return {
       stageResult,
       participant,
       myRank,
+      passed,
+      passedTopN,
     };
   });
 
-  // ═══ 7. Проверяем topN (если установлен) ═══
-  // TopN проверяется после сохранения — можно упасть ниже топа позже
-  let passedTopN = true;
-  if (activeStage.topN !== null) {
-    passedTopN = result.myRank <= activeStage.topN;
-    
-    // Обновляем статус passed с учётом topN
-    if (!passedTopN && passedMinScore) {
-      await prisma.tournamentStageResult.update({
-        where: { id: result.stageResult.id },
-        data: { passed: false },
-      });
-    }
-  }
-
-  const passed = passedMinScore && passedTopN;
+  const passed = result.passed;
 
   // ═══ 8. Определяем следующий этап ═══
   const totalStages = activeStage.tournament.stages.length;

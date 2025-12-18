@@ -1,0 +1,119 @@
+{
+  "title": "Джек: кто кромсал шлюх?",
+  "description": "1888, Лондон, трущобы — угадай.",
+  "prizeTitle": "500 XP + Эксклюзивный бейдж",
+  "prizeDescription": "Турнирный приз за прохождение квалификации",
+  "isActive": true,
+  "questions": [
+    {
+      "text": "В каком году произошла серия убийств, приписываемых Джеку Потрошителю?",
+      "difficulty": 1,
+      "timeLimitSeconds": 20,
+      "answers": [
+        { "text": "1888", "isCorrect": true },
+        { "text": "1892", "isCorrect": false },
+        { "text": "1885", "isCorrect": false },
+        { "text": "1901", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "В каком районе Лондона орудовал Джек Потрошитель?",
+      "difficulty": 1,
+      "timeLimitSeconds": 20,
+      "answers": [
+        { "text": "Вестминстер", "isCorrect": false },
+        { "text": "Уайтчепел", "isCorrect": true },
+        { "text": "Сохо", "isCorrect": false },
+        { "text": "Челси", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Сколько жертв входят в «каноническую пятёрку» Джека Потрошителя?",
+      "difficulty": 2,
+      "timeLimitSeconds": 20,
+      "answers": [
+        { "text": "3", "isCorrect": false },
+        { "text": "5", "isCorrect": true },
+        { "text": "7", "isCorrect": false },
+        { "text": "11", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Как звали первую жертву из «канонической пятёрки»?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Энни Чэпмен", "isCorrect": false },
+        { "text": "Мэри Энн Николс", "isCorrect": true },
+        { "text": "Элизабет Страйд", "isCorrect": false },
+        { "text": "Кэтрин Эддоуз", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какая жертва была убита в помещении, а не на улице?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Энни Чэпмен", "isCorrect": false },
+        { "text": "Элизабет Страйд", "isCorrect": false },
+        { "text": "Мэри Джейн Келли", "isCorrect": true },
+        { "text": "Кэтрин Эддоуз", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что особенного произошло в ночь 30 сентября 1888 года?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Убийца был почти пойман", "isCorrect": false },
+        { "text": "Произошло «двойное убийство» — две жертвы за одну ночь", "isCorrect": true },
+        { "text": "Было получено первое письмо от убийцы", "isCorrect": false },
+        { "text": "Королева Виктория приказала расследовать дело", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой подозреваемый был польским парикмахером, ДНК которого якобы нашли на шали жертвы в 2014 году?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Монтегю Джон Друитт", "isCorrect": false },
+        { "text": "Аарон Косминский", "isCorrect": true },
+        { "text": "Майкл Остроу", "isCorrect": false },
+        { "text": "Уолтер Сикерт", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Как называлось письмо, в котором убийца впервые назвал себя «Джек Потрошитель»?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "«Из ада»", "isCorrect": false },
+        { "text": "«Дорогой босс»", "isCorrect": true },
+        { "text": "«Кожаный фартук»", "isCorrect": false },
+        { "text": "«Послание смерти»", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что было отправлено вместе с письмом «Из ада» председателю Комитета бдительности?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Прядь волос жертвы", "isCorrect": false },
+        { "text": "Половина человеческой почки", "isCorrect": true },
+        { "text": "Нож, которым совершались убийства", "isCorrect": false },
+        { "text": "Часть одежды жертвы", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Почему считается, что убийца мог иметь медицинские знания?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Он оставлял медицинские инструменты на месте преступления", "isCorrect": false },
+        { "text": "Точность хирургического удаления органов у жертв", "isCorrect": true },
+        { "text": "Свидетели видели его в белом халате", "isCorrect": false },
+        { "text": "Он подписывался как «доктор»", "isCorrect": false }
+      ]
+    }
+  ]
+}

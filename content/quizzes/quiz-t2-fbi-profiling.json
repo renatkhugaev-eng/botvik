@@ -1,0 +1,141 @@
+{
+  "title": "Залезь в башку психу",
+  "description": "Методы ФБР, Mindhunter-стайл.",
+  "prizeTitle": "750 XP + Эксклюзивный бейдж",
+  "prizeDescription": "Турнирный приз за прохождение полуфинала",
+  "isActive": true,
+  "questions": [
+    {
+      "text": "В каком году было создано подразделение поведенческих наук ФБР (BSU)?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "1965", "isCorrect": false },
+        { "text": "1972", "isCorrect": true },
+        { "text": "1980", "isCorrect": false },
+        { "text": "1988", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Кто из агентов ФБР считается пионером криминального профайлинга и написал книгу «Mindhunter»?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Роберт Ресслер", "isCorrect": false },
+        { "text": "Джон Дуглас", "isCorrect": true },
+        { "text": "Рой Хейзелвуд", "isCorrect": false },
+        { "text": "Говард Тетен", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Как называется современное подразделение ФБР, занимающееся анализом поведения преступников?",
+      "difficulty": 1,
+      "timeLimitSeconds": 20,
+      "answers": [
+        { "text": "CSI", "isCorrect": false },
+        { "text": "BAU (Behavioral Analysis Unit)", "isCorrect": true },
+        { "text": "SWAT", "isCorrect": false },
+        { "text": "DEA", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "С каким серийным убийцей Джон Дуглас провёл знаменитое интервью в тюрьме, ставшее основой методологии профайлинга?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Тед Банди", "isCorrect": false },
+        { "text": "Эдмунд Кемпер", "isCorrect": true },
+        { "text": "Джеффри Дамер", "isCorrect": false },
+        { "text": "Ричард Рамирез", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой термин ввёл Роберт Ресслер для обозначения убийц, совершающих серию преступлений?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Маньяк", "isCorrect": false },
+        { "text": "Серийный убийца (Serial Killer)", "isCorrect": true },
+        { "text": "Психопат-убийца", "isCorrect": false },
+        { "text": "Массовый убийца", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что означает классификация убийцы как «организованный» в профайлинге ФБР?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Он работает в организации", "isCorrect": false },
+        { "text": "Планирует преступления, высокий IQ, контролирует жертву", "isCorrect": true },
+        { "text": "Убивает только в определённом порядке", "isCorrect": false },
+        { "text": "Действует строго по расписанию", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что такое «сигнатура» (signature) преступника в терминологии профайлинга?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Подпись на письмах полиции", "isCorrect": false },
+        { "text": "Уникальное поведение, не нужное для совершения преступления, но удовлетворяющее психологические потребности", "isCorrect": true },
+        { "text": "Отпечаток пальца на месте преступления", "isCorrect": false },
+        { "text": "Способ убийства жертвы", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Чем «modus operandi» (МО) отличается от «сигнатуры»?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "МО — это латинский термин, а сигнатура — английский", "isCorrect": false },
+        { "text": "МО — метод совершения преступления, который может меняться; сигнатура — психологический ритуал, который остаётся постоянным", "isCorrect": true },
+        { "text": "МО используют только в Европе", "isCorrect": false },
+        { "text": "Между ними нет разницы", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой психологический феномен описывает склонность серийных убийц возвращаться на место преступления?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Синдром жертвы", "isCorrect": false },
+        { "text": "Ревизитация (revisitation)", "isCorrect": true },
+        { "text": "Компульсивное расстройство", "isCorrect": false },
+        { "text": "Когнитивный диссонанс", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Какой серийный убийца имел прозвище BTK и был пойман благодаря метаданным на дискете?",
+      "difficulty": 2,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Гэри Риджуэй", "isCorrect": false },
+        { "text": "Деннис Рейдер", "isCorrect": true },
+        { "text": "Тед Качински", "isCorrect": false },
+        { "text": "Ричард Чейз", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Что означает «триада Макдональда» — три признака в детстве, якобы предсказывающие серийное насилие?",
+      "difficulty": 3,
+      "timeLimitSeconds": 30,
+      "answers": [
+        { "text": "Ложь, манипуляция, отсутствие эмпатии", "isCorrect": false },
+        { "text": "Жестокость к животным, поджоги, энурез", "isCorrect": true },
+        { "text": "Одиночество, агрессия, низкий IQ", "isCorrect": false },
+        { "text": "Травмы головы, насилие в семье, употребление наркотиков", "isCorrect": false }
+      ]
+    },
+    {
+      "text": "Кого называют «Кооперативный Эд» из-за его готовности давать интервью агентам ФБР?",
+      "difficulty": 3,
+      "timeLimitSeconds": 25,
+      "answers": [
+        { "text": "Эд Гейн", "isCorrect": false },
+        { "text": "Эдмунд Кемпер", "isCorrect": true },
+        { "text": "Тед Банди", "isCorrect": false },
+        { "text": "Эд Сьютклифф", "isCorrect": false }
+      ]
+    }
+  ]
+}

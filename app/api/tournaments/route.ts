@@ -118,10 +118,11 @@ export async function GET(req: NextRequest) {
 
 /**
  * Дебаунс для updateTournamentStatuses
- * Обновляем статусы максимум раз в 60 секунд
+ * Обновляем статусы максимум раз в 5 секунд
+ * (достаточно часто для UX, но не слишком нагружает БД)
  */
 let lastStatusUpdate = 0;
-const STATUS_UPDATE_DEBOUNCE_MS = 60_000; // 1 минута
+const STATUS_UPDATE_DEBOUNCE_MS = 5_000; // 5 секунд
 
 /**
  * Автоматически обновляет статусы турниров на основе времени

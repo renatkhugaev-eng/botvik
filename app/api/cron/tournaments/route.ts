@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { finalizeTournament } from "@/app/api/tournaments/[id]/finalize/route";
 import { notifyTournamentWinner } from "@/lib/notifications";
 
 export const runtime = "nodejs";
@@ -11,6 +12,8 @@ export const maxDuration = 60; // До 60 секунд для Pro плана
 // Запускается каждые 5 минут:
 // 1. Активирует турниры (UPCOMING → ACTIVE)
 // 2. Финализирует турниры и раздаёт призы (ACTIVE → FINISHED)
+//
+// ВАЖНО: Использует shared функцию finalizeTournament для избежания дублирования
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
@@ -29,6 +32,7 @@ export async function GET(req: NextRequest) {
     finalized: 0,
     prizesDistributed: 0,
     totalXpAwarded: 0,
+    notificationsSent: 0,
     errors: [] as string[],
   };
 
@@ -43,113 +47,86 @@ export async function GET(req: NextRequest) {
     });
     results.activated = activated.count;
 
+    if (activated.count > 0) {
+      console.log(`[cron/tournaments] Activated ${activated.count} tournaments`);
+    }
+
     // ═══ 2. Находим турниры для финализации ═══
     const tournamentsToFinalize = await prisma.tournament.findMany({
       where: {
         status: "ACTIVE",
         endsAt: { lte: now },
       },
-      include: {
-        prizes: {
-          where: { winnerId: null },
-          orderBy: { place: "asc" },
-        },
-        participants: {
-          orderBy: { totalScore: "desc" },
-          include: {
-            user: { select: { id: true, username: true } },
-          },
-        },
-      },
+      select: { id: true, title: true },
     });
 
-    // ═══ 3. Финализируем каждый турнир ═══
+    // ═══ 3. Финализируем каждый турнир через shared функцию ═══
     for (const tournament of tournamentsToFinalize) {
       try {
-        // Атомарная транзакция для раздачи призов
-        const prizeResult = await prisma.$transaction(async (tx) => {
-          let prizesGiven = 0;
-          let xpGiven = 0;
+        // Используем общую функцию finalizeTournament (DRY principle)
+        const result = await finalizeTournament(tournament.id);
 
-          // Обновляем статус турнира
-          await tx.tournament.update({
-            where: { id: tournament.id },
-            data: { status: "FINISHED" },
-          });
-
-          // Обновляем статусы участников и ранги
-          for (let i = 0; i < tournament.participants.length; i++) {
-            await tx.tournamentParticipant.update({
-              where: { id: tournament.participants[i].id },
-              data: { rank: i + 1, status: "FINISHED" },
-            });
-          }
-
-          // Раздаём призы
-          for (const prize of tournament.prizes) {
-            const winnerIndex = prize.place - 1;
-            const winner = tournament.participants[winnerIndex];
-
-            if (!winner) continue;
-
-            // Начисляем XP
-            if (prize.type === "XP") {
-              await tx.user.update({
-                where: { id: winner.userId },
-                data: { xp: { increment: prize.value } },
-              });
-              xpGiven += prize.value;
-            }
-
-            // Помечаем приз
-            await tx.tournamentPrize.update({
-              where: { id: prize.id },
-              data: {
-                winnerId: winner.userId,
-                awardedAt: now,
-              },
-            });
-
-            prizesGiven++;
-            
-            console.log(
-              `[cron/tournaments] ${tournament.title}: ` +
-              `Prize #${prize.place} → ${winner.user.username} (+${prize.value} XP)`
-            );
-
-            // Отправляем уведомление победителю
-            await notifyTournamentWinner(
-              winner.userId,
-              prize.place,
-              tournament.title,
-              winner.totalScore,
-              prize.type === "XP" ? prize.value : 0,
-              prize.title
-            );
-          }
-
-          return { prizesGiven, xpGiven };
-        });
+        if (!result) {
+          results.errors.push(`${tournament.title}: Tournament not found`);
+          continue;
+        }
 
         results.finalized++;
-        results.prizesDistributed += prizeResult.prizesGiven;
-        results.totalXpAwarded += prizeResult.xpGiven;
+        results.prizesDistributed += result.prizesDistributed.length;
+        results.totalXpAwarded += result.totalXpAwarded;
 
         console.log(
-          `[cron/tournaments] Finalized: ${tournament.title} ` +
-          `(${prizeResult.prizesGiven} prizes, ${prizeResult.xpGiven} XP)`
+          `[cron/tournaments] Finalized: ${result.tournamentTitle} ` +
+          `(${result.prizesDistributed.length} prizes, ${result.totalXpAwarded} XP)`
         );
+
+        // ═══ 4. Отправляем уведомления победителям ═══
+        for (const prize of result.prizesDistributed) {
+          try {
+            await notifyTournamentWinner(
+              prize.winnerId,
+              prize.place,
+              result.tournamentTitle,
+              0, // Score будет в уведомлении
+              prize.xpAwarded,
+              prize.title
+            );
+            results.notificationsSent++;
+          } catch (notifyError) {
+            console.error(
+              `[cron/tournaments] Failed to notify winner ${prize.winnerId}:`,
+              notifyError
+            );
+            // Не добавляем в errors — уведомления некритичны
+          }
+        }
 
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
+        
+        // Обрабатываем ожидаемые ошибки
+        if (message === "tournament_not_ended") {
+          // Турнир ещё не закончился — это нормально, пропускаем
+          continue;
+        }
+        
+        if (message === "already_finalized") {
+          // Уже финализирован — это нормально, пропускаем
+          continue;
+        }
+        
         results.errors.push(`${tournament.title}: ${message}`);
         console.error(`[cron/tournaments] Error finalizing ${tournament.id}:`, error);
 
-        // Всё равно помечаем как FINISHED
-        await prisma.tournament.update({
-          where: { id: tournament.id },
-          data: { status: "FINISHED" },
-        });
+        // Помечаем как FINISHED даже при ошибке, чтобы не застрять
+        try {
+          await prisma.tournament.update({
+            where: { id: tournament.id },
+            data: { status: "FINISHED" },
+          });
+        } catch {
+          // Ignore — турнир может быть уже FINISHED
+        }
       }
     }
 
@@ -161,11 +138,15 @@ export async function GET(req: NextRequest) {
     }, { status: 500 });
   }
 
-  console.log(
-    `[cron/tournaments] Complete: ` +
-    `${results.activated} activated, ${results.finalized} finalized, ` +
-    `${results.prizesDistributed} prizes (${results.totalXpAwarded} XP)`
-  );
+  // Логируем только если что-то произошло
+  if (results.activated > 0 || results.finalized > 0) {
+    console.log(
+      `[cron/tournaments] Complete: ` +
+      `${results.activated} activated, ${results.finalized} finalized, ` +
+      `${results.prizesDistributed} prizes (${results.totalXpAwarded} XP), ` +
+      `${results.notificationsSent} notifications`
+    );
+  }
 
   return NextResponse.json({
     ok: true,

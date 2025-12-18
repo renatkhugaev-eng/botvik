@@ -792,7 +792,11 @@ function StagesTab({
                         whileHover={{ scale: 1.02 }}
                         onClick={() => {
                           haptic.medium();
-                          // TODO: Добавить tournament stage tracking
+                          // Tournament stage tracking происходит автоматически в /api/quiz/[id]/finish
+                          // через функцию processTournamentStage() которая:
+                          // 1. Находит активный этап по quizId
+                          // 2. Проверяет что предыдущие этапы пройдены
+                          // 3. Применяет scoreMultiplier и сохраняет результат
                           router.push(`/miniapp/quiz/${stage.quiz!.id}`);
                         }}
                         className="w-full rounded-xl bg-gradient-to-r from-violet-500 via-indigo-500 to-violet-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-500/30"

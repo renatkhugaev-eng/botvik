@@ -242,6 +242,10 @@ export default function TournamentsPage() {
                   haptic.medium();
                   router.push(`/miniapp/tournaments/${tournament.slug}`);
                 }}
+                onStatusChange={() => {
+                  // Перезагружаем список турниров при изменении статуса
+                  setTimeout(() => loadTournaments(), 1000);
+                }}
               />
             ))}
           </motion.div>
@@ -255,18 +259,85 @@ export default function TournamentsPage() {
 // TOURNAMENT CARD
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Хук для живого обратного отсчёта с callback при завершении
+function useCountdown(
+  targetDate: string | null, 
+  shouldRun: boolean,
+  onExpire?: () => void
+) {
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [hasExpired, setHasExpired] = useState(false);
+
+  useEffect(() => {
+    if (!targetDate || !shouldRun) {
+      setTimeLeft(null);
+      setHasExpired(false);
+      return;
+    }
+
+    const target = new Date(targetDate).getTime();
+
+    const updateCountdown = () => {
+      const now = Date.now();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setTimeLeft("Начался!");
+        if (!hasExpired) {
+          setHasExpired(true);
+          // Вызываем callback для обновления данных
+          onExpire?.();
+        }
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        setTimeLeft(`${days}д ${hours}ч ${minutes}м`);
+      } else if (hours > 0) {
+        setTimeLeft(`${hours}ч ${minutes}м ${seconds}с`);
+      } else if (minutes > 0) {
+        setTimeLeft(`${minutes}м ${seconds}с`);
+      } else {
+        setTimeLeft(`${seconds}с`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [targetDate, shouldRun, onExpire, hasExpired]);
+
+  return { timeLeft, hasExpired };
+}
+
 function TournamentCard({
   tournament,
   index,
   onClick,
+  onStatusChange,
 }: {
   tournament: Tournament;
   index: number;
   onClick: () => void;
+  onStatusChange?: () => void;
 }) {
   const isActive = tournament.status === "ACTIVE";
   const isUpcoming = tournament.status === "UPCOMING";
   const isJoined = !!tournament.myParticipation;
+  
+  // Живой countdown: для UPCOMING — до старта, для ACTIVE — до конца
+  const countdownTarget = isUpcoming ? tournament.startsAt : isActive ? tournament.endsAt : null;
+  const { timeLeft: countdown, hasExpired } = useCountdown(
+    countdownTarget, 
+    isUpcoming || isActive,
+    onStatusChange // Вызовется когда countdown закончится
+  );
 
   return (
     <motion.div
@@ -299,17 +370,31 @@ function TournamentCard({
             </div>
           </div>
 
-          {/* Status badge */}
+          {/* Status badge with countdown */}
           <div
             className={`rounded-full px-3 py-1 text-xs font-bold ${
-              isActive
+              isActive || (isUpcoming && hasExpired)
                 ? "bg-emerald-500/20 text-emerald-300"
                 : isUpcoming
                   ? "bg-amber-500/20 text-amber-300"
                   : "bg-slate-500/20 text-slate-300"
             }`}
           >
-            {isActive ? "🔴 Live" : isUpcoming ? "⏳ Скоро" : "🏁 Завершён"}
+            {isActive || (isUpcoming && hasExpired) ? (
+              <span className="flex items-center gap-1">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
+                {hasExpired ? "Начался!" : "Live"}
+              </span>
+            ) : isUpcoming ? (
+              <span className="flex items-center gap-1 tabular-nums">
+                ⏳ {countdown ?? "Скоро"}
+              </span>
+            ) : (
+              "🏁 Завершён"
+            )}
           </div>
         </div>
 
@@ -326,11 +411,11 @@ function TournamentCard({
               {tournament.participantsCount}
             </span>
           </div>
-          {tournament.timeRemaining && (
+          {countdown && (
             <div className="flex items-center gap-1.5">
-              <span className="text-lg">⏱️</span>
-              <span className="text-sm font-semibold text-white">
-                {tournament.timeRemaining.label}
+              <span className="text-lg">{isActive ? "🏁" : "⏱️"}</span>
+              <span className="text-sm font-semibold text-white tabular-nums">
+                {countdown}
               </span>
             </div>
           )}

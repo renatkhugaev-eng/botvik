@@ -196,6 +196,20 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // ═══ NEW SESSION — Check energy and create ═══
   
+  // Проверяем, является ли квиз частью активного турнира
+  // В турнирных квизах энергия НЕ тратится!
+  const activeTournamentStage = await prisma.tournamentStage.findFirst({
+    where: {
+      quizId,
+      tournament: {
+        status: { in: ["UPCOMING", "ACTIVE"] },
+      },
+    },
+    select: { id: true, tournamentId: true },
+  });
+  
+  const isTournamentQuiz = !!activeTournamentStage;
+  
   // Get recent sessions, last finished, total attempts, and user's bonus energy in parallel
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
   
@@ -221,8 +235,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const bonusEnergy = userBonusEnergy?.bonusEnergy ?? 0;
   let usedBonusEnergy = false;
 
-  // Energy check — если обычная энергия закончилась, пробуем бонусную
-  if (!bypassLimits && usedAttempts >= MAX_ATTEMPTS) {
+  // Energy check — пропускаем для турнирных квизов!
+  // В турнирах энергия НЕ тратится
+  if (!bypassLimits && !isTournamentQuiz && usedAttempts >= MAX_ATTEMPTS) {
     // Проверяем есть ли бонусная энергия
     if (bonusEnergy > 0) {
       // Используем бонусную энергию вместо обычной
@@ -293,6 +308,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // Рассчитываем оставшуюся бонусную энергию
   const remainingBonusEnergy = usedBonusEnergy ? bonusEnergy - 1 : bonusEnergy;
 
+  // Логирование для турнирных квизов
+  if (isTournamentQuiz) {
+    console.log(`[quiz/start] Tournament quiz! User ${userId} starting quiz ${quizId} (stage ${activeTournamentStage?.id}) — energy NOT consumed`);
+  }
+
   return NextResponse.json({
     sessionId: session.id,
     quizId,
@@ -304,13 +324,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     questions,
     serverTime: now.toISOString(),
     questionStartedAt: now.toISOString(),
-    energyInfo: {
-      used: usedBonusEnergy ? MAX_ATTEMPTS : usedAttempts + 1,
-      max: MAX_ATTEMPTS,
-      hoursPerAttempt: HOURS_PER_ATTEMPT,
-      bonusEnergy: remainingBonusEnergy,
-      usedBonusEnergy, // Флаг: была ли использована бонусная энергия
-    },
+    // Для турнирных квизов энергия не расходуется
+    energyInfo: isTournamentQuiz 
+      ? {
+          used: usedAttempts, // НЕ прибавляем +1, т.к. турнир не тратит энергию
+          max: MAX_ATTEMPTS,
+          hoursPerAttempt: HOURS_PER_ATTEMPT,
+          bonusEnergy,
+          usedBonusEnergy: false,
+          isTournamentQuiz: true, // Флаг для клиента
+        }
+      : {
+          used: usedBonusEnergy ? MAX_ATTEMPTS : usedAttempts + 1,
+          max: MAX_ATTEMPTS,
+          hoursPerAttempt: HOURS_PER_ATTEMPT,
+          bonusEnergy: remainingBonusEnergy,
+          usedBonusEnergy,
+        },
+    // Информация о турнире (если есть)
+    tournamentInfo: isTournamentQuiz
+      ? { stageId: activeTournamentStage?.id, tournamentId: activeTournamentStage?.tournamentId }
+      : undefined,
   });
 }
 
