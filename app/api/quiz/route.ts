@@ -14,8 +14,27 @@ const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000; // 4 часа в
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId");
   
+  // Получаем ID квизов, которые являются этапами активных/предстоящих турниров
+  const tournamentQuizIds = await prisma.tournamentStage.findMany({
+    where: {
+      quizId: { not: null },
+      tournament: {
+        status: { in: ["UPCOMING", "ACTIVE"] },
+      },
+    },
+    select: { quizId: true },
+  });
+  
+  const excludeQuizIds = tournamentQuizIds
+    .map(s => s.quizId)
+    .filter((id): id is number => id !== null);
+  
+  // Исключаем турнирные квизы из общего списка
   const quizzes = await prisma.quiz.findMany({
-    where: { isActive: true },
+    where: { 
+      isActive: true,
+      id: { notIn: excludeQuizIds.length > 0 ? excludeQuizIds : undefined },
+    },
     orderBy: [
       { startsAt: "desc" },
       { id: "desc" },
