@@ -81,6 +81,14 @@ export async function POST(req: NextRequest) {
     // 1. start_param в initData (от Telegram Mini App)
     // 2. referralCode в body (от ?ref= параметра в URL)
     const startParam = parsed["start_param"];
+    
+    // DEBUG: Логируем все источники реферального кода
+    console.log("[auth/telegram] Referral debug:", {
+      startParam,
+      referralCodeFromBody,
+      allParsedKeys: Object.keys(parsed),
+    });
+    
     let referralCode = startParam?.startsWith("ref_") 
       ? startParam.replace("ref_", "").toUpperCase() 
       : referralCodeFromBody;
