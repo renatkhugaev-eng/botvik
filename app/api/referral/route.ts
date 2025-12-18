@@ -89,9 +89,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Формируем ссылку
-    const botName = process.env.TELEGRAM_BOT_NAME || "botvik_bot";
-    const referralLink = `https://t.me/${botName}?start=ref_${referralCode}`;
+    // Формируем ссылку (веб-ссылка с ?ref= параметром)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://botvik.app";
+    const referralLink = `${appUrl}/miniapp?ref=${referralCode}`;
 
     // Считаем статистику
     const referralsCount = user.referrals.length;

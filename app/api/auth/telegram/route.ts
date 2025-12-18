@@ -13,7 +13,7 @@ type TelegramUser = {
 };
 
 export async function POST(req: NextRequest) {
-  let payload: { initData?: string };
+  let payload: { initData?: string; referralCode?: string };
   try {
     payload = await req.json();
   } catch {
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   const rawInitData = payload?.initData ?? "";
+  const referralCodeFromBody = payload?.referralCode?.toUpperCase()?.trim();
   const initDataPreview = rawInitData ? rawInitData.slice(0, 120) : "";
   console.log("[auth/telegram] incoming initData", {
     length: rawInitData.length,
@@ -65,22 +66,94 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "USER_ID_MISSING" }, { status: 400 });
   }
 
-  const user = await prisma.user.upsert({
-    where: { telegramId: String(tgUser.id) },
-    update: {
-      username: tgUser.username ?? null,
-      firstName: tgUser.first_name ?? null,
-      lastName: tgUser.last_name ?? null,
-      photoUrl: tgUser.photo_url ?? null,
-    },
-    create: {
-      telegramId: String(tgUser.id),
-      username: tgUser.username ?? null,
-      firstName: tgUser.first_name ?? null,
-      lastName: tgUser.last_name ?? null,
-      photoUrl: tgUser.photo_url ?? null,
-    },
+  const telegramId = String(tgUser.id);
+  
+  // Проверяем существует ли пользователь
+  let user = await prisma.user.findUnique({
+    where: { telegramId },
   });
+  
+  const isNewUser = !user;
+  
+  if (isNewUser) {
+    // ═══ REFERRAL SYSTEM: Обработка реферального кода ═══
+    // Код может прийти из:
+    // 1. start_param в initData (от Telegram Mini App)
+    // 2. referralCode в body (от ?ref= параметра в URL)
+    const startParam = parsed["start_param"];
+    let referralCode = startParam?.startsWith("ref_") 
+      ? startParam.replace("ref_", "").toUpperCase() 
+      : referralCodeFromBody;
+    
+    let referrerId: number | null = null;
+    
+    if (referralCode) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode },
+        select: { id: true, telegramId: true },
+      });
+      
+      // Защита от самореферала
+      if (referrer && referrer.telegramId !== telegramId) {
+        referrerId = referrer.id;
+      }
+    }
+    
+    // Создаём пользователя с наградами в транзакции
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            telegramId,
+            username: tgUser.username ?? null,
+            firstName: tgUser.first_name ?? null,
+            lastName: tgUser.last_name ?? null,
+            photoUrl: tgUser.photo_url ?? null,
+            xp: referrerId ? 25 : 0, // Бонус новичку
+            ...(referrerId && { referredById: referrerId }),
+          },
+        });
+        
+        // Награда рефереру
+        if (referrerId) {
+          await tx.user.update({
+            where: { id: referrerId },
+            data: {
+              xp: { increment: 50 },
+              bonusEnergy: { increment: 1 },
+              bonusEnergyEarned: { increment: 1 },
+            },
+          });
+          console.log(`[auth/telegram] Referral: user ${newUser.id} referred by ${referrerId}`);
+        }
+        
+        return newUser;
+      });
+    } catch (txError) {
+      console.error("[auth/telegram] Referral transaction failed:", txError);
+      // Fallback без реферала
+      user = await prisma.user.create({
+        data: {
+          telegramId,
+          username: tgUser.username ?? null,
+          firstName: tgUser.first_name ?? null,
+          lastName: tgUser.last_name ?? null,
+          photoUrl: tgUser.photo_url ?? null,
+        },
+      });
+    }
+  } else {
+    // Обновляем существующего пользователя
+    user = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        username: tgUser.username ?? null,
+        firstName: tgUser.first_name ?? null,
+        lastName: tgUser.last_name ?? null,
+        photoUrl: tgUser.photo_url ?? null,
+      },
+    });
+  }
 
   console.log("[auth/telegram] ok", {
     length: rawInitData.length,

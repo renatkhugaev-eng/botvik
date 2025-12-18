@@ -59,6 +59,14 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
     const maxAttempts = 10;
     const delayMs = 200;
 
+    // ═══ REFERRAL: Читаем ?ref= из URL и сохраняем ═══
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref") || urlParams.get("startapp")?.replace("ref_", "");
+    if (refCode) {
+      localStorage.setItem("referral_code", refCode);
+      console.log("[MiniApp] Saved referral code:", refCode);
+    }
+
     const authenticate = async () => {
       const tg = window.Telegram?.WebApp;
       if (tg?.ready) tg.ready();
@@ -127,10 +135,16 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
       }
 
       try {
+        // Получаем сохранённый реферальный код
+        const savedRefCode = localStorage.getItem("referral_code");
+        
         const res = await fetch("/api/auth/telegram", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData: initData ?? "" }),
+          body: JSON.stringify({ 
+            initData: initData ?? "",
+            referralCode: savedRefCode || undefined, // Передаём реферальный код
+          }),
         });
 
         const data = (await res.json()) as { ok: boolean; user?: MiniAppUser; reason?: string };
@@ -143,6 +157,13 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
         if (!aborted) {
           setSession({ status: "ready", user: data.user });
+          
+          // Очищаем реферальный код после использования
+          if (savedRefCode) {
+            localStorage.removeItem("referral_code");
+            console.log("[MiniApp] Referral code used and cleared");
+          }
+          
           // Set user context for Sentry
           setUser({
             id: data.user.id,
