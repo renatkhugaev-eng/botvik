@@ -366,33 +366,32 @@ type DailyRewardButtonProps = {
 
 export function DailyRewardButton({ onClick, hasReward, streak }: DailyRewardButtonProps) {
   if (!hasReward) return null;
-  
+
+  const day = streak > 0 ? (streak % 7) + 1 : 1;
+
   return (
     <motion.button
-      initial={{ opacity: 0, scale: 0.8, y: -20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={() => {
         haptic.medium();
         onClick();
       }}
-      className="relative flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2.5 shadow-lg shadow-orange-500/30"
+      className="relative flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 pl-2 pr-2.5 py-1.5 shadow-md shadow-orange-500/20"
     >
-      {/* Pulse effect */}
+      {/* Pulse ring */}
       <motion.div
-        animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0, 0.8] }}
+        animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
         transition={{ duration: 2, repeat: Infinity }}
-        className="absolute inset-0 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500"
+        className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
       />
-      
-      <span className="relative text-xl">🎁</span>
-      <div className="relative text-left">
-        <p className="text-[12px] font-bold text-white">Награда</p>
-        <p className="text-[10px] text-white/80">
-          {streak > 0 ? `День ${(streak % 7) + 1}` : "Забери!"}
-        </p>
-      </div>
+
+      <span className="relative text-base">🎁</span>
+      <span className="relative text-[11px] font-bold text-white">
+        {day}/7
+      </span>
     </motion.button>
   );
 }
