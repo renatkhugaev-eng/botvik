@@ -1138,8 +1138,8 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
   const items = [...quizzes, ...demos.slice(0, Math.max(0, 5 - quizzes.length))];
 
   const tournaments = [
-    { id: "t1", title: "Серийники 60-х", time: "20:00", icon: <span className="text-2xl">🔪</span>, bg: "from-[#2d132c] to-[#1a1a2e]" },
-    { id: "t2", title: "Ночь культов", time: "12ч", icon: <span className="text-2xl">🌙</span>, bg: "from-[#1e3a5f] to-[#0d1b2a]" },
+    { id: "t1", title: "True Crime Masters 2025", status: "live", icon: <span className="text-2xl">🔍</span>, bg: "from-[#1a1a2e] to-[#4a1942]" },
+    { id: "t2", title: "Зимнее Расследование", status: "soon", icon: <span className="text-2xl">❄️</span>, bg: "from-[#0f2027] to-[#2c5364]" },
   ];
 
   const events = [
@@ -1555,27 +1555,58 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       </motion.section>
 
       {/* ─────────────────────────────────────────────────────────────────
-          TOURNAMENTS
+          TOURNAMENTS — кликабельный блок ведёт на /miniapp/tournaments
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Турниры" badge={
-        <span className="text-2xl">⚔️</span>
-      }>
-        <div className="flex flex-col gap-2">
-          {tournaments.map((t) => (
-            <Row
-              key={t.id}
-              icon={
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${t.bg} shadow-lg`}>
-                  {t.icon}
-                </div>
-              }
-              title={t.title}
-              subtitle={<span className="flex items-center gap-1"><span className="text-xs">⏰</span> Через {t.time}</span>}
-              trailing={<Chevron />}
-            />
-          ))}
-        </div>
-      </Card>
+      <motion.div
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          haptic.medium();
+          router.push("/miniapp/tournaments");
+        }}
+        className="cursor-pointer"
+      >
+        <Card title="Турниры" badge={
+          <span className="text-2xl">⚔️</span>
+        }>
+          <div className="flex flex-col gap-2">
+            {tournaments.map((t) => (
+              <Row
+                key={t.id}
+                icon={
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${t.bg} shadow-lg`}>
+                    {t.icon}
+                  </div>
+                }
+                title={t.title}
+                subtitle={
+                  t.status === "live" ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      </span>
+                      <span className="text-emerald-600 font-semibold">Идёт сейчас</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-amber-600">
+                      <span className="text-xs">📅</span> Скоро начнётся
+                    </span>
+                  )
+                }
+                trailing={<Chevron />}
+              />
+            ))}
+          </div>
+          
+          {/* CTA */}
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500/10 to-indigo-500/10 py-3 border border-violet-500/20">
+            <span className="text-sm font-semibold text-violet-600">Смотреть все турниры</span>
+            <svg className="h-4 w-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </div>
+        </Card>
+      </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────
           SPECIAL EVENTS — 2 columns

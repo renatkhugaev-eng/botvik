@@ -74,6 +74,25 @@ type FinishResponse = {
     levelUp: boolean;
     newLevel?: number;
   };
+  // Tournament stage info (if quiz is part of a tournament)
+  tournament?: {
+    id: number;
+    title: string;
+    slug: string;
+    stage: {
+      id: number;
+      title: string;
+      order: number;
+      totalStages: number;
+      scoreMultiplier: number;
+    };
+    score: number;
+    totalScore: number;
+    rank: number | null;
+    passed: boolean;
+    isLastStage: boolean;
+    nextStageTitle: string | null;
+  } | null;
 };
 
 const spring = { type: "spring", stiffness: 500, damping: 30 };
@@ -118,6 +137,7 @@ export default function QuizPlayPage() {
   const [timeoutHandled, setTimeoutHandled] = useState(false);
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
+  const [tournamentResult, setTournamentResult] = useState<FinishResponse["tournament"]>(null);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitError | null>(null);
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -480,6 +500,10 @@ export default function QuizPlayPage() {
         // Use server-side accurate count for star calculation
         if (data.correctCount !== undefined) {
           setCorrectCount(data.correctCount);
+        }
+        // Save tournament result if present
+        if (data.tournament) {
+          setTournamentResult(data.tournament);
         }
         setFinished(true);
         haptic.heavy();
@@ -847,11 +871,106 @@ export default function QuizPlayPage() {
           </div>
         </motion.div>
 
+        {/* Tournament Stage Result Card */}
+        {tournamentResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 1.2, type: "spring", stiffness: 300 }}
+            className="relative overflow-hidden rounded-2xl"
+            style={{
+              background: "linear-gradient(135deg, #1a1a2e 0%, #4a1942 100%)",
+            }}
+          >
+            {/* Shimmer effect */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: "200%" }}
+              transition={{ duration: 2, delay: 1.5, repeat: Infinity, repeatDelay: 4 }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12"
+            />
+            
+            <div className="relative p-5">
+              {/* Header with tournament icon */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-2xl">
+                    ⚔️
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-white/50">Турнир</p>
+                    <p className="text-lg font-bold text-white">{tournamentResult.title}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-white/50">Этап {tournamentResult.stage.order}/{tournamentResult.stage.totalStages}</p>
+                  <p className="text-sm font-semibold text-violet-300">{tournamentResult.stage.title}</p>
+                </div>
+              </div>
+
+              {/* Score with multiplier */}
+              <div className="flex items-center justify-center gap-4 rounded-xl bg-white/5 p-4 mb-4">
+                <div className="text-center">
+                  <p className="text-3xl font-black text-white tabular-nums">
+                    +{tournamentResult.score}
+                  </p>
+                  <p className="text-xs text-white/50">
+                    очков за этап
+                    {tournamentResult.stage.scoreMultiplier > 1 && (
+                      <span className="ml-1 text-amber-400">(×{tournamentResult.stage.scoreMultiplier})</span>
+                    )}
+                  </p>
+                </div>
+                <div className="h-12 w-px bg-white/10" />
+                <div className="text-center">
+                  <p className="text-3xl font-black text-emerald-400 tabular-nums">
+                    #{tournamentResult.rank ?? "—"}
+                  </p>
+                  <p className="text-xs text-white/50">место в турнире</p>
+                </div>
+              </div>
+
+              {/* Total score */}
+              <div className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3 mb-4">
+                <span className="text-sm text-white/70">Всего очков в турнире:</span>
+                <span className="text-lg font-bold text-white tabular-nums">{tournamentResult.totalScore}</span>
+              </div>
+
+              {/* Next stage info or completion */}
+              {tournamentResult.isLastStage ? (
+                <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/20 p-3 text-emerald-300">
+                  <span className="text-xl">🏆</span>
+                  <span className="font-semibold">Турнир пройден!</span>
+                </div>
+              ) : tournamentResult.nextStageTitle ? (
+                <div className="flex items-center justify-between rounded-xl bg-violet-500/20 p-3">
+                  <span className="text-sm text-violet-200">
+                    Следующий этап: <strong>{tournamentResult.nextStageTitle}</strong>
+                  </span>
+                  <span className="text-violet-300">→</span>
+                </div>
+              ) : null}
+
+              {/* Go to tournament button */}
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  haptic.medium();
+                  router.push(`/miniapp/tournaments/${tournamentResult.slug}`);
+                }}
+                className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-bold text-white backdrop-blur transition-colors hover:bg-white/20"
+              >
+                Перейти к турниру →
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
+          transition={{ delay: tournamentResult ? 1.4 : 0.9 }}
           className="flex flex-col gap-3"
         >
             <motion.button

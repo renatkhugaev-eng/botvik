@@ -26,7 +26,8 @@ export type NotificationType =
   | "daily_reminder"
   | "leaderboard_change"
   | "friend_activity"
-  | "weekly_winner";
+  | "weekly_winner"
+  | "tournament_winner";
 
 type NotificationConfig = {
   type: NotificationType;
@@ -41,6 +42,7 @@ const NOTIFICATION_PREFERENCES = {
   leaderboard_change: "notifyLeaderboard",
   friend_activity: "notifyFriends",
   weekly_winner: "notifyLeaderboard", // Winners always get notified via leaderboard preference
+  tournament_winner: "notifyLeaderboard", // Tournament winners use leaderboard preference
 } as const;
 
 const NOTIFICATION_TEMPLATES: Record<NotificationType, (data: Record<string, unknown>) => string> = {
@@ -110,6 +112,21 @@ ${data.prize ? `\n🎁 ${data.prize}` : ""}
 Новая неделя — новые возможности! 🚀
 
 [▶️ Играть](https://t.me/truecrimetg_bot/app)
+  `.trim(),
+
+  tournament_winner: (data) => `
+🏆 *Турнир завершён!*
+
+Поздравляем! Ты занял *${data.place === 1 ? "🥇 1-е" : data.place === 2 ? "🥈 2-е" : data.place === 3 ? "🥉 3-е" : `${data.place}-е`} место* в турнире *"${data.tournamentTitle}"*!
+
+📊 Твой результат: *${data.score}* очков
+${data.xpAwarded ? `\n🎁 Получено: *+${data.xpAwarded} XP*` : ""}
+
+${data.prizeTitle ? `🏅 Приз: ${data.prizeTitle}` : ""}
+
+Следующий турнир уже скоро! 🚀
+
+[▶️ Смотреть результаты](https://t.me/truecrimetg_bot/app)
   `.trim(),
 };
 
@@ -184,6 +201,7 @@ async function canSendNotification(
     leaderboard_change: user.notifyLeaderboard,
     friend_activity: user.notifyFriends,
     weekly_winner: user.notifyLeaderboard, // Winners use leaderboard preference
+    tournament_winner: user.notifyLeaderboard, // Tournament winners use leaderboard preference
   };
 
   if (!preferenceMap[type]) {
@@ -323,6 +341,26 @@ export async function notifyWeeklyWinner(
     bestScore, 
     quizzes, 
     prize 
+  });
+}
+
+/**
+ * Notify user about tournament prize win
+ */
+export async function notifyTournamentWinner(
+  userId: number,
+  place: number,
+  tournamentTitle: string,
+  score: number,
+  xpAwarded: number,
+  prizeTitle?: string
+): Promise<boolean> {
+  return sendNotification(userId, "tournament_winner", { 
+    place, 
+    tournamentTitle,
+    score,
+    xpAwarded,
+    prizeTitle,
   });
 }
 

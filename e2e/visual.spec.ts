@@ -114,7 +114,8 @@ test.describe('Visual Regression', () => {
       elements.forEach(el => {
         const rect = el.getBoundingClientRect();
         // className может быть SVGAnimatedString, поэтому безопасно получаем строку
-        const className = typeof el.className === 'string' ? el.className : (el.className?.baseVal || '');
+        const elClassName = el.className as string | { baseVal?: string } | undefined;
+        const className = typeof elClassName === 'string' ? elClassName : (elClassName?.baseVal || '');
         
         // Исключаем декоративные элементы (glow, blur, absolute позиционирование)
         const isDecorative = className.includes('blur') || 

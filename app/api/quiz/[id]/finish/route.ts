@@ -18,6 +18,27 @@ import {
 
 export const runtime = "nodejs";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TOURNAMENT INTEGRATION TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+type TournamentStageInfo = {
+  tournamentId: number;
+  tournamentTitle: string;
+  tournamentSlug: string;
+  stageId: number;
+  stageTitle: string;
+  stageOrder: number;
+  totalStages: number;
+  scoreMultiplier: number;
+  tournamentScore: number;
+  newTotalScore: number;
+  rank: number | null;
+  passed: boolean;
+  isLastStage: boolean;
+  nextStageTitle: string | null;
+};
+
 /* ═══════════════════════════════════════════════════════════════════════════
    UNIFIED SCORING SYSTEM: Best + Activity
    
@@ -36,7 +57,233 @@ export const runtime = "nodejs";
 
 type FinishRequestBody = {
   sessionId?: number;
+  tournamentStageId?: number; // Опционально: ID этапа турнира
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOURNAMENT STAGE PROCESSING
+// Полная логика с транзакциями, проверкой последовательности и minScore/topN
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function processTournamentStage(
+  userId: number,
+  quizId: number,
+  sessionId: number,
+  gameScore: number
+): Promise<TournamentStageInfo | null> {
+  const now = new Date();
+  
+  // ═══ 1. Находим активный турнирный этап с этим квизом ═══
+  const activeStage = await prisma.tournamentStage.findFirst({
+    where: {
+      quizId,
+      tournament: {
+        status: "ACTIVE",
+        participants: {
+          some: {
+            userId,
+            status: { in: ["REGISTERED", "ACTIVE"] },
+          },
+        },
+      },
+      // Этап должен быть активен по времени
+      OR: [
+        { startsAt: null, endsAt: null },
+        { startsAt: { lte: now }, endsAt: { gte: now } },
+        { startsAt: { lte: now }, endsAt: null },
+        { startsAt: null, endsAt: { gte: now } },
+      ],
+    },
+    include: {
+      tournament: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          startsAt: true,
+          endsAt: true,
+          stages: {
+            orderBy: { order: "asc" },
+            select: { 
+              id: true, 
+              order: true, 
+              title: true,
+              minScore: true,
+              topN: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { tournament: { startsAt: "asc" } },
+  });
+
+  if (!activeStage) {
+    return null;
+  }
+
+  // ═══ 2. Проверяем, не пройден ли уже этот этап ═══
+  const existingResult = await prisma.tournamentStageResult.findUnique({
+    where: {
+      stageId_userId: { stageId: activeStage.id, userId },
+    },
+  });
+
+  if (existingResult?.completedAt) {
+    // Этап уже пройден — не обновляем (защита от переигрывания)
+    console.log(`[tournament] Stage ${activeStage.id} already completed by user ${userId}`);
+    return null;
+  }
+
+  // ═══ 3. Проверяем последовательность этапов ═══
+  // Пользователь должен пройти предыдущие этапы
+  if (activeStage.order > 1) {
+    const previousStages = activeStage.tournament.stages.filter(
+      (s: { id: number; order: number; title: string; minScore: number | null; topN: number | null }) => 
+        s.order < activeStage.order
+    );
+    
+    const previousResults = await prisma.tournamentStageResult.findMany({
+      where: {
+        userId,
+        stageId: { in: previousStages.map((s: { id: number }) => s.id) },
+        passed: true,
+        completedAt: { not: null },
+      },
+      select: { stageId: true },
+    });
+    
+    const completedStageIds = new Set(previousResults.map((r: { stageId: number }) => r.stageId));
+    const allPreviousCompleted = previousStages.every((s: { id: number }) => completedStageIds.has(s.id));
+    
+    if (!allPreviousCompleted) {
+      console.log(`[tournament] User ${userId} hasn't completed previous stages for stage ${activeStage.order}`);
+      return null; // Не даём проходить этап вне последовательности
+    }
+  }
+
+  // ═══ 4. Вычисляем очки с множителем ═══
+  const tournamentScore = Math.round(gameScore * activeStage.scoreMultiplier);
+
+  // ═══ 5. Проверяем minScore (если установлен) ═══
+  const passedMinScore = activeStage.minScore === null || tournamentScore >= activeStage.minScore;
+
+  // ═══ 6. АТОМАРНАЯ ТРАНЗАКЦИЯ: Сохраняем результат + обновляем ранги ═══
+  const result = await prisma.$transaction(async (tx) => {
+    // 6.1 Записываем результат этапа
+    const stageResult = await tx.tournamentStageResult.upsert({
+      where: {
+        stageId_userId: { stageId: activeStage.id, userId },
+      },
+      update: {
+        score: tournamentScore,
+        quizSessionId: sessionId,
+        completedAt: now,
+        passed: passedMinScore, // Учитываем minScore
+      },
+      create: {
+        stageId: activeStage.id,
+        userId,
+        score: tournamentScore,
+        quizSessionId: sessionId,
+        completedAt: now,
+        passed: passedMinScore,
+      },
+    });
+
+    // 6.2 Обновляем участника турнира
+    const participant = await tx.tournamentParticipant.update({
+      where: {
+        tournamentId_userId: {
+          tournamentId: activeStage.tournament.id,
+          userId,
+        },
+      },
+      data: {
+        totalScore: { increment: tournamentScore },
+        status: "ACTIVE",
+        // Увеличиваем currentStage только если passed
+        ...(passedMinScore && { currentStage: activeStage.order + 1 }),
+      },
+      select: { id: true, totalScore: true },
+    });
+
+    // 6.3 ОПТИМИЗАЦИЯ: Пересчёт рангов через единый запрос
+    // Считаем позицию пользователя (сколько участников имеют больше очков)
+    const higherScoreCount = await tx.tournamentParticipant.count({
+      where: {
+        tournamentId: activeStage.tournament.id,
+        totalScore: { gt: participant.totalScore },
+      },
+    });
+    const myRank = higherScoreCount + 1;
+
+    // 6.4 Обновляем ранг участника
+    await tx.tournamentParticipant.update({
+      where: { id: participant.id },
+      data: { rank: myRank },
+    });
+
+    // 6.5 Обновляем ранг в результате этапа
+    await tx.tournamentStageResult.update({
+      where: { id: stageResult.id },
+      data: { rank: myRank },
+    });
+
+    return {
+      stageResult,
+      participant,
+      myRank,
+    };
+  });
+
+  // ═══ 7. Проверяем topN (если установлен) ═══
+  // TopN проверяется после сохранения — можно упасть ниже топа позже
+  let passedTopN = true;
+  if (activeStage.topN !== null) {
+    passedTopN = result.myRank <= activeStage.topN;
+    
+    // Обновляем статус passed с учётом topN
+    if (!passedTopN && passedMinScore) {
+      await prisma.tournamentStageResult.update({
+        where: { id: result.stageResult.id },
+        data: { passed: false },
+      });
+    }
+  }
+
+  const passed = passedMinScore && passedTopN;
+
+  // ═══ 8. Определяем следующий этап ═══
+  const totalStages = activeStage.tournament.stages.length;
+  const currentStageIndex = activeStage.tournament.stages.findIndex(
+    (s: { id: number }) => s.id === activeStage.id
+  );
+  const nextStage = activeStage.tournament.stages[currentStageIndex + 1] ?? null;
+  const isLastStage = currentStageIndex === totalStages - 1;
+
+  console.log(
+    `[tournament] User ${userId} completed stage ${activeStage.order}/${totalStages}: ` +
+    `score=${tournamentScore}, rank=#${result.myRank}, passed=${passed}`
+  );
+
+  return {
+    tournamentId: activeStage.tournament.id,
+    tournamentTitle: activeStage.tournament.title,
+    tournamentSlug: activeStage.tournament.slug,
+    stageId: activeStage.id,
+    stageTitle: activeStage.title,
+    stageOrder: activeStage.order,
+    totalStages,
+    scoreMultiplier: activeStage.scoreMultiplier,
+    tournamentScore,
+    newTotalScore: result.participant.totalScore,
+    rank: result.myRank,
+    passed,
+    isLastStage,
+    nextStageTitle: nextStage?.title ?? null,
+  };
+}
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -356,6 +603,28 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
   }
 
+  // ═══ TOURNAMENT STAGE PROCESSING ═══
+  let tournamentStageInfo: TournamentStageInfo | null = null;
+  
+  if (!alreadyFinished) {
+    try {
+      tournamentStageInfo = await processTournamentStage(
+        session.userId,
+        quizId,
+        sessionId,
+        currentGameScore
+      );
+      
+      if (tournamentStageInfo) {
+        console.log(
+          `[finish] Tournament stage completed: ${tournamentStageInfo.tournamentTitle} - ${tournamentStageInfo.stageTitle}, score: ${tournamentStageInfo.tournamentScore}, rank: #${tournamentStageInfo.rank}`
+        );
+      }
+    } catch (tournamentError) {
+      console.error("[finish] Tournament processing failed:", tournamentError);
+    }
+  }
+
   return NextResponse.json({ 
     // Current game result
     gameScore: currentGameScore,
@@ -404,5 +673,25 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     
     // New achievements unlocked
     achievements: newAchievements,
+    
+    // Tournament stage info (if quiz is part of a tournament)
+    tournament: tournamentStageInfo ? {
+      id: tournamentStageInfo.tournamentId,
+      title: tournamentStageInfo.tournamentTitle,
+      slug: tournamentStageInfo.tournamentSlug,
+      stage: {
+        id: tournamentStageInfo.stageId,
+        title: tournamentStageInfo.stageTitle,
+        order: tournamentStageInfo.stageOrder,
+        totalStages: tournamentStageInfo.totalStages,
+        scoreMultiplier: tournamentStageInfo.scoreMultiplier,
+      },
+      score: tournamentStageInfo.tournamentScore,
+      totalScore: tournamentStageInfo.newTotalScore,
+      rank: tournamentStageInfo.rank,
+      passed: tournamentStageInfo.passed,
+      isLastStage: tournamentStageInfo.isLastStage,
+      nextStageTitle: tournamentStageInfo.nextStageTitle,
+    } : null,
   });
 }

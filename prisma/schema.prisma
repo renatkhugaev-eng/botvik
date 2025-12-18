@@ -59,6 +59,11 @@ model User {
   referredById    Int?               // Кто пригласил этого пользователя
   referredBy      User?     @relation("ReferralRelation", fields: [referredById], references: [id])
   referrals       User[]    @relation("ReferralRelation")  // Кого пригласил этот пользователь
+  
+  // Tournaments
+  tournamentParticipations TournamentParticipant[]
+  tournamentStageResults   TournamentStageResult[]
+  tournamentPrizes         TournamentPrize[]
 }
 
 model Friendship {
@@ -96,6 +101,9 @@ model Quiz {
   questions        Question[]
   sessions         QuizSession[]
   leaderboardEntries LeaderboardEntry[]
+  
+  // Tournament stages that use this quiz
+  tournamentStages TournamentStage[]
 }
 
 model Question {
@@ -221,6 +229,188 @@ model ChatMessage {
   
   @@index([createdAt(sort: Desc)]) // Для быстрой выборки последних сообщений
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOURNAMENTS SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Tournament {
+  id            Int       @id @default(autoincrement())
+  slug          String    @unique              // URL-friendly ID: "serial-killers-60s"
+  title         String                         // "Серийники 60-х"
+  description   String?
+  icon          String    @default("⚔️")       // Эмодзи иконка
+  coverImage    String?                        // URL обложки
+  gradientFrom  String    @default("#2d132c")  // Цвет градиента (начало)
+  gradientTo    String    @default("#1a1a2e")  // Цвет градиента (конец)
+  
+  // Время
+  startsAt      DateTime
+  endsAt        DateTime
+  
+  // Статус
+  status        TournamentStatus @default(UPCOMING)
+  
+  // Настройки
+  minPlayers    Int       @default(3)          // Минимум участников для розыгрыша
+  maxPlayers    Int?                           // null = безлимит
+  entryFee      Int       @default(0)          // Стоимость входа в XP (0 = бесплатно)
+  
+  // Тип турнира
+  type          TournamentType @default(QUIZ)
+  
+  // Связи
+  stages        TournamentStage[]
+  participants  TournamentParticipant[]
+  prizes        TournamentPrize[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([status])
+  @@index([startsAt])
+  @@index([endsAt])
+}
+
+enum TournamentStatus {
+  DRAFT       // Черновик (не виден пользователям)
+  UPCOMING    // Скоро начнётся
+  ACTIVE      // Идёт сейчас
+  FINISHED    // Завершён
+  CANCELLED   // Отменён
+}
+
+enum TournamentType {
+  QUIZ           // Только квизы
+  INVESTIGATION  // Только расследования (будущее)
+  MIXED          // Смешанный формат (будущее)
+}
+
+// ═══ ЭТАПЫ ТУРНИРА ═══
+model TournamentStage {
+  id            Int       @id @default(autoincrement())
+  tournamentId  Int
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  order         Int                            // Порядок этапа (1, 2, 3...)
+  title         String                         // "Квалификация", "Финал"
+  description   String?
+  type          StageType  @default(QUIZ)
+  
+  // Время этапа (если отличается от турнира)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  
+  // Контент
+  quizId        Int?                           // Связь с квизом
+  quiz          Quiz?      @relation(fields: [quizId], references: [id])
+  
+  // Правила прохождения
+  topN          Int?                           // Топ-N проходят дальше (null = все)
+  minScore      Int?                           // Минимальный балл для прохода
+  
+  // Множитель очков для этого этапа
+  scoreMultiplier Float    @default(1.0)       // 1.0 = обычные очки, 2.0 = двойные
+  
+  // Результаты
+  results       TournamentStageResult[]
+  
+  @@unique([tournamentId, order])
+  @@index([tournamentId])
+  @@index([quizId])
+}
+
+enum StageType {
+  QUIZ
+  INVESTIGATION
+  PUZZLE
+}
+
+// ═══ УЧАСТНИКИ ТУРНИРА ═══
+model TournamentParticipant {
+  id            Int       @id @default(autoincrement())
+  tournamentId  Int
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id])
+  
+  // Статус участника
+  status        ParticipantStatus @default(REGISTERED)
+  
+  // Общий счёт в турнире
+  totalScore    Int       @default(0)
+  rank          Int?                           // Текущее место
+  
+  // Прогресс
+  currentStage  Int       @default(1)          // На каком этапе сейчас
+  
+  joinedAt      DateTime  @default(now())
+  
+  @@unique([tournamentId, userId])
+  @@index([tournamentId, totalScore(sort: Desc)])
+  @@index([userId])
+}
+
+enum ParticipantStatus {
+  REGISTERED    // Зарегистрирован
+  ACTIVE        // Активно участвует
+  ELIMINATED    // Выбыл
+  FINISHED      // Завершил турнир
+  WINNER        // Победитель
+}
+
+// ═══ РЕЗУЛЬТАТЫ ЭТАПОВ ═══
+model TournamentStageResult {
+  id            Int       @id @default(autoincrement())
+  stageId       Int
+  stage         TournamentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id])
+  
+  score         Int                            // Очки за этап
+  rank          Int?                           // Место в этапе
+  passed        Boolean   @default(false)      // Прошёл ли дальше
+  
+  // Связь с сессией квиза (для детализации)
+  quizSessionId Int?
+  
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  
+  @@unique([stageId, userId])
+  @@index([stageId, score(sort: Desc)])
+  @@index([userId])
+}
+
+// ═══ ПРИЗЫ ТУРНИРА ═══
+model TournamentPrize {
+  id            Int       @id @default(autoincrement())
+  tournamentId  Int
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  place         Int                            // 1, 2, 3...
+  title         String                         // "1000₽" или "Уникальный бейдж"
+  description   String?
+  type          PrizeType  @default(XP)
+  value         Int                            // Значение (рубли, XP, и т.д.)
+  icon          String     @default("🏆")
+  
+  // Кто получил
+  winnerId      Int?
+  winner        User?     @relation(fields: [winnerId], references: [id])
+  awardedAt     DateTime?
+  
+  @@unique([tournamentId, place])
+  @@index([tournamentId])
+  @@index([winnerId])
+}
+
+enum PrizeType {
+  CASH          // Денежный приз
+  XP            // Опыт
+  BADGE         // Уникальный бейдж
+  ENERGY        // Бонусная энергия
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

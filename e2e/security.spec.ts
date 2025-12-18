@@ -86,8 +86,9 @@ test.describe('Security', () => {
 
   test('не должно быть открытых редиректов', async ({ request }) => {
     // Пробуем передать внешний URL
+    // Playwright APIRequestContext не поддерживает followRedirects, проверяем вручную
     const response = await request.get('/api/health?redirect=https://evil.com', {
-      followRedirects: false,
+      maxRedirects: 0, // Предотвращаем автоматические редиректы
     });
     
     // Не должно быть редиректа на внешний URL
