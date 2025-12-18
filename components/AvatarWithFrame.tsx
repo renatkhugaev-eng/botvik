@@ -25,56 +25,73 @@ function AvatarWithFrameComponent({
   showRing = false,
   ringColor = "from-purple-500 to-pink-500",
 }: AvatarWithFrameProps) {
-  // Рамка должна быть немного больше аватарки
-  const frameSize = size * 1.25;
-  const frameOffset = (frameSize - size) / 2;
+  // Рамка должна быть больше аватарки
+  // Круглое отверстие в рамках занимает ~55% от размера картинки
+  // Рамка = аватарка / 0.55 ≈ 1.82x
+  const frameMultiplier = 1.82;
+  const frameSize = size * frameMultiplier;
+  
+  // Базовый отступ для центрирования
+  const baseOffset = (frameSize - size) / 2;
+  
+  // Вертикальная коррекция — круг в рамках чуть выше центра
+  // (из-за декора внизу: хвосты, лапки)
+  const verticalAdjust = size * 0.02; // 2% вверх
 
   return (
     <div 
       className={`relative flex-shrink-0 ${className}`}
-      style={{ width: size, height: size }}
+      style={{ width: frameSize, height: frameSize }}
     >
-      {/* Опциональное кольцо под аватаркой */}
-      {showRing && (
-        <div 
-          className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`}
-        />
-      )}
-      
-      {/* Аватарка */}
-      {photoUrl ? (
-        <img
-          src={photoUrl}
-          alt="Avatar"
-          width={size}
-          height={size}
-          className="relative h-full w-full rounded-full object-cover"
-          style={{ aspectRatio: "1/1" }}
-        />
-      ) : (
-        <div 
-          className="relative flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]"
-        >
-          <span 
-            className="font-bold text-white"
-            style={{ fontSize: size * 0.4 }}
+      {/* Аватарка (центрирована с коррекцией) */}
+      <div
+        className="absolute"
+        style={{
+          top: baseOffset - verticalAdjust,
+          left: baseOffset,
+          width: size,
+          height: size,
+        }}
+      >
+        {/* Опциональное кольцо под аватаркой */}
+        {showRing && (
+          <div 
+            className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`}
+          />
+        )}
+        
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt="Avatar"
+            width={size}
+            height={size}
+            className="relative h-full w-full rounded-full object-cover"
+            style={{ aspectRatio: "1/1" }}
+          />
+        ) : (
+          <div 
+            className="relative flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]"
           >
-            {fallbackLetter.toUpperCase()}
-          </span>
-        </div>
-      )}
+            <span 
+              className="font-bold text-white"
+              style={{ fontSize: size * 0.4 }}
+            >
+              {fallbackLetter.toUpperCase()}
+            </span>
+          </div>
+        )}
+      </div>
       
-      {/* Косметическая рамка (поверх аватарки) */}
+      {/* Косметическая рамка (поверх всего) */}
       {frameUrl && (
         <img
           src={frameUrl}
           alt="Frame"
           width={frameSize}
           height={frameSize}
-          className="pointer-events-none absolute"
+          className="pointer-events-none absolute inset-0"
           style={{
-            top: -frameOffset,
-            left: -frameOffset,
             width: frameSize,
             height: frameSize,
           }}

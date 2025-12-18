@@ -14,14 +14,19 @@ export async function GET(req: NextRequest) {
   const userId = auth.ok ? auth.user.id : null;
 
   // Получаем все активные товары
-  const items = await prisma.cosmeticItem.findMany({
-    where: { isActive: true },
-    orderBy: [
-      { rarity: "desc" },
-      { priceStars: "asc" },
-      { createdAt: "desc" },
-    ],
-  });
+  let items;
+  try {
+    items = await prisma.cosmeticItem.findMany({
+      where: { isActive: true },
+      orderBy: [
+        { priceStars: "desc" },
+        { createdAt: "desc" },
+      ],
+    });
+  } catch (error) {
+    console.error("[shop] Failed to fetch items:", error);
+    return NextResponse.json({ ok: false, error: "db_error", items: [], equippedFrameId: null }, { status: 500 });
+  }
 
   // Если пользователь авторизован, добавляем информацию о владении
   if (userId) {
