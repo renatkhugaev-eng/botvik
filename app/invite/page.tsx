@@ -14,7 +14,8 @@ function InviteContent() {
   const refCode = searchParams.get("ref");
   const [isTelegram, setIsTelegram] = useState<boolean | null>(null);
   
-  const botName = "botvik_bot"; // Можно вынести в env
+  // Имя бота
+  const botName = "truecrimetg_bot";
   const telegramLink = `https://t.me/${botName}?start=ref_${refCode || ""}`;
   
   useEffect(() => {
