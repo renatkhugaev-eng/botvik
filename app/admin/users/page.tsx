@@ -93,12 +93,12 @@ export default function AdminUsers() {
         </div>
         <TextInput
           icon={HiSearch}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск..."
           className="w-full sm:w-64"
           color="gray"
-        />
+          />
       </div>
 
       {/* Users List */}

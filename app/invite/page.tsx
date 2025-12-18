@@ -14,9 +14,10 @@ function InviteContent() {
   const refCode = searchParams.get("ref");
   const [isTelegram, setIsTelegram] = useState<boolean | null>(null);
   
-  // Имя бота
+  // Прямая ссылка на Mini App с параметром startapp (передаётся в start_param)
   const botName = "truecrimetg_bot";
-  const telegramLink = `https://t.me/${botName}?start=ref_${refCode || ""}`;
+  const appShortName = "miniapp";
+  const telegramLink = `https://t.me/${botName}/${appShortName}?startapp=ref_${refCode || ""}`;
   
   useEffect(() => {
     // Проверяем, открыто ли в Telegram WebApp

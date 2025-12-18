@@ -937,17 +937,17 @@ export default function MiniAppPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <div className="flex gap-3">
         {/* Leaderboard button */}
-        <motion.button
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            haptic.heavy();
-            router.push("/miniapp/leaderboard");
-          }}
+      <motion.button
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          haptic.heavy();
+          router.push("/miniapp/leaderboard");
+        }}
           className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[15px] font-semibold text-white shadow-xl shadow-black/20"
-        >
+      >
           <span className="text-3xl">🏆</span>
           Лидеры
-        </motion.button>
+      </motion.button>
         
         {/* Chat button */}
         <motion.button

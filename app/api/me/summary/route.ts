@@ -143,10 +143,10 @@ export async function GET(req: NextRequest) {
   // Считаем ВСЕ сессии пользователя глобально (не по квизам) + получаем бонусную энергию
   const [globalRecentAttempts, userBonusEnergy] = await Promise.all([
     prisma.quizSession.count({
-      where: {
-        userId: user.id,
-        startedAt: { gte: cooldownAgo },
-      },
+    where: {
+      userId: user.id,
+      startedAt: { gte: cooldownAgo },
+    },
     }),
     prisma.user.findUnique({
       where: { id: user.id },

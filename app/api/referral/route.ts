@@ -89,9 +89,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Формируем ссылку (landing страница с редиректом)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://botvik.app";
-    const referralLink = `${appUrl}/invite?ref=${referralCode}`;
+    // Формируем ссылку (прямая ссылка на Mini App в Telegram)
+    const botName = "truecrimetg_bot";
+    const appShortName = "miniapp";
+    const referralLink = `https://t.me/${botName}/${appShortName}?startapp=ref_${referralCode}`;
 
     // Считаем статистику
     const referralsCount = user.referrals.length;
