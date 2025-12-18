@@ -81,22 +81,35 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
   if (!initData) {
     // Allow dev mode bypass
     if (process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" && process.env.NODE_ENV === "development") {
-      const mockUser = await prisma.user.findFirst({
-        orderBy: { id: "asc" },
+      // Use same dev-mock user as layout.tsx (telegramId: "dev-mock")
+      let mockUser = await prisma.user.findUnique({
+        where: { telegramId: "dev-mock" },
       });
       
-      if (mockUser) {
-        return {
-          ok: true,
-          user: {
-            id: mockUser.id,
-            telegramId: mockUser.telegramId,
-            username: mockUser.username,
-            firstName: mockUser.firstName,
-            lastName: mockUser.lastName,
+      // Create if doesn't exist
+      if (!mockUser) {
+        mockUser = await prisma.user.upsert({
+          where: { telegramId: "dev-mock" },
+          update: {},
+          create: {
+            telegramId: "dev-mock",
+            username: "devuser",
+            firstName: "Dev",
+            lastName: "User",
           },
-        };
+        });
       }
+      
+      return {
+        ok: true,
+        user: {
+          id: mockUser.id,
+          telegramId: mockUser.telegramId,
+          username: mockUser.username,
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+        },
+      };
     }
     
     return {

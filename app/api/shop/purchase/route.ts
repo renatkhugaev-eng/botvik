@@ -53,6 +53,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "already_owned" }, { status: 400 });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Бесплатные товары — добавляем сразу в инвентарь
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (item.priceStars === 0) {
+    // Создаём запись о покупке сразу как COMPLETED
+    const purchase = await prisma.purchase.create({
+      data: {
+        userId,
+        itemId,
+        telegramPaymentId: `free_${Date.now()}_${userId}_${itemId}`,
+        amountStars: 0,
+        status: "COMPLETED",
+      },
+    });
+
+    // Добавляем товар в инвентарь
+    await prisma.userInventory.create({
+      data: {
+        userId,
+        itemId,
+      },
+    });
+
+    console.log(`[shop/purchase] Free item ${itemId} granted to user ${userId}`);
+
+    return NextResponse.json({
+      ok: true,
+      free: true,
+      purchaseId: purchase.id,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Платные товары — создаём Telegram Stars invoice
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   // Создаём запись о покупке со статусом PENDING
   const purchase = await prisma.purchase.create({
     data: {

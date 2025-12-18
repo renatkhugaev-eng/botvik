@@ -16,6 +16,7 @@ import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
 import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
 import { DailyRewardModal, DailyRewardButton } from "@/components/DailyRewardModal";
+import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
@@ -161,6 +162,7 @@ type UserStats = {
   minEnergy?: number;      // Минимальная энергия среди всех квизов
   maxEnergy?: number;      // Максимум энергии
   bonusEnergy?: number;    // Бонусная энергия из Daily Rewards
+  equippedFrameUrl?: string | null;  // URL рамки из магазина
 };
 
 type LeaderboardPosition = {
@@ -425,6 +427,7 @@ export default function MiniAppPage() {
         minEnergy: globalEnergy,
         maxEnergy,
         bonusEnergy: statsData.stats?.globalEnergy?.bonus ?? 0,
+        equippedFrameUrl: statsData.user?.equippedFrame?.imageUrl ?? null,
       });
       
       // Process weekly leaderboard
@@ -749,74 +752,83 @@ export default function MiniAppPage() {
         style={{ contain: 'layout', minHeight: 220 }}
       >
         {/* Centered Avatar — clickable to profile */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            haptic.medium();
-            router.push("/miniapp/profile");
-          }}
-          className="relative mb-4"
-        >
-          {/* Large diffused glow behind avatar - cyan/violet */}
-          {/* On Android: use layered box-shadow for smooth glow without blur */}
-          {isAndroid ? (
-            <div 
-              className="absolute inset-0 rounded-full gpu-accelerated animate-pulse"
-              style={{
-                boxShadow: `
-                  0 0 20px 8px rgba(6, 182, 212, 0.5),
-                  0 0 40px 16px rgba(139, 92, 246, 0.4),
-                  0 0 60px 24px rgba(236, 72, 153, 0.3),
-                  0 0 80px 32px rgba(139, 92, 246, 0.2)
-                `,
+        {(() => {
+          const hasFrame = !!userStats?.equippedFrameUrl;
+          return (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                haptic.medium();
+                router.push("/miniapp/profile");
               }}
-            />
-          ) : (
-            <>
-              <div 
-                className="absolute -inset-8 rounded-full gpu-accelerated animate-pulse"
-                style={{
-                  background: 'radial-gradient(circle, rgba(6, 182, 212, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
-                  filter: 'blur(20px)',
-                }}
+              className="relative mb-4"
+            >
+              {/* Декоративные кольца только когда НЕТ рамки */}
+              {!hasFrame && (
+                <>
+                  {/* Large diffused glow behind avatar - cyan/violet */}
+                  {isAndroid ? (
+                    <div 
+                      className="absolute inset-0 rounded-full gpu-accelerated animate-pulse"
+                      style={{
+                        boxShadow: `
+                          0 0 20px 8px rgba(6, 182, 212, 0.5),
+                          0 0 40px 16px rgba(139, 92, 246, 0.4),
+                          0 0 60px 24px rgba(236, 72, 153, 0.3),
+                          0 0 80px 32px rgba(139, 92, 246, 0.2)
+                        `,
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <div 
+                        className="absolute -inset-8 rounded-full gpu-accelerated animate-pulse"
+                        style={{
+                          background: 'radial-gradient(circle, rgba(6, 182, 212, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
+                          filter: 'blur(20px)',
+                        }}
+                      />
+                      <div 
+                        className="absolute -inset-5 rounded-full gpu-accelerated"
+                        style={{
+                          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)',
+                          filter: 'blur(15px)',
+                        }}
+                      />
+                    </>
+                  )}
+                  {/* Animated gradient ring — outer glow */}
+                  <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-60 animate-spin-slow gpu-accelerated" />
+                  {/* Animated gradient ring — sharp edge */}
+                  <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-80 animate-spin-slow gpu-accelerated" />
+                </>
+              )}
+              
+              {/* Аватар с рамкой из магазина */}
+              <AvatarWithFrame
+                photoUrl={photoUrl}
+                frameUrl={userStats?.equippedFrameUrl}
+                size={96}
+                fallbackLetter={avatarLetter}
+                className={hasFrame ? "" : "ring-[3px] ring-white shadow-xl rounded-full"}
               />
+              
+              {/* Online indicator — позиция зависит от наличия рамки */}
               <div 
-                className="absolute -inset-5 rounded-full gpu-accelerated"
+                className="absolute flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm"
                 style={{
-                  background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.25) 50%, transparent 70%)',
-                  filter: 'blur(15px)',
+                  bottom: hasFrame ? 8 : 2,
+                  right: hasFrame ? 8 : 2,
                 }}
-              />
-            </>
-          )}
-          {/* Animated gradient ring — outer glow */}
-          <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-60 animate-spin-slow gpu-accelerated" />
-          {/* Animated gradient ring — sharp edge */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-pink-500 opacity-80 animate-spin-slow gpu-accelerated" />
-          
-          {photoUrl ? (
-            <img 
-              src={photoUrl} 
-              alt={name}
-              width={96}
-              height={96}
-              className="relative h-24 w-24 rounded-full object-cover ring-[3px] ring-white shadow-xl"
-              style={{ aspectRatio: '1/1' }}
-            />
-          ) : (
-            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-[3px] ring-white shadow-xl">
-              <span className="text-3xl font-bold text-white">{avatarLetter}</span>
-            </div>
-          )}
-          
-          {/* Online indicator */}
-          <div className="absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm">
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
-            </span>
-          </div>
-        </motion.button>
+              >
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+                </span>
+              </div>
+            </motion.button>
+          );
+        })()}
         
         {/* Greeting */}
         <p className="text-sm text-slate-500 text-center flex items-center justify-center gap-1.5">

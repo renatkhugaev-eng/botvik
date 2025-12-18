@@ -116,7 +116,14 @@ export default function ShopPage() {
         throw new Error(data.error || "Purchase failed");
       }
 
-      // Открываем ссылку на оплату
+      // Бесплатный товар — сразу обновляем UI
+      if (data.free) {
+        haptic.success();
+        await loadItems(); // Перезагружаем список сразу
+        return;
+      }
+
+      // Платный товар — открываем ссылку на оплату
       if (data.invoiceUrl) {
         window.open(data.invoiceUrl, "_blank");
       }
@@ -185,9 +192,10 @@ export default function ShopPage() {
       {/* Header */}
       <div className="sticky top-0 z-20 bg-[#1a1a2e]/95 backdrop-blur-sm border-b border-white/10">
         <div className="flex items-center justify-between px-4 py-3">
+          {/* Left: Back button */}
           <button
             onClick={() => { haptic.light(); router.back(); }}
-            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors min-w-[70px]"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -195,14 +203,15 @@ export default function ShopPage() {
             Назад
           </button>
           
-          <h1 className="text-lg font-bold">🛒 Магазин</h1>
+          {/* Center: Title */}
+          <h1 className="text-lg font-bold flex-shrink-0">🛒 Магазин</h1>
           
-          {/* Preview equipped frame */}
-          <div className="w-10 h-10">
+          {/* Right: Preview equipped frame - уменьшенный размер */}
+          <div className="min-w-[70px] flex justify-end">
             <AvatarWithFrame
               photoUrl={photoUrl}
               frameUrl={equippedFrame?.imageUrl}
-              size={40}
+              size={32}
               fallbackLetter="U"
             />
           </div>

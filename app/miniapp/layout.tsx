@@ -82,6 +82,28 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
       // In dev we allow bypassing Telegram when explicitly enabled
       if (!tg && allowDevMock && process.env.NODE_ENV !== "production") {
         console.log("[MiniApp] Dev mock session enabled, Telegram WebApp missing");
+        // Fetch real user from API to get actual ID
+        try {
+          const res = await fetch("/api/me/summary");
+          if (res.ok) {
+            const data = await res.json();
+            setSession({
+              status: "ready",
+              user: {
+                id: data.user.id,
+                telegramId: data.user.telegramId || "dev-mock",
+                username: data.user.username || "devuser",
+                firstName: data.user.firstName || "Dev",
+                lastName: data.user.lastName || "User",
+                photoUrl: null,
+              },
+            });
+            return;
+          }
+        } catch (e) {
+          console.warn("[MiniApp] Failed to fetch dev user:", e);
+        }
+        // Fallback
         setSession({
           status: "ready",
           user: {
@@ -114,6 +136,28 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         }
         if (allowDevMock && process.env.NODE_ENV !== "production") {
           console.log("[MiniApp] Dev mock session enabled after retries, initData missing");
+          // Fetch real user from API to get actual ID
+          try {
+            const res = await fetch("/api/me/summary");
+            if (res.ok) {
+              const data = await res.json();
+              setSession({
+                status: "ready",
+                user: {
+                  id: data.user.id,
+                  telegramId: data.user.telegramId || "dev-mock",
+                  username: data.user.username || "devuser",
+                  firstName: data.user.firstName || "Dev",
+                  lastName: data.user.lastName || "User",
+                  photoUrl: null,
+                },
+              });
+              return;
+            }
+          } catch (e) {
+            console.warn("[MiniApp] Failed to fetch dev user:", e);
+          }
+          // Fallback
           setSession({
             status: "ready",
             user: {

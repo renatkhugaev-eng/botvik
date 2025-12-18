@@ -27,28 +27,31 @@ function AvatarWithFrameComponent({
 }: AvatarWithFrameProps) {
   // Рамка должна быть больше аватарки
   // Круглое отверстие в рамках занимает ~55% от размера картинки
-  // Рамка = аватарка / 0.55 ≈ 1.82x
-  const frameMultiplier = 1.82;
+  const frameMultiplier = 1.85;
+  const hasFrame = !!frameUrl;
+  
+  // Если есть рамка — контейнер больше, иначе = размеру аватарки
+  const containerSize = hasFrame ? size * frameMultiplier : size;
   const frameSize = size * frameMultiplier;
   
-  // Базовый отступ для центрирования
-  const baseOffset = (frameSize - size) / 2;
+  // Базовый отступ для центрирования (только когда есть рамка)
+  const baseOffset = hasFrame ? (frameSize - size) / 2 : 0;
   
-  // Вертикальная коррекция — круг в рамках чуть выше центра
-  // (из-за декора внизу: хвосты, лапки)
-  const verticalAdjust = size * 0.02; // 2% вверх
+  // Вертикальная коррекция — круг в рамках чуть НИЖЕ центра изображения
+  // (декор сверху: уши, грива занимают больше места)
+  const verticalAdjust = hasFrame ? size * 0.04 : 0; // 4% вниз
 
   return (
     <div 
       className={`relative flex-shrink-0 ${className}`}
-      style={{ width: frameSize, height: frameSize }}
+      style={{ width: containerSize, height: containerSize }}
     >
-      {/* Аватарка (центрирована с коррекцией) */}
+      {/* Аватарка (центрирована когда есть рамка) */}
       <div
-        className="absolute"
+        className={hasFrame ? "absolute" : "relative"}
         style={{
-          top: baseOffset - verticalAdjust,
-          left: baseOffset,
+          top: hasFrame ? baseOffset + verticalAdjust : undefined,
+          left: hasFrame ? baseOffset : undefined,
           width: size,
           height: size,
         }}
@@ -84,7 +87,7 @@ function AvatarWithFrameComponent({
       </div>
       
       {/* Косметическая рамка (поверх всего) */}
-      {frameUrl && (
+      {hasFrame && (
         <img
           src={frameUrl}
           alt="Frame"

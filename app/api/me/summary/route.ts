@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getLevelProgress, getLevelTitle } from "@/lib/xp";
+import { authenticateRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -13,31 +14,19 @@ export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams;
   const userIdParam = toInt(search.get("userId"));
 
-  const allowDevMock =
-    process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" &&
-    process.env.NODE_ENV !== "production";
-
-  let user =
-    userIdParam !== null
-      ? await prisma.user.findUnique({ where: { id: userIdParam } })
-      : null;
-
-  if (!user && allowDevMock) {
-    const mockTelegramId = "dev-1";
-    user = await prisma.user.upsert({
-      where: { telegramId: mockTelegramId },
-      update: {
-        username: "devuser",
-        firstName: "Dev",
-        lastName: "User",
-      },
-      create: {
-        telegramId: mockTelegramId,
-        username: "devuser",
-        firstName: "Dev",
-        lastName: "User",
-      },
-    });
+  // ═══ UNIFIED AUTH: Use same auth as other endpoints ═══
+  const auth = await authenticateRequest(req);
+  
+  let user = null;
+  
+  // Priority 1: userId from query params (if provided)
+  if (userIdParam !== null) {
+    user = await prisma.user.findUnique({ where: { id: userIdParam } });
+  }
+  
+  // Priority 2: Authenticated user
+  if (!user && auth.ok) {
+    user = await prisma.user.findUnique({ where: { id: auth.user.id } });
   }
 
   if (!user) {

@@ -14,6 +14,7 @@ import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
 import { AchievementsSection } from "@/components/AchievementsSection";
 import { ReferralSection } from "@/components/ReferralSection";
+import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -40,6 +41,12 @@ type SummaryResponse = {
     username: string | null;
     firstName: string | null;
     lastName: string | null;
+    equippedFrame?: {
+      id: number;
+      slug: string;
+      imageUrl: string;
+      title: string;
+    } | null;
   };
   stats: {
     totalScore: number;              // Сумма leaderboard scores (главная метрика)
@@ -704,56 +711,44 @@ export default function ProfilePage() {
               {/* Top section: Avatar + Info */}
               <div className="flex items-start gap-5">
                 {/* Avatar with CSS rotating rings */}
-                <div className="relative flex-shrink-0">
-                  {/* Outer rotating ring - CSS */}
-                  <div
-                    className="absolute -inset-3 rounded-full animate-spin-slow gpu-accelerated"
-                    style={{
-                      background: `conic-gradient(from 0deg, transparent, ${rank.accent}, transparent)`,
-                    }}
-                  />
-                  {/* Middle counter-rotating ring - CSS */}
-                  <div className={`absolute -inset-2 rounded-full bg-gradient-to-r ${rank.color} opacity-60 animate-spin-medium reverse gpu-accelerated`} />
-                  {/* Inner glow - static */}
-                  <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${rank.color} opacity-40 gpu-accelerated`} />
-                  
-                  {/* Avatar */}
-                  {photoUrl ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.3, type: "spring" }}
-                    >
-                      <img 
-                        src={photoUrl} 
-                        alt={displayName}
-                        width={96}
-                        height={96}
-                        className="relative h-24 w-24 rounded-full object-cover ring-4 ring-black gpu-accelerated"
-                        style={{ aspectRatio: '1/1' }}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.3, type: "spring" }}
-                      className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] ring-4 ring-black"
-                    >
-                      <span className="text-3xl font-bold text-white">{avatarLetter}</span>
-                    </motion.div>
-                  )}
-                  
-                  {/* Level badge */}
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
-                    className={`absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${rank.color} text-[16px] font-black text-white shadow-xl ring-4 ring-[#0a0a0f]`}
-                  >
-                    {rank.level}
-                  </motion.div>
-                </div>
+                {(() => {
+                  const hasFrame = !!data?.user?.equippedFrame?.imageUrl;
+                  return (
+                    <div className="relative flex-shrink-0">
+                      {/* Декоративные кольца только когда НЕТ рамки */}
+                      {!hasFrame && (
+                        <>
+                          {/* Outer rotating ring - CSS */}
+                          <div
+                            className="absolute -inset-3 rounded-full animate-spin-slow gpu-accelerated"
+                            style={{
+                              background: `conic-gradient(from 0deg, transparent, ${rank.accent}, transparent)`,
+                            }}
+                          />
+                          {/* Middle counter-rotating ring - CSS */}
+                          <div className={`absolute -inset-2 rounded-full bg-gradient-to-r ${rank.color} opacity-60 animate-spin-medium reverse gpu-accelerated`} />
+                          {/* Inner glow - static */}
+                          <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${rank.color} opacity-40 gpu-accelerated`} />
+                        </>
+                      )}
+                      
+                      {/* Avatar с рамкой из магазина */}
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.3, type: "spring" }}
+                      >
+                        <AvatarWithFrame
+                          photoUrl={photoUrl}
+                          frameUrl={data?.user?.equippedFrame?.imageUrl}
+                          size={96}
+                          fallbackLetter={avatarLetter}
+                          className={hasFrame ? "" : "ring-4 ring-black gpu-accelerated"}
+                        />
+                      </motion.div>
+                    </div>
+                  );
+                })()}
 
                 {/* User info */}
                 <div className="flex-1 pt-2">
@@ -777,15 +772,24 @@ export default function ProfilePage() {
                     </motion.p>
                   )}
                   
-                  {/* Rank badge */}
+                  {/* Rank badge with level */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.5, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ delay: 0.5, type: "spring" }}
-                    className={`mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${rank.color} px-4 py-2 shadow-xl`}
+                    className="mt-3 inline-flex items-center gap-0 rounded-full overflow-hidden shadow-xl"
                   >
-                    <span className="text-xl">{rank.icon}</span>
-                    <span className="text-[14px] font-bold text-white">{rank.label}</span>
+                    {/* Rank */}
+                    <div className={`inline-flex items-center gap-2 bg-gradient-to-r ${rank.color} px-4 py-2`}>
+                      <span className="text-xl">{rank.icon}</span>
+                      <span className="text-[14px] font-bold text-white">{rank.label}</span>
+                    </div>
+                    
+                    {/* Level — соединённый с рангом */}
+                    <div className="inline-flex items-center gap-1 bg-white/10 px-3 py-2">
+                      <span className="text-[14px] font-bold text-white/90">{rank.level}</span>
+                      <span className="text-[11px] text-white/50 uppercase tracking-wider">ур</span>
+                    </div>
                   </motion.div>
                 </div>
               </div>
