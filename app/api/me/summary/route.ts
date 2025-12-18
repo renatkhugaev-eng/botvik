@@ -44,6 +44,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
   }
 
+  // Получаем equipped frame отдельно (если есть)
+  const equippedFrame = user.equippedFrameId
+    ? await prisma.cosmeticItem.findUnique({
+        where: { id: user.equippedFrameId },
+        select: { id: true, slug: true, imageUrl: true, title: true },
+      })
+    : null;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SESSIONS & ANSWERS STATS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -203,6 +211,7 @@ export async function GET(req: NextRequest) {
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
+      equippedFrame: equippedFrame ?? null,
     },
     stats: {
       // Основные метрики

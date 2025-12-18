@@ -64,6 +64,12 @@ model User {
   tournamentParticipations TournamentParticipant[]
   tournamentStageResults   TournamentStageResult[]
   tournamentPrizes         TournamentPrize[]
+  
+  // Cosmetics Shop
+  equippedFrameId Int?
+  equippedFrame   CosmeticItem? @relation("EquippedFrame", fields: [equippedFrameId], references: [id])
+  inventory       UserInventory[]
+  purchases       Purchase[]
 }
 
 model Friendship {
@@ -432,4 +438,88 @@ model UserAchievement {
   @@unique([userId, achievementId]) // Одно достижение на пользователя
   @@index([userId])
   @@index([achievementId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COSMETICS SHOP SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+model CosmeticItem {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique           // "frame-gold", "frame-fire"
+  type        CosmeticType  @default(FRAME)
+  title       String                          // "Золотая рамка"
+  description String?
+  imageUrl    String                          // "/frames/gold.png"
+  previewUrl  String?                         // Превью в магазине
+  
+  priceStars  Int                             // Цена в Telegram Stars
+  rarity      Rarity        @default(COMMON)  // COMMON, RARE, EPIC, LEGENDARY
+  
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  
+  // Кто надел эту рамку
+  equippedBy  User[]        @relation("EquippedFrame")
+  
+  owners      UserInventory[]
+  purchases   Purchase[]
+  
+  @@index([type])
+  @@index([rarity])
+  @@index([isActive])
+}
+
+model UserInventory {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  itemId      Int
+  acquiredAt  DateTime      @default(now())
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item        CosmeticItem  @relation(fields: [itemId], references: [id])
+  
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+model Purchase {
+  id                Int             @id @default(autoincrement())
+  
+  userId            Int
+  itemId            Int
+  
+  telegramPaymentId String          @unique       // ID платежа от Telegram
+  amountStars       Int                           // Сколько Stars списано
+  status            PurchaseStatus  @default(PENDING)
+  
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+  
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item              CosmeticItem    @relation(fields: [itemId], references: [id])
+  
+  @@index([userId])
+  @@index([telegramPaymentId])
+  @@index([status])
+}
+
+enum CosmeticType {
+  FRAME
+  BADGE       // На будущее
+  BACKGROUND  // На будущее
+}
+
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }

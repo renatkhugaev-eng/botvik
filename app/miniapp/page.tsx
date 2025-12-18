@@ -992,9 +992,22 @@ export default function MiniAppPage() {
         }}
           className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-[15px] font-semibold text-white shadow-xl shadow-black/20"
       >
-          <span className="text-3xl">🏆</span>
+          <span className="text-2xl">🏆</span>
           Лидеры
       </motion.button>
+        
+        {/* Shop button */}
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            haptic.heavy();
+            router.push("/miniapp/shop");
+          }}
+          className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-[15px] font-semibold text-white shadow-xl shadow-amber-500/20"
+        >
+          <span className="text-2xl">🛒</span>
+          Магазин
+        </motion.button>
         
         {/* Chat button */}
         <motion.button
@@ -1005,7 +1018,7 @@ export default function MiniAppPage() {
           }}
           className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[15px] font-semibold text-white shadow-xl shadow-violet-500/20"
         >
-          <span className="text-3xl">💬</span>
+          <span className="text-2xl">💬</span>
           Чат
         </motion.button>
       </div>

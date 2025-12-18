@@ -580,21 +580,35 @@ export default function ProfilePage() {
           <span className="text-[14px] font-semibold text-white/90">Профиль</span>
         </motion.div>
         
-        {/* Admin Button - only visible to admin */}
-        {data.user.telegramId === "5731136459" ? (
+        {/* Right side buttons */}
+        <div className="flex items-center gap-2">
+          {/* Shop Button */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => {
               haptic.medium();
-              window.open("/admin", "_blank");
+              router.push("/miniapp/shop");
             }}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-pink-600 shadow-lg shadow-violet-500/30"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
+            aria-label="Магазин"
           >
-            <span className="text-lg">⚙️</span>
+            <span className="text-lg">🛒</span>
           </motion.button>
-        ) : (
-        <div className="w-11" />
-        )}
+          
+          {/* Admin Button - only visible to admin */}
+          {data.user.telegramId === "5731136459" && (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                haptic.medium();
+                window.open("/admin", "_blank");
+              }}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-pink-600 shadow-lg shadow-violet-500/30"
+            >
+              <span className="text-lg">⚙️</span>
+            </motion.button>
+          )}
+        </div>
       </motion.header>
 
       {/* ═══════════════════════════════════════════════════════════════════
