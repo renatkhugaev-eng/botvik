@@ -51,7 +51,26 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Получить все достижения с прогрессом
+  // ═══ ВАЖНО: Сначала проверяем и разблокируем достижения ═══
+  // Это гарантирует что все достижения актуальны при каждом просмотре
+  const specialAchievements: string[] = [...checkTimeBasedAchievements()];
+  
+  const isOG = await checkOGPlayerAchievement(auth.user.id);
+  if (isOG) {
+    specialAchievements.push("og_player");
+  }
+  
+  // Проверяем и разблокируем ВСЕ доступные достижения
+  const checkResult = await checkAndUnlockAchievements(auth.user.id, specialAchievements);
+  
+  if (checkResult.newlyUnlocked.length > 0) {
+    console.log(
+      `[achievements GET] User ${auth.user.id} unlocked ${checkResult.newlyUnlocked.length}: ` +
+      checkResult.newlyUnlocked.map(a => a.achievement.id).join(", ")
+    );
+  }
+  
+  // Теперь получаем актуальный список достижений с прогрессом
   const achievements = await getUserAchievements(auth.user.id);
   
   // Группируем по категориям
