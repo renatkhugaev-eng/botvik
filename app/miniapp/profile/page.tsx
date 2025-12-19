@@ -922,55 +922,63 @@ style={{
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          TAB SWITCHER
+          TAB SWITCHER — Modern Pill Design
       ═══════════════════════════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="flex gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-black/5"
+        transition={{ delay: 0.3 }}
+        className="relative"
       >
-        {[
-          { id: "stats" as const, label: "Статистика", icon: <span className="text-base">📊</span> },
-          { id: "achievements" as const, label: "Ачивки", icon: <span className="text-lg">🏆</span> },
-          { id: "history" as const, label: "Рекорды", icon: <span className="text-lg">🏅</span> },
-          // Инвентарь и Друзья — только в своём профиле
-          ...(!isViewingOther ? [
-            { id: "inventory" as const, label: "Инвентарь", icon: <span className="text-lg">🎒</span> },
-            { id: "friends" as const, label: "Друзья", icon: <span className="text-lg">👥</span> },
-          ] : []),
-        ].map((tab) => (
-          <motion.button
-            key={tab.id}
-            onClick={() => {
-              haptic.selection();
-              setActiveTab(tab.id);
-            }}
-            whileTap={{ scale: 0.98 }}
-            className={`relative flex-1 rounded-xl py-3.5 text-[14px] font-semibold transition-colors ${
-              activeTab === tab.id ? "text-white" : "text-slate-400"
-            }`}
-          >
-            {activeTab === tab.id && (
-              <motion.div
-                layoutId="activeProfileTab"
-                className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] shadow-lg gpu-accelerated"
-                transition={spring}
-              />
-            )}
-            <span className="relative flex items-center justify-center gap-2">
-              <span>{tab.icon}</span>
-              {tab.label}
-              {tab.id === "friends" && (friends.length > 0 || incomingRequests.length > 0) && (
-                <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white ${
-                  incomingRequests.length > 0 ? "bg-red-500 animate-pulse" : "bg-violet-500"
-                }`}>
-                  {incomingRequests.length > 0 ? incomingRequests.length : friends.length}
-                </span>
-              )}
-            </span>
-          </motion.button>
-        ))}
+        {/* Scrollable container */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+          {[
+            { id: "stats" as const, icon: "📊", label: "Стата" },
+            { id: "achievements" as const, icon: "🏆", label: "Ачивки" },
+            { id: "history" as const, icon: "🏅", label: "Рекорды" },
+            // Инвентарь и Друзья — только в своём профиле
+            ...(!isViewingOther ? [
+              { id: "inventory" as const, icon: "🎒", label: "Инвентарь" },
+              { id: "friends" as const, icon: "👥", label: "Друзья" },
+            ] : []),
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            const hasBadge = tab.id === "friends" && (friends.length > 0 || incomingRequests.length > 0);
+            const badgeCount = incomingRequests.length > 0 ? incomingRequests.length : friends.length;
+            const isUrgent = incomingRequests.length > 0;
+            
+            return (
+              <motion.button
+                key={tab.id}
+                onClick={() => {
+                  haptic.selection();
+                  setActiveTab(tab.id);
+                }}
+                whileTap={{ scale: 0.95 }}
+                className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 ${
+                  isActive 
+                    ? "bg-[#0f0f1a] text-white shadow-lg shadow-black/20" 
+                    : "bg-white/80 text-slate-500 hover:bg-white hover:text-slate-700 shadow-sm"
+                }`}
+              >
+                <span className="text-sm">{tab.icon}</span>
+                <span>{tab.label}</span>
+                
+                {/* Badge for friends */}
+                {hasBadge && (
+                  <span className={`ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white ${
+                    isUrgent ? "bg-red-500 animate-pulse" : "bg-violet-500"
+                  }`}>
+                    {badgeCount}
+                  </span>
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
+        
+        {/* Fade edges for scroll indication */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[#f5f5f7] to-transparent" />
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════════════════
