@@ -12,12 +12,17 @@ export const runtime = "nodejs";
 
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || null;
 
+// Предупреждение если secret не настроен в production
+if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
+  console.warn("[telegram/webhook] ⚠️ TELEGRAM_WEBHOOK_SECRET не настроен! Webhook уязвим.");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/telegram/webhook — Обработка вебхуков от Telegram
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
-  // Проверяем подпись (если настроен secret_token)
+  // Проверяем подпись (обязательно в production)
   const headerToken = req.headers.get("x-telegram-bot-api-secret-token");
   if (!isValidTelegramRequest(WEBHOOK_SECRET, headerToken)) {
     console.error("[telegram/webhook] Invalid secret token");
@@ -65,6 +70,13 @@ export async function POST(req: NextRequest) {
     // Проверяем что товар ещё активен
     if (!purchase.item.isActive) {
       await answerPreCheckoutQuery(query.id, false, "Товар больше не доступен");
+      return NextResponse.json({ ok: true });
+    }
+
+    // Проверяем что сумма совпадает с ценой товара (защита от манипуляций)
+    if (query.total_amount !== purchase.item.priceStars) {
+      console.error(`[telegram/webhook] Price mismatch: expected ${purchase.item.priceStars}, got ${query.total_amount}`);
+      await answerPreCheckoutQuery(query.id, false, "Неверная сумма платежа");
       return NextResponse.json({ ok: true });
     }
 

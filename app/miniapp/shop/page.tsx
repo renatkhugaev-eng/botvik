@@ -134,7 +134,8 @@ export default function ShopPage() {
             
             if (status === "paid") {
               haptic.success();
-              loadItems(); // Обновляем список после успешной оплаты
+              // Даём время webhook обработать платёж перед загрузкой
+              setTimeout(() => loadItems(), 1500);
             } else if (status === "failed") {
               haptic.error();
             }
