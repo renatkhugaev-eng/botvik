@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { useRealtimeChat } from "@/lib/useRealtimeChat";
 import { haptic } from "@/lib/haptic";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 
 /**
  * Глобальный чат для всех пользователей
@@ -189,23 +190,24 @@ function ChatContent({ user }: ChatContentProps) {
                   className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                 >
                   <div className={`flex gap-2 max-w-[85%] ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
-                    {/* Avatar */}
+                    {/* Avatar — кликабельный для перехода в профиль */}
                     {showAvatar && (
-                      <div className="shrink-0 mt-auto">
-                        {msg.photoUrl ? (
-                          <img
-                            src={msg.photoUrl}
-                            alt=""
-                            className="h-8 w-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white ${
-                            isOwn ? "bg-violet-500" : "bg-slate-400"
-                          }`}>
-                            {(msg.firstName || msg.username || "?")[0].toUpperCase()}
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => {
+                          haptic.light();
+                          router.push(`/miniapp/profile?userId=${msg.odId}`);
+                        }}
+                        className="shrink-0 mt-auto active:scale-95 transition-transform"
+                        aria-label={`Профиль ${msg.firstName || msg.username || "игрока"}`}
+                      >
+                        <AvatarWithFrame
+                          photoUrl={msg.photoUrl}
+                          frameUrl={msg.frameUrl}
+                          size={32}
+                          fallbackLetter={(msg.firstName || msg.username || "?")[0].toUpperCase()}
+                          className=""
+                        />
+                      </button>
                     )}
                     {!showAvatar && <div className="w-8 shrink-0" />}
                     

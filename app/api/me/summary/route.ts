@@ -216,6 +216,7 @@ export async function GET(req: NextRequest) {
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
+      photoUrl: user.photoUrl ?? null,
       equippedFrame: equippedFrame ?? null,
     },
     stats: {

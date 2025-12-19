@@ -84,6 +84,11 @@ export async function GET(request: NextRequest) {
             firstName: true,
             photoUrl: true,
             xp: true,
+            equippedFrame: {
+              select: {
+                imageUrl: true,
+              },
+            },
           },
         },
       },
@@ -102,6 +107,7 @@ export async function GET(request: NextRequest) {
         username: m.user.username,
         firstName: m.user.firstName,
         photoUrl: m.user.photoUrl,
+        frameUrl: m.user.equippedFrame?.imageUrl || null,
         level,
         levelIcon: icon,
         text: m.text,
@@ -183,6 +189,11 @@ export async function POST(request: NextRequest) {
             firstName: true,
             photoUrl: true,
             xp: true,
+            equippedFrame: {
+              select: {
+                imageUrl: true,
+              },
+            },
           },
         },
       },
@@ -199,6 +210,7 @@ export async function POST(request: NextRequest) {
       username: message.user.username,
       firstName: message.user.firstName,
       photoUrl: message.user.photoUrl,
+      frameUrl: message.user.equippedFrame?.imageUrl || null,
       level,
       levelIcon,
       text: message.text,

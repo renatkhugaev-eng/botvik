@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -41,6 +41,7 @@ type SummaryResponse = {
     username: string | null;
     firstName: string | null;
     lastName: string | null;
+    photoUrl?: string | null;
     equippedFrame?: {
       id: number;
       slug: string;
@@ -220,6 +221,7 @@ const smoothSpring = { type: "spring", stiffness: 200, damping: 20 };
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const session = useMiniAppSession();
   const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
@@ -230,6 +232,11 @@ export default function ProfilePage() {
     target: scrollRef, 
     debounceMs: config.scrollDebounceMs 
   });
+  
+  // Проверяем, просматриваем ли мы чужой профиль
+  const viewingUserId = searchParams.get("userId");
+  const isViewingOther = viewingUserId && session.status === "ready" && parseInt(viewingUserId) !== session.user.id;
+  const targetUserId = viewingUserId ? parseInt(viewingUserId) : (session.status === "ready" ? session.user.id : null);
   
   // Sync scroll state to global perf mode
   useEffect(() => {
@@ -279,12 +286,22 @@ export default function ProfilePage() {
     setTilt({ x: 0, y: 0 });
   }, []);
 
+  // Для чужого профиля берём данные из API, для своего — из сессии
   const displayName = useMemo(() => {
+    if (isViewingOther && data?.user) {
+      return data.user.firstName ?? data.user.username ?? "Игрок";
+    }
     if (session.status !== "ready") return "";
     return session.user.firstName ?? session.user.username ?? "Друг";
-  }, [session]);
+  }, [session, data, isViewingOther]);
 
-  const photoUrl = session.status === "ready" ? session.user.photoUrl : null;
+  const photoUrl = useMemo(() => {
+    if (isViewingOther && data?.user) {
+      return data.user.photoUrl ?? null;
+    }
+    return session.status === "ready" ? session.user.photoUrl : null;
+  }, [session, data, isViewingOther]);
+  
   const avatarLetter = displayName ? displayName.slice(0, 1).toUpperCase() : "U";
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -292,7 +309,7 @@ export default function ProfilePage() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   const loadAllData = useCallback(async () => {
-    if (session.status !== "ready") {
+    if (session.status !== "ready" || !targetUserId) {
       setError("Пользователь не авторизован");
       setLoading(false);
       return;
@@ -304,13 +321,14 @@ export default function ProfilePage() {
     
     try {
       // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
+      // Для чужого профиля загружаем только summary (без friends/notifications)
       const [profileRes, friendsRes, notifyRes] = await Promise.all([
-        // 1. Profile summary
-        fetchWithAuth(`/api/me/summary?userId=${session.user.id}`),
-        // 2. Friends data
-        fetchWithAuth(`/api/friends?userId=${session.user.id}`).catch(() => null),
-        // 3. Notification settings (non-critical)
-        fetchWithAuth(`/api/notifications/settings?userId=${session.user.id}`).catch(() => null),
+        // 1. Profile summary (работает для любого userId)
+        fetchWithAuth(`/api/me/summary?userId=${targetUserId}`),
+        // 2. Friends data (только для своего профиля)
+        !isViewingOther ? fetchWithAuth(`/api/friends?userId=${targetUserId}`).catch(() => null) : Promise.resolve(null),
+        // 3. Notification settings (только для своего профиля)
+        !isViewingOther ? fetchWithAuth(`/api/notifications/settings?userId=${targetUserId}`).catch(() => null) : Promise.resolve(null),
       ]);
       
       // Process profile data
@@ -340,7 +358,7 @@ export default function ProfilePage() {
       setLoading(false);
       setFriendsLoading(false);
     }
-  }, [session]);
+  }, [session, targetUserId, isViewingOther]);
   
   // Initial data fetch - single effect for all data
   useEffect(() => {
@@ -583,27 +601,33 @@ export default function ProfilePage() {
           transition={{ delay: 0.15 }}
           className="flex items-center gap-2 rounded-full bg-[#0a0a0f] px-4 py-2 shadow-lg"
         >
-          <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
-          <span className="text-[14px] font-semibold text-white/90">Профиль</span>
+          <div className={`h-2 w-2 rounded-full ${isViewingOther ? "bg-blue-500" : "bg-violet-500"} animate-pulse`} />
+          <span className="text-[14px] font-semibold text-white/90">
+            {isViewingOther ? `👤 ${displayName}` : "Профиль"}
+          </span>
         </motion.div>
         
-        {/* Right side buttons */}
+        {/* Right side buttons — скрываем при просмотре чужого профиля */}
         <div className="flex items-center gap-2">
-          {/* Shop Button */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              haptic.medium();
-              router.push("/miniapp/shop");
-            }}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
-            aria-label="Магазин"
-          >
-            <span className="text-lg">🛒</span>
-          </motion.button>
+          {!isViewingOther && (
+            <>
+              {/* Shop Button */}
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  haptic.medium();
+                  router.push("/miniapp/shop");
+                }}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
+                aria-label="Магазин"
+              >
+                <span className="text-lg">🛒</span>
+              </motion.button>
+            </>
+          )}
           
           {/* Admin Button - only visible to admin */}
-          {data.user.telegramId === "5731136459" && (
+          {!isViewingOther && data.user.telegramId === "5731136459" && (
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => {
@@ -907,7 +931,8 @@ style={{
           { id: "stats" as const, label: "Статистика", icon: <span className="text-base">📊</span> },
           { id: "achievements" as const, label: "Ачивки", icon: <span className="text-lg">🏆</span> },
           { id: "history" as const, label: "Рекорды", icon: <span className="text-lg">🏅</span> },
-          { id: "friends" as const, label: "Друзья", icon: <span className="text-lg">👥</span> },
+          // Друзья — только в своём профиле
+          ...(!isViewingOther ? [{ id: "friends" as const, label: "Друзья", icon: <span className="text-lg">👥</span> }] : []),
         ].map((tab) => (
           <motion.button
             key={tab.id}

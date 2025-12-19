@@ -47,6 +47,7 @@ export type ChatMessagePayload = {
   username: string | null;
   firstName: string | null;
   photoUrl: string | null;
+  frameUrl: string | null; // URL рамки из магазина
   level: number;
   levelIcon: string;
   text: string;
