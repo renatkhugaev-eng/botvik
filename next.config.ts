@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   // React Compiler for automatic optimizations
   reactCompiler: true,
   
+  // Disable trailing slash redirects (important for webhooks)
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
+  
   // Image optimization for LCP
   images: {
     formats: ['image/avif', 'image/webp'],
