@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════════════
   // BEST SCORES BY QUIZ (для раздела "Рекорды")
   // Показываем лучший результат за 1 сессию + leaderboard score
+  // ИСКЛЮЧАЕМ турнирные квизы — они доступны только через турниры
   // ═══════════════════════════════════════════════════════════════════════════
   
   const quizzesPlayed = await prisma.quizSession.groupBy({
@@ -87,15 +88,30 @@ export async function GET(req: NextRequest) {
   });
 
   const quizIds = quizzesPlayed.map((q) => q.quizId);
+  
+  // Получаем квизы, которые используются в турнирах (их исключим)
+  const tournamentQuizIds = quizIds.length > 0
+    ? (await prisma.tournamentStage.findMany({
+        where: { quizId: { in: quizIds } },
+        select: { quizId: true },
+      })).map((s) => s.quizId)
+    : [];
+  
+  const tournamentQuizSet = new Set(tournamentQuizIds);
+  
+  // Фильтруем — оставляем только НЕ турнирные квизы
+  const nonTournamentQuizzes = quizzesPlayed.filter((q) => !tournamentQuizSet.has(q.quizId));
+  const nonTournamentQuizIds = nonTournamentQuizzes.map((q) => q.quizId);
+  
   const quizzes =
-    quizIds.length > 0
+    nonTournamentQuizIds.length > 0
       ? await prisma.quiz.findMany({
-          where: { id: { in: quizIds } },
+          where: { id: { in: nonTournamentQuizIds } },
           select: { id: true, title: true },
         })
       : [];
 
-  const bestScoreByQuiz = quizzesPlayed.map((q) => {
+  const bestScoreByQuiz = nonTournamentQuizzes.map((q) => {
     const quizTitle = quizzes.find((qq) => qq.id === q.quizId)?.title ?? "Викторина";
     const leaderboardEntry = leaderboardEntries.find((e) => e.quizId === q.quizId);
     

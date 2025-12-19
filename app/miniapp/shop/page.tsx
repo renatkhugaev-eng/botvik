@@ -119,17 +119,37 @@ export default function ShopPage() {
       // Бесплатный товар — сразу обновляем UI
       if (data.free) {
         haptic.success();
-        await loadItems(); // Перезагружаем список сразу
+        await loadItems();
         return;
       }
 
-      // Платный товар — открываем ссылку на оплату
+      // Платный товар — открываем через Telegram Mini App API
       if (data.invoiceUrl) {
-        window.open(data.invoiceUrl, "_blank");
+        const tg = window.Telegram?.WebApp;
+        
+        if (tg?.openInvoice) {
+          // Правильный способ — через Telegram Mini App API
+          tg.openInvoice(data.invoiceUrl, (status) => {
+            console.log("[shop] Payment status:", status);
+            
+            if (status === "paid") {
+              haptic.success();
+              loadItems(); // Обновляем список после успешной оплаты
+            } else if (status === "failed") {
+              haptic.error();
+            }
+            // status может быть: "paid", "cancelled", "failed", "pending"
+            
+            setPurchasing(null);
+          });
+          return; // Не сбрасываем purchasing здесь — сбросим в callback
+        } else {
+          // Fallback для браузера (dev mode)
+          console.warn("[shop] openInvoice not available, using fallback");
+          window.open(data.invoiceUrl, "_blank");
+          setTimeout(() => loadItems(), 3000);
+        }
       }
-
-      // Перезагружаем список через 2 секунды (после оплаты)
-      setTimeout(() => loadItems(), 2000);
 
     } catch (err) {
       console.error("[shop] Purchase failed:", err);

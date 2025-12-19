@@ -772,23 +772,23 @@ export default function ProfilePage() {
                     </motion.p>
                   )}
                   
-                  {/* Rank badge with level */}
+                  {/* Rank badge with level — compact for mobile */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.5, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ delay: 0.5, type: "spring" }}
-                    className="mt-3 inline-flex items-center gap-0 rounded-full overflow-hidden shadow-xl"
+                    className="mt-2 inline-flex items-center gap-0 rounded-full overflow-hidden shadow-lg"
                   >
                     {/* Rank */}
-                    <div className={`inline-flex items-center gap-2 bg-gradient-to-r ${rank.color} px-4 py-2`}>
-                      <span className="text-xl">{rank.icon}</span>
-                      <span className="text-[14px] font-bold text-white">{rank.label}</span>
+                    <div className={`inline-flex items-center gap-1.5 bg-gradient-to-r ${rank.color} px-3 py-1.5`}>
+                      <span className="text-base">{rank.icon}</span>
+                      <span className="text-[12px] font-bold text-white">{rank.label}</span>
                     </div>
                     
-                    {/* Level — соединённый с рангом */}
-                    <div className="inline-flex items-center gap-1 bg-white/10 px-3 py-2">
-                      <span className="text-[14px] font-bold text-white/90">{rank.level}</span>
-                      <span className="text-[11px] text-white/50 uppercase tracking-wider">ур</span>
+                    {/* Level — compact */}
+                    <div className="inline-flex items-center gap-0.5 bg-white/10 px-2 py-1.5">
+                      <span className="text-[12px] font-bold text-white/90">{rank.level}</span>
+                      <span className="text-[10px] text-white/50">ур</span>
                     </div>
                   </motion.div>
                 </div>

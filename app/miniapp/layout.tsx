@@ -20,6 +20,8 @@ type TelegramWebApp = {
     switchInlineQuery?: (query: string, chatTypes?: string[]) => void;
     openTelegramLink?: (url: string) => void;
     shareToStory?: (mediaUrl: string, params?: { text?: string; widget_link?: { url: string; name?: string } }) => void;
+    // Payments
+    openInvoice?: (url: string, callback?: (status: "paid" | "cancelled" | "failed" | "pending") => void) => void;
   };
 };
 

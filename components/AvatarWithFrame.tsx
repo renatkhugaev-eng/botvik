@@ -37,9 +37,23 @@ function AvatarWithFrameComponent({
   // Базовый отступ для центрирования (только когда есть рамка)
   const baseOffset = hasFrame ? (frameSize - size) / 2 : 0;
   
-  // Вертикальная коррекция — круг в рамках чуть НИЖЕ центра изображения
-  // (декор сверху: уши, грива занимают больше места)
-  const verticalAdjust = hasFrame ? size * 0.04 : 0; // 4% вниз
+  // Извлекаем slug рамки из URL для индивидуальных настроек
+  const frameSlug = frameUrl ? frameUrl.split('/').pop()?.replace('.png', '') : null;
+  
+  // Индивидуальные смещения для разных рамок (% от размера аватара)
+  // vertical: отрицательное = вверх, положительное = вниз
+  const frameOffsets: Record<string, { vertical: number; horizontal: number }> = {
+    bunny: { vertical: -0.15, horizontal: 0 },    // Зайчик — уши высокие, поднять
+    tiger: { vertical: 0.05, horizontal: 0 },     // Тигр — опустить вниз
+    fox: { vertical: 0.03, horizontal: 0 },       // Лисичка — чуть опустить
+  };
+  
+  const offsets = frameSlug && frameOffsets[frameSlug] 
+    ? frameOffsets[frameSlug] 
+    : { vertical: -0.05, horizontal: 0 }; // Дефолт: 5% вверх
+  
+  const frameVerticalOffset = hasFrame ? size * offsets.vertical : 0;
+  const frameHorizontalOffset = hasFrame ? size * offsets.horizontal : 0;
 
   return (
     <div 
@@ -50,7 +64,7 @@ function AvatarWithFrameComponent({
       <div
         className={hasFrame ? "absolute" : "relative"}
         style={{
-          top: hasFrame ? baseOffset + verticalAdjust : undefined,
+          top: hasFrame ? baseOffset : undefined,
           left: hasFrame ? baseOffset : undefined,
           width: size,
           height: size,
@@ -86,17 +100,19 @@ function AvatarWithFrameComponent({
         )}
       </div>
       
-      {/* Косметическая рамка (поверх всего) */}
+      {/* Косметическая рамка (поверх всего, смещена вверх) */}
       {hasFrame && (
         <img
           src={frameUrl}
           alt="Frame"
           width={frameSize}
           height={frameSize}
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute"
           style={{
             width: frameSize,
             height: frameSize,
+            top: frameVerticalOffset,
+            left: frameHorizontalOffset,
           }}
         />
       )}
