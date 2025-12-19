@@ -209,7 +209,13 @@ function ChatContent({ user }: ChatContentProps) {
                         />
                       </button>
                     )}
-                    {!showAvatar && <div className="w-8 shrink-0" />}
+                    {/* Placeholder для выравнивания — соответствует размеру аватара с/без рамки */}
+                    {!showAvatar && (
+                      <div 
+                        className="shrink-0" 
+                        style={{ width: msg.frameUrl ? 32 * 1.85 : 32 }} 
+                      />
+                    )}
                     
                     {/* Message bubble */}
                     <div

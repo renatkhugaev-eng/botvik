@@ -235,8 +235,10 @@ export default function ProfilePage() {
   
   // Проверяем, просматриваем ли мы чужой профиль
   const viewingUserId = searchParams.get("userId");
-  const isViewingOther = viewingUserId && session.status === "ready" && parseInt(viewingUserId) !== session.user.id;
-  const targetUserId = viewingUserId ? parseInt(viewingUserId) : (session.status === "ready" ? session.user.id : null);
+  const parsedViewingUserId = viewingUserId ? parseInt(viewingUserId, 10) : null;
+  const isValidViewingUserId = parsedViewingUserId !== null && !isNaN(parsedViewingUserId);
+  const isViewingOther = isValidViewingUserId && session.status === "ready" && parsedViewingUserId !== session.user.id;
+  const targetUserId = isValidViewingUserId ? parsedViewingUserId : (session.status === "ready" ? session.user.id : null);
   
   // Sync scroll state to global perf mode
   useEffect(() => {
