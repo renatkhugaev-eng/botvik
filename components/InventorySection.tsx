@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
 import { AvatarWithFrame } from "./AvatarWithFrame";
@@ -56,6 +57,7 @@ const RARITY_CONFIG: Record<Rarity, { label: string; color: string; bg: string; 
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function InventorySection({ photoUrl, firstName }: InventorySectionProps) {
+  const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +157,15 @@ export function InventorySection({ photoUrl, firstName }: InventorySectionProps)
         <span className="text-6xl mb-4">📦</span>
         <p className="text-slate-600 font-semibold">Инвентарь пуст</p>
         <p className="text-slate-400 text-sm mt-1">Купи рамки в магазине!</p>
+        <button
+          onClick={() => {
+            haptic.medium();
+            router.push("/miniapp/shop");
+          }}
+          className="mt-4 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-violet-500/25 active:scale-95 transition-transform"
+        >
+          🛒 Перейти в магазин
+        </button>
       </div>
     );
   }
@@ -173,6 +184,15 @@ export function InventorySection({ photoUrl, firstName }: InventorySectionProps)
           <p className="mt-3 text-sm font-medium text-slate-600">
             {equippedFrame ? equippedFrame.title : "Без рамки"}
           </p>
+          {equippedFrame && (
+            <button
+              onClick={() => handleEquip(equippedFrame)}
+              disabled={equipping !== null}
+              className="mt-2 px-3 py-1 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              Снять рамку
+            </button>
+          )}
         </div>
       </div>
 
@@ -206,16 +226,17 @@ export function InventorySection({ photoUrl, firstName }: InventorySectionProps)
                 exit={{ opacity: 0, scale: 0.9 }}
                 onClick={() => handleEquip(item)}
                 disabled={equipping === item.id}
-                className={`relative rounded-2xl p-3 border-2 transition-all ${
+                className={`relative rounded-2xl p-3 border-2 transition-all group ${
                   isEquipped 
                     ? "border-green-500 bg-green-500/10" 
                     : `${rarity.border} ${rarity.bg} hover:scale-105`
                 }`}
               >
-                {/* Equipped badge */}
+                {/* Equipped badge with hover hint */}
                 {isEquipped && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">✓</span>
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 group-hover:bg-red-500 rounded-full flex items-center justify-center transition-colors">
+                    <span className="text-white text-xs group-hover:hidden">✓</span>
+                    <span className="text-white text-xs hidden group-hover:block">✕</span>
                   </div>
                 )}
 
