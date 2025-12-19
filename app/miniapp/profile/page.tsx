@@ -15,6 +15,7 @@ import { usePerfMode } from "@/components/context/PerfModeContext";
 import { AchievementsSection } from "@/components/AchievementsSection";
 import { ReferralSection } from "@/components/ReferralSection";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
+import { InventorySection } from "@/components/InventorySection";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
 function useIsAndroid() {
@@ -248,7 +249,7 @@ export default function ProfilePage() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"stats" | "history" | "friends" | "achievements">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "history" | "friends" | "achievements" | "inventory">("stats");
   
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -933,8 +934,11 @@ style={{
           { id: "stats" as const, label: "Статистика", icon: <span className="text-base">📊</span> },
           { id: "achievements" as const, label: "Ачивки", icon: <span className="text-lg">🏆</span> },
           { id: "history" as const, label: "Рекорды", icon: <span className="text-lg">🏅</span> },
-          // Друзья — только в своём профиле
-          ...(!isViewingOther ? [{ id: "friends" as const, label: "Друзья", icon: <span className="text-lg">👥</span> }] : []),
+          // Инвентарь и Друзья — только в своём профиле
+          ...(!isViewingOther ? [
+            { id: "inventory" as const, label: "Инвентарь", icon: <span className="text-lg">🎒</span> },
+            { id: "friends" as const, label: "Друзья", icon: <span className="text-lg">👥</span> },
+          ] : []),
         ].map((tab) => (
           <motion.button
             key={tab.id}
@@ -1210,6 +1214,17 @@ style={{
                 ))}
               </div>
             )}
+          </motion.div>
+        ) : activeTab === "inventory" ? (
+          <motion.div
+            key="inventory"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-3xl bg-white p-4 shadow-xl shadow-black/5"
+          >
+            <InventorySection photoUrl={photoUrl} firstName={data.user.firstName} />
           </motion.div>
         ) : activeTab === "friends" ? (
           <motion.div
