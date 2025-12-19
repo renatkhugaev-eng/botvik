@@ -701,7 +701,7 @@ export default function MiniAppPage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-6 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
+    <div className={`relative flex flex-col gap-6 w-full min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-24 overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER — Height: 56px
       ═══════════════════════════════════════════════════════════════════ */}

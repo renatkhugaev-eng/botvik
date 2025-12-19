@@ -287,7 +287,7 @@ export default function TournamentDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-5 pb-10 animate-pulse">
+      <div className="flex flex-col gap-5 min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-24 animate-pulse">
         {/* Header skeleton */}
         <div className="flex items-center justify-between py-3">
           <div className="h-11 w-11 rounded-2xl bg-slate-200" />
@@ -336,7 +336,7 @@ export default function TournamentDetailPage() {
   const isJoined = !!myParticipation;
 
   return (
-    <div className="relative flex flex-col gap-5 pb-10">
+    <div className="relative flex flex-col gap-5 min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-24">
       {/* Success celebration overlay */}
       <AnimatePresence>
         {joinSuccess && (

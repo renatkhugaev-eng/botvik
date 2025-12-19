@@ -206,7 +206,7 @@ export default function LeaderboardPage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-5 pb-10 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
+    <div className={`relative flex flex-col gap-5 min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-24 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════════════════════ */}

@@ -122,7 +122,7 @@ function ChatContent({ user }: ChatContentProps) {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)]">
+    <div className="flex flex-col h-screen min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-4">
       {/* ═══ HEADER ═══ */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}

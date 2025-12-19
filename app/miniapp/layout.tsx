@@ -270,11 +270,11 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         <NotificationProvider>
           <ErrorBoundary>
             <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-            <div className="app-container fixed inset-0 w-full h-full bg-[#f1f5f9] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
+            <div className="app-container fixed inset-0 w-full h-full bg-[#0f0f1a] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
               {/* Single Rive overlay instance for all pages */}
-              {/* Safe area padding for iPhone X+ notch */}
+              {/* Full-bleed layout — страницы сами контролируют отступы */}
               <div 
-                className="relative z-10 w-full h-full px-3 pt-2 pb-4 overflow-y-auto overscroll-none touch-pan-y"
+                className="relative z-10 w-full h-full overflow-y-auto overscroll-none touch-pan-y"
                 tabIndex={0}
                 role="main"
                 aria-label="Основное содержимое"
@@ -282,8 +282,10 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
                   overflowX: 'clip', 
                   maxWidth: '100%',
                   // Safe area insets for notch devices
-                  paddingTop: 'max(8px, env(safe-area-inset-top))',
-                  paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+                  paddingTop: 'env(safe-area-inset-top)',
+                  paddingBottom: 'env(safe-area-inset-bottom)',
+                  paddingLeft: 'env(safe-area-inset-left)',
+                  paddingRight: 'env(safe-area-inset-right)',
                 }}
               >
                 {content}

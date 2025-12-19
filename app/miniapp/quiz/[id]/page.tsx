@@ -1145,7 +1145,7 @@ export default function QuizPlayPage() {
   const isWarning = timeLeft <= 10 && timeLeft > 5;
 
   return (
-    <div className="flex flex-col gap-4" style={{ contain: 'layout' }}>
+    <div className="flex flex-col gap-4 min-h-screen bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a] px-4 pt-3 pb-24" style={{ contain: 'layout' }}>
 {/* Confetti Effect - Lottie Animation */}
       <AnimatePresence>
         {showConfetti && (
