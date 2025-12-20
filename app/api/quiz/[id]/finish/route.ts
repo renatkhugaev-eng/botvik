@@ -184,10 +184,7 @@ async function processTournamentStage(
   });
 
   if (!activeStage) {
-    // Логируем для диагностики
-    console.log(`[tournament/finish] No active stage found for quiz ${quizId}, user ${userId}`);
-    
-    // Попробуем найти почему не нашли
+    // Детальная диагностика
     const debugStage = await prisma.tournamentStage.findFirst({
       where: { quizId },
       include: {
@@ -195,9 +192,14 @@ async function processTournamentStage(
           select: {
             id: true,
             status: true,
+            endsAt: true,
             participants: {
               where: { userId },
-              select: { status: true },
+              select: { status: true, currentStage: true },
+            },
+            stages: {
+              orderBy: { order: "asc" },
+              select: { id: true, order: true, title: true, startsAt: true, endsAt: true },
             },
           },
         },
@@ -205,16 +207,39 @@ async function processTournamentStage(
     });
     
     if (debugStage) {
-      console.log(`[tournament/finish] Debug: Found stage for quiz ${quizId}:`, {
-        stageId: debugStage.id,
-        tournamentId: debugStage.tournament.id,
-        tournamentStatus: debugStage.tournament.status,
-        userParticipation: debugStage.tournament.participants[0]?.status ?? "NOT_JOINED",
-        stageStartsAt: debugStage.startsAt,
-        stageEndsAt: debugStage.endsAt,
+      // Получаем результаты предыдущих этапов
+      const previousResults = await prisma.tournamentStageResult.findMany({
+        where: { userId, stageId: { in: debugStage.tournament.stages.map(s => s.id) } },
+        select: { stageId: true, passed: true, completedAt: true, score: true },
       });
+      
+      const stagesInfo = debugStage.tournament.stages.map(s => {
+        const result = previousResults.find(r => r.stageId === s.id);
+        return {
+          order: s.order,
+          title: s.title,
+          stageId: s.id,
+          passed: result?.passed ?? null,
+          completed: !!result?.completedAt,
+          score: result?.score ?? null,
+        };
+      });
+      
+      console.log(
+        `[tournament/finish] ❌ No active stage found for quiz ${quizId}, user ${userId}.\n` +
+        `  Tournament ID: ${debugStage.tournament.id}\n` +
+        `  Tournament Status: ${debugStage.tournament.status}\n` +
+        `  Tournament endsAt: ${debugStage.tournament.endsAt?.toISOString()}\n` +
+        `  User participation: ${debugStage.tournament.participants[0]?.status ?? "NOT_JOINED"}\n` +
+        `  User currentStage: ${debugStage.tournament.participants[0]?.currentStage ?? "N/A"}\n` +
+        `  Current stage order: ${debugStage.order}\n` +
+        `  Stage startsAt: ${debugStage.startsAt?.toISOString() ?? "null"}\n` +
+        `  Stage endsAt: ${debugStage.endsAt?.toISOString() ?? "null"}\n` +
+        `  Now: ${now.toISOString()}\n` +
+        `  Stages progress: ${JSON.stringify(stagesInfo, null, 2)}`
+      );
     } else {
-      console.log(`[tournament/finish] Debug: Quiz ${quizId} is not part of any tournament`);
+      console.log(`[tournament/finish] Quiz ${quizId} is not part of any tournament`);
     }
     
     return null;
@@ -281,7 +306,13 @@ async function processTournamentStage(
     const allPreviousCompleted = previousStages.every((s: { id: number }) => completedStageIds.has(s.id));
     
     if (!allPreviousCompleted) {
-      console.log(`[tournament] User ${userId} hasn't completed previous stages for stage ${activeStage.order}`);
+      const missingStages = previousStages.filter((s: { id: number }) => !completedStageIds.has(s.id));
+      console.log(
+        `[tournament/finish] ⚠️ User ${userId} hasn't completed previous stages for stage ${activeStage.order}.\n` +
+        `  Required stages: ${previousStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}\n` +
+        `  Completed with passed=true: ${[...completedStageIds].join(", ") || "none"}\n` +
+        `  Missing: ${missingStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}`
+      );
       return null; // Не даём проходить этап вне последовательности
     }
   }

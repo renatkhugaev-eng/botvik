@@ -196,40 +196,123 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // ═══ NEW SESSION — Check energy and create ═══
   
-  // Проверяем, является ли квиз частью активного турнира
-  // И зарегистрирован ли пользователь в этом турнире!
-  // Энергия НЕ тратится только если оба условия выполнены
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TOURNAMENT QUIZ DETECTION (with race condition handling)
+  // 
+  // ВАЖНО: Принимаем и ACTIVE и FINISHED турниры!
+  // Причина: CRON может финализировать турнир ПОКА пользователь проходит квиз.
+  // Для FINISHED турниров проверяем что сессия начинается ДО окончания турнира.
+  // 
+  // Энергия НЕ тратится если:
+  // 1. Квиз является частью турнира (ACTIVE или недавно FINISHED)
+  // 2. Пользователь зарегистрирован в турнире (REGISTERED, ACTIVE или FINISHED)
+  // 3. Для FINISHED турниров: текущее время < endsAt (турнир только что закончился)
+  // 4. Предыдущие этапы пройдены с passed: true
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   const activeTournamentStage = await prisma.tournamentStage.findFirst({
     where: {
       quizId,
       tournament: {
-        status: "ACTIVE", // Только активные турниры (не UPCOMING)
+        // Принимаем ACTIVE и FINISHED турниры (race condition handling)
+        status: { in: ["ACTIVE", "FINISHED"] },
       },
     },
     select: { 
       id: true, 
+      order: true,
       tournamentId: true,
       tournament: {
         select: {
+          id: true,
+          status: true,
+          endsAt: true,
           participants: {
             where: { userId },
-            select: { id: true, status: true },
+            select: { id: true, status: true, currentStage: true },
+          },
+          // Нужно для проверки предыдущих этапов
+          stages: {
+            orderBy: { order: "asc" },
+            select: { id: true, order: true, title: true },
           },
         },
       },
     },
   });
   
-  // Квиз турнирный только если:
-  // 1. Есть активный этап турнира с этим квизом
-  // 2. Пользователь зарегистрирован в турнире со статусом REGISTERED или ACTIVE
-  const participantInfo = activeTournamentStage?.tournament?.participants?.[0];
-  const isValidParticipant = participantInfo && 
-    (participantInfo.status === "REGISTERED" || participantInfo.status === "ACTIVE");
-  const isTournamentQuiz = !!activeTournamentStage && isValidParticipant;
+  // Начинаем проверку условий для турнирного квиза
+  let isTournamentQuiz = false;
+  let tournamentDebugInfo: Record<string, unknown> = {};
   
-  if (activeTournamentStage && !isValidParticipant) {
-    console.log(`[quiz/start] User ${userId} trying tournament quiz ${quizId} but NOT valid participant in tournament ${activeTournamentStage.tournamentId} (status: ${participantInfo?.status ?? "NOT_JOINED"})`);
+  if (activeTournamentStage) {
+    const tournament = activeTournamentStage.tournament;
+    const participantInfo = tournament.participants?.[0];
+    
+    // Условие 1: Пользователь участник турнира
+    // Принимаем REGISTERED, ACTIVE и FINISHED (статус меняется при финализации)
+    const isValidParticipant = participantInfo && 
+      ["REGISTERED", "ACTIVE", "FINISHED"].includes(participantInfo.status);
+    
+    // Условие 2: Для FINISHED турниров — только если ещё не прошло время
+    // Это даёт grace period для тех, кто начал играть до финализации
+    const isWithinTimeWindow = tournament.status === "ACTIVE" || 
+      (tournament.status === "FINISHED" && tournament.endsAt && now <= tournament.endsAt);
+    
+    // Условие 3: Предыдущие этапы пройдены (для этапов > 1)
+    let previousStagesPassed = true;
+    
+    if (activeTournamentStage.order > 1 && isValidParticipant) {
+      const previousStages = tournament.stages.filter(s => s.order < activeTournamentStage.order);
+      
+      if (previousStages.length > 0) {
+        const passedResults = await prisma.tournamentStageResult.findMany({
+          where: {
+            userId,
+            stageId: { in: previousStages.map(s => s.id) },
+            passed: true,
+            completedAt: { not: null },
+          },
+          select: { stageId: true },
+        });
+        
+        const passedStageIds = new Set(passedResults.map(r => r.stageId));
+        previousStagesPassed = previousStages.every(s => passedStageIds.has(s.id));
+        
+        if (!previousStagesPassed) {
+          const missingStages = previousStages.filter(s => !passedStageIds.has(s.id));
+          console.log(
+            `[quiz/start] ⚠️ User ${userId} hasn't passed previous stages for stage ${activeTournamentStage.order}. ` +
+            `Missing: ${missingStages.map(s => `${s.order}. ${s.title}`).join(", ")}`
+          );
+        }
+      }
+    }
+    
+    // Финальное решение
+    isTournamentQuiz = isValidParticipant && isWithinTimeWindow && previousStagesPassed;
+    
+    // Debug info для логирования
+    tournamentDebugInfo = {
+      tournamentId: tournament.id,
+      tournamentStatus: tournament.status,
+      stageId: activeTournamentStage.id,
+      stageOrder: activeTournamentStage.order,
+      participantStatus: participantInfo?.status ?? "NOT_JOINED",
+      isValidParticipant,
+      isWithinTimeWindow,
+      previousStagesPassed,
+      currentStage: participantInfo?.currentStage,
+      endsAt: tournament.endsAt?.toISOString(),
+    };
+    
+    // Детальное логирование
+    if (!isTournamentQuiz) {
+      console.log(
+        `[quiz/start] ❌ Quiz ${quizId} NOT counted as tournament quiz for user ${userId}:`,
+        JSON.stringify(tournamentDebugInfo, null, 2)
+      );
+    }
   }
   
   // Get recent sessions, last finished, total attempts, and user's bonus energy in parallel
@@ -332,9 +415,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Логирование для турнирных квизов
   if (isTournamentQuiz) {
-    console.log(`[quiz/start] 🏆 Tournament quiz! User ${userId} starting quiz ${quizId} (tournament ${activeTournamentStage?.tournamentId}, stage ${activeTournamentStage?.id}) — energy NOT consumed`);
+    console.log(
+      `[quiz/start] 🏆 Tournament quiz! User ${userId} starting quiz ${quizId} ` +
+      `(tournament ${activeTournamentStage?.tournamentId}, stage ${activeTournamentStage?.order}/${activeTournamentStage?.tournament?.stages?.length ?? "?"}) ` +
+      `— energy NOT consumed. Debug:`, JSON.stringify(tournamentDebugInfo)
+    );
   } else if (activeTournamentStage) {
-    console.log(`[quiz/start] User ${userId} playing quiz ${quizId} (tournament quiz but NOT registered) — energy consumed`);
+    console.log(
+      `[quiz/start] ⚠️ User ${userId} playing quiz ${quizId} as REGULAR quiz ` +
+      `(tournament exists but conditions not met) — energy consumed. Debug:`, JSON.stringify(tournamentDebugInfo)
+    );
   }
 
   return NextResponse.json({
@@ -366,8 +456,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           usedBonusEnergy,
         },
     // Информация о турнире (если есть)
-    tournamentInfo: isTournamentQuiz
-      ? { stageId: activeTournamentStage?.id, tournamentId: activeTournamentStage?.tournamentId }
+    tournamentInfo: isTournamentQuiz && activeTournamentStage
+      ? { 
+          stageId: activeTournamentStage.id, 
+          stageOrder: activeTournamentStage.order,
+          totalStages: activeTournamentStage.tournament?.stages?.length ?? 0,
+          tournamentId: activeTournamentStage.tournamentId,
+          tournamentStatus: activeTournamentStage.tournament?.status,
+        }
       : undefined,
   });
 }
