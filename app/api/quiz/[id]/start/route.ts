@@ -28,12 +28,16 @@ const bypassLimits =
   process.env.NODE_ENV !== "production";
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  console.log("[quiz/start] ═══════════════════════════════════════════");
+  console.log("[quiz/start] 🚀 NEW REQUEST at", new Date().toISOString());
+  
   // ═══ AUTHENTICATION ═══
   const auth = await authenticateRequest(req);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
   const userId = auth.user.id;
+  console.log("[quiz/start] 👤 User:", userId);
 
   // ═══ RATE LIMITING (temporarily disabled for debugging) ═══
   // const identifier = getClientIdentifier(req, auth.user.telegramId);
@@ -195,6 +199,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   // ═══ NEW SESSION — Check energy and create ═══
+  console.log(`[quiz/start] 📝 Creating NEW SESSION for quiz ${quizId}, user ${userId}`);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // TOURNAMENT QUIZ DETECTION (with race condition handling)
@@ -244,6 +249,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // Начинаем проверку условий для турнирного квиза
   let isTournamentQuiz = false;
   let tournamentDebugInfo: Record<string, unknown> = {};
+  
+  console.log(`[quiz/start] 🔍 Tournament stage query result:`, activeTournamentStage ? {
+    stageId: activeTournamentStage.id,
+    stageOrder: activeTournamentStage.order,
+    tournamentId: activeTournamentStage.tournamentId,
+    tournamentStatus: activeTournamentStage.tournament?.status,
+    participantCount: activeTournamentStage.tournament?.participants?.length ?? 0,
+  } : "NO STAGE FOUND");
   
   if (activeTournamentStage) {
     const tournament = activeTournamentStage.tournament;
@@ -350,6 +363,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Energy check — пропускаем для турнирных квизов!
   // В турнирах энергия НЕ тратится
+  console.log(`[quiz/start] ⚡ Energy check: isTournamentQuiz=${isTournamentQuiz}, usedAttempts=${usedAttempts}/${MAX_ATTEMPTS}, bypassLimits=${bypassLimits}`);
+  
   if (!bypassLimits && !isTournamentQuiz && usedAttempts >= MAX_ATTEMPTS) {
     // Проверяем есть ли бонусная энергия
     if (bonusEnergy > 0) {

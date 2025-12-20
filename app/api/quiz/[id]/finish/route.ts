@@ -131,6 +131,8 @@ async function processTournamentStage(
   gameScore: number
 ): Promise<TournamentStageInfo | null> {
   const now = new Date();
+  console.log(`[processTournamentStage] ═══════════════════════════════════════`);
+  console.log(`[processTournamentStage] userId=${userId}, quizId=${quizId}, sessionId=${sessionId}, gameScore=${gameScore}, now=${now.toISOString()}`);
   
   // ═══ 1. Находим турнирный этап с этим квизом ═══
   // ВАЖНО: Принимаем и ACTIVE и FINISHED турниры!
@@ -182,6 +184,16 @@ async function processTournamentStage(
     },
     orderBy: { tournament: { startsAt: "asc" } },
   });
+
+  console.log(`[processTournamentStage] 🔍 activeStage query result:`, activeStage ? {
+    stageId: activeStage.id,
+    stageOrder: activeStage.order,
+    stageTitle: activeStage.title,
+    tournamentId: activeStage.tournament?.id,
+    tournamentStatus: activeStage.tournament?.status,
+    startsAt: activeStage.startsAt?.toISOString() ?? "null",
+    endsAt: activeStage.endsAt?.toISOString() ?? "null",
+  } : "NO ACTIVE STAGE");
 
   if (!activeStage) {
     // Детальная диагностика
@@ -793,6 +805,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // ═══ TOURNAMENT STAGE PROCESSING ═══
   let tournamentStageInfo: TournamentStageInfo | null = null;
+  
+  console.log(`[quiz/finish] 🏆 Processing tournament stage: alreadyFinished=${alreadyFinished}, quizId=${quizId}, userId=${session.userId}, sessionId=${sessionId}`);
   
   if (!alreadyFinished) {
     try {
