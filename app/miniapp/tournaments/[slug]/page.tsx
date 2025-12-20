@@ -827,6 +827,7 @@ function StagesTab({
                         whileTap={{ scale: 0.98 }}
                         whileHover={{ scale: 1.02 }}
                         onClick={() => {
+                          if (!stage.quiz) return;
                           haptic.medium();
                           // Tournament stage tracking происходит автоматически в /api/quiz/[id]/finish
                           // через функцию processTournamentStage() которая:
