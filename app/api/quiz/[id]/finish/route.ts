@@ -285,21 +285,22 @@ async function processTournamentStage(
   }
 
   // ═══ 3. Проверяем последовательность этапов ═══
-  // Пользователь должен пройти предыдущие этапы
+  // Пользователь должен ЗАВЕРШИТЬ предыдущие этапы (не требуем passed=true)
+  // Это нужно для backwards compatibility
   if (activeStage.order > 1) {
     const previousStages = activeStage.tournament.stages.filter(
       (s: { id: number; order: number; title: string; minScore: number | null; topN: number | null }) => 
         s.order < activeStage.order
     );
     
+    // Находим ВСЕ завершённые результаты (без требования passed=true)
     const previousResults = await prisma.tournamentStageResult.findMany({
       where: {
         userId,
         stageId: { in: previousStages.map((s: { id: number }) => s.id) },
-        passed: true,
-        completedAt: { not: null },
+        completedAt: { not: null }, // Только завершённые
       },
-      select: { stageId: true },
+      select: { stageId: true, passed: true, rank: true, score: true },
     });
     
     const completedStageIds = new Set(previousResults.map((r: { stageId: number }) => r.stageId));
@@ -308,13 +309,19 @@ async function processTournamentStage(
     if (!allPreviousCompleted) {
       const missingStages = previousStages.filter((s: { id: number }) => !completedStageIds.has(s.id));
       console.log(
-        `[tournament/finish] ⚠️ User ${userId} hasn't completed previous stages for stage ${activeStage.order}.\n` +
+        `[tournament/finish] ⚠️ User ${userId} hasn't COMPLETED previous stages for stage ${activeStage.order}.\n` +
         `  Required stages: ${previousStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}\n` +
-        `  Completed with passed=true: ${[...completedStageIds].join(", ") || "none"}\n` +
-        `  Missing: ${missingStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}`
+        `  Completed stage IDs: ${[...completedStageIds].join(", ") || "none"}\n` +
+        `  Missing: ${missingStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}\n` +
+        `  Previous results: ${JSON.stringify(previousResults)}`
       );
       return null; // Не даём проходить этап вне последовательности
     }
+    
+    // Логируем успешную проверку
+    console.log(
+      `[tournament/finish] ✅ User ${userId} has completed all previous stages. Results: ${JSON.stringify(previousResults)}`
+    );
   }
 
   // ═══ 4. Вычисляем очки с множителем ═══

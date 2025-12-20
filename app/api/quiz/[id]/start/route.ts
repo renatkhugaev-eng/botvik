@@ -259,31 +259,39 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const isWithinTimeWindow = tournament.status === "ACTIVE" || 
       (tournament.status === "FINISHED" && tournament.endsAt && now <= tournament.endsAt);
     
-    // Условие 3: Предыдущие этапы пройдены (для этапов > 1)
+    // Условие 3: Предыдущие этапы ЗАВЕРШЕНЫ (для этапов > 1)
+    // ВАЖНО: Не требуем passed=true строго — достаточно что этап был завершён
+    // Это нужно для backwards compatibility и для случаев когда passed не был установлен
     let previousStagesPassed = true;
     
     if (activeTournamentStage.order > 1 && isValidParticipant) {
       const previousStages = tournament.stages.filter(s => s.order < activeTournamentStage.order);
       
       if (previousStages.length > 0) {
-        const passedResults = await prisma.tournamentStageResult.findMany({
+        // Находим ВСЕ результаты предыдущих этапов (независимо от passed)
+        const previousResults = await prisma.tournamentStageResult.findMany({
           where: {
             userId,
             stageId: { in: previousStages.map(s => s.id) },
-            passed: true,
-            completedAt: { not: null },
+            completedAt: { not: null }, // Только завершённые
           },
-          select: { stageId: true },
+          select: { stageId: true, passed: true, rank: true, score: true },
         });
         
-        const passedStageIds = new Set(passedResults.map(r => r.stageId));
-        previousStagesPassed = previousStages.every(s => passedStageIds.has(s.id));
+        const completedStageIds = new Set(previousResults.map(r => r.stageId));
+        previousStagesPassed = previousStages.every(s => completedStageIds.has(s.id));
         
         if (!previousStagesPassed) {
-          const missingStages = previousStages.filter(s => !passedStageIds.has(s.id));
+          const missingStages = previousStages.filter(s => !completedStageIds.has(s.id));
           console.log(
-            `[quiz/start] ⚠️ User ${userId} hasn't passed previous stages for stage ${activeTournamentStage.order}. ` +
-            `Missing: ${missingStages.map(s => `${s.order}. ${s.title}`).join(", ")}`
+            `[quiz/start] ⚠️ User ${userId} hasn't COMPLETED previous stages for stage ${activeTournamentStage.order}. ` +
+            `Missing: ${missingStages.map(s => `${s.order}. ${s.title}`).join(", ")}. ` +
+            `Completed results: ${JSON.stringify(previousResults)}`
+          );
+        } else {
+          // Все этапы завершены - логируем для диагностики
+          console.log(
+            `[quiz/start] ✅ User ${userId} completed all previous stages: ${JSON.stringify(previousResults)}`
           );
         }
       }
