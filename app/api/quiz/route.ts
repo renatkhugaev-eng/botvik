@@ -77,10 +77,18 @@ export async function GET(req: NextRequest) {
   const globalUsedAttempts = allRecentSessions.length;
   const globalRemaining = Math.max(0, MAX_ATTEMPTS - globalUsedAttempts);
   
+  // Получаем бонусную энергию пользователя
+  const userBonusEnergy = await prisma.user.findUnique({
+    where: { id: userIdNum },
+    select: { bonusEnergy: true },
+  });
+  const bonusEnergy = userBonusEnergy?.bonusEnergy ?? 0;
+  
   let globalEnergyWaitMs: number | null = null;
   let globalNextSlotAt: string | null = null;
 
-  if (globalUsedAttempts >= MAX_ATTEMPTS && allRecentSessions.length > 0) {
+  // Показываем кулдаун ТОЛЬКО если нет ни обычной, ни бонусной энергии
+  if (globalUsedAttempts >= MAX_ATTEMPTS && bonusEnergy <= 0 && allRecentSessions.length > 0) {
     const oldestSession = allRecentSessions[0];
     const nextSlot = new Date(oldestSession.startedAt.getTime() + ATTEMPT_COOLDOWN_MS);
     globalEnergyWaitMs = nextSlot.getTime() - Date.now();
@@ -120,6 +128,8 @@ export async function GET(req: NextRequest) {
           remaining: globalRemaining,
           energyWaitMs: globalEnergyWaitMs,
           nextSlotAt: globalNextSlotAt,
+          // Бонусная энергия — если есть, можно играть даже при remaining=0
+          bonusEnergy,
           // Rate limit per-quiz
           rateLimitWaitSeconds,
           hasUnfinishedSession: !!unfinishedSession,
