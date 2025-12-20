@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
 
   // ═══ ВАЖНО: Сначала проверяем и разблокируем достижения ═══
   // Это гарантирует что все достижения актуальны при каждом просмотре
-  const stats = await getUserStats(auth.user.id);
-  const specialAchievements: string[] = [...checkAutoSpecialAchievements(stats)];
+  const userStats = await getUserStats(auth.user.id);
+  const specialAchievements: string[] = [...checkAutoSpecialAchievements(userStats)];
   
   const isOG = await checkOGPlayerAchievement(auth.user.id);
   if (isOG) {
