@@ -57,7 +57,7 @@ export type AchievementRequirementType =
   | "total_score"              // Всего очков
   | "best_score"               // Лучший результат за игру
   | "perfect_games"            // Идеальных игр (100%)
-  | "daily_streak"             // Серия daily rewards
+  | "daily_streak"             // Серия daily rewards (непрерывная, для достижений)
   | "quiz_streak"              // Серия правильных ответов
   | "friends_count"            // Количество друзей
   | "chat_messages"            // Сообщений в чате
@@ -71,6 +71,9 @@ export type AchievementRequirementType =
   | "different_quizzes"        // Разных квизов сыграно
   | "login_days"               // Дней захода в приложение
   | "referrals_count"          // Количество приглашённых друзей
+  | "rare_achievements"        // Количество редких+ достижений
+  | "total_achievements"       // Всего разблокированных достижений
+  | "quizzes_today"            // Квизов сегодня (для weekend_warrior)
   | "special";                 // Особое условие (проверяется кодом)
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -956,7 +959,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: "special",
     rarity: "rare",
     xpReward: 100,
-    requirement: { type: "special", value: 1 },
+    requirement: { type: "quizzes_today", value: 10 },
     secret: true,
   },
   {
@@ -1056,7 +1059,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: "collector",
     rarity: "common",
     xpReward: 50,
-    requirement: { type: "special", value: 10 },
+    requirement: { type: "total_achievements", value: 10 },
   },
   {
     id: "achievements_25",
@@ -1066,7 +1069,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: "collector",
     rarity: "uncommon",
     xpReward: 100,
-    requirement: { type: "special", value: 25 },
+    requirement: { type: "total_achievements", value: 25 },
   },
   {
     id: "achievements_50",
@@ -1076,7 +1079,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: "collector",
     rarity: "rare",
     xpReward: 200,
-    requirement: { type: "special", value: 50 },
+    requirement: { type: "total_achievements", value: 50 },
   },
   {
     id: "achievements_75",
@@ -1086,7 +1089,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: "collector",
     rarity: "epic",
     xpReward: 350,
-    requirement: { type: "special", value: 75 },
+    requirement: { type: "total_achievements", value: 75 },
   },
   {
     id: "rare_collector",
@@ -1096,7 +1099,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: "collector",
     rarity: "epic",
     xpReward: 300,
-    requirement: { type: "special", value: 10 },
+    requirement: { type: "rare_achievements", value: 10 },
   },
 
   // ═══════════════════════════════════════════════════════════════════════════

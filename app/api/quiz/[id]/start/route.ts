@@ -197,18 +197,40 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // ═══ NEW SESSION — Check energy and create ═══
   
   // Проверяем, является ли квиз частью активного турнира
-  // В турнирных квизах энергия НЕ тратится!
+  // И зарегистрирован ли пользователь в этом турнире!
+  // Энергия НЕ тратится только если оба условия выполнены
   const activeTournamentStage = await prisma.tournamentStage.findFirst({
     where: {
       quizId,
       tournament: {
-        status: { in: ["UPCOMING", "ACTIVE"] },
+        status: "ACTIVE", // Только активные турниры (не UPCOMING)
       },
     },
-    select: { id: true, tournamentId: true },
+    select: { 
+      id: true, 
+      tournamentId: true,
+      tournament: {
+        select: {
+          participants: {
+            where: { userId },
+            select: { id: true, status: true },
+          },
+        },
+      },
+    },
   });
   
-  const isTournamentQuiz = !!activeTournamentStage;
+  // Квиз турнирный только если:
+  // 1. Есть активный этап турнира с этим квизом
+  // 2. Пользователь зарегистрирован в турнире со статусом REGISTERED или ACTIVE
+  const participantInfo = activeTournamentStage?.tournament?.participants?.[0];
+  const isValidParticipant = participantInfo && 
+    (participantInfo.status === "REGISTERED" || participantInfo.status === "ACTIVE");
+  const isTournamentQuiz = !!activeTournamentStage && isValidParticipant;
+  
+  if (activeTournamentStage && !isValidParticipant) {
+    console.log(`[quiz/start] User ${userId} trying tournament quiz ${quizId} but NOT valid participant in tournament ${activeTournamentStage.tournamentId} (status: ${participantInfo?.status ?? "NOT_JOINED"})`);
+  }
   
   // Get recent sessions, last finished, total attempts, and user's bonus energy in parallel
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
@@ -310,7 +332,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Логирование для турнирных квизов
   if (isTournamentQuiz) {
-    console.log(`[quiz/start] Tournament quiz! User ${userId} starting quiz ${quizId} (stage ${activeTournamentStage?.id}) — energy NOT consumed`);
+    console.log(`[quiz/start] 🏆 Tournament quiz! User ${userId} starting quiz ${quizId} (tournament ${activeTournamentStage?.tournamentId}, stage ${activeTournamentStage?.id}) — energy NOT consumed`);
+  } else if (activeTournamentStage) {
+    console.log(`[quiz/start] User ${userId} playing quiz ${quizId} (tournament quiz but NOT registered) — energy consumed`);
   }
 
   return NextResponse.json({

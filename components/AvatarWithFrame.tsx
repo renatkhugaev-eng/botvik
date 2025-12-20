@@ -25,97 +25,133 @@ function AvatarWithFrameComponent({
   showRing = false,
   ringColor = "from-purple-500 to-pink-500",
 }: AvatarWithFrameProps) {
-  // Рамка должна быть больше аватарки
-  // Круглое отверстие в рамках занимает ~55% от размера картинки
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ПРОФЕССИОНАЛЬНОЕ РЕШЕНИЕ: CSS Grid + Transform центрирование
+  // 
+  // Архитектура:
+  // 1. Контейнер = размер рамки (size * multiplier)
+  // 2. Рамка заполняет контейнер полностью (inset-0)
+  // 3. Аватар центрируется через CSS transform (не пиксельные расчёты)
+  // 4. Микро-коррекции через translate для конкретных рамок
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   const frameMultiplier = 1.85;
   const hasFrame = !!frameUrl;
-  
-  // Если есть рамка — контейнер больше, иначе = размеру аватарки
   const containerSize = hasFrame ? size * frameMultiplier : size;
-  const frameSize = size * frameMultiplier;
   
-  // Базовый отступ для центрирования (только когда есть рамка)
-  const baseOffset = hasFrame ? (frameSize - size) / 2 : 0;
+  // Извлекаем slug рамки для микро-коррекций
+  const frameSlug = frameUrl?.split('/').pop()?.replace('.png', '') ?? null;
   
-  // Извлекаем slug рамки из URL для индивидуальных настроек
-  const frameSlug = frameUrl ? frameUrl.split('/').pop()?.replace('.png', '') : null;
-  
-  // Индивидуальные смещения для разных рамок (% от размера аватара)
-  // vertical: отрицательное = вверх, положительное = вниз
-  const frameOffsets: Record<string, { vertical: number; horizontal: number }> = {
-    bunny: { vertical: -0.15, horizontal: 0 },    // Зайчик — уши высокие, поднять
-    tiger: { vertical: 0.05, horizontal: 0 },     // Тигр — опустить вниз
-    fox: { vertical: 0.03, horizontal: 0 },       // Лисичка — чуть опустить
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КОРРЕКЦИИ — рассчитаны скриптом scripts/analyze-frames.ts
+  // Значения в процентах от размера аватара (size)
+  // y: положительное = вниз, отрицательное = вверх
+  // x: положительное = вправо, отрицательное = влево
+  // ═══════════════════════════════════════════════════════════════════════════
+  const corrections: Record<string, { x: number; y: number }> = {
+    bunny: { y: -0.10, x: 0.01 },
+    cat: { y: 0.00, x: 0.01 },
+    chick: { y: 0.00, x: 0.00 },
+    cow: { y: -0.07, x: 0.00 },
+    dog: { y: -0.02, x: 0.03 },
+    fox: { y: 0.05, x: 0.03 },
+    frog: { y: 0.06, x: 0.00 },
+    giraffe: { y: 0.00, x: 0.00 },
+    hippo: { y: 0.03, x: 0.00 },
+    horse: { y: 0.00, x: 0.01 },
+    mouse: { y: -0.03, x: 0.01 },
+    panda: { y: -0.02, x: 0.01 },
+    penguin: { y: 0.04, x: 0.00 },
+    pig: { y: -0.03, x: 0.02 },
+    sheep: { y: -0.03, x: -0.02 },
+    tiger: { y: 0.06, x: 0.00 },
+    zebra: { y: 0.03, x: -0.01 },
   };
   
-  const offsets = frameSlug && frameOffsets[frameSlug] 
-    ? frameOffsets[frameSlug] 
-    : { vertical: -0.05, horizontal: 0 }; // Дефолт: 5% вверх
+  const correctionPercent = frameSlug && corrections[frameSlug] 
+    ? corrections[frameSlug] 
+    : { x: 0, y: 0 };
   
-  const frameVerticalOffset = hasFrame ? size * offsets.vertical : 0;
-  const frameHorizontalOffset = hasFrame ? size * offsets.horizontal : 0;
+  // Конвертируем проценты в пиксели
+  const correction = {
+    x: size * correctionPercent.x,
+    y: size * correctionPercent.y,
+  };
 
+  // Без рамки — простой рендер аватара
+  if (!hasFrame) {
+    return (
+      <div 
+        className={`relative flex-shrink-0 ${className}`}
+        style={{ width: size, height: size }}
+      >
+        {showRing && (
+          <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`} />
+        )}
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt="Avatar"
+            className="h-full w-full rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]">
+            <span className="font-bold text-white" style={{ fontSize: size * 0.4 }}>
+              {fallbackLetter.toUpperCase()}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // С рамкой — аватар фиксирован в центре, РАМКА двигается
   return (
     <div 
       className={`relative flex-shrink-0 ${className}`}
       style={{ width: containerSize, height: containerSize }}
     >
-      {/* Аватарка (центрирована когда есть рамка) */}
+      {/* Аватар — ВСЕГДА в центре контейнера */}
       <div
-        className={hasFrame ? "absolute" : "relative"}
+        className="absolute"
         style={{
-          top: hasFrame ? baseOffset : undefined,
-          left: hasFrame ? baseOffset : undefined,
           width: size,
           height: size,
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
         }}
       >
-        {/* Опциональное кольцо под аватаркой */}
         {showRing && (
-          <div 
-            className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`}
-          />
+          <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`} />
         )}
-        
         {photoUrl ? (
           <img
             src={photoUrl}
             alt="Avatar"
-            width={size}
-            height={size}
-            className="relative h-full w-full rounded-full object-cover"
-            style={{ aspectRatio: "1/1" }}
+            className="h-full w-full rounded-full object-cover"
           />
         ) : (
-          <div 
-            className="relative flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]"
-          >
-            <span 
-              className="font-bold text-white"
-              style={{ fontSize: size * 0.4 }}
-            >
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]">
+            <span className="font-bold text-white" style={{ fontSize: size * 0.4 }}>
               {fallbackLetter.toUpperCase()}
             </span>
           </div>
         )}
       </div>
       
-      {/* Косметическая рамка (поверх всего, смещена вверх) */}
-      {hasFrame && (
-        <img
-          src={frameUrl}
-          alt="Frame"
-          width={frameSize}
-          height={frameSize}
-          className="pointer-events-none absolute"
-          style={{
-            width: frameSize,
-            height: frameSize,
-            top: frameVerticalOffset,
-            left: frameHorizontalOffset,
-          }}
-        />
-      )}
+      {/* Рамка — двигается для выравнивания отверстия с аватаром */}
+      <img
+        src={frameUrl}
+        alt="Frame"
+        className="pointer-events-none absolute"
+        style={{
+          width: containerSize,
+          height: containerSize,
+          top: correction.y,
+          left: correction.x,
+        }}
+      />
     </div>
   );
 }

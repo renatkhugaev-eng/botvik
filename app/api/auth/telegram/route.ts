@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseInitData, validateInitData } from "@/lib/telegram";
+import { notifyFriendActivity } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -133,6 +134,12 @@ export async function POST(req: NextRequest) {
             },
           });
           console.log(`[auth/telegram] Referral: user ${newUser.id} referred by ${referrerId}`);
+          
+          // Уведомляем реферера о новом друге (async, не блокируем)
+          const friendName = newUser.username || newUser.firstName || "Новый игрок";
+          notifyFriendActivity(referrerId, friendName, "joined").catch(err => {
+            console.error("[auth/telegram] Failed to notify referrer:", err);
+          });
         }
         
         return newUser;

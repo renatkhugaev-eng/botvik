@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, tournamentJoinLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -53,7 +54,7 @@ export async function GET(
       },
       participants: {
         orderBy: { totalScore: "desc" },
-        take: 10,
+        take: 50, // Увеличено для корректного расчёта ранга
         include: {
           user: {
             select: {
@@ -206,6 +207,15 @@ export async function POST(
   }
   
   const userId = auth.user.id;
+  
+  // ═══ RATE LIMITING ═══
+  // Предотвращает спам-регистрацию на турниры
+  const identifier = getClientIdentifier(req, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(tournamentJoinLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+  
   const { id } = await context.params;
   
   // Получаем турнир
@@ -257,21 +267,32 @@ export async function POST(
       }
       
       // 2. Проверяем и списываем XP (если есть entryFee)
+      // АТОМАРНАЯ ОПЕРАЦИЯ: UPDATE ... WHERE xp >= entryFee
+      // Это предотвращает race condition когда два запроса одновременно
+      // проверяют баланс и списывают XP
       if (tournament.entryFee > 0) {
+        // Получаем текущий XP для сообщения об ошибке
         const user = await tx.user.findUnique({
           where: { id: userId },
           select: { xp: true },
         });
         
-        if (!user || user.xp < tournament.entryFee) {
-          throw new Error(`insufficient_xp:${tournament.entryFee}:${user?.xp ?? 0}`);
-        }
+        const currentXp = user?.xp ?? 0;
         
-        // Списываем XP атомарно
-        await tx.user.update({
-          where: { id: userId },
+        // Атомарное списание с проверкой в WHERE
+        // Если XP недостаточно — обновится 0 записей
+        const updateResult = await tx.user.updateMany({
+          where: { 
+            id: userId, 
+            xp: { gte: tournament.entryFee }, // Проверка баланса в WHERE
+          },
           data: { xp: { decrement: tournament.entryFee } },
         });
+        
+        // Если не обновилось ни одной записи — недостаточно XP
+        if (updateResult.count === 0) {
+          throw new Error(`insufficient_xp:${tournament.entryFee}:${currentXp}`);
+        }
       }
       
       // 3. Регистрируем участника

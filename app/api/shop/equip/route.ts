@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, shopEquipLimiter } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,12 @@ export async function POST(req: NextRequest) {
 
   const userId = auth.user.id;
 
+  // Rate limiting
+  const rateLimit = await checkRateLimit(shopEquipLimiter, `user:${userId}`);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   let body: { itemId: number | null };
   try {
     body = await req.json();
@@ -27,18 +34,23 @@ export async function POST(req: NextRequest) {
 
   // Если itemId = null, снимаем рамку
   if (itemId === null) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { equippedFrameId: null },
-    });
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { equippedFrameId: null },
+      });
 
-    console.log(`[shop/equip] User ${userId} unequipped frame`);
+      console.log(`[shop/equip] User ${userId} unequipped frame`);
 
-    return NextResponse.json({
-      ok: true,
-      equipped: null,
-      message: "Рамка снята",
-    });
+      return NextResponse.json({
+        ok: true,
+        equipped: null,
+        message: "Рамка снята",
+      });
+    } catch (error) {
+      console.error("[shop/equip] Failed to unequip:", error);
+      return NextResponse.json({ error: "db_error" }, { status: 500 });
+    }
   }
 
   // Проверяем что itemId — число
@@ -66,21 +78,26 @@ export async function POST(req: NextRequest) {
   }
 
   // Надеваем рамку
-  await prisma.user.update({
-    where: { id: userId },
-    data: { equippedFrameId: itemId },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { equippedFrameId: itemId },
+    });
 
-  console.log(`[shop/equip] User ${userId} equipped frame ${itemId}`);
+    console.log(`[shop/equip] User ${userId} equipped frame ${itemId}`);
 
-  return NextResponse.json({
-    ok: true,
-    equipped: {
-      id: ownership.item.id,
-      slug: ownership.item.slug,
-      title: ownership.item.title,
-      imageUrl: ownership.item.imageUrl,
-    },
-    message: `Рамка "${ownership.item.title}" надета!`,
-  });
+    return NextResponse.json({
+      ok: true,
+      equipped: {
+        id: ownership.item.id,
+        slug: ownership.item.slug,
+        title: ownership.item.title,
+        imageUrl: ownership.item.imageUrl,
+      },
+      message: `Рамка "${ownership.item.title}" надета!`,
+    });
+  } catch (error) {
+    console.error("[shop/equip] Failed to equip:", error);
+    return NextResponse.json({ error: "db_error" }, { status: 500 });
+  }
 }

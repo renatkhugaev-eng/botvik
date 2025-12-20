@@ -21,7 +21,9 @@ model User {
   lastQuizAt      DateTime?                  // Last quiz completion (for daily bonus tracking)
   
   // Daily Rewards System
-  dailyRewardStreak   Int       @default(0)      // Текущая серия дней (1-7, сбрасывается после 7)
+  dailyRewardStreak   Int       @default(0)      // Текущая серия дней (1-7, для UI цикла наград)
+  totalDailyStreak    Int       @default(0)      // Общая непрерывная серия дней (для достижений, не сбрасывается на 7)
+  maxDailyStreak      Int       @default(0)      // Максимальная серия за всё время (для достижений)
   lastDailyRewardAt   DateTime?                  // Когда последний раз забрал награду
   
   // Bonus Energy System (from Daily Rewards)

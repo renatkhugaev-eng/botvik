@@ -5,8 +5,9 @@ import {
   getUserAchievements,
   getNewAchievements,
   markAchievementsNotified,
-  checkTimeBasedAchievements,
+  checkAutoSpecialAchievements,
   checkOGPlayerAchievement,
+  getUserStats,
 } from "@/lib/achievement-checker";
 import {
   ACHIEVEMENTS,
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
 
   // ═══ ВАЖНО: Сначала проверяем и разблокируем достижения ═══
   // Это гарантирует что все достижения актуальны при каждом просмотре
-  const specialAchievements: string[] = [...checkTimeBasedAchievements()];
+  const stats = await getUserStats(auth.user.id);
+  const specialAchievements: string[] = [...checkAutoSpecialAchievements(stats)];
   
   const isOG = await checkOGPlayerAchievement(auth.user.id);
   if (isOG) {
@@ -136,10 +138,8 @@ export async function POST(request: NextRequest) {
 
   // Проверить и разблокировать достижения
   // Собираем специальные достижения для проверки
-  const specialAchievements: string[] = [];
-
-  // Проверяем временные достижения
-  specialAchievements.push(...checkTimeBasedAchievements());
+  const stats = await getUserStats(auth.user.id);
+  const specialAchievements: string[] = [...checkAutoSpecialAchievements(stats)];
 
   // Проверяем OG Player
   const isOG = await checkOGPlayerAchievement(auth.user.id);

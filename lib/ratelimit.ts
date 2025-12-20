@@ -108,6 +108,71 @@ export const adminLimiter = new Ratelimit({
   analytics: true,
 });
 
+// Shop purchase: 10 per minute (prevent spam buying)
+export const shopPurchaseLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, "1 m"),
+  prefix: "ratelimit:shop:purchase",
+  analytics: true,
+});
+
+// Shop equip: 30 per minute (allow trying different frames)
+export const shopEquipLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(30, "1 m"),
+  prefix: "ratelimit:shop:equip",
+  analytics: true,
+});
+
+// Tournament join: 5 per minute (prevent spam joining)
+export const tournamentJoinLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  prefix: "ratelimit:tournament:join",
+  analytics: true,
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DISTRIBUTED DEBOUNCE
+// Uses Redis for cross-instance debouncing in serverless environments
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Redis-based distributed debounce for serverless environments
+ * Returns true if operation should proceed, false if debounced
+ * 
+ * @param key - Unique key for the operation (e.g., "tournament:status-update")
+ * @param ttlMs - Debounce window in milliseconds
+ */
+export async function distributedDebounce(key: string, ttlMs: number): Promise<boolean> {
+  if (!isRateLimitConfigured()) {
+    // No Redis - allow (dev mode)
+    return true;
+  }
+  
+  try {
+    // Use SET NX (set if not exists) with TTL
+    // Returns "OK" if key was set (first call), null if already exists (debounced)
+    const result = await redis.set(key, Date.now(), {
+      nx: true,
+      px: ttlMs,
+    });
+    
+    return result === "OK";
+  } catch (error) {
+    console.error("[debounce] Redis error:", error);
+    // Fail open - allow the operation
+    return true;
+  }
+}
+
+/**
+ * Get Redis client for advanced operations
+ */
+export function getRedisClient() {
+  return redis;
+}
+
 /**
  * Result of rate limit check
  */

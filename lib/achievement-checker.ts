@@ -40,6 +40,12 @@ export type UserStats = {
   accountAgeDays: number;
   referralsCount: number;
   userId: number;
+  // Специальные поля для достижений
+  rareAchievementsCount: number;  // Количество редких+ достижений
+  totalAchievementsCount: number; // Всего разблокированных достижений
+  daysSinceLastQuiz: number;      // Дней с последнего квиза (для comeback)
+  quizzesToday: number;           // Квизов сегодня (для weekend_warrior)
+  isWeekend: boolean;             // Сегодня выходной
 };
 
 export type UnlockedAchievement = {
@@ -80,10 +86,13 @@ export async function getUserStats(userId: number): Promise<UserStats> {
       select: {
         xp: true,
         dailyRewardStreak: true,
+        totalDailyStreak: true,
+        maxDailyStreak: true,
         bonusEnergy: true,
         bonusEnergyEarned: true,
         bonusEnergyUsed: true,
         createdAt: true,
+        lastQuizAt: true, // Для comeback achievement
       },
     }),
     
@@ -200,6 +209,42 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     ? Math.floor((Date.now() - user.createdAt.getTime()) / (24 * 60 * 60 * 1000))
     : 0;
 
+  // ═══ СПЕЦИАЛЬНЫЕ ПОЛЯ ДЛЯ ДОСТИЖЕНИЙ ═══
+  
+  // Дней с последнего квиза (для comeback)
+  const daysSinceLastQuiz = user?.lastQuizAt
+    ? Math.floor((Date.now() - user.lastQuizAt.getTime()) / (24 * 60 * 60 * 1000))
+    : 0;
+  
+  // Проверяем выходной (суббота=6 или воскресенье=0)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+  // Квизов сегодня (для weekend_warrior)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const quizzesToday = await prisma.quizSession.count({
+    where: {
+      userId,
+      startedAt: { gte: todayStart },
+    },
+  });
+  
+  // Количество разблокированных достижений
+  const unlockedAchievements = await prisma.userAchievement.findMany({
+    where: { userId },
+    select: { achievementId: true },
+  });
+  const totalAchievementsCount = unlockedAchievements.length;
+  
+  // Количество редких+ достижений (rare, epic, legendary)
+  const rareRarities = ["rare", "epic", "legendary"];
+  const rareAchievementsCount = unlockedAchievements.filter(ua => {
+    const ach = ACHIEVEMENTS.find(a => a.id === ua.achievementId);
+    return ach && rareRarities.includes(ach.rarity);
+  }).length;
+
   return {
     quizzesPlayed: sessionsData._count?.id ?? 0,
     quizzesCompleted: completedSessions,
@@ -207,7 +252,9 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     totalScore: sessionsData._sum?.totalScore ?? 0,
     bestScore: sessionsData._max?.totalScore ?? 0,
     perfectGames: Number(perfectGames[0]?.count ?? 0),
-    dailyStreak: user?.dailyRewardStreak ?? 0,
+    // Используем totalDailyStreak для достижений (не сбрасывается после 7)
+    // Fallback на dailyRewardStreak для обратной совместимости
+    dailyStreak: user?.totalDailyStreak ?? user?.dailyRewardStreak ?? 0,
     maxQuizStreak: maxStreak._max?.maxStreak ?? 0,
     friendsCount,
     chatMessages: chatCount,
@@ -223,6 +270,12 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     accountAgeDays,
     referralsCount,
     userId,
+    // Специальные поля
+    rareAchievementsCount,
+    totalAchievementsCount,
+    daysSinceLastQuiz,
+    quizzesToday,
+    isWeekend,
   };
 }
 
@@ -255,6 +308,9 @@ function getStatValue(stats: UserStats, type: AchievementRequirementType): numbe
     case "different_quizzes": return stats.differentQuizzes;
     case "login_days": return stats.loginDays;
     case "referrals_count": return stats.referralsCount;
+    case "rare_achievements": return stats.rareAchievementsCount;
+    case "total_achievements": return stats.totalAchievementsCount;
+    case "quizzes_today": return stats.isWeekend ? stats.quizzesToday : 0; // Только в выходные
     case "special": return 0; // Special achievements checked separately
     default: return 0;
   }
@@ -328,24 +384,8 @@ export async function checkAndUnlockAchievements(
     }
   }
   
-  // Проверяем достижения-коллекторы (количество разблокированных)
-  const achievementMilestones: Record<number, string> = {
-    10: "achievements_10",
-    25: "achievements_25",
-    50: "achievements_50",
-    75: "achievements_75",
-  };
-  
-  const futureUnlockedCount = unlockedSet.size + toUnlock.length;
-  for (const [count, milestoneId] of Object.entries(achievementMilestones)) {
-    const countNum = Number(count);
-    if (!unlockedSet.has(milestoneId) && futureUnlockedCount >= countNum) {
-      const achievement = getAchievementById(milestoneId);
-      if (achievement && !toUnlock.find(a => a.id === milestoneId)) {
-        toUnlock.push(achievement);
-      }
-    }
-  }
+  // Достижения-коллекторы теперь проверяются через total_achievements requirement
+  // (см. checkAchievementCondition с stats.totalAchievementsCount)
   
   // Если нечего разблокировать — быстрый выход
   if (toUnlock.length === 0) {
@@ -515,7 +555,6 @@ export function checkTimeBasedAchievements(): string[] {
   const mskHour = (now.getUTCHours() + 3) % 24;
   const month = now.getUTCMonth() + 1;
   const day = now.getUTCDate();
-  const dayOfWeek = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
   
   const achievements: string[] = [];
   
@@ -534,10 +573,32 @@ export function checkTimeBasedAchievements(): string[] {
     achievements.push("new_year");
   }
   
-  // Выходной (суббота или воскресенье)
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    // weekend_warrior проверяется отдельно (10 квизов за день)
+  return achievements;
+}
+
+/**
+ * Проверить достижение "Comeback" (вернулся после 7+ дней отсутствия)
+ */
+export function checkComebackAchievement(daysSinceLastQuiz: number): boolean {
+  return daysSinceLastQuiz >= 7;
+}
+
+/**
+ * Проверить все автоматические специальные достижения на основе stats
+ */
+export function checkAutoSpecialAchievements(stats: UserStats): string[] {
+  const achievements: string[] = [];
+  
+  // Добавляем временные достижения
+  achievements.push(...checkTimeBasedAchievements());
+  
+  // Comeback (7+ дней без игры)
+  if (checkComebackAchievement(stats.daysSinceLastQuiz)) {
+    achievements.push("comeback");
   }
+  
+  // Weekend Warrior теперь проверяется через quizzes_today requirement
+  // (не нужен здесь)
   
   return achievements;
 }

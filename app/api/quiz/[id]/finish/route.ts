@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateQuizXp, getLevelProgress, getLevelTitle, type XpBreakdown } from "@/lib/xp";
-import { notifyLevelUp } from "@/lib/notifications";
+import { notifyLevelUp, checkAndNotifyLeaderboardChanges, notifyFriendActivity } from "@/lib/notifications";
 import { getWeekStart } from "@/lib/week";
 import { 
   calculateTotalScore, 
@@ -14,6 +14,9 @@ import {
   checkAndUnlockAchievements,
   checkTimeBasedAchievements,
   checkSpeedDemonAchievement,
+  checkInstantAnswerAchievement,
+  getUserStats,
+  checkComebackAchievement,
 } from "@/lib/achievement-checker";
 
 export const runtime = "nodejs";
@@ -61,6 +64,62 @@ type FinishRequestBody = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// REFERRER NOTIFICATION HELPER
+// Notify referrer when their referral beats their per-quiz best score
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function notifyReferrerIfBeaten(
+  userId: number,
+  quizId: number,
+  newScore: number
+): Promise<void> {
+  // Get user with their referrer info
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      username: true,
+      firstName: true,
+      referredById: true,
+    },
+  });
+  
+  if (!user?.referredById) return; // No referrer
+  
+  // Get referrer's best score for this quiz
+  const referrerEntry = await prisma.leaderboardEntry.findUnique({
+    where: {
+      userId_quizId_periodType: {
+        userId: user.referredById,
+        quizId,
+        periodType: "ALL_TIME",
+      },
+    },
+    select: { bestScore: true },
+  });
+  
+  // Only notify if referral beat referrer's score
+  if (!referrerEntry || newScore <= referrerEntry.bestScore) return;
+  
+  // Get quiz title
+  const quiz = await prisma.quiz.findUnique({
+    where: { id: quizId },
+    select: { title: true },
+  });
+  
+  const userName = user.username || user.firstName || "Друг";
+  
+  await notifyFriendActivity(
+    user.referredById,
+    userName,
+    "beat_score",
+    quiz?.title,
+    newScore
+  );
+  
+  console.log(`[finish] Notified referrer ${user.referredById}: ${userName} beat their score`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TOURNAMENT STAGE PROCESSING
 // Полная логика с транзакциями, проверкой последовательности и minScore/topN
 // ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +132,10 @@ async function processTournamentStage(
 ): Promise<TournamentStageInfo | null> {
   const now = new Date();
   
-  // ═══ 1. Находим активный турнирный этап с этим квизом ═══
+  // ═══ 1. Находим турнирный этап с этим квизом ═══
+  // ВАЖНО: Не накладываем строгие временные ограничения на этап
+  // Пользователь мог начать квиз вовремя, но закончить позже
+  // Основная проверка — турнир ACTIVE и пользователь участник
   const activeStage = await prisma.tournamentStage.findFirst({
     where: {
       quizId,
@@ -86,12 +148,11 @@ async function processTournamentStage(
           },
         },
       },
-      // Этап должен быть активен по времени
+      // Упрощённая проверка: этап должен был начаться (startsAt <= now) или не иметь времени начала
+      // Не проверяем endsAt — чтобы засчитать результат если пользователь начал вовремя
       OR: [
-        { startsAt: null, endsAt: null },
-        { startsAt: { lte: now }, endsAt: { gte: now } },
-        { startsAt: { lte: now }, endsAt: null },
-        { startsAt: null, endsAt: { gte: now } },
+        { startsAt: null },
+        { startsAt: { lte: now } },
       ],
     },
     include: {
@@ -119,6 +180,39 @@ async function processTournamentStage(
   });
 
   if (!activeStage) {
+    // Логируем для диагностики
+    console.log(`[tournament/finish] No active stage found for quiz ${quizId}, user ${userId}`);
+    
+    // Попробуем найти почему не нашли
+    const debugStage = await prisma.tournamentStage.findFirst({
+      where: { quizId },
+      include: {
+        tournament: {
+          select: {
+            id: true,
+            status: true,
+            participants: {
+              where: { userId },
+              select: { status: true },
+            },
+          },
+        },
+      },
+    });
+    
+    if (debugStage) {
+      console.log(`[tournament/finish] Debug: Found stage for quiz ${quizId}:`, {
+        stageId: debugStage.id,
+        tournamentId: debugStage.tournament.id,
+        tournamentStatus: debugStage.tournament.status,
+        userParticipation: debugStage.tournament.participants[0]?.status ?? "NOT_JOINED",
+        stageStartsAt: debugStage.startsAt,
+        stageEndsAt: debugStage.endsAt,
+      });
+    } else {
+      console.log(`[tournament/finish] Debug: Quiz ${quizId} is not part of any tournament`);
+    }
+    
     return null;
   }
 
@@ -407,6 +501,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // Calculate total leaderboard score
   const leaderboardScore = calculateTotalScore(newBestScore, newAttempts);
 
+  // ═══ NOTIFY REFERRER IF THEIR REFERRAL BEAT THEIR SCORE ═══
+  if (!alreadyFinished && currentGameScore > currentBestScore) {
+    // Check if user was referred by someone and beat their per-quiz score
+    notifyReferrerIfBeaten(session.userId, quizId, currentGameScore).catch(err =>
+      console.error("[finish] Referrer beat notification failed:", err)
+    );
+  }
+
   // ═══ WEEKLY SCORE UPDATE ═══
   // Same Best + Activity system for weekly competition
   
@@ -462,6 +564,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       };
 
       console.log("[finish] Weekly score updated:", weeklyScoreInfo);
+      
+      // Check if this pushed anyone down in the leaderboard (async, non-blocking)
+      checkAndNotifyLeaderboardChanges(
+        session.userId,
+        weeklyScoreInfo.totalScore,
+        weekStart
+      ).catch(err => console.error("[finish] Leaderboard notification failed:", err));
+      
     } catch (weeklyError) {
       console.error("[finish] Weekly score update failed:", weeklyError);
     }
@@ -572,9 +682,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         specialAchievements.push("speed_demon");
       }
       
-      // Проверяем идеальную игру
-      if (serverCorrectCount === serverTotalQuestions && serverTotalQuestions > 0) {
-        // perfect_game будет проверен автоматически через perfect_games stat
+      // Проверяем Instant Answer (любой ответ < 1 сек)
+      const sessionAnswers = await prisma.answer.findMany({
+        where: { sessionId },
+        select: { timeSpentMs: true, isCorrect: true },
+      });
+      const hasInstantAnswer = sessionAnswers.some(a => 
+        checkInstantAnswerAchievement(a.timeSpentMs, a.isCorrect)
+      );
+      if (hasInstantAnswer) {
+        specialAchievements.push("instant_answer");
+      }
+      
+      // Проверяем Comeback (7+ дней без игры)
+      const stats = await getUserStats(session.userId);
+      if (checkComebackAchievement(stats.daysSinceLastQuiz)) {
+        specialAchievements.push("comeback");
       }
       
       // Проверяем и разблокируем достижения

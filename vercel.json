@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/tournaments",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-purchases",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/energy-notifications",
+      "schedule": "30 * * * *"
     }
   ]
 }

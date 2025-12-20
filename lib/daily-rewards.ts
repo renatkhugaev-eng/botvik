@@ -192,6 +192,23 @@ export function calculateNewStreak(
     return 1;
   }
   
-  // Увеличиваем серию (цикл 1-7)
+  // Увеличиваем серию (цикл 1-7 для UI)
   return (currentStreak % 7) + 1;
+}
+
+/**
+ * Рассчитать новую ОБЩУЮ серию (для достижений)
+ * Эта серия не сбрасывается после 7 дней, только при пропуске
+ */
+export function calculateTotalStreak(
+  totalStreak: number,
+  lastDailyRewardAt: Date | null
+): number {
+  // Если серия прервалась (не забирал вчера) - начинаем с 1
+  if (lastDailyRewardAt && !isToday(lastDailyRewardAt) && !isYesterday(lastDailyRewardAt)) {
+    return 1;
+  }
+  
+  // Просто увеличиваем без сброса
+  return totalStreak + 1;
 }

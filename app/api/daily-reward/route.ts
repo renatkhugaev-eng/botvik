@@ -6,6 +6,7 @@ import { Redis } from "@upstash/redis";
 import {
   getDailyRewardStatus,
   calculateNewStreak,
+  calculateTotalStreak,
   getNextReward,
   isToday,
 } from "@/lib/daily-rewards";
@@ -124,6 +125,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
         select: {
           id: true,
           dailyRewardStreak: true,
+          totalDailyStreak: true,
+          maxDailyStreak: true,
           lastDailyRewardAt: true,
           xp: true,
         },
@@ -145,10 +148,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
         user.lastDailyRewardAt
       );
       
+      // Серия для UI (циклическая 1-7)
       const newStreak = calculateNewStreak(
         status.streakBroken ? 0 : user.dailyRewardStreak,
         user.lastDailyRewardAt
       );
+      
+      // Общая серия для достижений (не сбрасывается на 7)
+      const newTotalStreak = calculateTotalStreak(
+        status.streakBroken ? 0 : (user.totalDailyStreak ?? 0),
+        user.lastDailyRewardAt
+      );
+      
+      // Обновляем максимум если побили рекорд
+      const newMaxStreak = Math.max(user.maxDailyStreak ?? 0, newTotalStreak);
 
       // 4. Получаем награду
       const reward = getNextReward(status.streakBroken ? 0 : user.dailyRewardStreak);
@@ -161,6 +174,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
         where: { id: auth.user.id },
         data: {
           dailyRewardStreak: newStreak,
+          totalDailyStreak: newTotalStreak,
+          maxDailyStreak: newMaxStreak,
           lastDailyRewardAt: new Date(),
           xp: { increment: reward.xp },
           // Начисляем бонусную энергию если она есть в награде
@@ -172,11 +187,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
         select: {
           xp: true,
           dailyRewardStreak: true,
+          totalDailyStreak: true,
+          maxDailyStreak: true,
           bonusEnergy: true,
         },
       });
 
-      return { user, updatedUser, reward, newStreak, oldLevelInfo };
+      return { user, updatedUser, reward, newStreak, newTotalStreak, oldLevelInfo };
     });
 
     // Проверяем level up

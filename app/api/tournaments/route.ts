@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { distributedDebounce } from "@/lib/ratelimit";
 import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -116,29 +117,29 @@ export async function GET(req: NextRequest) {
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Дебаунс для updateTournamentStatuses
- * Обновляем статусы максимум раз в 5 секунд
- * (достаточно часто для UX, но не слишком нагружает БД)
- */
-let lastStatusUpdate = 0;
 const STATUS_UPDATE_DEBOUNCE_MS = 5_000; // 5 секунд
 
 /**
  * Автоматически обновляет статусы турниров на основе времени
- * С дебаунсом для оптимизации (не чаще раза в минуту)
+ * 
+ * ВАЖНО: Используем Redis-based distributed debounce для serverless среды
+ * Это гарантирует что обновление происходит не чаще раза в 5 секунд
+ * ГЛОБАЛЬНО (а не только в рамках одного инстанса)
  * 
  * Также запускает финализацию и раздачу призов для завершившихся турниров
  */
 async function updateTournamentStatuses() {
-  const now = Date.now();
+  // Distributed debounce через Redis
+  // Если вернулось false — другой инстанс недавно обновлял
+  const shouldUpdate = await distributedDebounce(
+    "tournament:status-update",
+    STATUS_UPDATE_DEBOUNCE_MS
+  );
   
-  // Проверяем дебаунс
-  if (now - lastStatusUpdate < STATUS_UPDATE_DEBOUNCE_MS) {
-    return; // Пропускаем — обновляли недавно
+  if (!shouldUpdate) {
+    return; // Другой инстанс обновил недавно
   }
   
-  lastStatusUpdate = now;
   const nowDate = new Date();
   
   try {

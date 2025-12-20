@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -58,13 +58,23 @@ const spring = { type: "spring", stiffness: 400, damping: 30 };
 
 export default function TournamentsPage() {
   const router = useRouter();
+  const mountedRef = useRef(true);
+  
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "upcoming" | "finished">("active");
+
+  // Cleanup при unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Загрузка турниров
   const loadTournaments = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const statusMap = {
         active: "ACTIVE",
@@ -74,11 +84,17 @@ export default function TournamentsPage() {
       const response = await api.get<TournamentsResponse>(
         `/api/tournaments?status=${statusMap[activeTab]}`
       );
+      if (!mountedRef.current) return;
       setTournaments(response.tournaments);
     } catch (err) {
       console.error("Failed to load tournaments:", err);
+      if (mountedRef.current) {
+        setError("Не удалось загрузить турниры");
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeTab]);
 
@@ -203,6 +219,24 @@ export default function TournamentsPage() {
               <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-200" />
             ))}
           </motion.div>
+        ) : error ? (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col items-center py-12"
+          >
+            <span className="text-6xl mb-4">😔</span>
+            <p className="text-lg font-bold text-slate-600">{error}</p>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={loadTournaments}
+              className="mt-4 px-5 py-2.5 bg-slate-100 rounded-xl text-sm font-medium"
+            >
+              Повторить
+            </motion.button>
+          </motion.div>
         ) : tournaments.length === 0 ? (
           <motion.div
             key="empty"
@@ -267,6 +301,10 @@ function useCountdown(
 ) {
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [hasExpired, setHasExpired] = useState(false);
+  
+  // Стабильная ref для callback
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
     if (!targetDate || !shouldRun) {
@@ -276,6 +314,7 @@ function useCountdown(
     }
 
     const target = new Date(targetDate).getTime();
+    let expired = false;
 
     const updateCountdown = () => {
       const now = Date.now();
@@ -283,10 +322,11 @@ function useCountdown(
 
       if (diff <= 0) {
         setTimeLeft("Начался!");
-        if (!hasExpired) {
+        if (!expired) {
+          expired = true;
           setHasExpired(true);
           // Вызываем callback для обновления данных
-          onExpire?.();
+          onExpireRef.current?.();
         }
         return;
       }
@@ -311,7 +351,7 @@ function useCountdown(
     const interval = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(interval);
-  }, [targetDate, shouldRun, onExpire, hasExpired]);
+  }, [targetDate, shouldRun]); // Убрали onExpire и hasExpired из зависимостей
 
   return { timeLeft, hasExpired };
 }

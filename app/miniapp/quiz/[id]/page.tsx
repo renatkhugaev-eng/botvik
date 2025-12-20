@@ -241,31 +241,35 @@ export default function QuizPlayPage() {
       setAnswerResult(null);
       setSelectedOption(null);
       
-      if (nextIndex >= questions.length) {
-        // Finish quiz
-        if (sessionId) {
-          fetchWithAuth(`/api/quiz/${quizId}/finish`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId }),
-          })
-            .then((res) => res.json())
-            .then((data: FinishResponse) => {
-              setTotalScore(data.totalScore);
-              // Use server-side accurate count for star calculation
-              if (data.correctCount !== undefined) {
-                setCorrectCount(data.correctCount);
-              }
-              setFinished(true);
-              haptic.heavy();
+        if (nextIndex >= questions.length) {
+          // Finish quiz
+          if (sessionId) {
+            fetchWithAuth(`/api/quiz/${quizId}/finish`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionId }),
             })
-            .catch(console.error);
+              .then((res) => res.json())
+              .then((data: FinishResponse) => {
+                setTotalScore(data.totalScore);
+                // Use server-side accurate count for star calculation
+                if (data.correctCount !== undefined) {
+                  setCorrectCount(data.correctCount);
+                }
+                // ✅ FIX: Save tournament result if present (was missing!)
+                if (data.tournament) {
+                  setTournamentResult(data.tournament);
+                }
+                setFinished(true);
+                haptic.heavy();
+              })
+              .catch(console.error);
+          } else {
+            setFinished(true);
+          }
         } else {
-          setFinished(true);
+          setCurrentIndex(nextIndex);
         }
-      } else {
-        setCurrentIndex(nextIndex);
-      }
     }, 2000);
     
     // Don't clear on cleanup - let it run

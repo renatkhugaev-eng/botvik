@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
+import { LottieAnimation } from "@/components/LottieAnimation";
+import confettiAnimation from "@/public/animations/confetti.json";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -199,26 +201,43 @@ export default function TournamentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const slug = params?.slug as string;
+  const mountedRef = useRef(true);
 
   const [data, setData] = useState<TournamentResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null); // Ошибка загрузки
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinSuccess, setJoinSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"stages" | "leaderboard" | "prizes">("stages");
   const [timeLeft, setTimeLeft] = useState("");
 
+  // Cleanup при unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   // Загрузка данных турнира
   const loadTournament = useCallback(async () => {
     if (!slug) return;
     setLoading(true);
+    setLoadError(null); // Сброс ошибки при новой загрузке
     try {
       const response = await api.get<TournamentResponse>(`/api/tournaments/${slug}`);
+      if (!mountedRef.current) return;
       setData(response);
     } catch (err) {
       console.error("Failed to load tournament:", err);
+      if (mountedRef.current) {
+        // Сохраняем сообщение об ошибке для отображения пользователю
+        const errorMessage = err instanceof Error ? err.message : "Ошибка загрузки";
+        setLoadError(errorMessage);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [slug]);
 
@@ -314,17 +333,37 @@ export default function TournamentDetailPage() {
     );
   }
 
-  if (!data?.tournament) {
+  // Обработка ошибок загрузки
+  if (loadError || !data?.tournament) {
+    const isNetworkError = !!loadError;
     return (
-      <div className="flex h-screen flex-col items-center justify-center">
-        <span className="text-6xl mb-4">😕</span>
-        <p className="text-lg font-bold text-slate-600">Турнир не найден</p>
-        <button
-          onClick={() => router.back()}
-          className="mt-4 rounded-xl bg-slate-100 px-6 py-3 font-semibold text-slate-600"
-        >
-          ← Назад
-        </button>
+      <div className="flex h-screen flex-col items-center justify-center px-4">
+        <span className="text-6xl mb-4">{isNetworkError ? "📡" : "😕"}</span>
+        <p className="text-lg font-bold text-slate-600 text-center">
+          {isNetworkError ? "Ошибка соединения" : "Турнир не найден"}
+        </p>
+        {isNetworkError && (
+          <p className="text-sm text-slate-400 mt-1 text-center">
+            {loadError}
+          </p>
+        )}
+        <div className="flex gap-3 mt-4">
+          {isNetworkError && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={loadTournament}
+              className="rounded-xl bg-violet-600 px-6 py-3 font-semibold text-white"
+            >
+              Повторить
+            </motion.button>
+          )}
+          <button
+            onClick={() => router.back()}
+            className="rounded-xl bg-slate-100 px-6 py-3 font-semibold text-slate-600"
+          >
+            ← Назад
+          </button>
+        </div>
       </div>
     );
   }
@@ -353,28 +392,14 @@ export default function TournamentDetailPage() {
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
               className="relative mx-4 overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 p-8 text-center shadow-2xl"
             >
-              {/* Confetti effect */}
-              <div className="absolute inset-0 overflow-hidden">
-                {[...Array(20)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ y: -20, x: Math.random() * 300 - 150, rotate: 0, opacity: 1 }}
-                    animate={{ 
-                      y: 400, 
-                      rotate: Math.random() * 720 - 360,
-                      opacity: 0 
-                    }}
-                    transition={{ 
-                      duration: 2 + Math.random(), 
-                      delay: Math.random() * 0.5,
-                      ease: "easeOut"
-                    }}
-                    className="absolute text-2xl"
-                    style={{ left: `${Math.random() * 100}%` }}
-                  >
-                    {["🎉", "✨", "⭐", "🏆", "🎊", "💫"][Math.floor(Math.random() * 6)]}
-                  </motion.div>
-                ))}
+              {/* Confetti Lottie animation */}
+              <div className="absolute inset-0 pointer-events-none">
+                <LottieAnimation
+                  animationData={confettiAnimation}
+                  loop={false}
+                  autoplay={true}
+                  className="absolute inset-0 w-full h-full"
+                />
               </div>
               
               <motion.div
@@ -616,7 +641,7 @@ export default function TournamentDetailPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <AnimatePresence mode="wait">
         {activeTab === "stages" && (
-          <StagesTab key="stages" stages={stages} isJoined={isJoined} router={router} />
+          <StagesTab key="stages" stages={stages} isJoined={isJoined} />
         )}
         {activeTab === "leaderboard" && (
           <LeaderboardTab key="leaderboard" leaderboard={leaderboard} myRank={myRank} />
@@ -636,15 +661,23 @@ export default function TournamentDetailPage() {
 function StagesTab({
   stages,
   isJoined,
-  router,
 }: {
   stages: Stage[];
   isJoined: boolean;
-  router: ReturnType<typeof useRouter>;
 }) {
+  // useRouter вызывается внутри компонента — правильный паттерн
+  const router = useRouter();
+  
   // Подсчёт прогресса
   const completedCount = stages.filter((s) => s.myResult?.completedAt).length;
   const progress = stages.length > 0 ? (completedCount / stages.length) * 100 : 0;
+  
+  // Проверяем какие этапы можно играть (предыдущий должен быть пройден)
+  const canPlayStage = (stageIndex: number): boolean => {
+    if (stageIndex === 0) return true; // Первый этап всегда доступен
+    const previousStage = stages[stageIndex - 1];
+    return !!previousStage?.myResult?.completedAt && previousStage?.myResult?.passed !== false;
+  };
 
   return (
     <motion.div
@@ -683,7 +716,10 @@ function StagesTab({
             const isCompleted = !!stage.myResult?.completedAt;
             const isLocked = stage.status === "upcoming";
             const isActive = stage.status === "active";
-            const canPlay = isActive && isJoined && !isCompleted;
+            // Проверяем: этап активен, пользователь участник, не пройден, 
+            // И предыдущий этап успешно пройден (если не первый)
+            const previousStageCompleted = canPlayStage(index);
+            const canPlay = isActive && isJoined && !isCompleted && previousStageCompleted;
 
             return (
               <motion.div
@@ -797,7 +833,7 @@ function StagesTab({
                           // 1. Находит активный этап по quizId
                           // 2. Проверяет что предыдущие этапы пройдены
                           // 3. Применяет scoreMultiplier и сохраняет результат
-                          router.push(`/miniapp/quiz/${stage.quiz!.id}`);
+                          router.push(`/miniapp/quiz/${stage.quiz.id}`);
                         }}
                         className="w-full rounded-xl bg-gradient-to-r from-violet-500 via-indigo-500 to-violet-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-500/30"
                       >
@@ -822,11 +858,19 @@ function StagesTab({
                       </div>
                     )}
 
-                    {/* Locked message */}
+                    {/* Locked message - либо по времени, либо по предыдущему этапу */}
                     {isLocked && (
                       <div className="flex items-center justify-center gap-2 py-2 text-slate-400">
                         <span className="text-lg">🔒</span>
-                        <span className="text-sm">Откроется после предыдущего этапа</span>
+                        <span className="text-sm">Этап ещё не начался</span>
+                      </div>
+                    )}
+                    
+                    {/* Blocked by previous stage */}
+                    {!isLocked && isActive && !previousStageCompleted && isJoined && (
+                      <div className="flex items-center justify-center gap-2 py-2 text-amber-600">
+                        <span className="text-lg">⚠️</span>
+                        <span className="text-sm">Сначала пройдите предыдущий этап</span>
                       </div>
                     )}
                     

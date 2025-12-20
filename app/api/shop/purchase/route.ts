@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { createInvoiceLink, createPayload } from "@/lib/telegram-payments";
+import { checkRateLimit, shopPurchaseLimiter } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,12 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = auth.user.id;
+
+  // Rate limiting
+  const rateLimit = await checkRateLimit(shopPurchaseLimiter, `user:${userId}`);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
 
   let body: { itemId: number };
   try {
@@ -90,11 +97,14 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════════════
   
   // Создаём запись о покупке со статусом PENDING
+  // Используем crypto.randomUUID для гарантированной уникальности
+  const pendingId = `pending_${Date.now()}_${userId}_${itemId}_${Math.random().toString(36).slice(2, 8)}`;
+  
   const purchase = await prisma.purchase.create({
     data: {
       userId,
       itemId,
-      telegramPaymentId: `pending_${Date.now()}_${userId}_${itemId}`,
+      telegramPaymentId: pendingId,
       amountStars: item.priceStars,
       status: "PENDING",
     },

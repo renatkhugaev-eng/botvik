@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "../layout";
@@ -75,13 +75,32 @@ const RARITY_STYLES: Record<Rarity, {
   },
 };
 
-const FILTERS: { value: Rarity | "ALL"; label: string; icon: string }[] = [
+// Тип фильтра расширен для "OWNED"
+type FilterValue = Rarity | "ALL" | "OWNED";
+
+const FILTERS: { value: FilterValue; label: string; icon: string }[] = [
   { value: "ALL", label: "Все", icon: "✨" },
+  { value: "OWNED", label: "Мои", icon: "💎" },
   { value: "LEGENDARY", label: "Легенда", icon: "👑" },
-  { value: "EPIC", label: "Эпик", icon: "💎" },
+  { value: "EPIC", label: "Эпик", icon: "💜" },
   { value: "RARE", label: "Редкие", icon: "💫" },
   { value: "COMMON", label: "Обычные", icon: "○" },
 ];
+
+// Получить цвет свечения по редкости
+const getRarityGlow = (rarity: Rarity): string => {
+  switch (rarity) {
+    case "LEGENDARY":
+      return "from-amber-500/40 via-orange-500/30 to-yellow-500/20";
+    case "EPIC":
+      return "from-violet-500/40 to-purple-500/30";
+    case "RARE":
+      return "from-blue-500/30 to-cyan-500/20";
+    case "COMMON":
+    default:
+      return "from-violet-500/30 to-blue-500/20";
+  }
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SHOP PAGE
@@ -91,16 +110,25 @@ export default function ShopPage() {
   const router = useRouter();
   const session = useMiniAppSession();
   
+  // Ref для предотвращения утечки памяти при unmount
+  const mountedRef = useRef(true);
+  
   const [items, setItems] = useState<ShopItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Rarity | "ALL">("ALL");
+  const [filter, setFilter] = useState<FilterValue>("ALL");
   const [purchasing, setPurchasing] = useState<number | null>(null);
   const [equipping, setEquipping] = useState<number | null>(null);
   const [equippedFrameId, setEquippedFrameId] = useState<number | null>(null);
 
   const photoUrl = session.status === "ready" ? session.user.photoUrl : null;
   const userName = session.status === "ready" ? (session.user.firstName || session.user.username || "U") : "U";
+
+  // Cleanup при unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // ═══ Load shop items ═══
   const loadItems = useCallback(async () => {
@@ -110,14 +138,22 @@ export default function ShopPage() {
       if (!res.ok) throw new Error("Failed to load shop");
       
       const data: ShopResponse = await res.json();
+      
+      // Проверяем что компонент ещё смонтирован
+      if (!mountedRef.current) return;
+      
       setItems(data.items);
       setEquippedFrameId(data.equippedFrameId);
       setError(null);
     } catch (err) {
       console.error("[shop] Failed to load:", err);
-      setError("Не удалось загрузить магазин");
+      if (mountedRef.current) {
+        setError("Не удалось загрузить магазин");
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -150,6 +186,7 @@ export default function ShopPage() {
       if (data.free) {
         haptic.success();
         await loadItems();
+        setPurchasing(null);
         return;
       }
 
@@ -157,6 +194,7 @@ export default function ShopPage() {
         const tg = window.Telegram?.WebApp;
         
         if (tg?.openInvoice) {
+          // Callback управляет состоянием — не используем finally
           tg.openInvoice(data.invoiceUrl, (status) => {
             if (status === "paid") {
               haptic.success();
@@ -166,17 +204,22 @@ export default function ShopPage() {
             }
             setPurchasing(null);
           });
-          return;
+          return; // Важно: не попадаем в finally
         } else {
-          window.open(data.invoiceUrl, "_blank");
-          setTimeout(() => loadItems(), 3000);
+          // Dev mode — показываем ссылку
+          console.warn("[shop] Running in dev mode, openInvoice unavailable");
+          alert(`Dev mode: откройте ссылку в Telegram\n${data.invoiceUrl}`);
+          setPurchasing(null);
+          return;
         }
       }
+
+      // Если нет invoiceUrl и не free — что-то пошло не так
+      setPurchasing(null);
 
     } catch (err) {
       console.error("[shop] Purchase failed:", err);
       haptic.error();
-    } finally {
       setPurchasing(null);
     }
   };
@@ -213,9 +256,11 @@ export default function ShopPage() {
     }
   };
 
-  const filteredItems = items.filter(
-    item => filter === "ALL" || item.rarity === filter
-  );
+  const filteredItems = items.filter(item => {
+    if (filter === "ALL") return true;
+    if (filter === "OWNED") return item.owned;
+    return item.rarity === filter;
+  });
 
   const equippedFrame = items.find(i => i.id === equippedFrameId);
   const ownedCount = items.filter(i => i.owned).length;
@@ -226,11 +271,14 @@ export default function ShopPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
-      {/* ═══ Ambient Background ═══ */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 left-0 w-64 h-64 bg-amber-600/5 rounded-full blur-[80px]" />
+      {/* ═══ Ambient Background (GPU-ускорен через transform) ═══ */}
+      <div 
+        className="fixed inset-0 overflow-hidden pointer-events-none" 
+        style={{ transform: 'translateZ(0)' }}
+        aria-hidden="true"
+      >
+        <div className="absolute top-0 left-1/4 w-72 h-72 bg-violet-600/8 rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 right-0 w-64 h-64 bg-blue-600/8 rounded-full blur-[80px]" />
       </div>
 
       {/* ═══ Header ═══ */}
@@ -277,13 +325,25 @@ export default function ShopPage() {
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
               className="relative"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/30 to-blue-500/30 rounded-full blur-xl scale-110" />
-              <AvatarWithFrame
-                photoUrl={photoUrl}
-                frameUrl={equippedFrame?.imageUrl}
-                size={72}
-                fallbackLetter={userName[0]}
+              {/* Динамическое свечение по редкости рамки */}
+              <div 
+                className={`absolute inset-0 bg-gradient-to-br ${
+                  equippedFrame ? getRarityGlow(equippedFrame.rarity) : "from-violet-500/20 to-blue-500/20"
+                } rounded-full blur-xl scale-125 transition-all duration-500`} 
               />
+              {loading ? (
+                <div 
+                  className="rounded-full bg-white/10 animate-pulse" 
+                  style={{ width: 72, height: 72 }}
+                />
+              ) : (
+                <AvatarWithFrame
+                  photoUrl={photoUrl}
+                  frameUrl={equippedFrame?.imageUrl}
+                  size={72}
+                  fallbackLetter={userName[0]}
+                />
+              )}
             </motion.div>
             
             {/* Info */}
@@ -294,49 +354,72 @@ export default function ShopPage() {
               <h2 className="text-lg font-bold text-white truncate">
                 {equippedFrame?.title || "Без рамки"}
               </h2>
-              <p className="text-white/40 text-sm mt-0.5">
-                Собрано {ownedCount} из {items.length}
-              </p>
+              {!loading && items.length > 0 && (
+                <p className="text-white/40 text-sm mt-0.5">
+                  Собрано {ownedCount} из {items.length}
+                </p>
+              )}
             </div>
           </div>
         </div>
       </motion.section>
 
-      {/* ═══ Filter Pills ═══ */}
+      {/* ═══ Filter Pills с fade-эффектом на краях ═══ */}
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
         className="px-4 pb-4"
       >
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4">
-          {FILTERS.map((f, i) => {
-            const isActive = filter === f.value;
-            return (
-              <motion.button
-                key={f.value}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 + i * 0.05 }}
-                onClick={() => { haptic.light(); setFilter(f.value); }}
-                className={`relative flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ${
-                  isActive
-                    ? "bg-white text-black shadow-lg shadow-white/20"
-                    : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80"
-                }`}
-              >
-                <span className="text-sm">{f.icon}</span>
-                <span>{f.label}</span>
-                {isActive && (
-                  <motion.div
-                    layoutId="activeFilter"
-                    className="absolute inset-0 rounded-full bg-white -z-10"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-              </motion.button>
-            );
-          })}
+        <div className="relative">
+          {/* Fade-эффект слева */}
+          <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0a0a0f] to-transparent z-10 pointer-events-none" />
+          {/* Fade-эффект справа */}
+          <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0a0a0f] to-transparent z-10 pointer-events-none" />
+          
+          <div 
+            className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-2"
+            role="tablist"
+            aria-label="Фильтр по редкости"
+          >
+            {FILTERS.map((f, i) => {
+              const isActive = filter === f.value;
+              // Количество товаров для бейджа на фильтре
+              const count = f.value === "ALL" 
+                ? items.length 
+                : f.value === "OWNED"
+                  ? items.filter(i => i.owned).length
+                  : items.filter(i => i.rarity === f.value).length;
+              
+              return (
+                <motion.button
+                  key={f.value}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 + i * 0.05 }}
+                  onClick={() => { haptic.light(); setFilter(f.value); }}
+                  aria-selected={isActive}
+                  role="tab"
+                  className={`relative flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ${
+                    isActive
+                      ? "bg-white text-black shadow-lg shadow-white/20"
+                      : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80"
+                  }`}
+                >
+                  <span className="text-sm">{f.icon}</span>
+                  <span>{f.label}</span>
+                  {/* Счётчик товаров */}
+                  {!loading && count > 0 && (
+                    <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                      isActive ? "bg-black/10" : "bg-white/10"
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
       </motion.section>
 
@@ -350,8 +433,27 @@ export default function ShopPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: i * 0.1 }}
-                className="aspect-[3/4] rounded-2xl bg-white/5 animate-pulse"
-              />
+                className="aspect-[3/4] rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/5 overflow-hidden"
+              >
+                {/* Skeleton content structure */}
+                <div className="h-full flex flex-col p-3">
+                  {/* Top badge placeholder */}
+                  <div className="flex justify-between mb-2">
+                    <div className="h-4 w-16 rounded bg-white/10 animate-pulse" />
+                  </div>
+                  {/* Avatar placeholder */}
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-white/10 animate-pulse" />
+                  </div>
+                  {/* Text placeholders */}
+                  <div className="space-y-2 mt-2">
+                    <div className="h-3.5 w-3/4 rounded bg-white/10 animate-pulse" />
+                    <div className="h-3 w-1/2 rounded bg-white/5 animate-pulse" />
+                  </div>
+                  {/* Button placeholder */}
+                  <div className="h-8 w-full rounded-xl bg-white/10 animate-pulse mt-2.5" />
+                </div>
+              </motion.div>
             ))}
           </div>
         ) : error ? (
@@ -379,30 +481,45 @@ export default function ShopPage() {
             className="flex flex-col items-center justify-center py-16"
           >
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-              <span className="text-2xl">🔍</span>
+              <span className="text-2xl">{filter === "OWNED" ? "🛒" : "🔍"}</span>
             </div>
-            <p className="text-white/40 text-center">
-              {filter === "ALL" ? "Магазин пуст" : "Нет товаров в этой категории"}
+            <p className="text-white/40 text-center max-w-[200px]">
+              {filter === "ALL" 
+                ? "Магазин пуст" 
+                : filter === "OWNED"
+                  ? "У вас пока нет рамок. Самое время купить первую!"
+                  : "Нет товаров в этой категории"}
             </p>
+            {filter === "OWNED" && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { haptic.light(); setFilter("ALL"); }}
+                className="mt-4 px-4 py-2 bg-white/10 rounded-xl text-sm font-medium hover:bg-white/15 transition-colors"
+              >
+                Смотреть все
+              </motion.button>
+            )}
           </motion.div>
         ) : (
-          <motion.div layout className="grid grid-cols-2 gap-3">
-            <AnimatePresence mode="popLayout">
-              {filteredItems.map((item, index) => (
-                <ShopItemCard
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  photoUrl={photoUrl}
-                  userName={userName}
-                  purchasing={purchasing === item.id}
-                  equipping={equipping === item.id}
-                  onPurchase={() => handlePurchase(item)}
-                  onEquip={() => handleEquip(item)}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <div role="list" aria-label="Список товаров">
+            <motion.div layout className="grid grid-cols-2 gap-3">
+              <AnimatePresence mode="popLayout">
+                {filteredItems.map((item, index) => (
+                  <ShopItemCard
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    photoUrl={photoUrl}
+                    userName={userName}
+                    purchasing={purchasing === item.id}
+                    equipping={equipping === item.id}
+                    onPurchase={() => handlePurchase(item)}
+                    onEquip={() => handleEquip(item)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          </div>
         )}
       </section>
     </div>
@@ -435,6 +552,7 @@ function ShopItemCard({
   onEquip 
 }: ShopItemCardProps) {
   const style = RARITY_STYLES[item.rarity];
+  const isFree = item.priceStars === 0;
 
   return (
     <motion.div
@@ -444,14 +562,15 @@ function ShopItemCard({
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
       whileTap={{ scale: 0.98 }}
-      className={`group relative rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient} border border-white/10 shadow-lg ${style.glow}`}
+      // Фиксированный aspect ratio для предотвращения layout shift
+      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient} border border-white/10 shadow-lg ${style.glow} flex flex-col`}
     >
       {/* Shine effect on hover */}
       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-      {/* Top badges */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between z-10">
-        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold backdrop-blur-sm ${style.badge}`}>
+      {/* Top badges — улучшенный layout с max-width */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between gap-1.5 z-10">
+        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold backdrop-blur-sm shrink-0 ${style.badge}`}>
           {style.label}
         </span>
         
@@ -459,7 +578,7 @@ function ShopItemCard({
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 backdrop-blur-sm"
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 backdrop-blur-sm shrink-0"
           >
             <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -468,48 +587,60 @@ function ShopItemCard({
         )}
       </div>
 
-      {/* Avatar Preview */}
-      <div className="flex items-center justify-center pt-10 pb-4 px-4">
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          transition={{ type: "spring", stiffness: 300 }}
-          className="relative"
+      {/* Avatar Preview — фиксированный размер для консистентного центрирования */}
+      <div className="flex-1 flex items-center justify-center">
+        {/* Фиксированный контейнер для идеального центрирования во всех карточках */}
+        <div 
+          className="relative flex items-center justify-center"
+          style={{ 
+            width: 68 * 1.85, // Фиксированный размер = размер AvatarWithFrame с рамкой
+            height: 68 * 1.85,
+          }}
         >
-          {/* Glow behind avatar */}
-          {item.rarity === "LEGENDARY" && (
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/40 to-orange-500/20 rounded-full blur-xl scale-125" />
-          )}
-          {item.rarity === "EPIC" && (
-            <div className="absolute inset-0 bg-violet-500/30 rounded-full blur-lg scale-110" />
-          )}
-          <AvatarWithFrame
-            photoUrl={photoUrl}
-            frameUrl={item.imageUrl}
-            size={72}
-            fallbackLetter={userName[0]}
+          {/* Glow — центрирован относительно контейнера */}
+          <div 
+            className={`absolute inset-0 bg-gradient-to-br ${getRarityGlow(item.rarity)} rounded-full blur-xl scale-110`}
           />
-        </motion.div>
+          {/* Avatar с рамкой — абсолютно центрирован */}
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <AvatarWithFrame
+              photoUrl={photoUrl}
+              frameUrl={item.imageUrl}
+              size={68}
+              fallbackLetter={userName[0]}
+            />
+          </motion.div>
+        </div>
       </div>
 
-      {/* Info Section */}
-      <div className="px-3 pb-3">
+      {/* Info Section — унифицированный padding, улучшенное описание */}
+      <div className="px-3 pb-3 pt-2">
         <h3 className="font-semibold text-sm text-white/90 truncate leading-tight">
           {item.title}
         </h3>
+        {/* Описание с 2 строками и tooltip */}
         {item.description && (
-          <p className="text-[11px] text-white/40 truncate mt-0.5 leading-tight">
+          <p 
+            className="text-[11px] text-white/40 mt-0.5 leading-tight line-clamp-2"
+            title={item.description}
+          >
             {item.description}
           </p>
         )}
 
         {/* Action Button */}
-        <div className="mt-3">
+        <div className="mt-2.5">
           {item.owned ? (
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={onEquip}
               disabled={equipping}
-              className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+              aria-label={item.equipped ? "Снять рамку" : "Надеть рамку"}
+              className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                 item.equipped
                   ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
                   : "bg-white/10 text-white/80 hover:bg-white/15"
@@ -524,7 +655,7 @@ function ShopItemCard({
                 </motion.span>
               ) : item.equipped ? (
                 <span className="flex items-center justify-center gap-1">
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                   Надето
@@ -538,7 +669,12 @@ function ShopItemCard({
               whileTap={{ scale: 0.95 }}
               onClick={onPurchase}
               disabled={purchasing}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-shadow"
+              aria-label={isFree ? "Получить бесплатно" : `Купить за ${item.priceStars} звёзд`}
+              className={`w-full py-2 rounded-xl text-xs font-semibold shadow-lg transition-shadow ${
+                isFree 
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/25 hover:shadow-emerald-500/40"
+                  : "bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-violet-500/25 hover:shadow-violet-500/40"
+              }`}
             >
               {purchasing ? (
                 <motion.span
@@ -547,6 +683,11 @@ function ShopItemCard({
                 >
                   •••
                 </motion.span>
+              ) : isFree ? (
+                <span className="flex items-center justify-center gap-1.5">
+                  <span>🎁</span>
+                  <span>Бесплатно</span>
+                </span>
               ) : (
                 <span className="flex items-center justify-center gap-1.5">
                   <span className="text-amber-300">⭐</span>
