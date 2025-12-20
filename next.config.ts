@@ -49,37 +49,101 @@ const nextConfig: NextConfig = {
     } : false,
   },
   
-  // Headers for caching and performance
+  // Headers for caching, performance, and security (Cloudflare optimized)
   async headers() {
     return [
+      // ═══════════════════════════════════════════════════════════════
+      // SECURITY HEADERS (все страницы)
+      // ═══════════════════════════════════════════════════════════════
       {
-        // Cache static assets aggressively
+        source: '/:path*',
+        headers: [
+          // Prevent clickjacking (allow Telegram iframe)
+          {
+            key: 'X-Frame-Options',
+            value: 'ALLOW-FROM https://web.telegram.org',
+          },
+          // XSS Protection
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          // Referrer Policy
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          // Permissions Policy (disable unused features)
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+      
+      // ═══════════════════════════════════════════════════════════════
+      // STATIC ASSETS — Aggressive caching (1 year, Cloudflare cached)
+      // ═══════════════════════════════════════════════════════════════
+      {
         source: '/icons/:path*',
         headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=31536000' }, // Cloudflare
         ],
       },
       {
-        // Cache animations
         source: '/animations/:path*',
         headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=31536000' },
         ],
       },
       {
-        // Preload hints for Telegram
+        source: '/frames/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=31536000' },
+        ],
+      },
+      {
+        source: '/rive/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=31536000' },
+        ],
+      },
+      
+      // ═══════════════════════════════════════════════════════════════
+      // FONTS — Long cache with stale-while-revalidate
+      // ═══════════════════════════════════════════════════════════════
+      {
+        source: '/fonts/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=31536000' },
+        ],
+      },
+      
+      // ═══════════════════════════════════════════════════════════════
+      // API — No caching, but allow Cloudflare to see headers
+      // ═══════════════════════════════════════════════════════════════
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+          { key: 'CDN-Cache-Control', value: 'no-store' },
+        ],
+      },
+      
+      // ═══════════════════════════════════════════════════════════════
+      // MINIAPP — Short cache + preconnect
+      // ═══════════════════════════════════════════════════════════════
+      {
         source: '/miniapp/:path*',
         headers: [
-          {
-            key: 'Link',
-            value: '<https://telegram.org>; rel=preconnect',
-          },
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=60, stale-while-revalidate=300' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=60' }, // Cloudflare caches 60s
+          { key: 'Link', value: '<https://telegram.org>; rel=preconnect' },
         ],
       },
     ];

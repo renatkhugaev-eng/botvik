@@ -133,18 +133,21 @@ async function processTournamentStage(
   const now = new Date();
   
   // ═══ 1. Находим турнирный этап с этим квизом ═══
-  // ВАЖНО: Не накладываем строгие временные ограничения на этап
-  // Пользователь мог начать квиз вовремя, но закончить позже
-  // Основная проверка — турнир ACTIVE и пользователь участник
+  // ВАЖНО: Принимаем и ACTIVE и FINISHED турниры!
+  // Причина: CRON может финализировать турнир ПОКА пользователь проходит квиз
+  // Проверяем что сессия была начата ДО окончания турнира (защита от злоупотреблений)
   const activeStage = await prisma.tournamentStage.findFirst({
     where: {
       quizId,
       tournament: {
-        status: "ACTIVE",
+        // Принимаем ACTIVE и FINISHED турниры
+        // FINISHED нужен для race condition: пользователь начал до финализации
+        status: { in: ["ACTIVE", "FINISHED"] },
         participants: {
           some: {
             userId,
-            status: { in: ["REGISTERED", "ACTIVE"] },
+            // Также принимаем FINISHED участников (они стали FINISHED при финализации)
+            status: { in: ["REGISTERED", "ACTIVE", "FINISHED"] },
           },
         },
       },
@@ -161,6 +164,7 @@ async function processTournamentStage(
           id: true,
           title: true,
           slug: true,
+          status: true, // Нужно для логирования race condition
           startsAt: true,
           endsAt: true,
           stages: {
@@ -214,6 +218,32 @@ async function processTournamentStage(
     }
     
     return null;
+  }
+
+  // ═══ 1.5. ЗАЩИТА ОТ ЗЛОУПОТРЕБЛЕНИЙ ═══
+  // Если турнир уже FINISHED, проверяем что сессия была начата ДО окончания турнира
+  // Это предотвращает попытки засчитать квиз начатый ПОСЛЕ финализации
+  if (activeStage.tournament.endsAt) {
+    const quizSession = await prisma.quizSession.findUnique({
+      where: { id: sessionId },
+      select: { startedAt: true },
+    });
+    
+    if (quizSession && quizSession.startedAt > activeStage.tournament.endsAt) {
+      console.log(
+        `[tournament/finish] Session ${sessionId} started AFTER tournament ended. ` +
+        `Session: ${quizSession.startedAt.toISOString()}, Tournament ended: ${activeStage.tournament.endsAt.toISOString()}`
+      );
+      return null; // Не засчитываем — сессия начата после окончания турнира
+    }
+    
+    // Логируем для отладки когда засчитываем FINISHED турнир
+    if (activeStage.tournament.status === "FINISHED") {
+      console.log(
+        `[tournament/finish] ⚡ Race condition handled! Tournament ${activeStage.tournament.id} is FINISHED, ` +
+        `but session ${sessionId} was started before endsAt. Counting as tournament quiz.`
+      );
+    }
   }
 
   // ═══ 2. Проверяем, не пройден ли уже этот этап ═══
