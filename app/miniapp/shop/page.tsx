@@ -398,8 +398,6 @@ export default function ShopPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25 + i * 0.05 }}
                   onClick={() => { haptic.light(); setFilter(f.value); }}
-                  aria-selected={isActive}
-                  role="tab"
                   className={`relative flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ${
                     isActive
                       ? "bg-white text-black shadow-lg shadow-white/20"
