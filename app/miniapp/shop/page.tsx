@@ -539,6 +539,23 @@ interface ShopItemCardProps {
   onEquip: () => void;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// УТИЛИТЫ ДЛЯ ОПТИМИЗАЦИИ ИЗОБРАЖЕНИЙ
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Конвертирует URL рамки в thumbnail WebP для превью в магазине
+ * /frames/bunny.png → /frames/thumbs/bunny.webp
+ */
+function getFrameThumbnail(imageUrl: string): string {
+  // Извлекаем имя файла без расширения
+  const match = imageUrl.match(/\/frames\/([^/]+)\.png$/);
+  if (match) {
+    return `/frames/thumbs/${match[1]}.webp`;
+  }
+  return imageUrl; // Fallback на оригинал
+}
+
 function ShopItemCard({ 
   item, 
   index, 
@@ -551,67 +568,55 @@ function ShopItemCard({
 }: ShopItemCardProps) {
   const style = RARITY_STYLES[item.rarity];
   const isFree = item.priceStars === 0;
+  
+  // Используем оптимизированный thumbnail (12-14KB вместо 300-400KB)
+  const thumbnailUrl = getFrameThumbnail(item.imageUrl);
+
+  // Оптимизация: ограничиваем stagger delay для больших списков
+  const staggerDelay = Math.min(index * 0.03, 0.3);
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ delay: index * 0.05, duration: 0.3 }}
-      whileTap={{ scale: 0.98 }}
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: staggerDelay, duration: 0.2 }}
       // Фиксированный aspect ratio для предотвращения layout shift
-      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient} border border-white/10 shadow-lg ${style.glow} flex flex-col`}
+      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient} border border-white/10 shadow-lg ${style.glow} flex flex-col active:scale-[0.98] transition-transform`}
     >
-      {/* Shine effect on hover */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-      {/* Top badges — улучшенный layout с max-width */}
+      {/* Top badges — упрощённый layout */}
       <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between gap-1.5 z-10">
-        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold backdrop-blur-sm shrink-0 ${style.badge}`}>
+        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${style.badge}`}>
           {style.label}
         </span>
         
         {item.owned && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 backdrop-blur-sm shrink-0"
-          >
+          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 shrink-0">
             <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-          </motion.span>
+          </span>
         )}
       </div>
 
-      {/* Avatar Preview — фиксированный размер для консистентного центрирования */}
+      {/* Avatar Preview — оптимизировано для мобильных */}
       <div className="flex-1 flex items-center justify-center">
-        {/* Фиксированный контейнер для идеального центрирования во всех карточках */}
         <div 
           className="relative flex items-center justify-center"
-          style={{ 
-            width: 68 * 1.85, // Фиксированный размер = размер AvatarWithFrame с рамкой
-            height: 68 * 1.85,
-          }}
+          style={{ width: 126, height: 126 }} // 68 * 1.85 ≈ 126
         >
-          {/* Glow — центрирован относительно контейнера */}
+          {/* Glow — уменьшен blur для производительности */}
           <div 
-            className={`absolute inset-0 bg-gradient-to-br ${getRarityGlow(item.rarity)} rounded-full blur-xl scale-110`}
+            className={`absolute inset-0 bg-gradient-to-br ${getRarityGlow(item.rarity)} rounded-full blur-lg opacity-70`}
           />
-          {/* Avatar с рамкой — абсолютно центрирован */}
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="absolute inset-0 flex items-center justify-center"
-          >
+          {/* Avatar с рамкой — используем оптимизированный thumbnail */}
+          <div className="absolute inset-0 flex items-center justify-center">
             <AvatarWithFrame
               photoUrl={photoUrl}
-              frameUrl={item.imageUrl}
+              frameUrl={thumbnailUrl}
               size={68}
               fallbackLetter={userName[0]}
             />
-          </motion.div>
+          </div>
         </div>
       </div>
 
@@ -630,27 +635,20 @@ function ShopItemCard({
           </p>
         )}
 
-        {/* Action Button */}
+        {/* Action Button — упрощённые анимации */}
         <div className="mt-2.5">
           {item.owned ? (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={onEquip}
               disabled={equipping}
-              aria-label={item.equipped ? "Снять рамку" : "Надеть рамку"}
-              className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+              className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 ${
                 item.equipped
                   ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
                   : "bg-white/10 text-white/80 hover:bg-white/15"
               }`}
             >
               {equipping ? (
-                <motion.span
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                >
-                  •••
-                </motion.span>
+                <span className="animate-pulse">•••</span>
               ) : item.equipped ? (
                 <span className="flex items-center justify-center gap-1">
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -661,26 +659,19 @@ function ShopItemCard({
               ) : (
                 "Надеть"
               )}
-            </motion.button>
+            </button>
           ) : (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={onPurchase}
               disabled={purchasing}
-              aria-label={isFree ? "Получить бесплатно" : `Купить за ${item.priceStars} звёзд`}
-              className={`w-full py-2 rounded-xl text-xs font-semibold shadow-lg transition-shadow ${
+              className={`w-full py-2 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 ${
                 isFree 
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/25 hover:shadow-emerald-500/40"
-                  : "bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-violet-500/25 hover:shadow-violet-500/40"
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/25"
+                  : "bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-violet-500/25"
               }`}
             >
               {purchasing ? (
-                <motion.span
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                >
-                  •••
-                </motion.span>
+                <span className="animate-pulse">•••</span>
               ) : isFree ? (
                 <span className="flex items-center justify-center gap-1.5">
                   <span>🎁</span>
@@ -692,7 +683,7 @@ function ShopItemCard({
                   <span>{item.priceStars}</span>
                 </span>
               )}
-            </motion.button>
+            </button>
           )}
         </div>
       </div>

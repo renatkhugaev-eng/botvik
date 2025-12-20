@@ -39,8 +39,8 @@ function AvatarWithFrameComponent({
   const hasFrame = !!frameUrl;
   const containerSize = hasFrame ? size * frameMultiplier : size;
   
-  // Извлекаем slug рамки для микро-коррекций
-  const frameSlug = frameUrl?.split('/').pop()?.replace('.png', '') ?? null;
+  // Извлекаем slug рамки для микро-коррекций (поддержка PNG и WebP)
+  const frameSlug = frameUrl?.split('/').pop()?.replace(/\.(png|webp)$/, '') ?? null;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // КОРРЕКЦИИ — рассчитаны скриптом scripts/analyze-frames.ts
