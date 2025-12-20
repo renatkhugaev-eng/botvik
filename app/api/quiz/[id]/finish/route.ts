@@ -140,24 +140,30 @@ async function processTournamentStage(
   // Проверяем что сессия была начата ДО окончания турнира (защита от злоупотреблений)
   const activeStage = await prisma.tournamentStage.findFirst({
     where: {
-      quizId,
-      tournament: {
-        // Принимаем ACTIVE и FINISHED турниры
-        // FINISHED нужен для race condition: пользователь начал до финализации
-        status: { in: ["ACTIVE", "FINISHED"] },
-        participants: {
-          some: {
-            userId,
-            // Также принимаем FINISHED участников (они стали FINISHED при финализации)
-            status: { in: ["REGISTERED", "ACTIVE", "FINISHED"] },
+      AND: [
+        { quizId },
+        {
+          tournament: {
+            // Принимаем ACTIVE и FINISHED турниры
+            // FINISHED нужен для race condition: пользователь начал до финализации
+            status: { in: ["ACTIVE", "FINISHED"] },
+            participants: {
+              some: {
+                userId,
+                // Также принимаем FINISHED участников (они стали FINISHED при финализации)
+                status: { in: ["REGISTERED", "ACTIVE", "FINISHED"] },
+              },
+            },
           },
         },
-      },
-      // Упрощённая проверка: этап должен был начаться (startsAt <= now) или не иметь времени начала
-      // Не проверяем endsAt — чтобы засчитать результат если пользователь начал вовремя
-      OR: [
-        { startsAt: null },
-        { startsAt: { lte: now } },
+        // Упрощённая проверка: этап должен был начаться (startsAt <= now) или не иметь времени начала
+        // Не проверяем endsAt — чтобы засчитать результат если пользователь начал вовремя
+        {
+          OR: [
+            { startsAt: null },
+            { startsAt: { lte: now } },
+          ],
+        },
       ],
     },
     include: {
