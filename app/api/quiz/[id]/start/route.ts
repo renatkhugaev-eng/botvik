@@ -440,12 +440,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // ═══ SCHEDULE ENERGY NOTIFICATION ═══
   // Если пользователь потратил энергию (не турнирный квиз), планируем уведомление
   if (!isTournamentQuiz && !bypassLimits) {
-    // После создания сессии, recentSessions + 1 = текущее использование
-    const allSessions = [...recentSessions, { startedAt: now }];
-    const oldestSession = allSessions[0]; // Самая старая сессия = первая восстановится
+    // После создания сессии, текущая сессия = самая новая
+    // Уведомление придёт когда ВСЯ энергия восстановится (последняя сессия истечёт)
+    const newestSessionStartedAt = now; // Только что созданная сессия
     
-    // Планируем уведомление на время восстановления энергии
-    scheduleEnergyNotification(userId, oldestSession.startedAt)
+    // Планируем уведомление на время полного восстановления энергии
+    scheduleEnergyNotification(userId, newestSessionStartedAt)
       .catch(err => console.error("[quiz/start] Failed to schedule energy notification:", err));
   }
 

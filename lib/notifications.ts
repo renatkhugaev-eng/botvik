@@ -72,10 +72,10 @@ const NOTIFICATION_TEMPLATES: Record<NotificationType, (data: Record<string, unk
   `.trim(),
 
   energy_full: (data) => `
-⚡ *Энергия восстановлена!*
+⚡ *Энергия полностью восстановлена!*
 
-У тебя снова ${data.energy}/${data.maxEnergy} энергии.
-Время играть! 🎮
+У тебя ${data.energy}/${data.maxEnergy} энергии — полный заряд! 🔋
+Самое время разгадать пару загадок 🕵️
 
 [▶️ Начать игру](https://t.me/truecrimetg_bot/app)
   `.trim(),
@@ -847,19 +847,19 @@ const HOURS_PER_ENERGY = 4;
 const ENERGY_COOLDOWN_MS = HOURS_PER_ENERGY * 60 * 60 * 1000;
 
 /**
- * Планирует уведомление о восстановлении энергии
+ * Планирует уведомление о ПОЛНОМ восстановлении энергии
  * Вызывается когда пользователь использует энергию
  * 
  * @param userId - ID пользователя
- * @param oldestSessionStartedAt - Время начала самой старой сессии в окне
+ * @param newestSessionStartedAt - Время начала самой новой сессии (последняя восстановится)
  */
 export async function scheduleEnergyNotification(
   userId: number,
-  oldestSessionStartedAt: Date
+  newestSessionStartedAt: Date
 ): Promise<void> {
   try {
-    // Рассчитываем когда восстановится энергия
-    const scheduledAt = new Date(oldestSessionStartedAt.getTime() + ENERGY_COOLDOWN_MS);
+    // Рассчитываем когда ВСЯ энергия восстановится (4 часа после последней сессии)
+    const scheduledAt = new Date(newestSessionStartedAt.getTime() + ENERGY_COOLDOWN_MS);
     
     // Проверяем, есть ли уже запланированное уведомление
     const existing = await prisma.scheduledNotification.findFirst({
@@ -871,8 +871,8 @@ export async function scheduleEnergyNotification(
     });
 
     if (existing) {
-      // Обновляем время если новое раньше
-      if (scheduledAt < existing.scheduledAt) {
+      // Всегда обновляем на ПОЗДНЕЕ время (когда ВСЯ энергия восстановится)
+      if (scheduledAt > existing.scheduledAt) {
         await prisma.scheduledNotification.update({
           where: { id: existing.id },
           data: { scheduledAt },
@@ -898,11 +898,11 @@ export async function scheduleEnergyNotification(
         userId,
         type: "ENERGY_RESTORED",
         scheduledAt,
-        data: { energy: 1 }, // Сколько энергии восстановится
+        data: { fullEnergy: true }, // Вся энергия восстановлена
       },
     });
 
-    console.log(`[notifications] Scheduled energy notification for user ${userId}: ${scheduledAt.toISOString()}`);
+    console.log(`[notifications] Scheduled FULL energy notification for user ${userId}: ${scheduledAt.toISOString()}`);
   } catch (error) {
     console.error(`[notifications] Failed to schedule energy notification:`, error);
   }

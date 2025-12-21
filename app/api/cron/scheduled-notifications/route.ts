@@ -88,10 +88,8 @@ export async function POST(req: NextRequest) {
               break;
             }
             
-            // Отправляем уведомление
-            const energyData = data as { energy?: number } | null;
-            const energy = energyData?.energy ?? 1;
-            success = await notifyEnergyFull(user.id, energy, MAX_ENERGY);
+            // Отправляем уведомление о ПОЛНОМ восстановлении энергии (5/5)
+            success = await notifyEnergyFull(user.id, MAX_ENERGY, MAX_ENERGY);
             break;
           }
           

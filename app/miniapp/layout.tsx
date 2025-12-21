@@ -2,12 +2,15 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Script from "next/script";
+import { usePathname, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { NotificationProvider } from "@/components/InAppNotification";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUser, addBreadcrumb } from "@/lib/sentry";
 import { identifyUser } from "@/lib/posthog";
 import { PerfModeProvider } from "@/components/context/PerfModeContext";
 import { WebVitalsOverlay } from "@/components/debug/WebVitalsOverlay";
+import { haptic } from "@/lib/haptic";
 
 type TelegramWebApp = {
   WebApp?: {
@@ -264,6 +267,11 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
     return children;
   }, [children, session]);
 
+  // Show floating navigation only on main miniapp page
+  const pathname = usePathname();
+  const router = useRouter();
+  const showBottomNav = session.status === "ready" && pathname === "/miniapp";
+
   return (
     <MiniAppContext.Provider value={session}>
       <PerfModeProvider>
@@ -271,7 +279,59 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
           <ErrorBoundary>
             <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
             <div className="app-container fixed inset-0 w-full h-full bg-[#0f0f1a] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
-              {/* Single Rive overlay instance for all pages */}
+              
+              {/* ═══════════════════════════════════════════════════════════════
+                  BOTTOM NAVIGATION — Simple fixed bottom bar
+              ═══════════════════════════════════════════════════════════════ */}
+              {showBottomNav && (
+                <motion.nav 
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.2 }}
+                  className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50"
+                >
+                  <div className="flex items-center gap-1 rounded-full bg-[#1a1a2e] px-2 py-2 border border-white/10">
+                    {/* Магазин */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        haptic.light();
+                        router.push("/miniapp/shop");
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-semibold"
+                      style={{ boxShadow: "0 0 20px rgba(139, 92, 246, 0.4)" }}
+                      aria-label="Магазин"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <path d="M16 10a4 4 0 01-8 0"/>
+                      </svg>
+                      Магазин
+                    </motion.button>
+
+                    {/* Чат */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        haptic.light();
+                        router.push("/miniapp/chat");
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-semibold"
+                      style={{ boxShadow: "0 0 20px rgba(6, 182, 212, 0.4)" }}
+                      aria-label="Чат"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                      </svg>
+                      Чат
+                    </motion.button>
+                  </div>
+                </motion.nav>
+              )}
+
               {/* Full-bleed layout — страницы сами контролируют отступы */}
               <div 
                 className="relative z-10 w-full h-full overflow-y-auto overscroll-none touch-pan-y"
