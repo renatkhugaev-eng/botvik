@@ -288,7 +288,8 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
                   initial={{ y: 100, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.2 }}
-                  className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50"
+                  className="fixed left-1/2 -translate-x-1/2 z-50"
+                  style={{ bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
                 >
                   <div className="flex items-center gap-1 rounded-full bg-[#1a1a2e] px-2 py-2 border border-white/10">
                     {/* Магазин */}
