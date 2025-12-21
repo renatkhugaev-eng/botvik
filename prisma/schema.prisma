@@ -72,6 +72,9 @@ model User {
   equippedFrame   CosmeticItem? @relation("EquippedFrame", fields: [equippedFrameId], references: [id])
   inventory       UserInventory[]
   purchases       Purchase[]
+  
+  // Scheduled Notifications
+  scheduledNotifications ScheduledNotification[]
 }
 
 model Friendship {
@@ -524,4 +527,31 @@ enum PurchaseStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEDULED NOTIFICATIONS
+// Запланированные уведомления для отправки в определённое время
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ScheduledNotification {
+  id          Int                         @id @default(autoincrement())
+  userId      Int
+  type        ScheduledNotificationType
+  scheduledAt DateTime                    // Когда отправить
+  data        Json?                       // Дополнительные данные для шаблона
+  
+  createdAt   DateTime                    @default(now())
+  sentAt      DateTime?                   // null = не отправлено
+  
+  user        User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([scheduledAt, sentAt])          // Для быстрого поиска неотправленных
+  @@index([userId, type])                 // Для дедупликации
+}
+
+enum ScheduledNotificationType {
+  ENERGY_RESTORED                         // Энергия восстановлена
+  DAILY_REMINDER                          // Ежедневное напоминание
+  TOURNAMENT_STARTING                     // Турнир скоро начнётся
 }

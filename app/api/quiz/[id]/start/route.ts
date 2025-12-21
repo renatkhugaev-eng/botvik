@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { checkRateLimit, quizStartLimiter, getClientIdentifier } from "@/lib/ratelimit";
 import { getCachedQuestions, cacheQuestions } from "@/lib/quiz-cache";
+import { scheduleEnergyNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -435,6 +436,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Рассчитываем оставшуюся бонусную энергию
   const remainingBonusEnergy = usedBonusEnergy ? bonusEnergy - 1 : bonusEnergy;
+
+  // ═══ SCHEDULE ENERGY NOTIFICATION ═══
+  // Если пользователь потратил энергию (не турнирный квиз), планируем уведомление
+  if (!isTournamentQuiz && !bypassLimits) {
+    // После создания сессии, recentSessions + 1 = текущее использование
+    const allSessions = [...recentSessions, { startedAt: now }];
+    const oldestSession = allSessions[0]; // Самая старая сессия = первая восстановится
+    
+    // Планируем уведомление на время восстановления энергии
+    scheduleEnergyNotification(userId, oldestSession.startedAt)
+      .catch(err => console.error("[quiz/start] Failed to schedule energy notification:", err));
+  }
 
   // Логирование для турнирных квизов
   if (isTournamentQuiz) {

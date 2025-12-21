@@ -21,8 +21,8 @@
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/cron/energy-notifications",
-      "schedule": "30 * * * *"
+      "path": "/api/cron/scheduled-notifications",
+      "schedule": "* * * * *"
     }
   ]
 }

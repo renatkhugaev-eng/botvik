@@ -839,3 +839,90 @@ export async function checkAndNotifyLeaderboardChanges(
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// SCHEDULED ENERGY NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════
+
+const HOURS_PER_ENERGY = 4;
+const ENERGY_COOLDOWN_MS = HOURS_PER_ENERGY * 60 * 60 * 1000;
+
+/**
+ * Планирует уведомление о восстановлении энергии
+ * Вызывается когда пользователь использует энергию
+ * 
+ * @param userId - ID пользователя
+ * @param oldestSessionStartedAt - Время начала самой старой сессии в окне
+ */
+export async function scheduleEnergyNotification(
+  userId: number,
+  oldestSessionStartedAt: Date
+): Promise<void> {
+  try {
+    // Рассчитываем когда восстановится энергия
+    const scheduledAt = new Date(oldestSessionStartedAt.getTime() + ENERGY_COOLDOWN_MS);
+    
+    // Проверяем, есть ли уже запланированное уведомление
+    const existing = await prisma.scheduledNotification.findFirst({
+      where: {
+        userId,
+        type: "ENERGY_RESTORED",
+        sentAt: null,
+      },
+    });
+
+    if (existing) {
+      // Обновляем время если новое раньше
+      if (scheduledAt < existing.scheduledAt) {
+        await prisma.scheduledNotification.update({
+          where: { id: existing.id },
+          data: { scheduledAt },
+        });
+        console.log(`[notifications] Updated energy notification for user ${userId}: ${scheduledAt.toISOString()}`);
+      }
+      return;
+    }
+
+    // Проверяем что пользователь хочет получать уведомления
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { notifyEnergyFull: true },
+    });
+
+    if (!user?.notifyEnergyFull) {
+      return;
+    }
+
+    // Создаём запланированное уведомление
+    await prisma.scheduledNotification.create({
+      data: {
+        userId,
+        type: "ENERGY_RESTORED",
+        scheduledAt,
+        data: { energy: 1 }, // Сколько энергии восстановится
+      },
+    });
+
+    console.log(`[notifications] Scheduled energy notification for user ${userId}: ${scheduledAt.toISOString()}`);
+  } catch (error) {
+    console.error(`[notifications] Failed to schedule energy notification:`, error);
+  }
+}
+
+/**
+ * Отменяет запланированное уведомление об энергии
+ * Вызывается если энергия восстановилась раньше (например, бонусная)
+ */
+export async function cancelEnergyNotification(userId: number): Promise<void> {
+  try {
+    await prisma.scheduledNotification.deleteMany({
+      where: {
+        userId,
+        type: "ENERGY_RESTORED",
+        sentAt: null,
+      },
+    });
+  } catch (error) {
+    console.error(`[notifications] Failed to cancel energy notification:`, error);
+  }
+}
+
