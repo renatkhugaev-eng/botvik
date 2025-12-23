@@ -98,23 +98,26 @@ export default function Home() {
         </motion.div>
 
         {/* Play Button */}
-        <motion.a
-          href="/miniapp"
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-700 to-red-600 px-16 py-4 text-lg font-bold uppercase tracking-widest text-white shadow-xl shadow-red-900/40 transition-all duration-300 hover:shadow-red-800/50"
         >
-          {/* Button glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          
-          {/* Button shine effect */}
-          <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-          
-          <span className="relative z-10">ИГРАТЬ</span>
-        </motion.a>
+          <a
+            href="/miniapp"
+            className="group relative block overflow-hidden rounded-2xl bg-gradient-to-r from-red-700 to-red-600 px-16 py-4 text-lg font-bold uppercase tracking-widest text-white shadow-xl shadow-red-900/40 transition-all duration-300 hover:shadow-red-800/50"
+          >
+            {/* Button glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            
+            {/* Button shine effect */}
+            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+            
+            <span className="relative z-10">ИГРАТЬ</span>
+          </a>
+        </motion.div>
 
         {/* Stats hint */}
         <motion.div
