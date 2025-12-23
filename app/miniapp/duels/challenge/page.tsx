@@ -50,11 +50,18 @@ export default function ChallengePage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ID пользователя (с проверкой)
+  const userId = session.status === "ready" ? session.user.id : null;
+
   // Загрузка друзей
   useEffect(() => {
+    if (session.status !== "ready" || !userId) return;
+    
     async function loadFriends() {
       try {
-        const data = await api.get<{ ok: boolean; friends: Friend[] }>("/api/friends?status=accepted");
+        const data = await api.get<{ ok: boolean; friends: Friend[] }>(
+          `/api/friends?status=accepted&userId=${userId}`
+        );
         if (data.ok) {
           setFriends(data.friends);
         }
@@ -66,15 +73,18 @@ export default function ChallengePage() {
     }
 
     loadFriends();
-  }, []);
+  }, [session.status, userId]);
 
   // Загрузка квизов
   useEffect(() => {
+    if (session.status !== "ready" || !userId) return;
+    
     async function loadQuizzes() {
       try {
-        const data = await api.get<{ ok: boolean; quizzes: Quiz[] }>("/api/quiz");
-        if (data.ok) {
-          setQuizzes(data.quizzes);
+        const data = await api.get<Quiz[]>(`/api/quiz?userId=${userId}`);
+        // API возвращает массив напрямую
+        if (Array.isArray(data)) {
+          setQuizzes(data);
         }
       } catch (err) {
         console.error("[Challenge] Failed to load quizzes:", err);
@@ -84,7 +94,7 @@ export default function ChallengePage() {
     if (step === "quiz") {
       loadQuizzes();
     }
-  }, [step]);
+  }, [step, session.status, userId]);
 
   // Выбор друга
   const handleSelectFriend = (friend: Friend) => {

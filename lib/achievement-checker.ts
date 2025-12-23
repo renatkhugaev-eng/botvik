@@ -46,6 +46,11 @@ export type UserStats = {
   daysSinceLastQuiz: number;      // Дней с последнего квиза (для comeback)
   quizzesToday: number;           // Квизов сегодня (для weekend_warrior)
   isWeekend: boolean;             // Сегодня выходной
+  // Статистика дуэлей
+  duelsPlayed: number;            // Сыграно дуэлей
+  duelsWon: number;               // Побед в дуэлях
+  duelWinStreak: number;          // Текущая серия побед
+  duelsPerfect: number;           // Идеальных дуэлей (100%)
 };
 
 export type UnlockedAchievement = {
@@ -276,6 +281,82 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     daysSinceLastQuiz,
     quizzesToday,
     isWeekend,
+    // Статистика дуэлей (вычисляется отдельно)
+    ...(await getDuelStats(userId)),
+  };
+}
+
+/**
+ * Получить статистику дуэлей для достижений
+ */
+async function getDuelStats(userId: number): Promise<{
+  duelsPlayed: number;
+  duelsWon: number;
+  duelWinStreak: number;
+  duelsPerfect: number;
+}> {
+  // Всего сыгранных дуэлей
+  const duelsPlayed = await prisma.duel.count({
+    where: {
+      OR: [{ challengerId: userId }, { opponentId: userId }],
+      status: "FINISHED",
+    },
+  });
+
+  // Побед в дуэлях
+  const duelsWon = await prisma.duel.count({
+    where: {
+      winnerId: userId,
+      status: "FINISHED",
+    },
+  });
+
+  // Серия побед (текущая)
+  // Получаем последние дуэли в обратном порядке и считаем подряд идущие победы
+  const recentDuels = await prisma.duel.findMany({
+    where: {
+      OR: [{ challengerId: userId }, { opponentId: userId }],
+      status: "FINISHED",
+    },
+    orderBy: { finishedAt: "desc" },
+    take: 20, // Достаточно для проверки серии
+    select: { winnerId: true },
+  });
+
+  let duelWinStreak = 0;
+  for (const duel of recentDuels) {
+    if (duel.winnerId === userId) {
+      duelWinStreak++;
+    } else {
+      break; // Серия прервалась
+    }
+  }
+
+  // Идеальные дуэли (100% правильных ответов + победа)
+  // Находим дуэли где пользователь победил и все его ответы правильные
+  const perfectDuels = await prisma.$queryRaw<[{ count: bigint }]>`
+    SELECT COUNT(DISTINCT d.id) as count
+    FROM "Duel" d
+    WHERE d."winnerId" = ${userId}
+      AND d.status = 'FINISHED'
+      AND NOT EXISTS (
+        SELECT 1 FROM "DuelAnswer" da 
+        WHERE da."duelId" = d.id 
+          AND da."userId" = ${userId} 
+          AND da."isCorrect" = false
+      )
+      AND EXISTS (
+        SELECT 1 FROM "DuelAnswer" da 
+        WHERE da."duelId" = d.id 
+          AND da."userId" = ${userId}
+      )
+  `;
+
+  return {
+    duelsPlayed,
+    duelsWon,
+    duelWinStreak,
+    duelsPerfect: Number(perfectDuels[0]?.count ?? 0),
   };
 }
 
@@ -311,6 +392,10 @@ function getStatValue(stats: UserStats, type: AchievementRequirementType): numbe
     case "rare_achievements": return stats.rareAchievementsCount;
     case "total_achievements": return stats.totalAchievementsCount;
     case "quizzes_today": return stats.isWeekend ? stats.quizzesToday : 0; // Только в выходные
+    case "duels_played": return stats.duelsPlayed;
+    case "duels_won": return stats.duelsWon;
+    case "duel_win_streak": return stats.duelWinStreak;
+    case "duels_perfect": return stats.duelsPerfect;
     case "special": return 0; // Special achievements checked separately
     default: return 0;
   }

@@ -1606,6 +1606,39 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       </motion.section>
 
       {/* ─────────────────────────────────────────────────────────────────
+          DUELS — кликабельный блок ведёт на /miniapp/duels
+      ───────────────────────────────────────────────────────────────── */}
+      <motion.div
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          haptic.medium();
+          router.push("/miniapp/duels");
+        }}
+        className="cursor-pointer"
+      >
+        <Card title="Дуэли" badge={<span className="text-2xl">⚔️</span>}>
+          <div className="flex items-center gap-4 p-3 rounded-xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
+              <span className="text-3xl">🎮</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-bold text-slate-700">1 vs 1 баттлы</p>
+              <p className="text-[12px] text-slate-500 mt-0.5">Вызови друга на викторину!</p>
+            </div>
+            <Chevron />
+          </div>
+          
+          {/* CTA */}
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 py-3">
+            <span className="text-sm font-semibold text-white">Играть с друзьями</span>
+            <svg className="h-4 w-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* ─────────────────────────────────────────────────────────────────
           TOURNAMENTS — кликабельный блок ведёт на /miniapp/tournaments
       ───────────────────────────────────────────────────────────────── */}
       <motion.div

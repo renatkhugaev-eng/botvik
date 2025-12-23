@@ -32,7 +32,13 @@ export type NotificationType =
   | "weekly_winner"
   | "tournament_winner"
   | "tournament_finished"
-  | "tournament_starting";
+  | "tournament_starting"
+  | "duel_challenge"
+  | "duel_accepted"
+  | "duel_declined"
+  | "duel_cancelled"
+  | "duel_result"
+  | "duel_expired";
 
 /**
  * Важные уведомления, которые обходят rate limit:
@@ -40,12 +46,21 @@ export type NotificationType =
  * - tournament_winner: одноразовое уведомление о победе
  * - tournament_finished: одноразовое уведомление о завершении
  * - weekly_winner: еженедельное уведомление о победе
+ * - duel_challenge: вызов на дуэль требует быстрой реакции
+ * - duel_accepted: оппонент принял вызов
+ * - duel_result: результат дуэли
  */
 const RATE_LIMIT_BYPASS_TYPES: NotificationType[] = [
   "level_up",
   "tournament_winner",
   "tournament_finished",
   "weekly_winner",
+  "duel_challenge",
+  "duel_accepted",
+  "duel_declined",
+  "duel_cancelled",
+  "duel_result",
+  "duel_expired",
 ];
 
 const NOTIFICATION_PREFERENCES = {
@@ -58,6 +73,12 @@ const NOTIFICATION_PREFERENCES = {
   tournament_winner: "notifyLeaderboard", // Tournament winners use leaderboard preference
   tournament_finished: "notifyLeaderboard", // All participants get tournament results
   tournament_starting: "notifyLeaderboard", // Tournament is about to start
+  duel_challenge: "notifyFriends", // Duels use friends preference
+  duel_accepted: "notifyFriends",
+  duel_declined: "notifyFriends",
+  duel_cancelled: "notifyFriends",
+  duel_result: "notifyFriends",
+  duel_expired: "notifyFriends",
 } as const;
 
 const NOTIFICATION_TEMPLATES: Record<NotificationType, (data: Record<string, unknown>) => string> = {
@@ -169,6 +190,73 @@ ${data.isRegistered ? "✅ Ты уже зарегистрирован — не �
 
 [▶️ Перейти к турниру](https://t.me/truecrimetg_bot/app?startapp=tournament_${data.tournamentSlug || ""})
   `.trim(),
+
+  // ═══ ДУЭЛИ ═══
+  
+  duel_challenge: (data) => `
+⚔️ *Вызов на дуэль!*
+
+${data.challengerName} вызывает тебя на дуэль!
+
+🎯 Квиз: *${data.quizTitle}*
+🏆 Награда: *+${data.xpReward} XP* победителю
+
+⏰ Вызов действует 24 часа
+
+[▶️ Принять вызов](https://t.me/truecrimetg_bot/app?startapp=duel_${data.duelId})
+  `.trim(),
+
+  duel_accepted: (data) => `
+✅ *Дуэль принята!*
+
+${data.opponentName} принял твой вызов на дуэль!
+
+🎯 Квиз: *${data.quizTitle}*
+⚔️ Игра уже ждёт вас!
+
+[▶️ Начать дуэль](https://t.me/truecrimetg_bot/app?startapp=duel_${data.duelId})
+  `.trim(),
+
+  duel_declined: (data) => `
+❌ *Дуэль отклонена*
+
+${data.opponentName} отклонил твой вызов на дуэль.
+
+Не расстраивайся — вызови кого-нибудь другого! 💪
+
+[▶️ Найти соперника](https://t.me/truecrimetg_bot/app?startapp=duels)
+  `.trim(),
+
+  duel_result: (data) => `
+${data.isWinner ? "🏆 *Победа в дуэли!*" : data.isDraw ? "🤝 *Ничья в дуэли!*" : "😔 *Поражение в дуэли*"}
+
+${data.isWinner 
+  ? `Ты победил ${data.opponentName}!` 
+  : data.isDraw 
+  ? `Ничья с ${data.opponentName}!`
+  : `${data.opponentName} оказался сильнее.`}
+
+📊 Счёт: *${data.myScore}* : *${data.opponentScore}*
+${data.xpEarned ? `🎁 Получено: *+${data.xpEarned} XP*` : ""}
+
+[▶️ Играть ещё](https://t.me/truecrimetg_bot/app?startapp=duels)
+  `.trim(),
+
+  duel_cancelled: (data) => `
+❌ *Дуэль отменена*
+
+${data.challengerName} отменил вызов на дуэль.
+
+[▶️ Найти другого соперника](https://t.me/truecrimetg_bot/app?startapp=duels)
+  `.trim(),
+
+  duel_expired: (data) => `
+⏰ *Дуэль истекла*
+
+Вызов на дуэль от ${data.challengerName} истёк — никто не ответил вовремя.
+
+[▶️ Вызвать друга](https://t.me/truecrimetg_bot/app?startapp=duels)
+  `.trim(),
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -269,6 +357,12 @@ async function canSendNotification(
     tournament_winner: user.notifyLeaderboard, // Tournament winners use leaderboard preference
     tournament_finished: user.notifyLeaderboard, // All participants get tournament results
     tournament_starting: user.notifyLeaderboard, // Tournament is about to start
+    duel_challenge: user.notifyFriends, // Duels use friends preference
+    duel_accepted: user.notifyFriends,
+    duel_declined: user.notifyFriends,
+    duel_cancelled: user.notifyFriends,
+    duel_result: user.notifyFriends,
+    duel_expired: user.notifyFriends,
   };
 
   if (!preferenceMap[type]) {
@@ -924,5 +1018,92 @@ export async function cancelEnergyNotification(userId: number): Promise<void> {
   } catch (error) {
     console.error(`[notifications] Failed to cancel energy notification:`, error);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DUEL NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Notify user about duel challenge
+ */
+export async function notifyDuelChallenge(
+  opponentId: number,
+  data: {
+    duelId: string;
+    challengerName: string;
+    quizTitle: string;
+    xpReward: number;
+  }
+): Promise<SendNotificationResult> {
+  return sendNotification(opponentId, "duel_challenge", data);
+}
+
+/**
+ * Notify challenger that duel was accepted
+ */
+export async function notifyDuelAccepted(
+  challengerId: number,
+  data: {
+    duelId: string;
+    opponentName: string;
+    quizTitle: string;
+  }
+): Promise<SendNotificationResult> {
+  return sendNotification(challengerId, "duel_accepted", data);
+}
+
+/**
+ * Notify challenger that duel was declined
+ */
+export async function notifyDuelDeclined(
+  challengerId: number,
+  data: {
+    opponentName: string;
+  }
+): Promise<SendNotificationResult> {
+  return sendNotification(challengerId, "duel_declined", data);
+}
+
+/**
+ * Notify user about duel result
+ */
+export async function notifyDuelResult(
+  userId: number,
+  data: {
+    duelId: string;
+    opponentName: string;
+    isWinner: boolean;
+    isDraw: boolean;
+    myScore: number;
+    opponentScore: number;
+    xpEarned: number;
+  }
+): Promise<SendNotificationResult> {
+  return sendNotification(userId, "duel_result", data);
+}
+
+/**
+ * Notify opponent that duel was cancelled by challenger
+ */
+export async function notifyDuelCancelled(
+  opponentId: number,
+  data: {
+    challengerName: string;
+  }
+): Promise<SendNotificationResult> {
+  return sendNotification(opponentId, "duel_cancelled", data);
+}
+
+/**
+ * Notify users about expired duel
+ */
+export async function notifyDuelExpired(
+  userId: number,
+  data: {
+    challengerName: string;
+  }
+): Promise<SendNotificationResult> {
+  return sendNotification(userId, "duel_expired", data);
 }
 

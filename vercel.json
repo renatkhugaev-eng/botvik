@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/activity-cleanup",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/duels-cleanup",
+      "schedule": "0 * * * *"
     }
   ]
 }

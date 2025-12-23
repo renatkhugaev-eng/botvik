@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Создаём сессию Liveblocks
+    // ═══ СОЗДАЁМ СЕССИЮ LIVEBLOCKS ═══
     const session = getLiveblocks().prepareSession(String(user.id), {
       userInfo: {
         odId: user.id,
@@ -79,13 +79,30 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Даём доступ к комнате дуэли
+    // ═══ SECURITY: Даём доступ ТОЛЬКО к проверенным комнатам ═══
+    // НЕ используем wildcard duel:* — это дыра в безопасности!
+    
+    // Если запрошена конкретная комната — даём доступ (уже проверено выше)
     if (room) {
       session.allow(room, session.FULL_ACCESS);
     }
 
-    // Также даём доступ ко всем дуэлям пользователя (для будущих комнат)
-    session.allow(`duel:*`, session.FULL_ACCESS);
+    // Получаем все активные дуэли пользователя и даём доступ к каждой
+    const userDuels = await prisma.duel.findMany({
+      where: {
+        OR: [
+          { challengerId: user.id },
+          { opponentId: user.id },
+        ],
+        status: { in: ["ACCEPTED", "IN_PROGRESS"] },
+      },
+      select: { id: true },
+    });
+
+    // Даём доступ только к своим дуэлям
+    for (const duel of userDuels) {
+      session.allow(`duel:${duel.id}`, session.FULL_ACCESS);
+    }
 
     const { status, body: responseBody } = await session.authorize();
 

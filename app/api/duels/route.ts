@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { notifyDuelChallenge } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -237,7 +238,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // TODO: Отправить push-уведомление оппоненту
+    // Отправляем push-уведомление оппоненту
+    const challengerName = duel.challenger.firstName || duel.challenger.username || "Игрок";
+    notifyDuelChallenge(opponentId, {
+      duelId: duel.id,
+      challengerName,
+      quizTitle: duel.quiz.title,
+      xpReward: duel.xpReward,
+    }).catch((err) => {
+      console.error("[Duels] Failed to send challenge notification:", err);
+    });
 
     return NextResponse.json({
       ok: true,

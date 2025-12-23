@@ -29,7 +29,8 @@ export type AchievementCategory =
   | "mastery" 
   | "special" 
   | "collector"
-  | "veteran";
+  | "veteran"
+  | "duel";     // Дуэли 1 на 1
 
 export type AchievementRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
@@ -74,6 +75,10 @@ export type AchievementRequirementType =
   | "rare_achievements"        // Количество редких+ достижений
   | "total_achievements"       // Всего разблокированных достижений
   | "quizzes_today"            // Квизов сегодня (для weekend_warrior)
+  | "duels_played"             // Сыграно дуэлей
+  | "duels_won"                // Побед в дуэлях
+  | "duel_win_streak"          // Серия побед в дуэлях подряд
+  | "duels_perfect"            // Идеальных дуэлей (100% правильных)
   | "special";                 // Особое условие (проверяется кодом)
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,6 +96,7 @@ export const CATEGORY_INFO: Record<AchievementCategory, { name: string; icon: st
   special: { name: "Особые", icon: "✨", color: "#f43f5e" },
   collector: { name: "Коллекция", icon: "📦", color: "#84cc16" },
   veteran: { name: "Ветеран", icon: "🎖️", color: "#a855f7" },
+  duel: { name: "Дуэли", icon: "⚔️", color: "#ef4444" },
 };
 
 export const RARITY_INFO: Record<AchievementRarity, { name: string; color: string; glow: string }> = {
@@ -1211,6 +1217,110 @@ export const ACHIEVEMENTS: Achievement[] = [
     xpReward: 500,
     requirement: { type: "referrals_count", value: 25 },
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DUEL — Дуэли 1 на 1 (10 достижений)
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "first_duel",
+    name: "Дуэлянт",
+    description: "Сыграй свою первую дуэль",
+    icon: "⚔️",
+    category: "duel",
+    rarity: "common",
+    xpReward: 15,
+    requirement: { type: "duels_played", value: 1 },
+  },
+  {
+    id: "first_duel_win",
+    name: "Первая победа",
+    description: "Выиграй свою первую дуэль",
+    icon: "🏆",
+    category: "duel",
+    rarity: "uncommon",
+    xpReward: 25,
+    requirement: { type: "duels_won", value: 1 },
+  },
+  {
+    id: "duel_veteran",
+    name: "Ветеран дуэлей",
+    description: "Сыграй 10 дуэлей",
+    icon: "🎖️",
+    category: "duel",
+    rarity: "uncommon",
+    xpReward: 50,
+    requirement: { type: "duels_played", value: 10 },
+  },
+  {
+    id: "duel_master",
+    name: "Мастер дуэлей",
+    description: "Сыграй 50 дуэлей",
+    icon: "🗡️",
+    category: "duel",
+    rarity: "rare",
+    xpReward: 100,
+    requirement: { type: "duels_played", value: 50 },
+  },
+  {
+    id: "duel_champion",
+    name: "Чемпион дуэлей",
+    description: "Выиграй 25 дуэлей",
+    icon: "👑",
+    category: "duel",
+    rarity: "rare",
+    xpReward: 150,
+    requirement: { type: "duels_won", value: 25 },
+  },
+  {
+    id: "duel_legend",
+    name: "Легенда дуэлей",
+    description: "Выиграй 100 дуэлей",
+    icon: "⭐",
+    category: "duel",
+    rarity: "epic",
+    xpReward: 300,
+    requirement: { type: "duels_won", value: 100 },
+  },
+  {
+    id: "duel_streak_3",
+    name: "В ударе",
+    description: "Выиграй 3 дуэли подряд",
+    icon: "🔥",
+    category: "duel",
+    rarity: "uncommon",
+    xpReward: 40,
+    requirement: { type: "duel_win_streak", value: 3 },
+  },
+  {
+    id: "duel_streak_5",
+    name: "Непобедимый",
+    description: "Выиграй 5 дуэлей подряд",
+    icon: "💪",
+    category: "duel",
+    rarity: "rare",
+    xpReward: 80,
+    requirement: { type: "duel_win_streak", value: 5 },
+  },
+  {
+    id: "duel_streak_10",
+    name: "Доминатор",
+    description: "Выиграй 10 дуэлей подряд",
+    icon: "🌟",
+    category: "duel",
+    rarity: "legendary",
+    xpReward: 250,
+    requirement: { type: "duel_win_streak", value: 10 },
+  },
+  {
+    id: "duel_perfect",
+    name: "Идеальная дуэль",
+    description: "Выиграй дуэль со 100% правильных ответов",
+    icon: "💎",
+    category: "duel",
+    rarity: "epic",
+    xpReward: 100,
+    requirement: { type: "duels_perfect", value: 1 },
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1268,7 +1378,7 @@ export function getAchievementStats() {
   };
 }
 
-// Проверяем что достижений ровно 105 (100 + 5 referral)
-if (ACHIEVEMENTS.length !== 105) {
-  console.warn(`[Achievements] Expected 105 achievements, got ${ACHIEVEMENTS.length}`);
+// Проверяем что достижений ровно 115 (100 + 5 referral + 10 duel)
+if (ACHIEVEMENTS.length !== 115) {
+  console.warn(`[Achievements] Expected 115 achievements, got ${ACHIEVEMENTS.length}`);
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth";
 import { calculateQuizXp, getLevelProgress, getLevelTitle, type XpBreakdown } from "@/lib/xp";
 import { notifyLevelUp, checkAndNotifyLeaderboardChanges, notifyFriendActivity } from "@/lib/notifications";
 import { getWeekStart } from "@/lib/week";
@@ -470,6 +471,13 @@ async function processTournamentStage(
 }
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const authenticatedUserId = auth.user.id;
+
   const { id } = await context.params;
   const quizId = Number(id);
   if (!quizId || Number.isNaN(quizId)) {
@@ -505,6 +513,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   if (!session || session.quizId !== quizId) {
     return NextResponse.json({ error: "session_not_found" }, { status: 404 });
+  }
+
+  // ═══ SESSION OWNERSHIP CHECK ═══
+  // CRITICAL: Prevent users from finishing other users' sessions
+  if (session.userId !== authenticatedUserId) {
+    console.warn(
+      `[quiz/finish] ⚠️ SECURITY: User ${authenticatedUserId} attempted to finish session ${sessionId} ` +
+      `owned by user ${session.userId}`
+    );
+    return NextResponse.json({ error: "session_not_yours" }, { status: 403 });
   }
 
   // Завершаем сессию, если ещё не завершена

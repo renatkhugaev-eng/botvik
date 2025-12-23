@@ -1,23 +1,37 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════════
- * USE DUEL ROOM — React hook для real-time дуэли
+ * USE DUEL ROOM — Professional Real-time Duel Hook with Liveblocks
  * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * Полноценная реализация real-time дуэли:
+ * - Синхронизация состояния через Liveblocks Presence
+ * - Серверная валидация ответов
+ * - Обработка отключений и reconnection
+ * - Timeout для неактивных игроков
+ * - Координированный старт игры
+ *
+ * SECURITY:
+ * - Правильные ответы приходят ТОЛЬКО от сервера после ответа
+ * - Очки вычисляются на сервере из DuelAnswer
+ * - Клиент не может подделать результат
+ *
+ * ARCHITECTURE:
+ * - Используем refs для функций с циклическими зависимостями
+ * - Это предотвращает stale closures и позволяет избежать ошибок TS2448
  */
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   useRoom,
   useMyPresence,
-  useUpdateMyPresence,
   useOthers,
   useBroadcastEvent,
   useEventListener,
-  useStorage,
-  useMutation,
+  useStatus,
+  useLostConnectionListener,
   DuelPresence,
-  DuelStorage,
   DuelRoomEvent,
 } from "@/liveblocks.config";
 import { api } from "@/lib/api";
@@ -26,13 +40,25 @@ import { api } from "@/lib/api";
 // ТИПЫ
 // ═══════════════════════════════════════════════════════════════════════════
 
+export type DuelStatus =
+  | "connecting"      // Подключение к комнате
+  | "waiting_opponent" // Ожидание подключения оппонента
+  | "waiting_ready"   // Оба в комнате, ждём нажатия "Готов"
+  | "countdown"       // Обратный отсчёт перед стартом
+  | "playing"         // Идёт вопрос
+  | "revealing"       // Показ правильного ответа
+  | "finished"        // Игра завершена
+  | "opponent_left"   // Оппонент отключился
+  | "error";          // Ошибка
+
 export type DuelGameState = {
-  status: "loading" | "waiting" | "countdown" | "playing" | "question_result" | "finished";
+  status: DuelStatus;
   currentQuestionIndex: number;
   timeLeft: number;
   myScore: number;
   opponentScore: number;
   winnerId: number | null;
+  error: string | null;
 };
 
 export type DuelQuestion = {
@@ -42,333 +68,682 @@ export type DuelQuestion = {
   timeLimitSeconds: number;
 };
 
+export type DuelPlayer = {
+  odId: number;
+  odName: string;
+  odPhotoUrl: string | null;
+};
+
+type AnswerResult = {
+  questionIndex: number;
+  isCorrect: boolean;
+  optionId: number | null;
+  correctOptionId: number | null;
+  timeSpentMs: number;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// КОНСТАНТЫ
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COUNTDOWN_SECONDS = 3;
+const REVEAL_DURATION_MS = 2500;
+const LOBBY_OPPONENT_DELAY_MS = 2000;
+const RECONNECT_GRACE_PERIOD_MS = 10000;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HOOK
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function useDuelRoom(duelId: string, userId: number) {
+export function useDuelRoom(duelId: string, userId: number, userName: string, userPhoto: string | null) {
   const room = useRoom();
+  const connectionStatus = useStatus();
   const [myPresence, updateMyPresence] = useMyPresence();
   const others = useOthers();
   const broadcast = useBroadcastEvent();
 
-  // Локальное состояние
+  // ═══ Состояние игры ═══
   const [gameState, setGameState] = useState<DuelGameState>({
-    status: "loading",
+    status: "connecting",
     currentQuestionIndex: 0,
     timeLeft: 0,
     myScore: 0,
     opponentScore: 0,
     winnerId: null,
+    error: null,
   });
-  const [questions, setQuestions] = useState<DuelQuestion[]>([]);
-  const [correctAnswers, setCorrectAnswers] = useState<Record<number, number>>({});
-  const [myAnswers, setMyAnswers] = useState<Record<number, number>>({});
-  const [opponentAnswers, setOpponentAnswers] = useState<Record<number, number>>({});
 
+  // ═══ Данные игры ═══
+  const [questions, setQuestions] = useState<DuelQuestion[]>([]);
+  const [players, setPlayers] = useState<DuelPlayer[]>([]);
+  const [revealedAnswers, setRevealedAnswers] = useState<Record<number, number>>({});
+  const [myAnswers, setMyAnswers] = useState<Record<number, number | null>>({});
+  const [pendingCorrectAnswers, setPendingCorrectAnswers] = useState<Record<number, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // ═══ Refs для таймеров ═══
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const opponentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectGraceRef = useRef<NodeJS.Timeout | null>(null);
+  const finishingRef = useRef(false);
 
-  // Storage hooks
-  const storage = useStorage((root) => root);
+  // ═══ Refs для функций (решение циклических зависимостей) ═══
+  const startQuestionRef = useRef<(index: number) => void>(() => {});
+  const handleTimeUpRef = useRef<(questionIndex: number) => Promise<void>>(async () => {});
+  const triggerRevealRef = useRef<(questionIndex: number, correctOptionId: number) => void>(() => {});
+  const handleRevealRef = useRef<(questionIndex: number, correctOptionId: number) => void>(() => {});
+  const finishGameRef = useRef<() => Promise<void>>(async () => {});
 
-  // ═══ Инициализация при входе в комнату ═══
+  // ═══ Оппонент из Liveblocks ═══
+  const opponent = useMemo(() => {
+    const otherUser = others.find(
+      (other) => (other.presence as DuelPresence)?.odId !== userId
+    );
+    return otherUser?.presence as DuelPresence | undefined;
+  }, [others, userId]);
+
+  const isOpponentConnected = !!opponent;
+  const isOpponentReady = opponent?.isReady ?? false;
+  const isOpponentAnswered = opponent?.hasAnswered ?? false;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ИГРОВЫЕ ФУНКЦИИ (с использованием refs для циклических зависимостей)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // handleGameEnd — нет циклических зависимостей
+  const handleGameEnd = useCallback((winnerId: number | null, scores: Record<number, number>) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    const myScore = scores[userId] ?? 0;
+    const opponentId = Object.keys(scores).find((id) => Number(id) !== userId);
+    const oppScore = opponentId ? scores[Number(opponentId)] : 0;
+
+    setGameState((prev) => ({
+      ...prev,
+      status: "finished",
+      winnerId,
+      myScore,
+      opponentScore: oppScore,
+    }));
+  }, [userId]);
+
+  // handleForfeit — нет циклических зависимостей
+  const handleForfeit = useCallback((forfeitedBy: number, winnerId: number, scores: Record<number, number>) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    const isForfeitedByMe = forfeitedBy === userId;
+    const myScore = scores[userId] ?? 0;
+    const opponentId = Object.keys(scores).find((id) => Number(id) !== userId);
+    const oppScore = opponentId ? scores[Number(opponentId)] : 0;
+
+    setGameState((prev) => ({
+      ...prev,
+      status: "finished",
+      winnerId,
+      myScore: isForfeitedByMe ? 0 : myScore,
+      opponentScore: isForfeitedByMe ? oppScore : 0,
+      error: isForfeitedByMe ? null : "Соперник сдался",
+    }));
+  }, [userId]);
+
+  // finishGame — использует handleGameEnd, broadcast
+  const finishGame = useCallback(async () => {
+    if (finishingRef.current) {
+      console.log("[Duel] finishGame already in progress, skipping");
+      return;
+    }
+    finishingRef.current = true;
+
+    try {
+      const result = await api.post<{
+        ok: boolean;
+        alreadyFinished?: boolean;
+        duel: {
+          winnerId: number | null;
+          challengerScore: number;
+          opponentScore: number;
+          challengerId: number;
+          opponentId: number;
+        };
+      }>(`/api/duels/${duelId}/finish`, {});
+
+      if (result.ok) {
+        const scores = {
+          [result.duel.challengerId]: result.duel.challengerScore,
+          [result.duel.opponentId]: result.duel.opponentScore,
+        };
+
+        if (!result.alreadyFinished) {
+          broadcast({
+            type: "GAME_END",
+            winnerId: result.duel.winnerId,
+            scores,
+          });
+        }
+
+        handleGameEnd(result.duel.winnerId, scores);
+      }
+    } catch (error) {
+      console.error("[Duel] Failed to finish game:", error);
+      finishingRef.current = false;
+    }
+  }, [duelId, broadcast, handleGameEnd]);
+
+  // Обновляем ref
   useEffect(() => {
-    async function loadDuelData() {
+    finishGameRef.current = finishGame;
+  }, [finishGame]);
+
+  // handleReveal — использует refs для startQuestion и finishGame
+  const handleReveal = useCallback((questionIndex: number, correctOptionId: number) => {
+    setRevealedAnswers((prev) => {
+      // Защита от двойного reveal
+      if (prev[questionIndex] !== undefined) {
+        console.log(`[Duel] Reveal for Q${questionIndex} already processed, skipping`);
+        return prev;
+      }
+
+      if (timerRef.current) clearInterval(timerRef.current);
+
+      // Обновляем очки
+      const myAnswer = myAnswers[questionIndex];
+      const isCorrect = myAnswer === correctOptionId;
+
+      setGameState((prevState) => ({
+        ...prevState,
+        status: "revealing",
+        myScore: isCorrect ? prevState.myScore + 100 : prevState.myScore,
+      }));
+
+      // Переход к следующему вопросу или финиш
+      setTimeout(() => {
+        const nextIndex = questionIndex + 1;
+
+        if (nextIndex >= questions.length) {
+          finishGameRef.current();
+        } else {
+          broadcast({ type: "QUESTION_REVEAL", questionIndex: nextIndex });
+          startQuestionRef.current(nextIndex);
+        }
+      }, REVEAL_DURATION_MS);
+
+      return { ...prev, [questionIndex]: correctOptionId };
+    });
+  }, [myAnswers, questions.length, broadcast]);
+
+  // Обновляем ref
+  useEffect(() => {
+    handleRevealRef.current = handleReveal;
+  }, [handleReveal]);
+
+  // triggerReveal — использует handleReveal через ref
+  const triggerReveal = useCallback((questionIndex: number, correctOptionId: number) => {
+    broadcast({
+      type: "ANSWER_REVEAL",
+      questionIndex,
+      correctOptionId,
+    });
+    handleRevealRef.current(questionIndex, correctOptionId);
+  }, [broadcast]);
+
+  // Обновляем ref
+  useEffect(() => {
+    triggerRevealRef.current = triggerReveal;
+  }, [triggerReveal]);
+
+  // handleTimeUp — использует triggerReveal через ref
+  const handleTimeUp = useCallback(async (questionIndex: number) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    // Идемпотентность
+    const alreadyAnswered = myAnswers[questionIndex] !== undefined;
+    const alreadyRevealed = revealedAnswers[questionIndex] !== undefined;
+
+    if (alreadyAnswered) {
+      console.log(`[Duel] TIME_UP for Q${questionIndex} but already answered, skipping`);
+      return;
+    }
+
+    if (alreadyRevealed) {
+      console.log(`[Duel] TIME_UP for Q${questionIndex} but already revealed, skipping`);
+      return;
+    }
+
+    setMyAnswers((prev) => ({ ...prev, [questionIndex]: null }));
+
+    const question = questions[questionIndex];
+    if (question) {
       try {
-        const data = await api.post<{
-          ok: boolean;
-          duelId: string;
-          quizTitle: string;
-          players: { odId: number; odName: string; odPhotoUrl: string | null }[];
-          questions: DuelQuestion[];
-          correctAnswers: Record<number, number>;
-        }>(`/api/duels/${duelId}/start`, {});
-
-        if (data.ok) {
-          setQuestions(data.questions);
-          setCorrectAnswers(data.correctAnswers);
-
-          // Обновляем presence
-          const me = data.players.find((p) => p.odId === userId);
-          if (me) {
-            updateMyPresence({
-              odId: me.odId,
-              odName: me.odName,
-              odPhotoUrl: me.odPhotoUrl,
-              isReady: false,
-              currentQuestion: 0,
-              hasAnswered: false,
-            });
+        const response = await api.post<{ ok: boolean; answer: AnswerResult }>(
+          `/api/duels/${duelId}/answer`,
+          {
+            questionIndex,
+            optionId: null,
+            timeSpentMs: question.timeLimitSeconds * 1000,
           }
+        );
 
-          setGameState((prev) => ({
-            ...prev,
-            status: "waiting",
-          }));
+        if (response.ok && response.answer.correctOptionId !== null) {
+          triggerRevealRef.current(questionIndex, response.answer.correctOptionId);
         }
       } catch (error) {
-        console.error("[Duel] Failed to load data:", error);
+        console.error("[Duel] Failed to submit timeout:", error);
       }
     }
+  }, [myAnswers, questions, duelId, revealedAnswers]);
 
-    loadDuelData();
-  }, [duelId, userId, updateMyPresence]);
+  // Обновляем ref
+  useEffect(() => {
+    handleTimeUpRef.current = handleTimeUp;
+  }, [handleTimeUp]);
 
-  // ═══ Слушаем события ═══
-  useEventListener((event) => {
-    const { type } = event.event as DuelRoomEvent;
+  // startQuestion — использует handleTimeUp через ref
+  const startQuestion = useCallback((index: number) => {
+    const question = questions[index];
+    if (!question) return;
 
-    switch (type) {
-      case "GAME_START":
-        startCountdown();
-        break;
+    if (timerRef.current) clearInterval(timerRef.current);
 
-      case "QUESTION_REVEAL":
-        const { questionIndex } = event.event as { type: "QUESTION_REVEAL"; questionIndex: number };
-        showQuestion(questionIndex);
-        break;
+    setGameState((prev) => ({
+      ...prev,
+      status: "playing",
+      currentQuestionIndex: index,
+      timeLeft: question.timeLimitSeconds,
+    }));
 
-      case "ANSWER_REVEAL":
-        const revealEvent = event.event as {
-          type: "ANSWER_REVEAL";
-          questionIndex: number;
-          correctOptionId: number;
-        };
-        revealAnswer(revealEvent.questionIndex, revealEvent.correctOptionId);
-        break;
+    updateMyPresence({
+      currentQuestion: index,
+      hasAnswered: false,
+    });
 
-      case "GAME_END":
-        const endEvent = event.event as {
-          type: "GAME_END";
-          winnerId: number | null;
-          scores: Record<number, number>;
-        };
-        endGame(endEvent.winnerId, endEvent.scores);
-        break;
+    let timeLeft = question.timeLimitSeconds;
+    timerRef.current = setInterval(() => {
+      timeLeft--;
+      setGameState((prev) => ({ ...prev, timeLeft: Math.max(0, timeLeft) }));
 
-      case "PLAYER_ANSWERED":
-        const answerEvent = event.event as {
-          type: "PLAYER_ANSWERED";
-          odId: number;
-          questionIndex: number;
-        };
-        if (answerEvent.odId !== userId) {
-          setOpponentAnswers((prev) => ({
-            ...prev,
-            [answerEvent.questionIndex]: -1, // Отвечено, но не знаем что
-          }));
-        }
-        break;
-    }
-  });
+      if (timeLeft <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        broadcast({ type: "TIME_UP", questionIndex: index });
+        handleTimeUpRef.current(index);
+      }
+    }, 1000);
+  }, [questions, updateMyPresence, broadcast]);
 
-  // ═══ Обратный отсчёт перед игрой ═══
+  // Обновляем ref
+  useEffect(() => {
+    startQuestionRef.current = startQuestion;
+  }, [startQuestion]);
+
+  // startCountdown — использует startQuestion через ref
   const startCountdown = useCallback(() => {
-    setGameState((prev) => ({ ...prev, status: "countdown", timeLeft: 3 }));
+    setGameState((prev) => ({ ...prev, status: "countdown", timeLeft: COUNTDOWN_SECONDS }));
 
-    let count = 3;
+    let count = COUNTDOWN_SECONDS;
     countdownRef.current = setInterval(() => {
       count--;
       setGameState((prev) => ({ ...prev, timeLeft: count }));
 
       if (count <= 0) {
-        clearInterval(countdownRef.current!);
-        showQuestion(0);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        broadcast({ type: "QUESTION_REVEAL", questionIndex: 0 });
+        startQuestionRef.current(0);
       }
     }, 1000);
-  }, []);
+  }, [broadcast]);
 
-  // ═══ Показать вопрос ═══
-  const showQuestion = useCallback(
-    (index: number) => {
-      const question = questions[index];
-      if (!question) return;
+  // checkBothAnswered — использует triggerReveal через ref
+  const checkBothAnswered = useCallback(() => {
+    const questionIndex = gameState.currentQuestionIndex;
+    const myAnswer = myAnswers[questionIndex];
 
-      setGameState((prev) => ({
-        ...prev,
-        status: "playing",
-        currentQuestionIndex: index,
-        timeLeft: question.timeLimitSeconds,
-      }));
+    if (revealedAnswers[questionIndex] !== undefined) {
+      return;
+    }
 
-      updateMyPresence({
-        currentQuestion: index,
-        hasAnswered: false,
-      });
-
-      // Запускаем таймер
-      if (timerRef.current) clearInterval(timerRef.current);
-
-      timerRef.current = setInterval(() => {
-        setGameState((prev) => {
-          const newTime = prev.timeLeft - 1;
-          if (newTime <= 0) {
-            clearInterval(timerRef.current!);
-            // Время вышло — автоматически раскрываем ответ
-            broadcast({ type: "TIME_UP", questionIndex: index });
-          }
-          return { ...prev, timeLeft: Math.max(0, newTime) };
-        });
-      }, 1000);
-    },
-    [questions, updateMyPresence, broadcast]
-  );
-
-  // ═══ Ответить на вопрос ═══
-  const submitAnswer = useCallback(
-    (optionId: number) => {
-      const questionIndex = gameState.currentQuestionIndex;
-
-      // Сохраняем ответ
-      setMyAnswers((prev) => ({
-        ...prev,
-        [questionIndex]: optionId,
-      }));
-
-      // Обновляем presence
-      updateMyPresence({ hasAnswered: true });
-
-      // Broadcast что ответили
-      broadcast({
-        type: "PLAYER_ANSWERED",
-        odId: userId,
-        questionIndex,
-      });
-
-      // Проверяем, ответили ли оба
-      const opponentAnswered = others.some(
-        (other) => (other.presence as DuelPresence)?.hasAnswered
-      );
-
-      if (opponentAnswered) {
-        // Оба ответили — раскрываем
-        const correctOptionId = correctAnswers[questionIndex];
-        broadcast({
-          type: "ANSWER_REVEAL",
-          questionIndex,
-          correctOptionId,
-        });
+    if (myAnswer !== undefined && isOpponentAnswered) {
+      const correctOptionId = pendingCorrectAnswers[questionIndex];
+      if (correctOptionId !== undefined) {
+        console.log(`[Duel] Both answered Q${questionIndex}, triggering reveal`);
+        triggerRevealRef.current(questionIndex, correctOptionId);
       }
-    },
-    [gameState.currentQuestionIndex, updateMyPresence, broadcast, userId, others, correctAnswers]
-  );
+    }
+  }, [gameState.currentQuestionIndex, myAnswers, isOpponentAnswered, revealedAnswers, pendingCorrectAnswers]);
 
-  // ═══ Раскрытие ответа ═══
-  const revealAnswer = useCallback(
-    (questionIndex: number, correctOptionId: number) => {
-      clearInterval(timerRef.current!);
+  // submitAnswer — использует triggerReveal через ref
+  const submitAnswer = useCallback(async (optionId: number): Promise<AnswerResult | null> => {
+    if (isSubmitting || gameState.status !== "playing") return null;
 
-      setGameState((prev) => ({ ...prev, status: "question_result" }));
+    const questionIndex = gameState.currentQuestionIndex;
+    const question = questions[questionIndex];
+    if (!question) return null;
 
-      // Подсчитываем очки
-      const myAnswer = myAnswers[questionIndex];
-      const isCorrect = myAnswer === correctOptionId;
+    setIsSubmitting(true);
+    setMyAnswers((prev) => ({ ...prev, [questionIndex]: optionId }));
+    updateMyPresence({ hasAnswered: true });
 
-      if (isCorrect) {
-        setGameState((prev) => ({
-          ...prev,
-          myScore: prev.myScore + 100,
-        }));
-      }
+    broadcast({
+      type: "PLAYER_ANSWERED",
+      odId: userId,
+      questionIndex,
+    });
 
-      // Через 2 секунды — следующий вопрос или конец
-      setTimeout(() => {
-        const nextIndex = questionIndex + 1;
+    const timeSpentMs = (question.timeLimitSeconds - gameState.timeLeft) * 1000;
 
-        if (nextIndex >= questions.length) {
-          // Конец игры
-          finishGame();
-        } else {
-          showQuestion(nextIndex);
-        }
-      }, 2000);
-    },
-    [myAnswers, questions.length, showQuestion]
-  );
-
-  // ═══ Завершение игры ═══
-  const finishGame = useCallback(async () => {
     try {
-      // Подсчитываем финальные очки
-      let myScore = 0;
-      let opponentScore = 0;
-
-      for (let i = 0; i < questions.length; i++) {
-        const correct = correctAnswers[i];
-        if (myAnswers[i] === correct) myScore += 100;
-        // Очки оппонента получим из storage или broadcast
-      }
-
-      // Сохраняем результат через API
-      const result = await api.post<{
+      const response = await api.post<{
         ok: boolean;
-        duel: { winnerId: number | null };
-      }>(`/api/duels/${duelId}/finish`, {
-        challengerScore: myScore, // Упрощённо, нужно определить кто challenger
-        opponentScore: opponentScore,
+        answer: AnswerResult;
+      }>(`/api/duels/${duelId}/answer`, {
+        questionIndex,
+        optionId,
+        timeSpentMs,
       });
 
-      if (result.ok) {
-        broadcast({
-          type: "GAME_END",
-          winnerId: result.duel.winnerId,
-          scores: { [userId]: myScore },
-        });
+      setIsSubmitting(false);
+
+      if (response.ok && response.answer.correctOptionId !== null) {
+        setPendingCorrectAnswers((prev) => ({
+          ...prev,
+          [questionIndex]: response.answer.correctOptionId!,
+        }));
+
+        if (isOpponentAnswered) {
+          triggerRevealRef.current(questionIndex, response.answer.correctOptionId!);
+        }
+        return response.answer;
       }
     } catch (error) {
-      console.error("[Duel] Failed to finish:", error);
+      console.error("[Duel] Failed to submit answer:", error);
+      setIsSubmitting(false);
     }
-  }, [questions, correctAnswers, myAnswers, duelId, userId, broadcast]);
 
-  // ═══ Конец игры (событие) ═══
-  const endGame = useCallback(
-    (winnerId: number | null, scores: Record<number, number>) => {
-      setGameState((prev) => ({
-        ...prev,
-        status: "finished",
-        winnerId,
-        myScore: scores[userId] || prev.myScore,
-      }));
-    },
-    [userId]
-  );
+    return null;
+  }, [isSubmitting, gameState, questions, updateMyPresence, broadcast, userId, duelId, isOpponentAnswered]);
 
-  // ═══ Готовность ═══
+  // setReady — использует startCountdown
   const setReady = useCallback(() => {
     updateMyPresence({ isReady: true });
 
-    // Проверяем готовность обоих
-    const allReady = others.every((other) => (other.presence as DuelPresence)?.isReady);
-
-    if (allReady) {
-      broadcast({ type: "GAME_START", startsAt: Date.now() + 3000 });
+    if (isOpponentReady) {
+      broadcast({ type: "GAME_START", startsAt: Date.now() + COUNTDOWN_SECONDS * 1000 });
       startCountdown();
     }
-  }, [updateMyPresence, others, broadcast, startCountdown]);
+  }, [updateMyPresence, isOpponentReady, broadcast, startCountdown]);
 
-  // ═══ Cleanup ═══
+  // forfeit
+  const forfeit = useCallback(async () => {
+    if (finishingRef.current) {
+      console.log("[Duel] Already finishing, skipping forfeit");
+      return;
+    }
+    finishingRef.current = true;
+
+    try {
+      const result = await api.post<{
+        ok: boolean;
+        winnerId: number;
+        scores: { challengerScore: number; opponentScore: number };
+        duel: { challengerId: number; opponentId: number };
+      }>(`/api/duels/${duelId}/forfeit`, {});
+
+      if (result.ok) {
+        const scores = {
+          [result.duel.challengerId]: result.scores.challengerScore,
+          [result.duel.opponentId]: result.scores.opponentScore,
+        };
+
+        broadcast({
+          type: "PLAYER_FORFEIT",
+          odId: userId,
+          winnerId: result.winnerId,
+          scores,
+        });
+
+        handleForfeit(userId, result.winnerId, scores);
+      }
+    } catch (error) {
+      console.error("[Duel] Failed to forfeit:", error);
+      finishingRef.current = false;
+    }
+  }, [duelId, userId, broadcast, handleForfeit]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ИНИЦИАЛИЗАЦИЯ
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (connectionStatus !== "connected" || dataLoaded) return;
+
+    async function loadDuelData() {
+      try {
+        const data = await api.post<{
+          ok: boolean;
+          error?: string;
+          duelId: string;
+          quizTitle: string;
+          players: DuelPlayer[];
+          questions: DuelQuestion[];
+          totalQuestions: number;
+        }>(`/api/duels/${duelId}/start`, {});
+
+        if (!data.ok) {
+          setGameState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || "Не удалось загрузить дуэль",
+          }));
+          return;
+        }
+
+        setQuestions(data.questions);
+        setPlayers(data.players);
+        setDataLoaded(true);
+
+        updateMyPresence({
+          odId: userId,
+          odName: userName,
+          odPhotoUrl: userPhoto,
+          isReady: false,
+          currentQuestion: 0,
+          hasAnswered: false,
+        });
+
+        setGameState((prev) => ({
+          ...prev,
+          status: isOpponentConnected ? "waiting_ready" : "waiting_opponent",
+        }));
+
+      } catch (error) {
+        console.error("[Duel] Failed to load data:", error);
+        setGameState((prev) => ({
+          ...prev,
+          status: "error",
+          error: "Ошибка загрузки данных",
+        }));
+      }
+    }
+
+    loadDuelData();
+  }, [connectionStatus, dataLoaded, duelId, userId, userName, userPhoto, updateMyPresence, isOpponentConnected]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ОТСЛЕЖИВАНИЕ ОППОНЕНТА
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+
+    if (isOpponentConnected) {
+      if (opponentTimeoutRef.current) {
+        clearTimeout(opponentTimeoutRef.current);
+        opponentTimeoutRef.current = null;
+      }
+      if (reconnectGraceRef.current) {
+        clearTimeout(reconnectGraceRef.current);
+        reconnectGraceRef.current = null;
+      }
+
+      if (gameState.status === "waiting_opponent" || gameState.status === "opponent_left") {
+        setGameState((prev) => ({ ...prev, status: "waiting_ready" }));
+      }
+    } else {
+      if (gameState.status === "playing" || gameState.status === "revealing") {
+        if (!reconnectGraceRef.current) {
+          reconnectGraceRef.current = setTimeout(() => {
+            setGameState((prev) => ({ ...prev, status: "opponent_left" }));
+          }, RECONNECT_GRACE_PERIOD_MS);
+        }
+      } else if (gameState.status === "waiting_ready") {
+        if (!opponentTimeoutRef.current) {
+          opponentTimeoutRef.current = setTimeout(() => {
+            setGameState((prev) => ({ ...prev, status: "waiting_opponent" }));
+          }, LOBBY_OPPONENT_DELAY_MS);
+        }
+      }
+    }
+  }, [isOpponentConnected, gameState.status, dataLoaded]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ОБРАБОТКА СОБЫТИЙ LIVEBLOCKS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  useEventListener((event) => {
+    const duelEvent = event.event as DuelRoomEvent;
+
+    switch (duelEvent.type) {
+      case "GAME_START": {
+        startCountdown();
+        break;
+      }
+
+      case "QUESTION_REVEAL": {
+        const { questionIndex } = duelEvent as { type: "QUESTION_REVEAL"; questionIndex: number };
+        startQuestionRef.current(questionIndex);
+        break;
+      }
+
+      case "ANSWER_REVEAL": {
+        const { questionIndex, correctOptionId } = duelEvent as {
+          type: "ANSWER_REVEAL";
+          questionIndex: number;
+          correctOptionId: number;
+        };
+        handleRevealRef.current(questionIndex, correctOptionId);
+        break;
+      }
+
+      case "GAME_END": {
+        const { winnerId, scores } = duelEvent as {
+          type: "GAME_END";
+          winnerId: number | null;
+          scores: Record<number, number>;
+        };
+        handleGameEnd(winnerId, scores);
+        break;
+      }
+
+      case "PLAYER_ANSWERED": {
+        checkBothAnswered();
+        break;
+      }
+
+      case "TIME_UP": {
+        const { questionIndex } = duelEvent as { type: "TIME_UP"; questionIndex: number };
+        handleTimeUpRef.current(questionIndex);
+        break;
+      }
+
+      case "PLAYER_FORFEIT": {
+        const { odId, winnerId, scores } = duelEvent as {
+          type: "PLAYER_FORFEIT";
+          odId: number;
+          winnerId: number;
+          scores: Record<number, number>;
+        };
+        handleForfeit(odId, winnerId, scores);
+        break;
+      }
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ОБРАБОТКА ОТКЛЮЧЕНИЙ
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  useLostConnectionListener((event) => {
+    if (event === "lost") {
+      console.warn("[Duel] Connection lost, attempting to reconnect...");
+    } else if (event === "restored") {
+      console.log("[Duel] Connection restored");
+    } else if (event === "failed") {
+      setGameState((prev) => ({
+        ...prev,
+        status: "error",
+        error: "Потеряно соединение с сервером",
+      }));
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLEANUP
+  // ═══════════════════════════════════════════════════════════════════════════
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
+      if (opponentTimeoutRef.current) clearTimeout(opponentTimeoutRef.current);
+      if (reconnectGraceRef.current) clearTimeout(reconnectGraceRef.current);
     };
   }, []);
 
-  // ═══ Оппонент ═══
-  const opponent = others[0]?.presence as DuelPresence | undefined;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPUTED VALUES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const currentQuestion = questions[gameState.currentQuestionIndex];
+  const myPlayer = players.find((p) => p.odId === userId);
+  const opponentPlayer = players.find((p) => p.odId !== userId);
+
+  const isMyTurn = gameState.status === "playing" && myAnswers[gameState.currentQuestionIndex] === undefined;
+  const hasAnswered = myAnswers[gameState.currentQuestionIndex] !== undefined;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RETURN
+  // ═══════════════════════════════════════════════════════════════════════════
 
   return {
+    // Состояние
     gameState,
+    connectionStatus,
+    isConnected: connectionStatus === "connected",
+
+    // Данные
     questions,
-    currentQuestion: questions[gameState.currentQuestionIndex],
-    myPresence: myPresence as DuelPresence,
-    opponent,
+    currentQuestion,
+    myPlayer,
+    opponentPlayer,
     myAnswers,
-    correctAnswers,
+    revealedAnswers,
+
+    // Оппонент
+    opponent,
+    isOpponentConnected,
+    isOpponentReady,
+    isOpponentAnswered,
+
+    // Статусы
+    isMyTurn,
+    hasAnswered,
+    isSubmitting,
+
+    // Действия
     setReady,
     submitAnswer,
-    isOpponentReady: opponent?.isReady || false,
-    isOpponentAnswered: opponent?.hasAnswered || false,
+    forfeit,
   };
 }

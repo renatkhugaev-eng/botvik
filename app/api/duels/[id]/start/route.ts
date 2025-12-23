@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                   select: {
                     id: true,
                     text: true,
-                    isCorrect: true,
+                    // SECURITY: isCorrect НЕ запрашиваем — проверка на сервере
                   },
                 },
               },
@@ -83,6 +83,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    // Проверяем не истекла ли дуэль
+    if (new Date() > duel.expiresAt) {
+      await prisma.duel.update({
+        where: { id },
+        data: { status: "EXPIRED" },
+      });
+      return NextResponse.json(
+        { ok: false, error: "DUEL_EXPIRED" },
+        { status: 400 }
+      );
+    }
+
     // Подготавливаем вопросы (без правильных ответов для клиента)
     const questions = duel.quiz.questions.map((q) => ({
       id: q.id,
@@ -94,14 +106,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })),
     }));
 
-    // Правильные ответы (для Storage, будут раскрыты после ответа обоих)
-    const correctAnswers: Record<number, number> = {};
-    duel.quiz.questions.forEach((q, index) => {
-      const correct = q.answers.find((a) => a.isCorrect);
-      if (correct) {
-        correctAnswers[index] = correct.id;
-      }
-    });
+    // SECURITY: Правильные ответы НЕ отправляются на клиент
+    // Проверка правильности происходит на сервере в /api/duels/[id]/answer
 
     // Игроки
     const players = [
@@ -117,17 +123,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     ];
 
-    // Обновляем статус на IN_PROGRESS если ещё не обновлён
+    // Атомарно обновляем статус на IN_PROGRESS (защита от race condition)
     if (duel.status === "ACCEPTED") {
-      await prisma.duel.update({
-        where: { id },
+      const updateResult = await prisma.duel.updateMany({
+        where: { 
+          id,
+          status: "ACCEPTED", // Только если статус всё ещё ACCEPTED
+        },
         data: {
           status: "IN_PROGRESS",
           startedAt: new Date(),
         },
       });
+
+      if (updateResult.count === 0) {
+        console.log(`[Duel Start] Race condition detected for duel ${id}, status already changed`);
+      }
     }
 
+    // SECURITY: НЕ отправляем correctAnswers на клиент!
+    // Правильные ответы проверяются на сервере в /api/duels/[id]/answer
     return NextResponse.json({
       ok: true,
       duelId: duel.id,
@@ -136,7 +151,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       quizTitle: duel.quiz.title,
       players,
       questions,
-      correctAnswers, // Отправляем на клиент для Liveblocks Storage
+      totalQuestions: questions.length,
     });
   } catch (error) {
     console.error("[Duel Start] Error:", error);

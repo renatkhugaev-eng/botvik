@@ -74,8 +74,9 @@ export type DuelStorage = {
   // Формат: { odId: { questionIndex: optionId } }
   answers: Record<number, Record<number, number>>;
   
-  // Правильные ответы (раскрываются после ответа обоих)
-  correctAnswers: Record<number, number>; // { questionIndex: correctOptionId }
+  // SECURITY: Правильные ответы теперь приходят ТОЛЬКО от сервера после ответа
+  // revealedAnswers заполняется после того как оба ответили и сервер вернул correctOptionId
+  revealedAnswers: Record<number, number>; // { questionIndex: correctOptionId }
   
   // Очки
   scores: Record<number, number>; // { odId: score }
@@ -106,7 +107,8 @@ export type DuelRoomEvent =
   | { type: "ANSWER_REVEAL"; questionIndex: number; correctOptionId: number }
   | { type: "GAME_END"; winnerId: number | null; scores: Record<number, number> }
   | { type: "PLAYER_ANSWERED"; odId: number; questionIndex: number }
-  | { type: "TIME_UP"; questionIndex: number };
+  | { type: "TIME_UP"; questionIndex: number }
+  | { type: "PLAYER_FORFEIT"; odId: number; winnerId: number; scores: Record<number, number> };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROOM CONTEXT
@@ -180,6 +182,7 @@ export const initialPresence: DuelPresence = {
 
 /**
  * Начальное состояние Storage
+ * SECURITY: correctAnswers больше не передаются — они приходят от сервера после ответов
  */
 export function createInitialStorage(data: {
   duelId: string;
@@ -187,7 +190,6 @@ export function createInitialStorage(data: {
   quizTitle: string;
   players: DuelStorage["players"];
   questions: DuelStorage["questions"];
-  correctAnswers: Record<number, number>;
 }): DuelStorage {
   return {
     duelId: data.duelId,
@@ -199,7 +201,7 @@ export function createInitialStorage(data: {
     currentQuestionIndex: 0,
     questionStartedAt: null,
     answers: {},
-    correctAnswers: data.correctAnswers,
+    revealedAnswers: {}, // Заполняется от сервера после ответов
     scores: Object.fromEntries(data.players.map(p => [p.odId, 0])),
     winnerId: null,
     finished: false,

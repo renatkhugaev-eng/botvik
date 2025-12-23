@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { notifyDuelAccepted, notifyDuelDeclined, notifyDuelCancelled } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -192,7 +193,32 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       },
     });
 
-    // TODO: Отправить push-уведомление создателю
+    // Отправляем push-уведомления
+    if (action === "accept") {
+      const opponentName = updatedDuel.opponent.firstName || updatedDuel.opponent.username || "Игрок";
+      notifyDuelAccepted(updatedDuel.challengerId, {
+        duelId: id,
+        opponentName,
+        quizTitle: updatedDuel.quiz.title,
+      }).catch((err) => {
+        console.error("[Duel] Failed to send accepted notification:", err);
+      });
+    } else if (action === "decline") {
+      const opponentName = updatedDuel.opponent.firstName || updatedDuel.opponent.username || "Игрок";
+      notifyDuelDeclined(updatedDuel.challengerId, {
+        opponentName,
+      }).catch((err) => {
+        console.error("[Duel] Failed to send declined notification:", err);
+      });
+    } else if (action === "cancel") {
+      // Уведомляем оппонента что дуэль отменена
+      const challengerName = updatedDuel.challenger.firstName || updatedDuel.challenger.username || "Игрок";
+      notifyDuelCancelled(updatedDuel.opponentId, {
+        challengerName,
+      }).catch((err) => {
+        console.error("[Duel] Failed to send cancelled notification:", err);
+      });
+    }
 
     return NextResponse.json({
       ok: true,

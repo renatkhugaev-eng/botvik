@@ -862,7 +862,7 @@ model Duel {
   // Статус
   status          DuelStatus   @default(PENDING)
   
-  // Результаты (заполняются после игры)
+  // Результаты (заполняются после игры — вычисляются на сервере из DuelAnswer)
   challengerScore Int?
   opponentScore   Int?
   winnerId        Int?         // null = ничья
@@ -881,9 +881,33 @@ model Duel {
   startedAt       DateTime?                   // Когда началась игра
   finishedAt      DateTime?                   // Когда закончилась
   
+  // Ответы игроков (для серверной валидации)
+  answers         DuelAnswer[]
+  
   @@index([challengerId, status])
   @@index([opponentId, status])
   @@index([status, expiresAt])
+}
+
+// ═══ ОТВЕТЫ ИГРОКОВ В ДУЭЛИ (для серверной валидации) ═══
+// Каждый ответ записывается на сервер для защиты от читерства
+model DuelAnswer {
+  id              Int          @id @default(autoincrement())
+  
+  duelId          String
+  duel            Duel         @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  
+  userId          Int                         // Кто ответил
+  questionIndex   Int                         // Индекс вопроса (0-based)
+  optionId        Int?                        // ID выбранного варианта (null = таймаут)
+  isCorrect       Boolean                     // Правильный ли ответ
+  timeSpentMs     Int                         // Время на ответ в мс
+  
+  createdAt       DateTime     @default(now())
+  
+  @@unique([duelId, userId, questionIndex])   // Один ответ на вопрос на пользователя
+  @@index([duelId])
+  @@index([duelId, userId])
 }
 
 enum DuelStatus {
