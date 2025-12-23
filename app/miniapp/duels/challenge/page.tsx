@@ -19,11 +19,15 @@ import { levelFromXp, getLevelTitle } from "@/lib/xp";
 // ═══════════════════════════════════════════════════════════════════════════
 
 type Friend = {
-  odId: number;
-  odUsername: string | null;
-  odFirstName: string | null;
-  odPhotoUrl: string | null;
-  odXp: number;
+  id: number;
+  username: string | null;
+  firstName: string | null;
+  photoUrl: string | null;
+  stats?: {
+    totalScore: number;
+    gamesPlayed: number;
+    bestScore: number;
+  };
 };
 
 type Quiz = {
@@ -59,10 +63,10 @@ export default function ChallengePage() {
     
     async function loadFriends() {
       try {
-        const data = await api.get<{ ok: boolean; friends: Friend[] }>(
-          `/api/friends?status=accepted&userId=${userId}`
+        const data = await api.get<{ friends: Friend[]; incomingRequests: unknown[]; outgoingRequests: unknown[] }>(
+          `/api/friends?userId=${userId}`
         );
-        if (data.ok) {
+        if (data.friends) {
           setFriends(data.friends);
         }
       } catch (err) {
@@ -115,7 +119,7 @@ export default function ChallengePage() {
       const result = await api.post<{ ok: boolean; duel?: { id: string }; error?: string }>(
         "/api/duels",
         {
-          opponentId: selectedFriend.odId,
+          opponentId: selectedFriend.id,
           quizId: selectedQuiz.id,
         }
       );
@@ -164,7 +168,7 @@ export default function ChallengePage() {
           <p className="text-sm text-white/50">
             {step === "friend"
               ? "Вызови друга на дуэль"
-              : `Дуэль с ${selectedFriend?.odFirstName || selectedFriend?.odUsername}`}
+              : `Дуэль с ${selectedFriend?.firstName || selectedFriend?.username}`}
           </p>
         </div>
       </div>
@@ -202,7 +206,7 @@ export default function ChallengePage() {
             ) : (
               friends.map((friend) => (
                 <FriendCard
-                  key={friend.odId}
+                  key={friend.id}
                   friend={friend}
                   onSelect={() => handleSelectFriend(friend)}
                 />
@@ -276,7 +280,9 @@ export default function ChallengePage() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function FriendCard({ friend, onSelect }: { friend: Friend; onSelect: () => void }) {
-  const level = levelFromXp(friend.odXp);
+  // Приблизительный расчёт уровня из totalScore (если нет XP)
+  const estimatedXp = friend.stats?.totalScore ?? 0;
+  const level = levelFromXp(estimatedXp);
   const { icon: levelIcon } = getLevelTitle(level);
 
   return (
@@ -286,15 +292,15 @@ function FriendCard({ friend, onSelect }: { friend: Friend; onSelect: () => void
     >
       {/* Аватар */}
       <div className="relative">
-        {friend.odPhotoUrl ? (
+        {friend.photoUrl ? (
           <img
-            src={friend.odPhotoUrl}
+            src={friend.photoUrl}
             alt=""
             className="w-12 h-12 rounded-full object-cover ring-2 ring-violet-500/50"
           />
         ) : (
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-            {(friend.odFirstName?.[0] || friend.odUsername?.[0] || "?").toUpperCase()}
+            {(friend.firstName?.[0] || friend.username?.[0] || "?").toUpperCase()}
           </div>
         )}
         <span className="absolute -bottom-1 -right-1 text-sm">{levelIcon}</span>
@@ -303,9 +309,11 @@ function FriendCard({ friend, onSelect }: { friend: Friend; onSelect: () => void
       {/* Инфо */}
       <div className="flex-1">
         <div className="font-semibold text-white">
-          {friend.odFirstName || friend.odUsername || "Игрок"}
+          {friend.firstName || friend.username || "Игрок"}
         </div>
-        <div className="text-sm text-white/50">Уровень {level}</div>
+        <div className="text-sm text-white/50">
+          {friend.stats ? `${friend.stats.gamesPlayed} игр` : "Уровень 1"}
+        </div>
       </div>
 
       {/* Arrow */}
