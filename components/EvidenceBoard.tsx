@@ -407,11 +407,19 @@ function ListView({
           key={evidence.id}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white/5 rounded-xl p-4 border border-white/10"
+          className="bg-white/5 rounded-xl p-4 border border-white/10 cursor-pointer"
           onClick={() => onEvidenceClick(evidence.id)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            onEvidenceLongPress(evidence);
+          onTapStart={() => {}}
+          onTap={() => {}}
+          whileTap={{ scale: 0.98 }}
+          onPointerDown={(e) => {
+            // Long press simulation for context menu
+            const timer = setTimeout(() => {
+              onEvidenceLongPress(evidence);
+            }, 500);
+            const cleanup = () => clearTimeout(timer);
+            e.currentTarget.addEventListener('pointerup', cleanup, { once: true });
+            e.currentTarget.addEventListener('pointerleave', cleanup, { once: true });
           }}
         >
           <div className="flex items-start gap-3">

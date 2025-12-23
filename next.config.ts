@@ -150,18 +150,23 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Sentry configuration options
+// Sentry configuration options (updated for latest SDK)
 const sentryConfig = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   silent: !process.env.CI,
   widenClientFileUpload: true,
-  disableLogger: true,
   hideSourceMaps: true,
-  reactComponentAnnotation: {
-    enabled: true,
-  },
   tunnelRoute: "/monitoring",
+  // Webpack-based options (new API)
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    reactComponentAnnotation: {
+      enabled: true,
+    },
+  },
 };
 
 // Export with Sentry wrapper (only if DSN is configured)
