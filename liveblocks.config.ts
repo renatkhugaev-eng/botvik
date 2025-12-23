@@ -17,8 +17,43 @@ import { createRoomContext, createLiveblocksContext } from "@liveblocks/react";
 // LIVEBLOCKS CLIENT
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Получаем Telegram initData для авторизации
+ */
+function getInitData(): string | null {
+  if (typeof window === "undefined") return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const telegram = (window as any).Telegram;
+  return telegram?.WebApp?.initData || null;
+}
+
 const client = createClient({
-  authEndpoint: "/api/liveblocks-auth",
+  // КРИТИЧНО: Используем функцию вместо строки, чтобы передать Telegram initData
+  authEndpoint: async (room?: string) => {
+    const initData = getInitData();
+    
+    if (!initData) {
+      console.error("[Liveblocks] No Telegram initData available for auth");
+      throw new Error("No Telegram initData available");
+    }
+    
+    const response = await fetch("/api/liveblocks-auth", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Init-Data": initData,
+      },
+      body: JSON.stringify({ room }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      console.error("[Liveblocks] Auth failed:", error);
+      throw new Error(error.error || "Liveblocks auth failed");
+    }
+    
+    return response.json();
+  },
   
   // Throttle для оптимизации
   throttle: 100,

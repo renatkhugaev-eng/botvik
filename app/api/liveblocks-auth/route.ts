@@ -33,18 +33,27 @@ export async function POST(request: NextRequest) {
     // Аутентифицируем пользователя через Telegram
     const auth = await authenticateRequest(request);
     if (!auth.ok) {
+      console.error("[Liveblocks Auth] Authentication failed:", auth.error);
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { user } = auth;
 
-    // Получаем room из body
-    const body = await request.json();
-    const { room } = body;
+    // Получаем room из body (с обработкой ошибок)
+    let room: string | undefined;
+    try {
+      const body = await request.json();
+      room = body?.room;
+    } catch {
+      // Body может быть пустым — это нормально
+      console.log("[Liveblocks Auth] No room in body, granting access to all user duels");
+    }
 
     // Если запрашивается конкретная комната дуэли — проверяем доступ
     if (room && room.startsWith("duel:")) {
       const duelId = room.replace("duel:", "");
+      
+      console.log(`[Liveblocks Auth] User ${user.id} requesting room: ${room}`);
       
       const duel = await prisma.duel.findUnique({
         where: { id: duelId },
@@ -56,18 +65,23 @@ export async function POST(request: NextRequest) {
       });
 
       if (!duel) {
+        console.error(`[Liveblocks Auth] Duel ${duelId} not found`);
         return NextResponse.json({ error: "DUEL_NOT_FOUND" }, { status: 404 });
       }
 
       // Проверяем что пользователь — участник дуэли
       if (duel.challengerId !== user.id && duel.opponentId !== user.id) {
+        console.error(`[Liveblocks Auth] User ${user.id} is not participant of duel ${duelId}`);
         return NextResponse.json({ error: "NOT_PARTICIPANT" }, { status: 403 });
       }
 
       // Проверяем что дуэль в правильном статусе
       if (!["ACCEPTED", "IN_PROGRESS"].includes(duel.status)) {
-        return NextResponse.json({ error: "DUEL_NOT_ACTIVE" }, { status: 400 });
+        console.error(`[Liveblocks Auth] Duel ${duelId} has wrong status: ${duel.status}`);
+        return NextResponse.json({ error: "DUEL_NOT_ACTIVE", status: duel.status }, { status: 400 });
       }
+      
+      console.log(`[Liveblocks Auth] Access granted to user ${user.id} for duel ${duelId}`);
     }
 
     // ═══ СОЗДАЁМ СЕССИЮ LIVEBLOCKS ═══

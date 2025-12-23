@@ -516,9 +516,21 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
   // ═══════════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
-    if (connectionStatus !== "connected" || dataLoaded) return;
+    console.log(`[Duel] Connection status: ${connectionStatus}, dataLoaded: ${dataLoaded}`);
+    
+    if (connectionStatus !== "connected") {
+      console.log("[Duel] Waiting for Liveblocks connection...");
+      return;
+    }
+    
+    if (dataLoaded) {
+      console.log("[Duel] Data already loaded, skipping");
+      return;
+    }
 
     async function loadDuelData() {
+      console.log(`[Duel] Loading duel data for ${duelId}...`);
+      
       try {
         const data = await api.post<{
           ok: boolean;
@@ -530,7 +542,10 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
           totalQuestions: number;
         }>(`/api/duels/${duelId}/start`, {});
 
+        console.log("[Duel] Start API response:", data);
+
         if (!data.ok) {
+          console.error("[Duel] Start API returned error:", data.error);
           setGameState((prev) => ({
             ...prev,
             status: "error",
@@ -539,6 +554,8 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
           return;
         }
 
+        console.log(`[Duel] Loaded ${data.questions.length} questions, ${data.players.length} players`);
+        
         setQuestions(data.questions);
         setPlayers(data.players);
         setDataLoaded(true);
@@ -552,9 +569,12 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
           hasAnswered: false,
         });
 
+        const newStatus = isOpponentConnected ? "waiting_ready" : "waiting_opponent";
+        console.log(`[Duel] Setting status to: ${newStatus}, opponentConnected: ${isOpponentConnected}`);
+        
         setGameState((prev) => ({
           ...prev,
-          status: isOpponentConnected ? "waiting_ready" : "waiting_opponent",
+          status: newStatus,
         }));
 
       } catch (error) {
