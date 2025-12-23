@@ -30,14 +30,56 @@ function getLiveblocks(): Liveblocks {
 
 export async function POST(request: NextRequest) {
   try {
-    // Аутентифицируем пользователя через Telegram
+    // Проверяем dev-mode
+    const isDevMode = request.headers.get("X-Dev-Mode") === "true";
+    
+    // Аутентифицируем пользователя через Telegram (или dev-mock в dev режиме)
     const auth = await authenticateRequest(request);
+    
+    // В dev-mode без initData используем dev-mock пользователя
+    if (!auth.ok && isDevMode && process.env.NODE_ENV === "development") {
+      console.log("[Liveblocks Auth] Dev mode: using dev-mock user");
+      
+      // Находим или создаём dev-mock пользователя
+      let devUser = await prisma.user.findUnique({
+        where: { telegramId: "dev-mock" },
+      });
+      
+      if (!devUser) {
+        devUser = await prisma.user.create({
+          data: {
+            telegramId: "dev-mock",
+            username: "devuser",
+            firstName: "Dev",
+            lastName: "User",
+            xp: 100,
+          },
+        });
+      }
+      
+      // Продолжаем с dev-mock пользователем
+      const user = devUser;
+      return await handleLiveblocksAuth(request, user);
+    }
+    
     if (!auth.ok) {
       console.error("[Liveblocks Auth] Authentication failed:", auth.error);
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { user } = auth;
+    return await handleLiveblocksAuth(request, user);
+  } catch (error) {
+    console.error("[Liveblocks Auth] Error:", error);
+    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+  }
+}
+
+async function handleLiveblocksAuth(
+  request: NextRequest,
+  user: { id: number; firstName: string | null; username: string | null; photoUrl: string | null }
+) {
+  try {
 
     // Получаем room из body (с обработкой ошибок)
     let room: string | undefined;
@@ -125,7 +167,7 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[Liveblocks Auth] Error:", error);
+    console.error("[Liveblocks Auth] handleLiveblocksAuth Error:", error);
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }

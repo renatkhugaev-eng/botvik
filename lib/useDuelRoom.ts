@@ -90,6 +90,13 @@ const COUNTDOWN_SECONDS = 3;
 const REVEAL_DURATION_MS = 2500;
 const LOBBY_OPPONENT_DELAY_MS = 2000;
 const RECONNECT_GRACE_PERIOD_MS = 10000;
+const DEV_MODE_OPPONENT_DELAY_MS = 2000; // Время до автоматической симуляции оппонента в dev
+
+// Проверяем dev-режим
+function isDevMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HOOK
@@ -121,6 +128,10 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
   const [pendingCorrectAnswers, setPendingCorrectAnswers] = useState<Record<number, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  
+  // ═══ Dev-mode симуляция оппонента ═══
+  const [devModeOpponent, setDevModeOpponent] = useState<DuelPresence | null>(null);
+  const devModeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ═══ Refs для таймеров ═══
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -136,17 +147,20 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
   const handleRevealRef = useRef<(questionIndex: number, correctOptionId: number) => void>(() => {});
   const finishGameRef = useRef<() => Promise<void>>(async () => {});
 
-  // ═══ Оппонент из Liveblocks ═══
-  const opponent = useMemo(() => {
+  // ═══ Оппонент из Liveblocks (или симуляция в dev-режиме) ═══
+  const realOpponent = useMemo(() => {
     const otherUser = others.find(
       (other) => (other.presence as DuelPresence)?.odId !== userId
     );
     return otherUser?.presence as DuelPresence | undefined;
   }, [others, userId]);
 
+  // В dev-режиме используем симулированного оппонента если реального нет
+  const opponent = realOpponent || devModeOpponent;
   const isOpponentConnected = !!opponent;
   const isOpponentReady = opponent?.isReady ?? false;
   const isOpponentAnswered = opponent?.hasAnswered ?? false;
+  const isDevModeSimulation = isDevMode() && !realOpponent && !!devModeOpponent;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ИГРОВЫЕ ФУНКЦИИ (с использованием refs для циклических зависимостей)
@@ -626,6 +640,92 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
       }
     }
   }, [isOpponentConnected, gameState.status, dataLoaded]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEV-MODE: СИМУЛЯЦИЯ ОППОНЕНТА
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    // Только в dev-режиме, если нет реального оппонента
+    if (!isDevMode() || realOpponent || !dataLoaded) return;
+
+    // Если ждём оппонента — симулируем его через 2 секунды
+    if (gameState.status === "waiting_opponent" && !devModeOpponent) {
+      console.log("[Duel Dev] No real opponent, simulating in 2s...");
+      
+      devModeTimerRef.current = setTimeout(() => {
+        // Находим данные оппонента из players
+        const opponentData = players.find(p => p.odId !== userId);
+        
+        const simulated: DuelPresence = {
+          odId: opponentData?.odId ?? -1,
+          odName: opponentData?.odName ?? "Бот-соперник",
+          odPhotoUrl: opponentData?.odPhotoUrl ?? null,
+          isReady: false,
+          currentQuestion: 0,
+          hasAnswered: false,
+        };
+        
+        console.log("[Duel Dev] Simulated opponent connected:", simulated.odName);
+        setDevModeOpponent(simulated);
+      }, DEV_MODE_OPPONENT_DELAY_MS);
+      
+      return () => {
+        if (devModeTimerRef.current) clearTimeout(devModeTimerRef.current);
+      };
+    }
+  }, [gameState.status, realOpponent, devModeOpponent, dataLoaded, players, userId]);
+
+  // Dev-mode: автоматически делаем оппонента готовым после того как мы готовы
+  useEffect(() => {
+    if (!isDevMode() || !devModeOpponent || realOpponent) return;
+    
+    // Если мы готовы, а симулированный оппонент нет — делаем его готовым через 1с
+    if (gameState.status === "waiting_ready" && myPresence.isReady && !devModeOpponent.isReady) {
+      const timer = setTimeout(() => {
+        console.log("[Duel Dev] Simulated opponent is ready");
+        setDevModeOpponent(prev => prev ? { ...prev, isReady: true } : null);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.status, myPresence.isReady, devModeOpponent, realOpponent]);
+
+  // Dev-mode: симулируем ответ оппонента после нашего ответа
+  useEffect(() => {
+    if (!isDevMode() || !devModeOpponent || realOpponent) return;
+    
+    // Если мы ответили, а симулированный оппонент нет — он отвечает через 0.5-2с
+    if (gameState.status === "playing" && myAnswers[gameState.currentQuestionIndex] !== undefined && !devModeOpponent.hasAnswered) {
+      const delay = 500 + Math.random() * 1500;
+      const timer = setTimeout(() => {
+        console.log("[Duel Dev] Simulated opponent answered");
+        setDevModeOpponent(prev => prev ? { ...prev, hasAnswered: true } : null);
+      }, delay);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.status, gameState.currentQuestionIndex, myAnswers, devModeOpponent, realOpponent]);
+
+  // Dev-mode: сбрасываем hasAnswered при переходе к новому вопросу
+  useEffect(() => {
+    if (!isDevMode() || !devModeOpponent) return;
+    
+    setDevModeOpponent(prev => prev ? { ...prev, hasAnswered: false, currentQuestion: gameState.currentQuestionIndex } : null);
+  }, [gameState.currentQuestionIndex]);
+
+  // Dev-mode: запускаем countdown когда оба готовы
+  useEffect(() => {
+    if (!isDevMode() || !devModeOpponent || realOpponent) return;
+    
+    // Если оба готовы и мы в статусе waiting_ready — запускаем countdown
+    if (gameState.status === "waiting_ready" && myPresence.isReady && devModeOpponent.isReady) {
+      console.log("[Duel Dev] Both ready, starting countdown...");
+      // Небольшая задержка для визуального эффекта
+      const timer = setTimeout(() => {
+        startCountdown();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.status, myPresence.isReady, devModeOpponent, realOpponent, startCountdown]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ОБРАБОТКА СОБЫТИЙ LIVEBLOCKS

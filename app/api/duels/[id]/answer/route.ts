@@ -18,12 +18,21 @@ import { Redis } from "@upstash/redis";
 export const runtime = "nodejs";
 
 // Rate limiter: 30 ответов в минуту (достаточно для быстрой игры, но защита от спама)
-const redis = Redis.fromEnv();
-const answerLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(30, "1 m"),
-  prefix: "duel:answer",
-});
+// В dev-режиме без Redis — пропускаем rate limiting
+let answerLimiter: Ratelimit | null = null;
+
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    const redis = Redis.fromEnv();
+    answerLimiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(30, "1 m"),
+      prefix: "duel:answer",
+    });
+  }
+} catch (e) {
+  console.warn("[Duel Answer] Redis not configured, skipping rate limiting");
+}
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -56,13 +65,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const userId = auth.user.id;
 
     // ═══ RATE LIMITING ═══
-    const { success } = await answerLimiter.limit(`${userId}:${duelId}`);
-    if (!success) {
-      console.warn(`[Duel Answer] Rate limit exceeded for user ${userId} in duel ${duelId}`);
-      return NextResponse.json(
-        { ok: false, error: "RATE_LIMIT", message: "Слишком много запросов" },
-        { status: 429 }
-      );
+    if (answerLimiter) {
+      const { success } = await answerLimiter.limit(`${userId}:${duelId}`);
+      if (!success) {
+        console.warn(`[Duel Answer] Rate limit exceeded for user ${userId} in duel ${duelId}`);
+        return NextResponse.json(
+          { ok: false, error: "RATE_LIMIT", message: "Слишком много запросов" },
+          { status: 429 }
+        );
+      }
     }
 
     // ═══ PARSE BODY ═══

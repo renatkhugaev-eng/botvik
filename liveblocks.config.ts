@@ -27,22 +27,38 @@ function getInitData(): string | null {
   return telegram?.WebApp?.initData || null;
 }
 
+/**
+ * Проверяем dev-режим
+ */
+function isDevMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+}
+
 const client = createClient({
   // КРИТИЧНО: Используем функцию вместо строки, чтобы передать Telegram initData
   authEndpoint: async (room?: string) => {
     const initData = getInitData();
     
-    if (!initData) {
+    // В dev-режиме используем mock initData если реального нет
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    if (initData) {
+      headers["X-Telegram-Init-Data"] = initData;
+    } else if (isDevMode()) {
+      // Dev mode: используем mock header который будет обработан на сервере
+      headers["X-Dev-Mode"] = "true";
+      console.log("[Liveblocks] Dev mode: using mock auth");
+    } else {
       console.error("[Liveblocks] No Telegram initData available for auth");
       throw new Error("No Telegram initData available");
     }
     
     const response = await fetch("/api/liveblocks-auth", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Telegram-Init-Data": initData,
-      },
+      headers,
       body: JSON.stringify({ room }),
     });
     
