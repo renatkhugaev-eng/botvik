@@ -1,28 +1,24 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════════
- * DUEL ROOM — Modern Real-time Duel with Liveblocks
+ * DUEL ROOM — True Crime Detective Board
  * ══════════════════════════════════════════════════════════════════════════════
  *
- * Современный UI дуэлей:
- * - Glassmorphism эффекты
- * - Плавные анимации и переходы
- * - Круговой таймер
- * - Эффектные экраны результатов
+ * Атмосфера детективной доски расследований:
+ * - Тёмный фон с тонкой текстурой
+ * - Карточки как улики / фото с мест преступлений
+ * - Красные акценты и нити связей
+ * - Глубокие тени, объём
  */
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMiniAppSession } from "@/app/miniapp/layout";
 import { RoomProvider, initialPresence } from "@/liveblocks.config";
 import { useDuelRoom, DuelStatus } from "@/lib/useDuelRoom";
 import { haptic } from "@/lib/haptic";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// СТРАНИЦА ДУЭЛИ
-// ═══════════════════════════════════════════════════════════════════════════
 
 export default function DuelPage() {
   const params = useParams();
@@ -31,7 +27,7 @@ export default function DuelPage() {
   const duelId = params.id as string;
 
   if (session.status !== "ready") {
-    return <LoadingScreen message="Загрузка..." />;
+    return <LoadingScreen />;
   }
 
   const userId = session.user.id;
@@ -39,7 +35,7 @@ export default function DuelPage() {
   const userPhoto = session.user.photoUrl;
 
   const emptyStorage = {
-    duelId: duelId,
+    duelId,
     quizId: 0,
     quizTitle: "",
     players: [],
@@ -57,12 +53,7 @@ export default function DuelPage() {
   return (
     <RoomProvider
       id={`duel:${duelId}`}
-      initialPresence={{
-        ...initialPresence,
-        odId: userId,
-        odName: userName,
-        odPhotoUrl: userPhoto,
-      }}
+      initialPresence={{ ...initialPresence, odId: userId, odName: userName, odPhotoUrl: userPhoto }}
       initialStorage={emptyStorage}
     >
       <DuelGameContent
@@ -70,14 +61,17 @@ export default function DuelPage() {
         userId={userId}
         userName={userName}
         userPhoto={userPhoto}
-        onExit={() => router.push("/miniapp/duels")}
+        onExit={() => {
+          // Используем replace чтобы нельзя было вернуться назад в завершённую дуэль
+          router.replace("/miniapp/duels");
+        }}
       />
     </RoomProvider>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ИГРОВОЙ КОНТЕНТ
+// GAME CONTENT
 // ═══════════════════════════════════════════════════════════════════════════
 
 function DuelGameContent({
@@ -96,6 +90,7 @@ function DuelGameContent({
   const {
     gameState,
     isConnected,
+    questions,
     currentQuestion,
     myPlayer,
     opponentPlayer,
@@ -112,13 +107,13 @@ function DuelGameContent({
   } = useDuelRoom(duelId, userId, userName, userPhoto);
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false);
+  const [showForfeit, setShowForfeit] = useState(false);
 
   useEffect(() => {
     setSelectedOption(null);
   }, [gameState.currentQuestionIndex]);
 
-  const handleSelectOption = async (optionId: number) => {
+  const handleAnswer = async (optionId: number) => {
     if (!isMyTurn || isSubmitting) return;
     haptic.light();
     setSelectedOption(optionId);
@@ -127,28 +122,27 @@ function DuelGameContent({
     else if (result) haptic.error();
   };
 
-  const handleReady = () => {
-    haptic.medium();
-    setReady();
-  };
-
-  const handleForfeit = async () => {
-    haptic.error();
-    setShowForfeitConfirm(false);
-    await forfeit();
-  };
-
   return (
-    <div className="min-h-screen bg-[#0a0a12] flex flex-col relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-fuchsia-600/10 blur-[150px]" />
-        <div className="absolute top-[30%] right-[20%] w-[30%] h-[30%] rounded-full bg-cyan-500/5 blur-[100px]" />
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col relative overflow-hidden">
+      {/* Background texture */}
+      <div 
+        className="pointer-events-none fixed inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+      
+      {/* Red ambient glow */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-900/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-950/20 rounded-full blur-[120px]" />
       </div>
 
+      {/* Vignette */}
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)]" />
+
       {/* Header */}
-      <DuelHeader
+      <Header
         myPlayer={myPlayer}
         opponentPlayer={opponentPlayer}
         myScore={gameState.myScore}
@@ -159,117 +153,111 @@ function DuelGameContent({
         status={gameState.status}
       />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
+      {/* Content */}
+      <div className="flex-1 flex items-center justify-center p-5 relative z-10">
         <AnimatePresence mode="wait">
           {gameState.status === "connecting" && (
-            <StatusScreen key="connecting" icon="connecting" title="Подключение" subtitle="Устанавливаем соединение..." />
+            <StatusScreen key="c" type="loading" text="Подключение к делу..." />
           )}
-
           {gameState.status === "waiting_opponent" && (
-            <StatusScreen key="waiting" icon="waiting" title="Ожидание" subtitle="Соперник подключается..." showPulse />
+            <StatusScreen key="w" type="waiting" text="Ожидание подозреваемого" />
           )}
-
           {gameState.status === "waiting_ready" && (
             <LobbyScreen
-              key="lobby"
+              key="l"
               myPlayer={myPlayer}
               opponentPlayer={opponentPlayer}
               isOpponentReady={isOpponentReady}
-              onReady={handleReady}
+              onReady={() => { haptic.medium(); setReady(); }}
             />
           )}
-
           {gameState.status === "countdown" && (
-            <CountdownScreen key="countdown" timeLeft={gameState.timeLeft} />
+            <CountdownScreen key="cd" count={gameState.timeLeft} />
           )}
-
           {(gameState.status === "playing" || gameState.status === "revealing") && currentQuestion && (
             <QuestionScreen
-              key={`q-${gameState.currentQuestionIndex}`}
-              questionIndex={gameState.currentQuestionIndex}
+              key={`q${gameState.currentQuestionIndex}`}
+              index={gameState.currentQuestionIndex}
+              total={questions.length}
               question={currentQuestion}
               timeLeft={gameState.timeLeft}
-              selectedOption={selectedOption}
-              correctOption={revealedAnswers[gameState.currentQuestionIndex]}
+              selected={selectedOption}
+              correctId={revealedAnswers[gameState.currentQuestionIndex]}
               isRevealing={gameState.status === "revealing"}
               hasAnswered={hasAnswered}
-              isOpponentAnswered={isOpponentAnswered}
-              isSubmitting={isSubmitting}
-              onSelectOption={handleSelectOption}
+              oppAnswered={isOpponentAnswered}
+              submitting={isSubmitting}
+              onSelect={handleAnswer}
             />
           )}
-
           {gameState.status === "finished" && (
             <FinishScreen
-              key="finished"
-              userId={userId}
-              winnerId={gameState.winnerId}
+              key="f"
+              isWinner={gameState.winnerId === userId}
+              isDraw={gameState.winnerId === null}
               myScore={gameState.myScore}
-              opponentScore={gameState.opponentScore}
+              oppScore={gameState.opponentScore}
               myPlayer={myPlayer}
-              opponentPlayer={opponentPlayer}
+              oppPlayer={opponentPlayer}
               onExit={onExit}
             />
           )}
-
           {gameState.status === "opponent_left" && (
-            <StatusScreen key="left" icon="disconnected" title="Соперник ушёл" subtitle="Дуэль прервана" action={{ label: "Выйти", onClick: onExit }} />
+            <StatusScreen key="ol" type="error" text="Подозреваемый сбежал" action={{ label: "Закрыть дело", fn: onExit }} />
           )}
-
           {gameState.status === "error" && (
-            <StatusScreen key="error" icon="error" title="Ошибка" subtitle={gameState.error || "Что-то пошло не так"} action={{ label: "Назад", onClick: onExit }} />
+            <StatusScreen key="e" type="error" text="Ошибка связи" action={{ label: "Назад", fn: onExit }} />
           )}
         </AnimatePresence>
       </div>
 
-      {/* Forfeit button */}
+      {/* Forfeit */}
       {(gameState.status === "playing" || gameState.status === "revealing") && (
         <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          onClick={() => { haptic.warning(); setShowForfeitConfirm(true); }}
-          className="fixed bottom-6 left-4 px-4 py-2.5 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 text-white/50 text-sm font-medium hover:bg-white/10 hover:text-white/70 transition-all"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => setShowForfeit(true)}
+          className="fixed bottom-5 left-5 px-3 py-1.5 text-xs text-zinc-500 hover:text-red-400 bg-black/50 hover:bg-red-950/50 border border-zinc-800 hover:border-red-900/50 rounded-lg transition-all z-20"
         >
           🏳️ Сдаться
         </motion.button>
       )}
 
-      {/* Forfeit modal */}
+      {/* Forfeit Modal */}
       <AnimatePresence>
-        {showForfeitConfirm && (
+        {showForfeit && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowForfeitConfirm(false)}
+            onClick={() => setShowForfeit(false)}
+            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-6"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-gradient-to-b from-[#1a1a2e] to-[#12121f] rounded-3xl p-6 max-w-sm w-full border border-white/10 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm"
             >
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <span className="text-3xl">🏳️</span>
+              <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-red-950/50 border border-red-900/50 flex items-center justify-center">
+                    <span className="text-3xl">🏳️</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-1">Признать поражение?</h3>
+                  <p className="text-sm text-zinc-500">Противник автоматически победит</p>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Сдаться?</h3>
-                <p className="text-white/50 text-sm mb-6 leading-relaxed">
-                  Ты проиграешь эту дуэль и не получишь XP. Соперник победит автоматически.
-                </p>
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowForfeitConfirm(false)}
-                    className="flex-1 py-3 rounded-2xl bg-white/5 text-white font-medium hover:bg-white/10 transition-all border border-white/5"
+                    onClick={() => setShowForfeit(false)}
+                    className="flex-1 py-3 text-sm text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
                   >
                     Отмена
                   </button>
                   <button
-                    onClick={handleForfeit}
-                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-medium hover:from-red-500 hover:to-rose-500 transition-all shadow-lg shadow-red-500/20"
+                    onClick={() => { haptic.error(); setShowForfeit(false); forfeit(); }}
+                    className="flex-1 py-3 text-sm text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 rounded-xl transition-all shadow-lg shadow-red-900/30"
                   >
                     Сдаться
                   </button>
@@ -280,15 +268,14 @@ function DuelGameContent({
         )}
       </AnimatePresence>
 
-      {/* Reconnecting indicator */}
+      {/* Connection Lost */}
       {!isConnected && gameState.status !== "connecting" && (
         <motion.div
           initial={{ y: -50 }}
           animate={{ y: 0 }}
-          className="fixed top-0 left-0 right-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center py-2.5 text-sm font-medium flex items-center justify-center gap-2"
+          className="fixed top-0 inset-x-0 py-2 text-center text-xs text-yellow-400 bg-yellow-950/80 backdrop-blur-sm border-b border-yellow-900/50 z-50"
         >
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-          Переподключение...
+          ⚡ Переподключение...
         </motion.div>
       )}
     </div>
@@ -299,7 +286,7 @@ function DuelGameContent({
 // HEADER
 // ═══════════════════════════════════════════════════════════════════════════
 
-function DuelHeader({
+function Header({
   myPlayer,
   opponentPlayer,
   myScore,
@@ -318,168 +305,140 @@ function DuelHeader({
   hasAnswered: boolean;
   status: DuelStatus;
 }) {
-  const showScores = status === "playing" || status === "revealing" || status === "finished";
+  const showScore = ["playing", "revealing", "finished"].includes(status);
 
   return (
-    <div className="relative z-10 p-4 pb-6">
-      <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 shadow-xl">
-        <div className="flex items-center justify-between">
+    <motion.div 
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="relative z-20"
+    >
+      {/* Glass header */}
+      <div className="mx-3 mt-3 p-4 rounded-2xl bg-gradient-to-b from-zinc-900/90 to-zinc-950/90 backdrop-blur-xl border border-zinc-800/50 shadow-xl">
+        <div className="flex items-center">
           {/* Me */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <PlayerAvatar
+          <div className="flex-1 flex items-center gap-3">
+            <PlayerCard
               name={myPlayer?.odName || "Я"}
               photo={myPlayer?.odPhotoUrl}
-              size="md"
-              isActive={hasAnswered}
-              glowColor="emerald"
+              score={showScore ? myScore : undefined}
+              answered={hasAnswered}
+              isMe
             />
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-white truncate">
-                {myPlayer?.odName || "Я"}
-              </div>
-              {showScores && (
-                <motion.div
-                  key={myScore}
-                  initial={{ scale: 1.3, color: "#fbbf24" }}
-                  animate={{ scale: 1, color: "#ffffff" }}
-                  className="text-2xl font-black"
-                >
-                  {myScore}
-                </motion.div>
-              )}
-            </div>
           </div>
 
           {/* VS Badge */}
-          <div className="flex flex-col items-center justify-center mx-4 flex-shrink-0">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 border border-white/10 flex items-center justify-center">
-              <span className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">VS</span>
-            </div>
-            {status === "playing" && (
-              <div className="text-[10px] text-white/40 mt-1 font-medium text-center whitespace-nowrap">
-                {hasAnswered && isOpponentAnswered ? "Оба ✓" :
-                  hasAnswered ? "Ждём..." :
-                  isOpponentAnswered ? "Ответил!" : ""}
+          <div className="flex-shrink-0 mx-3">
+            <motion.div 
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="relative"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-900 to-red-950 border border-red-800/50 flex items-center justify-center shadow-lg shadow-red-900/30">
+                <span className="text-sm font-black text-red-300">VS</span>
               </div>
-            )}
+              {/* Pulse effect */}
+              <div className="absolute inset-0 rounded-xl bg-red-500/20 animate-ping" style={{ animationDuration: '2s' }} />
+            </motion.div>
           </div>
 
           {/* Opponent */}
-          <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-            <div className="text-right min-w-0">
-              <div className="text-sm font-semibold text-white truncate">
-                {opponentPlayer?.odName || "?"}
-              </div>
-              {showScores && (
-                <motion.div
-                  key={opponentScore}
-                  initial={{ scale: 1.3, color: "#fbbf24" }}
-                  animate={{ scale: 1, color: "#ffffff" }}
-                  className="text-2xl font-black"
-                >
-                  {opponentScore}
-                </motion.div>
-              )}
-            </div>
-            <PlayerAvatar
+          <div className="flex-1 flex items-center gap-3 justify-end">
+            <PlayerCard
               name={opponentPlayer?.odName || "?"}
               photo={opponentPlayer?.odPhotoUrl}
-              size="md"
-              isActive={isOpponentAnswered}
-              isDisconnected={!isOpponentConnected}
-              glowColor="violet"
+              score={showScore ? opponentScore : undefined}
+              answered={isOpponentAnswered}
+              offline={!isOpponentConnected}
+              reverse
             />
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AVATAR
+// PLAYER CARD
 // ═══════════════════════════════════════════════════════════════════════════
 
-function PlayerAvatar({
+function PlayerCard({
   name,
   photo,
-  size = "md",
-  isActive,
-  isDisconnected,
-  glowColor = "violet",
+  score,
+  answered,
+  offline,
+  isMe,
+  reverse,
 }: {
   name: string;
   photo?: string | null;
-  size?: "sm" | "md" | "lg" | "xl";
-  isActive?: boolean;
-  isDisconnected?: boolean;
-  glowColor?: "violet" | "emerald" | "amber";
+  score?: number;
+  answered?: boolean;
+  offline?: boolean;
+  isMe?: boolean;
+  reverse?: boolean;
 }) {
-  const sizeClasses = {
-    sm: "w-10 h-10 text-sm",
-    md: "w-12 h-12 text-base",
-    lg: "w-20 h-20 text-2xl",
-    xl: "w-24 h-24 text-3xl",
-  };
-
-  const glowColors = {
-    violet: "shadow-violet-500/50 ring-violet-500/50",
-    emerald: "shadow-emerald-500/50 ring-emerald-500/50",
-    amber: "shadow-amber-500/50 ring-amber-500/50",
-  };
-
   return (
-    <div className="relative">
-      {photo ? (
-        <img
-          src={photo}
-          alt={name}
-          className={`${sizeClasses[size]} rounded-2xl object-cover ring-2 ${isActive ? glowColors[glowColor] : "ring-white/20"} transition-all duration-300 ${isActive ? "shadow-lg " + glowColors[glowColor] : ""}`}
-        />
-      ) : (
-        <div
-          className={`${sizeClasses[size]} rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-white font-bold ring-2 ${isActive ? glowColors[glowColor] : "ring-white/20"} transition-all duration-300`}
-        >
-          {name[0]?.toUpperCase() || "?"}
+    <div className={`flex items-center gap-3 ${reverse ? 'flex-row-reverse' : ''}`}>
+      {/* Avatar */}
+      <div className="relative">
+        <div className={`w-12 h-12 rounded-full overflow-hidden border-2 ${answered ? 'border-emerald-500' : 'border-zinc-700'} shadow-lg`}>
+          {photo ? (
+            <img src={photo} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-lg">
+              {name[0]?.toUpperCase()}
+            </div>
+          )}
         </div>
-      )}
-      
-      {/* Status indicator */}
-      {isActive && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-lg bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center shadow-lg shadow-emerald-500/50"
-        >
-          <span className="text-[10px] text-white font-bold">✓</span>
-        </motion.div>
-      )}
-      
-      {isDisconnected && (
-        <motion.div
-          animate={{ opacity: [1, 0.5, 1] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-lg bg-gradient-to-br from-red-400 to-rose-500 flex items-center justify-center shadow-lg shadow-red-500/50"
-        >
-          <span className="text-[10px] text-white font-bold">!</span>
-        </motion.div>
-      )}
+        {/* Status indicator */}
+        {answered && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-md flex items-center justify-center shadow-lg"
+          >
+            <span className="text-[10px] text-white">✓</span>
+          </motion.div>
+        )}
+        {offline && (
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-red-500 rounded-md flex items-center justify-center animate-pulse shadow-lg">
+            <span className="text-[10px] text-white">!</span>
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className={reverse ? 'text-right' : ''}>
+        <p className="text-xs text-zinc-400 truncate max-w-[70px]">{name}</p>
+        {score !== undefined && (
+          <motion.p
+            key={score}
+            initial={{ scale: 1.2, color: '#fbbf24' }}
+            animate={{ scale: 1, color: '#ffffff' }}
+            className="text-2xl font-bold tabular-nums"
+          >
+            {score}
+          </motion.p>
+        )}
+      </div>
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LOADING SCREEN
+// LOADING
 // ═══════════════════════════════════════════════════════════════════════════
 
-function LoadingScreen({ message }: { message: string }) {
+function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-[#0a0a12] flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
       <div className="relative">
-        <div className="w-16 h-16 rounded-full border-[3px] border-white/10 border-t-violet-500 animate-spin" />
-        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-violet-500/20 to-transparent blur-xl" />
+        <div className="w-14 h-14 rounded-full border-2 border-zinc-800 border-t-red-600 animate-spin" />
+        <div className="absolute inset-0 w-16 h-16 rounded-xl border-2 border-transparent border-b-red-900/50 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
       </div>
-      <p className="mt-6 text-white/40 font-medium">{message}</p>
     </div>
   );
 }
@@ -489,64 +448,58 @@ function LoadingScreen({ message }: { message: string }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function StatusScreen({
-  icon,
-  title,
-  subtitle,
-  showPulse,
+  type,
+  text,
   action,
 }: {
-  icon: "connecting" | "waiting" | "disconnected" | "error";
-  title: string;
-  subtitle?: string;
-  showPulse?: boolean;
-  action?: { label: string; onClick: () => void };
+  type: "loading" | "waiting" | "error";
+  text: string;
+  action?: { label: string; fn: () => void };
 }) {
   const icons = {
-    connecting: (
-      <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-white/10 flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-[3px] border-white/20 border-t-violet-400 animate-spin" />
-      </div>
-    ),
-    waiting: (
-      <div className="relative inline-flex items-center justify-center">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-white/10 flex items-center justify-center">
-          <span className="text-4xl">⏳</span>
-        </div>
-        {showPulse && (
-          <motion.div
-            animate={{ scale: [1, 1.3], opacity: [0.6, 0] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "easeOut" }}
-            className="absolute inset-0 rounded-3xl border-2 border-amber-400/50"
-          />
-        )}
-      </div>
-    ),
-    disconnected: (
-      <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-white/10 flex items-center justify-center">
-        <span className="text-4xl">😔</span>
-      </div>
-    ),
-    error: (
-      <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-white/10 flex items-center justify-center">
-        <span className="text-4xl">❌</span>
-      </div>
-    ),
+    loading: "🔍",
+    waiting: "👤",
+    error: "⚠️",
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="flex flex-col items-center justify-center text-center"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="text-center"
     >
-      <div className="mb-6 flex items-center justify-center">{icons[icon]}</div>
-      <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>
-      {subtitle && <p className="text-white/40 mb-8 font-medium">{subtitle}</p>}
+      <div className="relative inline-block mb-6">
+        {/* Spinner ring for loading */}
+        {type === "loading" && (
+          <div className="absolute -inset-2">
+            <div className="w-full h-full rounded-full border-2 border-zinc-800 border-t-red-500 animate-spin" />
+          </div>
+        )}
+        
+        {/* Pulse for waiting */}
+        {type === "waiting" && (
+          <motion.div
+            animate={{ scale: [1, 1.3], opacity: [0.5, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+            className="absolute -inset-2 rounded-full bg-red-500/30"
+          />
+        )}
+        
+        {/* Icon box */}
+        <motion.div 
+          animate={type === "waiting" ? { scale: [1, 1.02, 1] } : {}}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="relative w-20 h-20 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center shadow-xl"
+        >
+          <span className="text-3xl">{icons[type]}</span>
+        </motion.div>
+      </div>
+      <p className="text-zinc-400 mb-6">{text}</p>
       {action && (
         <button
-          onClick={action.onClick}
-          className="px-8 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all"
+          onClick={action.fn}
+          className="px-8 py-3 bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all"
         >
           {action.label}
         </button>
@@ -556,7 +509,7 @@ function StatusScreen({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LOBBY SCREEN
+// LOBBY
 // ═══════════════════════════════════════════════════════════════════════════
 
 function LobbyScreen({
@@ -570,348 +523,295 @@ function LobbyScreen({
   isOpponentReady: boolean;
   onReady: () => void;
 }) {
-  const [isReady, setIsReady] = useState(false);
-
-  const handleReady = () => {
-    setIsReady(true);
-    onReady();
-  };
+  const [ready, setReady] = useState(false);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="text-center w-full max-w-md px-4"
+      exit={{ opacity: 0 }}
+      className="w-full max-w-sm"
     >
-      {/* Title */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <h2 className="text-2xl font-bold text-white mb-2">Приготовься к бою!</h2>
-        <p className="text-white/40 text-sm">Нажми "Готов" когда будешь готов начать</p>
-      </motion.div>
+      {/* Case file card */}
+      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+        {/* Header */}
+        <div className="text-center mb-8 pb-4 border-b border-zinc-800">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-950/50 border border-red-900/30 rounded-lg mb-3">
+            <span className="text-red-400 text-xs">📁</span>
+            <span className="text-[10px] tracking-[0.2em] text-red-400 uppercase">Дело открыто</span>
+          </div>
+          <h2 className="text-lg font-semibold text-white">Допрос подозреваемых</h2>
+        </div>
 
-      {/* Players */}
-      <div className="flex items-center justify-center gap-6 mb-10">
-        {/* Me */}
-        <motion.div
-          initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-center"
-        >
-          <div className="relative mb-3">
-            <PlayerAvatar
-              name={myPlayer?.odName || "Я"}
-              photo={myPlayer?.odPhotoUrl}
-              size="xl"
-              isActive={isReady}
-              glowColor="emerald"
-            />
-          </div>
-          <div className="text-white font-semibold mb-1">{myPlayer?.odName || "Я"}</div>
-          <div className={`text-xs font-medium px-3 py-1 rounded-full inline-flex items-center gap-1 ${isReady ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-white/40"}`}>
-            {isReady ? <>✓ Готов</> : "Не готов"}
-          </div>
-        </motion.div>
-
-        {/* VS */}
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.3, type: "spring" }}
-          className="relative"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/30 to-fuchsia-600/30 border border-white/10 flex items-center justify-center">
-            <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">VS</span>
-          </div>
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-            className="absolute -inset-2 rounded-3xl border border-dashed border-white/10"
+        {/* Players */}
+        <div className="flex items-center justify-between mb-8">
+          <LobbyPlayer
+            name={myPlayer?.odName || "Я"}
+            photo={myPlayer?.odPhotoUrl}
+            ready={ready}
           />
-        </motion.div>
 
-        {/* Opponent */}
-        <motion.div
-          initial={{ x: 30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-center"
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-900 to-red-950 border border-red-800/50 flex items-center justify-center">
+              <span className="text-xs font-bold text-red-300">VS</span>
+            </div>
+            {/* Connection line */}
+            <div className="flex gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${ready && isOpponentReady ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${isOpponentReady ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+            </div>
+          </div>
+
+          <LobbyPlayer
+            name={opponentPlayer?.odName || "?"}
+            photo={opponentPlayer?.odPhotoUrl}
+            ready={isOpponentReady}
+          />
+        </div>
+
+        {/* Button */}
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={() => { setReady(true); onReady(); }}
+          disabled={ready}
+          className={`w-full py-4 rounded-xl font-medium transition-all ${
+            ready
+              ? "bg-zinc-800 text-zinc-500 border border-zinc-700"
+              : "bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-lg shadow-red-900/30"
+          }`}
         >
-          <div className="relative mb-3">
-            <PlayerAvatar
-              name={opponentPlayer?.odName || "Соперник"}
-              photo={opponentPlayer?.odPhotoUrl}
-              size="xl"
-              isActive={isOpponentReady}
-              glowColor="violet"
-            />
-          </div>
-          <div className="text-white font-semibold mb-1">{opponentPlayer?.odName || "Соперник"}</div>
-          <div className={`text-xs font-medium px-3 py-1 rounded-full inline-flex items-center gap-1 ${isOpponentReady ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-white/40"}`}>
-            {isOpponentReady ? <>✓ Готов</> : "Ожидание..."}
-          </div>
-        </motion.div>
+          {ready ? (isOpponentReady ? "⏳ Начинаем..." : "⏳ Ожидание соперника") : "🎯 Готов к допросу"}
+        </motion.button>
       </div>
-
-      {/* Ready button */}
-      <motion.button
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={handleReady}
-        disabled={isReady}
-        className={`
-          w-full py-4 rounded-2xl font-bold text-lg transition-all relative overflow-hidden
-          ${isReady
-            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-            : "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25"
-          }
-        `}
-      >
-        {!isReady && (
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-            animate={{ x: ["-100%", "100%"] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-          />
-        )}
-        <span className="relative z-10">
-          {isReady
-            ? isOpponentReady
-              ? "🚀 Начинаем!"
-              : "⏳ Ждём соперника..."
-            : "Я готов! 🎮"}
-        </span>
-      </motion.button>
     </motion.div>
   );
 }
 
+function LobbyPlayer({
+  name,
+  photo,
+  ready,
+}: {
+  name: string;
+  photo?: string | null;
+  ready: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center w-24">
+      {/* Avatar with glow effect when ready */}
+      <div className="relative w-16 h-16">
+        {ready && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute -inset-1 rounded-full bg-emerald-500/30 blur-sm"
+          />
+        )}
+        <div className={`relative w-16 h-16 rounded-full overflow-hidden border-2 ${ready ? 'border-emerald-500' : 'border-zinc-700'} shadow-lg`}>
+          {photo ? (
+            <img src={photo} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-xl">
+              {name[0]?.toUpperCase()}
+            </div>
+          )}
+        </div>
+      </div>
+      <p className="mt-3 text-sm text-zinc-400 truncate w-full text-center">{name}</p>
+      <p className={`mt-1 text-[10px] uppercase tracking-wider text-center ${ready ? 'text-emerald-400' : 'text-zinc-600'}`}>
+        {ready ? "✓ Готов" : "Ожидание"}
+      </p>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// COUNTDOWN SCREEN
+// COUNTDOWN
 // ═══════════════════════════════════════════════════════════════════════════
 
-function CountdownScreen({ timeLeft }: { timeLeft: number }) {
+function CountdownScreen({ count }: { count: number }) {
   return (
     <motion.div
-      key={timeLeft}
-      initial={{ opacity: 0, scale: 2 }}
+      key={count}
+      initial={{ opacity: 0, scale: 0.3 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.5 }}
-      transition={{ duration: 0.4, type: "spring" }}
+      exit={{ opacity: 0, scale: 2 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className="text-center"
     >
-      <div className="relative">
-        {/* Outer ring */}
+      <div className="relative inline-block">
+        {/* Outer pulse ring */}
         <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 1, repeat: Infinity }}
-          className="absolute inset-0 w-40 h-40 mx-auto rounded-full border-4 border-violet-500/50"
+          initial={{ scale: 1, opacity: 0.6 }}
+          animate={{ scale: 1.5, opacity: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="absolute inset-0 rounded-full border-2 border-red-500"
         />
         
-        {/* Main number */}
+        {/* Second pulse ring */}
         <motion.div
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 0.5 }}
-          className="w-40 h-40 mx-auto rounded-full bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 border border-white/10 flex items-center justify-center backdrop-blur-xl"
-        >
-          <span
-            className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70"
-            style={{ textShadow: "0 0 60px rgba(139, 92, 246, 0.8)" }}
-          >
-            {timeLeft > 0 ? timeLeft : "GO!"}
+          initial={{ scale: 1, opacity: 0.4 }}
+          animate={{ scale: 1.3, opacity: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+          className="absolute inset-0 rounded-full border border-red-600"
+        />
+        
+        {/* Main circle */}
+        <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-red-800 to-red-950 border-2 border-red-600 flex items-center justify-center shadow-2xl shadow-red-900/50">
+          <span className={`font-bold text-white ${count > 0 ? 'text-6xl' : 'text-4xl'}`}>
+            {count > 0 ? count : "GO!"}
           </span>
-        </motion.div>
+        </div>
       </div>
       
+      {/* Label */}
       <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="mt-6 text-white/40 font-medium"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mt-6 text-zinc-500 text-sm"
       >
-        {timeLeft > 0 ? "Приготовься..." : "Вперёд!"}
+        {count > 0 ? "Приготовься..." : "Начали!"}
       </motion.p>
     </motion.div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// QUESTION SCREEN
+// QUESTION
 // ═══════════════════════════════════════════════════════════════════════════
 
 function QuestionScreen({
-  questionIndex,
+  index,
+  total,
   question,
   timeLeft,
-  selectedOption,
-  correctOption,
+  selected,
+  correctId,
   isRevealing,
   hasAnswered,
-  isOpponentAnswered,
-  isSubmitting,
-  onSelectOption,
+  oppAnswered,
+  submitting,
+  onSelect,
 }: {
-  questionIndex: number;
+  index: number;
+  total: number;
   question: { text: string; options: { id: number; text: string }[]; timeLimitSeconds: number };
   timeLeft: number;
-  selectedOption: number | null;
-  correctOption?: number;
+  selected: number | null;
+  correctId?: number;
   isRevealing: boolean;
   hasAnswered: boolean;
-  isOpponentAnswered: boolean;
-  isSubmitting: boolean;
-  onSelectOption: (optionId: number) => void;
+  oppAnswered: boolean;
+  submitting: boolean;
+  onSelect: (id: number) => void;
 }) {
-  const timePercentage = (timeLeft / question.timeLimitSeconds) * 100;
-  const isUrgent = timeLeft <= 5;
-  
-  // Circular timer
-  const circumference = 2 * Math.PI * 36;
-  const strokeDashoffset = circumference - (timePercentage / 100) * circumference;
+  const pct = (timeLeft / question.timeLimitSeconds) * 100;
+  const critical = timeLeft <= 5;
 
   return (
     <motion.div
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className="w-full max-w-lg px-4"
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="w-full max-w-md"
     >
-      {/* Header with timer */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl px-4 py-2 border border-white/10">
-          <span className="text-white/40 text-xs font-medium">Вопрос</span>
-          <span className="text-white font-bold ml-2">{questionIndex + 1}</span>
+      {/* Timer bar */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 px-3 py-1 bg-zinc-900 rounded-lg border border-zinc-800">
+          <span className="text-xs text-zinc-500">Вопрос</span>
+          <span className="text-sm font-bold text-white">{index + 1}/{total}</span>
         </div>
-        
-        {/* Circular timer */}
-        <motion.div
-          animate={isUrgent ? { scale: [1, 1.05, 1] } : {}}
-          transition={{ repeat: isUrgent ? Infinity : 0, duration: 0.5 }}
-          className="relative"
-        >
-          <svg width="80" height="80" className="-rotate-90">
-            <circle
-              cx="40"
-              cy="40"
-              r="36"
-              fill="none"
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth="4"
-            />
-            <motion.circle
-              cx="40"
-              cy="40"
-              r="36"
-              fill="none"
-              stroke={isUrgent ? "#ef4444" : "#8b5cf6"}
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              transition={{ duration: 0.3 }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className={`text-xl font-bold ${isUrgent ? "text-red-400" : "text-white"}`}>
-              {timeLeft}
-            </span>
-          </div>
-        </motion.div>
+        <div className="flex-1 h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+          <motion.div
+            className={`h-full rounded-full ${critical ? 'bg-gradient-to-r from-red-600 to-red-500' : 'bg-gradient-to-r from-red-700 to-red-600'}`}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+        <div className={`px-3 py-1 rounded-lg font-mono font-bold ${critical ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'}`}>
+          {timeLeft}s
+        </div>
       </div>
 
       {/* Question card */}
-      <motion.div
-        layout
-        className="bg-gradient-to-b from-white/[0.08] to-white/[0.03] backdrop-blur-xl rounded-3xl p-6 mb-6 border border-white/10 shadow-xl"
+      <motion.div 
+        initial={{ y: 10 }}
+        animate={{ y: 0 }}
+        className="mb-4 p-5 rounded-2xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 shadow-xl"
       >
-        <p className="text-lg text-white font-medium leading-relaxed">{question.text}</p>
+        <p className="text-white text-lg leading-relaxed">{question.text}</p>
       </motion.div>
 
       {/* Options */}
       <div className="space-y-3">
-        {question.options.map((option, idx) => {
-          const isSelected = selectedOption === option.id;
-          const isCorrect = correctOption === option.id;
-          const isWrong = isRevealing && isSelected && !isCorrect;
+        {question.options.map((opt, i) => {
+          const isSel = selected === opt.id;
+          const isCorrect = correctId === opt.id;
+          const isWrong = isRevealing && isSel && !isCorrect;
+
+          let bgClass = "bg-gradient-to-r from-zinc-900 to-zinc-900/50";
+          let borderClass = "border-zinc-800 hover:border-zinc-600";
+          let textClass = "text-zinc-300";
+
+          if (isRevealing && isCorrect) {
+            bgClass = "bg-gradient-to-r from-emerald-950 to-emerald-900/50";
+            borderClass = "border-emerald-600";
+            textClass = "text-emerald-300";
+          } else if (isWrong) {
+            bgClass = "bg-gradient-to-r from-red-950 to-red-900/50";
+            borderClass = "border-red-600";
+            textClass = "text-red-300";
+          } else if (isSel) {
+            bgClass = "bg-gradient-to-r from-zinc-800 to-zinc-800/50";
+            borderClass = "border-zinc-500";
+            textClass = "text-white";
+          }
+
+          const faded = hasAnswered && !isSel && !isCorrect;
 
           return (
             <motion.button
-              key={option.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              whileTap={!hasAnswered ? { scale: 0.98 } : undefined}
-              onClick={() => onSelectOption(option.id)}
-              disabled={hasAnswered || isSubmitting}
-              className={`
-                w-full p-4 rounded-2xl border text-left transition-all duration-300 relative overflow-hidden
-                ${isRevealing && isCorrect
-                  ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20"
-                  : isWrong
-                  ? "bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-500 shadow-lg shadow-red-500/20"
-                  : isSelected
-                  ? "bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 border-violet-500"
-                  : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20"
-                }
-                ${hasAnswered && !isSelected && !isCorrect ? "opacity-40" : ""}
-              `}
+              key={opt.id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: faded ? 0.4 : 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+              onClick={() => onSelect(opt.id)}
+              disabled={hasAnswered || submitting}
+              className={`w-full p-4 rounded-xl border text-left transition-all ${bgClass} ${borderClass} shadow-lg`}
             >
               <div className="flex items-center gap-4">
-                <div
-                  className={`
-                    w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all
-                    ${isRevealing && isCorrect
-                      ? "bg-gradient-to-br from-emerald-400 to-green-500 text-white shadow-lg"
-                      : isWrong
-                      ? "bg-gradient-to-br from-red-400 to-rose-500 text-white shadow-lg"
-                      : isSelected
-                      ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg"
-                      : "bg-white/5 text-white/50"
-                    }
-                  `}
-                >
-                  {isRevealing && isCorrect ? "✓" : isWrong ? "✗" : String.fromCharCode(65 + idx)}
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                  isRevealing && isCorrect ? 'bg-emerald-600 text-white' :
+                  isWrong ? 'bg-red-600 text-white' :
+                  isSel ? 'bg-zinc-600 text-white' :
+                  'bg-zinc-800 text-zinc-500'
+                }`}>
+                  {isRevealing && isCorrect ? "✓" : isWrong ? "✗" : String.fromCharCode(65 + i)}
                 </div>
-                <span className="font-medium text-white flex-1">{option.text}</span>
-                {isSubmitting && isSelected && (
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <span className={`flex-1 ${textClass}`}>{opt.text}</span>
+                {submitting && isSel && (
+                  <div className="w-5 h-5 border-2 border-zinc-600 border-t-red-500 rounded-full animate-spin" />
                 )}
               </div>
-              
-              {/* Selection shimmer effect */}
-              {isSelected && !isRevealing && (
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
-                  animate={{ x: ["-100%", "100%"] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                />
-              )}
             </motion.button>
           );
         })}
       </div>
 
       {/* Status */}
-      {!isRevealing && (
+      {!isRevealing && hasAnswered && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-6 text-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 flex justify-center"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
-            {hasAnswered && isOpponentAnswered ? (
-              <><span className="text-emerald-400">✓</span><span className="text-white/50 text-sm">Оба ответили</span></>
-            ) : hasAnswered ? (
-              <><div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-violet-400 animate-spin" /><span className="text-white/50 text-sm">Ждём соперника</span></>
-            ) : isOpponentAnswered ? (
-              <><span className="text-amber-400">⚡</span><span className="text-white/50 text-sm">Соперник ответил!</span></>
-            ) : null}
+          <div className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl ${oppAnswered ? 'bg-emerald-950/50 border border-emerald-900/50' : 'bg-zinc-900 border border-zinc-800'}`}>
+            <span className={`text-sm ${oppAnswered ? 'text-emerald-400' : 'text-zinc-500'}`}>
+              {oppAnswered ? "✓ Оба ответили" : "⏳ Ожидание соперника..."}
+            </span>
           </div>
         </motion.div>
       )}
@@ -920,185 +820,140 @@ function QuestionScreen({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FINISH SCREEN
+// FINISH
 // ═══════════════════════════════════════════════════════════════════════════
 
 function FinishScreen({
-  userId,
-  winnerId,
+  isWinner,
+  isDraw,
   myScore,
-  opponentScore,
+  oppScore,
   myPlayer,
-  opponentPlayer,
+  oppPlayer,
   onExit,
 }: {
-  userId: number;
-  winnerId: number | null;
+  isWinner: boolean;
+  isDraw: boolean;
   myScore: number;
-  opponentScore: number;
+  oppScore: number;
   myPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
-  opponentPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
+  oppPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
   onExit: () => void;
 }) {
-  const isWinner = winnerId === userId;
-  const isDraw = winnerId === null;
-  const xpEarned = isWinner ? 50 : isDraw ? 30 : 10;
-
-  // Confetti particles
-  const particles = useMemo(() => 
-    Array.from({ length: isWinner ? 20 : 0 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      delay: Math.random() * 0.5,
-      duration: 2 + Math.random() * 2,
-      color: ['#8b5cf6', '#d946ef', '#f59e0b', '#22c55e'][Math.floor(Math.random() * 4)],
-    })),
-  [isWinner]);
+  const xp = isWinner ? 50 : isDraw ? 30 : 10;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="text-center w-full max-w-md px-4 relative"
+      className="w-full max-w-sm"
     >
-      {/* Confetti */}
-      {particles.map((p) => (
+      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+        {/* Result icon */}
         <motion.div
-          key={p.id}
-          initial={{ y: -20, x: `${p.x}%`, opacity: 1 }}
-          animate={{ y: "100vh", opacity: 0 }}
-          transition={{ delay: p.delay, duration: p.duration, ease: "linear" }}
-          className="fixed top-0 w-2 h-2 rounded-full"
-          style={{ backgroundColor: p.color, left: `${p.x}%` }}
-        />
-      ))}
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", delay: 0.2 }}
+          className="text-center mb-6"
+        >
+          <div className={`w-24 h-24 mx-auto rounded-2xl flex items-center justify-center shadow-xl ${
+            isWinner 
+              ? 'bg-gradient-to-br from-yellow-600 to-yellow-700 border-2 border-yellow-500' 
+              : isDraw 
+                ? 'bg-gradient-to-br from-zinc-600 to-zinc-700 border-2 border-zinc-500'
+                : 'bg-gradient-to-br from-red-900 to-red-950 border-2 border-red-800'
+          }`}>
+            <span className="text-5xl">{isWinner ? "🏆" : isDraw ? "🤝" : "💀"}</span>
+          </div>
+        </motion.div>
 
-      {/* Result icon */}
-      <motion.div
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: "spring", duration: 0.8 }}
-        className="mb-6"
-      >
-        <div className={`
-          w-28 h-28 mx-auto rounded-3xl flex items-center justify-center relative
-          ${isWinner
-            ? "bg-gradient-to-br from-amber-400/20 to-yellow-500/20 border border-amber-400/30 shadow-xl shadow-amber-500/20"
-            : isDraw
-            ? "bg-gradient-to-br from-white/10 to-white/5 border border-white/20"
-            : "bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10"
-          }
-        `}>
-          <span className="text-5xl">{isWinner ? "🏆" : isDraw ? "🤝" : "😔"}</span>
-          {isWinner && (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
-              className="absolute -inset-4 rounded-[2rem] border border-dashed border-amber-400/30"
-            />
-          )}
+        {/* Verdict */}
+        <div className="text-center mb-6">
+          <motion.h2
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className={`text-2xl font-bold mb-1 ${
+              isWinner ? 'text-yellow-400' : isDraw ? 'text-zinc-300' : 'text-red-400'
+            }`}
+          >
+            {isWinner ? "ПОБЕДА!" : isDraw ? "НИЧЬЯ" : "ПОРАЖЕНИЕ"}
+          </motion.h2>
+          <p className="text-zinc-500 text-sm">
+            {isWinner ? "Подозреваемый изобличён" : isDraw ? "Недостаточно улик" : "Преступник ушёл от правосудия"}
+          </p>
         </div>
-      </motion.div>
 
-      {/* Title */}
-      <motion.h2
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className={`text-4xl font-black mb-2 ${
-          isWinner ? "text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500" : isDraw ? "text-white" : "text-white/60"
-        }`}
-      >
-        {isWinner ? "Победа!" : isDraw ? "Ничья!" : "Поражение"}
-      </motion.h2>
-      
-      <motion.p
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="text-white/40 mb-8"
-      >
-        {isWinner ? "Отличная игра! Ты победил!" : isDraw ? "Достойный соперник!" : "В следующий раз повезёт больше"}
-      </motion.p>
-
-      {/* Score comparison */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="bg-gradient-to-b from-white/[0.08] to-white/[0.03] backdrop-blur-xl rounded-3xl p-6 mb-8 border border-white/10"
-      >
-        <div className="flex items-center justify-center gap-6">
+        {/* Scores */}
+        <div className="flex items-center justify-center gap-6 py-6 mb-6 border-y border-zinc-800">
           <div className="text-center">
-            <PlayerAvatar
-              name={myPlayer?.odName || "Я"}
-              photo={myPlayer?.odPhotoUrl}
-              size="lg"
-              isActive={isWinner}
-              glowColor="amber"
-            />
-            <motion.div
+            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-zinc-700 mx-auto mb-2">
+              {myPlayer?.odPhotoUrl ? (
+                <img src={myPlayer.odPhotoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-500 font-bold">
+                  {myPlayer?.odName?.[0]?.toUpperCase() || "?"}
+                </div>
+              )}
+            </div>
+            <motion.p
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.7, type: "spring" }}
-              className="mt-3 text-4xl font-black text-white"
+              transition={{ type: "spring", delay: 0.4 }}
+              className="text-3xl font-bold text-white"
             >
               {myScore}
-            </motion.div>
-            <div className="text-xs text-white/40 mt-1">Ты</div>
+            </motion.p>
           </div>
 
-          <div className="text-3xl font-black text-white/20">:</div>
+          <div className="text-2xl text-zinc-700">:</div>
 
           <div className="text-center">
-            <PlayerAvatar
-              name={opponentPlayer?.odName || "?"}
-              photo={opponentPlayer?.odPhotoUrl}
-              size="lg"
-              isActive={winnerId === opponentPlayer?.odId}
-              glowColor="amber"
-            />
-            <motion.div
+            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-zinc-700 mx-auto mb-2">
+              {oppPlayer?.odPhotoUrl ? (
+                <img src={oppPlayer.odPhotoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-500 font-bold">
+                  {oppPlayer?.odName?.[0]?.toUpperCase() || "?"}
+                </div>
+              )}
+            </div>
+            <motion.p
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.8, type: "spring" }}
-              className="mt-3 text-4xl font-black text-white"
+              transition={{ type: "spring", delay: 0.5 }}
+              className="text-3xl font-bold text-white"
             >
-              {opponentScore}
-            </motion.div>
-            <div className="text-xs text-white/40 mt-1">{opponentPlayer?.odName}</div>
+              {oppScore}
+            </motion.p>
           </div>
         </div>
-      </motion.div>
 
-      {/* XP reward */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.6 }}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-green-500/20 border border-emerald-500/30 mb-8"
-      >
-        <span className="text-emerald-400 font-bold text-lg">+{xpEarned} XP</span>
-        <span className="text-emerald-400/60">получено</span>
-      </motion.div>
-
-      {/* Exit button */}
-      <motion.button
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.7 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={onExit}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold text-lg shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all relative overflow-hidden"
-      >
+        {/* XP */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-          animate={{ x: ["-100%", "100%"] }}
-          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-        />
-        <span className="relative z-10">Готово</span>
-      </motion.button>
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="flex justify-center mb-6"
+        >
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-950/50 border border-emerald-800/50">
+            <span className="text-lg">⭐</span>
+            <span className="text-emerald-400 font-bold">+{xp} XP</span>
+          </div>
+        </motion.div>
+
+        {/* Button */}
+        <button
+          onClick={() => {
+            haptic.medium();
+            onExit();
+          }}
+          className="w-full py-4 rounded-xl bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-medium shadow-lg shadow-red-900/30 transition-all active:scale-95"
+        >
+          📁 Закрыть дело
+        </button>
+      </div>
     </motion.div>
   );
 }

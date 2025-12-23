@@ -96,10 +96,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Подготавливаем вопросы (без правильных ответов для клиента)
+    // Для дуэлей используем фиксированные 15 секунд на вопрос
+    const DUEL_TIME_LIMIT_SECONDS = 15;
+    
     const questions = duel.quiz.questions.map((q) => ({
       id: q.id,
       text: q.text,
-      timeLimitSeconds: q.timeLimitSeconds || 15,
+      timeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
       options: q.answers.map((a) => ({
         id: a.id,
         text: a.text,
