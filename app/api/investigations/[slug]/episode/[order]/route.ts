@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 
 type RouteContext = { params: Promise<{ slug: string; order: string }> };
 
@@ -213,8 +214,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       data: {
         status: "COMPLETED",
         score: score ?? 0,
-        choices: choices ?? undefined,
-        answers: answers ?? undefined,
+        choices: choices as Prisma.InputJsonValue ?? undefined,
+        answers: answers as Prisma.InputJsonValue ?? undefined,
         timeSpentSeconds: timeSpent ?? 0,
         completedAt: new Date(),
       },
