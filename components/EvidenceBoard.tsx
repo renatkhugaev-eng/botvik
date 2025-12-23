@@ -402,47 +402,53 @@ function ListView({
 }) {
   return (
     <div className="space-y-2">
-      {state.evidence.map((evidence) => (
-        <motion.div
-          key={evidence.id}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white/5 rounded-xl p-4 border border-white/10 cursor-pointer"
-          onClick={() => onEvidenceClick(evidence.id)}
-          onTapStart={() => {}}
-          onTap={() => {}}
-          whileTap={{ scale: 0.98 }}
-          onPointerDown={(e) => {
-            // Long press simulation for context menu
-            const timer = setTimeout(() => {
-              onEvidenceLongPress(evidence);
-            }, 500);
-            const cleanup = () => clearTimeout(timer);
-            e.currentTarget.addEventListener('pointerup', cleanup, { once: true });
-            e.currentTarget.addEventListener('pointerleave', cleanup, { once: true });
-          }}
-        >
-          <div className="flex items-start gap-3">
-            <div className="text-2xl">{evidence.icon}</div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-white">{evidence.title}</h4>
-              <p className="text-sm text-white/60 mt-1">{evidence.description}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span
-                  className={`px-2 py-0.5 rounded text-xs ${CATEGORY_LABELS[evidence.category].color} text-white`}
-                >
-                  {CATEGORY_LABELS[evidence.category].label}
-                </span>
-                {evidence.importance === "critical" && (
-                  <span className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400">
-                    Критично
-                  </span>
-                )}
+      {state.evidence.map((evidence) => {
+        let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+        return (
+          <motion.div
+            key={evidence.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div
+              className="bg-white/5 rounded-xl p-4 border border-white/10 cursor-pointer"
+              onClick={() => onEvidenceClick(evidence.id)}
+              onPointerDown={() => {
+                longPressTimer = setTimeout(() => {
+                  onEvidenceLongPress(evidence);
+                }, 500);
+              }}
+              onPointerUp={() => {
+                if (longPressTimer) clearTimeout(longPressTimer);
+              }}
+              onPointerLeave={() => {
+                if (longPressTimer) clearTimeout(longPressTimer);
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">{evidence.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-white">{evidence.title}</h4>
+                  <p className="text-sm text-white/60 mt-1">{evidence.description}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${CATEGORY_LABELS[evidence.category].color} text-white`}
+                    >
+                      {CATEGORY_LABELS[evidence.category].label}
+                    </span>
+                    {evidence.importance === "critical" && (
+                      <span className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400">
+                        Критично
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-      ))}
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -522,41 +528,45 @@ function EvidenceCard({
   }, [onClick]);
 
   return (
-    <motion.button
+    <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      onClick={handleClick}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-      onMouseDown={handleTouchStart}
-      onMouseUp={handleTouchEnd}
-      onMouseLeave={handleTouchEnd}
-      className={`
-        relative px-3 py-2 rounded-xl text-left transition-all
-        ${isConnecting ? "bg-violet-500/30 border-2 border-violet-500 ring-2 ring-violet-500/50" : ""}
-        ${isSelected && !isConnecting ? "bg-white/10 border-2 border-white/30" : ""}
-        ${!isSelected && !isConnecting ? "bg-white/5 border border-white/10 hover:bg-white/10" : ""}
-        ${hasConnection ? "ring-1 ring-emerald-500/50" : ""}
-      `}
     >
-      {/* Индикатор связи */}
-      {hasConnection && (
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full" />
-      )}
+      <button
+        type="button"
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onMouseDown={handleTouchStart}
+        onMouseUp={handleTouchEnd}
+        onMouseLeave={handleTouchEnd}
+        className={`
+          relative w-full px-3 py-2 rounded-xl text-left transition-all
+          ${isConnecting ? "bg-violet-500/30 border-2 border-violet-500 ring-2 ring-violet-500/50" : ""}
+          ${isSelected && !isConnecting ? "bg-white/10 border-2 border-white/30" : ""}
+          ${!isSelected && !isConnecting ? "bg-white/5 border border-white/10 hover:bg-white/10" : ""}
+          ${hasConnection ? "ring-1 ring-emerald-500/50" : ""}
+        `}
+      >
+        {/* Индикатор связи */}
+        {hasConnection && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full" />
+        )}
 
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{evidence.icon}</span>
-        <span className="text-sm font-medium truncate max-w-[120px]">
-          {evidence.title}
-        </span>
-      </div>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{evidence.icon}</span>
+          <span className="text-sm font-medium truncate max-w-[120px]">
+            {evidence.title}
+          </span>
+        </div>
 
-      {/* Важность */}
-      {evidence.importance === "critical" && (
-        <div className="absolute -top-1 -left-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-      )}
-    </motion.button>
+        {/* Важность */}
+        {evidence.importance === "critical" && (
+          <div className="absolute -top-1 -left-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+        )}
+      </button>
+    </motion.div>
   );
 }
 

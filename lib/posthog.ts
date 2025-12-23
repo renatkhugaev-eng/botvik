@@ -50,8 +50,6 @@ export function initPosthog() {
         console.debug("[PostHog] Network error (suppressed):", error);
       }
     },
-    // Request timeout in ms (default is 10000)
-    request_timeout: 5000,
     // Load toolbar for debugging (dev only)
     loaded: (ph) => {
       if (process.env.NODE_ENV !== "production") {

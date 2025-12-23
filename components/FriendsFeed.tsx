@@ -27,12 +27,22 @@ type ActivityUser = {
   xp: number;
 };
 
+type ActivityData = {
+  score?: number;
+  place?: number;
+  quizId?: number;
+  tournamentId?: number;
+  level?: number;
+  achievement?: string;
+  [key: string]: unknown;
+};
+
 type Activity = {
   id: number;
   type: ActivityType;
   title: string;
   icon: string;
-  data: Record<string, unknown>;
+  data: ActivityData;
   createdAt: string;
   user: ActivityUser;
 };
@@ -169,20 +179,20 @@ function ActivityItem({ activity, index }: { activity: Activity; index: number }
         </div>
 
         {/* Дополнительные данные (очки, место и т.д.) */}
-        {(activity.data.score || activity.data.place) && (
+        {(activity.data.score != null || activity.data.place != null) ? (
           <div className="flex items-center gap-2 mt-2">
-            {activity.data.score && (
+            {activity.data.score != null ? (
               <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/80">
-                {String(activity.data.score)} очков
+                {activity.data.score} очков
               </span>
-            )}
-            {activity.data.place && (
+            ) : null}
+            {activity.data.place != null ? (
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
-                {String(activity.data.place)} место
+                {activity.data.place} место
               </span>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </motion.div>
   );

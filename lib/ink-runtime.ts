@@ -147,7 +147,7 @@ export class InkRunner {
   /**
    * Установить переменную
    */
-  setVariable(name: string, value: unknown): void {
+  setVariable(name: string, value: string | number | boolean): void {
     try {
       this.story.variablesState.$(name, value);
     } catch (e) {
@@ -197,7 +197,7 @@ export class InkRunner {
    */
   hasVisited(path: string): boolean {
     try {
-      return this.story.state.VisitCountAtPathString(path) > 0;
+      return (this.story.state?.VisitCountAtPathString(path) ?? 0) > 0;
     } catch {
       return false;
     }
