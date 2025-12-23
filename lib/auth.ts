@@ -14,6 +14,7 @@ export type AuthUser = {
   username: string | null;
   firstName: string | null;
   lastName: string | null;
+  photoUrl: string | null;
 };
 
 /**
@@ -109,6 +110,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
           username: mockUser.username,
           firstName: mockUser.firstName,
           lastName: mockUser.lastName,
+          photoUrl: mockUser.photoUrl,
         },
       };
     }
@@ -264,6 +266,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthResult>
     username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
+    photoUrl: user.photoUrl,
   };
   
   // Cache the user
@@ -330,6 +333,7 @@ export async function authenticateAdmin(req: NextRequest): Promise<AuthResult> {
             username: "admin",
             firstName: "Admin",
             lastName: null,
+            photoUrl: null,
           },
         };
       }

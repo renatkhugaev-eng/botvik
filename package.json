@@ -32,6 +32,9 @@
     "test:all": "npm run test && npm run test:e2e"
   },
   "dependencies": {
+    "@liveblocks/client": "^3.12.1",
+    "@liveblocks/node": "^3.12.1",
+    "@liveblocks/react": "^3.12.1",
     "@neondatabase/serverless": "^0.10.4",
     "@prisma/adapter-neon": "^7.1.0",
     "@prisma/client": "^7.1.0",

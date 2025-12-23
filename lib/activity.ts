@@ -26,6 +26,11 @@ type ActivityData = {
   friendId?: number;
   friendName?: string;
   streakDays?: number;
+  // Duels
+  duelId?: string;
+  opponentId?: number;
+  opponentName?: string;
+  xpEarned?: number;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -42,6 +47,9 @@ const ACTIVITY_ICONS: Record<ActivityType, string> = {
   TOURNAMENT_WIN: "🥇",
   FRIEND_ADDED: "🤝",
   STREAK_MILESTONE: "🔥",
+  DUEL_WON: "🏆",
+  DUEL_LOST: "😔",
+  DUEL_DRAW: "🤝",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -68,6 +76,12 @@ function generateTitle(type: ActivityType, data: ActivityData): string {
       return `Теперь друзья с ${data.friendName || "новым другом"}`;
     case "STREAK_MILESTONE":
       return `Серия ${data.streakDays} дней подряд! 🔥`;
+    case "DUEL_WON":
+      return `Победил в дуэли против ${data.opponentName || "соперника"}!`;
+    case "DUEL_LOST":
+      return `Проиграл в дуэли против ${data.opponentName || "соперника"}`;
+    case "DUEL_DRAW":
+      return `Ничья в дуэли с ${data.opponentName || "соперником"}`;
     default:
       return "Активность";
   }

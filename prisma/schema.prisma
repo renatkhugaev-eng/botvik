@@ -82,6 +82,10 @@ model User {
   
   // Activity Feed
   activities             UserActivity[]
+  
+  // Duels (1v1 battles)
+  duelsAsChallenger      Duel[] @relation("DuelChallenger")
+  duelsAsOpponent        Duel[] @relation("DuelOpponent")
 }
 
 model Friendship {
@@ -122,6 +126,9 @@ model Quiz {
   
   // Tournament stages that use this quiz
   tournamentStages TournamentStage[]
+  
+  // Duels using this quiz
+  duels            Duel[]
 }
 
 model Question {
@@ -305,6 +312,9 @@ enum ActivityType {
   TOURNAMENT_WIN        // Занял место в турнире
   FRIEND_ADDED          // Добавил друга
   STREAK_MILESTONE      // Достиг серии дней (7, 14, 30)
+  DUEL_WON              // Победил в дуэли
+  DUEL_LOST             // Проиграл дуэль
+  DUEL_DRAW             // Ничья в дуэли
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -830,4 +840,58 @@ enum EpisodeStatus {
   IN_PROGRESS
   COMPLETED
   SKIPPED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DUELS SYSTEM (1v1 Quiz Battles)
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Duel {
+  id              String       @id @default(cuid())
+  
+  // Участники
+  challengerId    Int
+  challenger      User         @relation("DuelChallenger", fields: [challengerId], references: [id])
+  opponentId      Int
+  opponent        User         @relation("DuelOpponent", fields: [opponentId], references: [id])
+  
+  // Квиз для дуэли
+  quizId          Int
+  quiz            Quiz         @relation(fields: [quizId], references: [id])
+  
+  // Статус
+  status          DuelStatus   @default(PENDING)
+  
+  // Результаты (заполняются после игры)
+  challengerScore Int?
+  opponentScore   Int?
+  winnerId        Int?         // null = ничья
+  
+  // Награды
+  xpReward        Int          @default(50)   // XP победителю
+  xpLoser         Int          @default(10)   // XP проигравшему (утешительный)
+  
+  // Liveblocks Room ID
+  roomId          String?      @unique        // Генерируется при старте
+  
+  // Время
+  createdAt       DateTime     @default(now())
+  expiresAt       DateTime                    // 24h для принятия
+  acceptedAt      DateTime?                   // Когда принята
+  startedAt       DateTime?                   // Когда началась игра
+  finishedAt      DateTime?                   // Когда закончилась
+  
+  @@index([challengerId, status])
+  @@index([opponentId, status])
+  @@index([status, expiresAt])
+}
+
+enum DuelStatus {
+  PENDING       // Ожидает принятия
+  DECLINED      // Отклонена
+  ACCEPTED      // Принята, ждём обоих игроков
+  IN_PROGRESS   // Идёт игра
+  FINISHED      // Завершена
+  EXPIRED       // Истекла (не приняли за 24h)
+  CANCELLED     // Отменена создателем
 }
