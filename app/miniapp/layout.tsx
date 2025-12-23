@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import Script from "next/script";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { NotificationProvider } from "@/components/InAppNotification";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setUser, addBreadcrumb } from "@/lib/sentry";
@@ -11,6 +12,35 @@ import { identifyUser } from "@/lib/posthog";
 import { PerfModeProvider } from "@/components/context/PerfModeContext";
 import { WebVitalsOverlay } from "@/components/debug/WebVitalsOverlay";
 import { haptic } from "@/lib/haptic";
+
+// Динамический импорт Lottie для загрузочного экрана
+const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
+
+// Компонент анимации кота для загрузки
+function CatLoadingAnimation() {
+  const [animationData, setAnimationData] = useState(null);
+
+  useEffect(() => {
+    fetch("/animations/cat Mark loading.json")
+      .then((res) => res.json())
+      .then((data) => setAnimationData(data))
+      .catch((err) => console.error("Failed to load cat animation:", err));
+  }, []);
+
+  if (!animationData) {
+    return (
+      <div className="h-40 w-40 flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-red-900/30 border-t-red-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-48 w-48">
+      <Lottie animationData={animationData} loop={true} className="h-full w-full" />
+    </div>
+  );
+}
 
 type TelegramWebApp = {
   WebApp?: {
@@ -244,9 +274,9 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
   const content = useMemo(() => {
     if (session.status === "loading") {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-slate-200 border-t-violet-500" />
-          <p className="mt-4 text-sm text-slate-400">Загрузка...</p>
+        <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0f]">
+          <CatLoadingAnimation />
+          <p className="mt-2 text-sm text-white/50">Загрузка...</p>
         </div>
       );
     }
