@@ -212,40 +212,85 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
     }
     finishingRef.current = true;
 
-    try {
-      const result = await api.post<{
-        ok: boolean;
-        alreadyFinished?: boolean;
-        duel: {
-          winnerId: number | null;
-          challengerScore: number;
-          opponentScore: number;
-          challengerId: number;
-          opponentId: number;
-        };
-      }>(`/api/duels/${duelId}/finish`, {});
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 1000;
 
-      if (result.ok) {
-        const scores = {
-          [result.duel.challengerId]: result.duel.challengerScore,
-          [result.duel.opponentId]: result.duel.opponentScore,
-        };
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[Duel] Finishing game, attempt ${attempt}/${MAX_RETRIES}`);
+        
+        const result = await api.post<{
+          ok: boolean;
+          error?: string;
+          alreadyFinished?: boolean;
+          duel: {
+            winnerId: number | null;
+            challengerScore: number;
+            opponentScore: number;
+            challengerId: number;
+            opponentId: number;
+          };
+        }>(`/api/duels/${duelId}/finish`, {});
 
-        if (!result.alreadyFinished) {
-          broadcast({
-            type: "GAME_END",
-            winnerId: result.duel.winnerId,
-            scores,
-          });
+        if (result.ok) {
+          const scores = {
+            [result.duel.challengerId]: result.duel.challengerScore,
+            [result.duel.opponentId]: result.duel.opponentScore,
+          };
+
+          if (!result.alreadyFinished) {
+            broadcast({
+              type: "GAME_END",
+              winnerId: result.duel.winnerId,
+              scores,
+            });
+          }
+
+          handleGameEnd(result.duel.winnerId, scores);
+          return; // Success — exit
         }
 
-        handleGameEnd(result.duel.winnerId, scores);
+        // Если GAME_NOT_COMPLETE — подождём и попробуем снова
+        if (result.error === "GAME_NOT_COMPLETE" && attempt < MAX_RETRIES) {
+          console.log(`[Duel] Game not complete yet, retrying in ${RETRY_DELAY_MS}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          continue;
+        }
+
+        // Другие ошибки — fallback к локальному завершению
+        console.error(`[Duel] Finish failed with error: ${result.error}`);
+        break;
+
+      } catch (error) {
+        console.error(`[Duel] Failed to finish game (attempt ${attempt}):`, error);
+        
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          continue;
+        }
+        break;
       }
-    } catch (error) {
-      console.error("[Duel] Failed to finish game:", error);
-      finishingRef.current = false;
     }
-  }, [duelId, broadcast, handleGameEnd]);
+
+    // Fallback: если все попытки провалились, завершаем локально с текущими очками
+    console.log("[Duel] All finish attempts failed, ending game locally");
+    finishingRef.current = false;
+    
+    // Подсчитываем локальные очки как fallback
+    const myCorrectAnswers = Object.entries(myAnswers).filter(([idx, optId]) => {
+      const correctId = revealedAnswers[Number(idx)];
+      return correctId !== undefined && optId === correctId;
+    }).length;
+    
+    const localMyScore = myCorrectAnswers * 100;
+    
+    setGameState((prev) => ({
+      ...prev,
+      status: "finished",
+      myScore: localMyScore,
+      error: "Результаты сохранены локально",
+    }));
+  }, [duelId, broadcast, handleGameEnd, myAnswers, revealedAnswers]);
 
   // Обновляем ref
   useEffect(() => {

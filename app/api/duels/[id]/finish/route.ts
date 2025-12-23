@@ -117,13 +117,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     
     // Если не все ответили — проверяем не слишком ли рано финишируют
     if (challengerAnswerCount < totalQuestions || opponentAnswerCount < totalQuestions) {
-      // Проверяем прошло ли достаточно времени (даём минимум на все вопросы)
-      const minGameDurationMs = totalQuestions * 5000; // минимум 5 секунд на вопрос
+      // Минимальное время: 2 секунды на вопрос (быстрые игроки) + reveal time
+      // 5 вопросов × 2 сек = 10 сек + reveal
+      const minGameDurationMs = totalQuestions * 2000;
       const gameDuration = duel.startedAt 
         ? Date.now() - duel.startedAt.getTime()
         : 0;
 
-      if (gameDuration < minGameDurationMs) {
+      // Только если прошло совсем мало времени — отклоняем
+      if (gameDuration < minGameDurationMs && challengerAnswerCount === 0 && opponentAnswerCount === 0) {
         console.warn(
           `[Duel Finish] Attempt to finish too early: duration=${gameDuration}ms, ` +
           `challenger=${challengerAnswerCount}/${totalQuestions}, ` +
@@ -136,9 +138,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
       
       console.log(
-        `[Duel Finish] Incomplete answers (timeout assumed): ` +
+        `[Duel Finish] Completing with answers: ` +
         `Challenger ${challengerAnswerCount}/${totalQuestions}, ` +
-        `Opponent ${opponentAnswerCount}/${totalQuestions}`
+        `Opponent ${opponentAnswerCount}/${totalQuestions}, ` +
+        `Duration: ${gameDuration}ms`
       );
     }
 
