@@ -51,7 +51,8 @@ model User {
   friendsReceived Friendship[] @relation("FriendshipFriend")
   
   // Chat messages
-  chatMessages    ChatMessage[]
+  chatMessages      ChatMessage[]
+  messageReactions  MessageReaction[]
   
   // Achievements
   achievements    UserAchievement[]
@@ -75,6 +76,12 @@ model User {
   
   // Scheduled Notifications
   scheduledNotifications ScheduledNotification[]
+  
+  // Investigations (Crime Map)
+  investigationProgress  InvestigationProgress[]
+  
+  // Activity Feed
+  activities             UserActivity[]
 }
 
 model Friendship {
@@ -237,9 +244,67 @@ model ChatMessage {
   createdAt DateTime @default(now())
   
   user      User     @relation(fields: [userId], references: [id])
+  reactions MessageReaction[]
   
   @@index([createdAt(sort: Desc)]) // Для быстрой выборки последних сообщений
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MESSAGE REACTIONS
+// Реакции на сообщения в чате (❤️ 🔥 😂 👍 😮 😢)
+// ═══════════════════════════════════════════════════════════════════════════
+
+model MessageReaction {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  emoji     String   @db.VarChar(10) // Эмодзи реакции
+  createdAt DateTime @default(now())
+  
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId]) // Один пользователь — одна реакция на сообщение
+  @@index([messageId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER ACTIVITY FEED SYSTEM
+// Лента активности для друзей
+// ═══════════════════════════════════════════════════════════════════════════
+
+model UserActivity {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      ActivityType
+  
+  // Данные события (зависят от типа)
+  data      Json             // { quizId, quizTitle, score, rank, achievementId, etc. }
+  
+  // Для быстрого отображения
+  title     String           // "Прошёл квиз «Знаменитые дела»"
+  icon      String           @default("🎯") // Эмодзи для типа активности
+  
+  // Время создания
+  createdAt DateTime         @default(now())
+  
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt(sort: Desc)])  // Для ленты пользователя
+  @@index([createdAt(sort: Desc)])          // Для глобальной ленты друзей
+}
+
+enum ActivityType {
+  QUIZ_COMPLETED        // Прошёл квиз
+  QUIZ_HIGH_SCORE       // Новый рекорд в квизе
+  ACHIEVEMENT_UNLOCKED  // Открыл достижение
+  LEVEL_UP              // Повысил уровень
+  TOURNAMENT_JOIN       // Присоединился к турниру
+  TOURNAMENT_STAGE      // Прошёл этап турнира
+  TOURNAMENT_WIN        // Занял место в турнире
+  FRIEND_ADDED          // Добавил друга
+  STREAK_MILESTONE      // Достиг серии дней (7, 14, 30)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -554,4 +619,215 @@ enum ScheduledNotificationType {
   ENERGY_RESTORED                         // Энергия восстановлена
   DAILY_REMINDER                          // Ежедневное напоминание
   TOURNAMENT_STARTING                     // Турнир скоро начнётся
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INVESTIGATIONS SYSTEM (Crime Map)
+// Расследования — многоэтапные дела с сюжетом
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Investigation {
+  id            Int       @id @default(autoincrement())
+  slug          String    @unique              // URL-friendly: "chikatilo", "bitsa-maniac"
+  
+  // Основная информация
+  title         String                         // "Ростовский потрошитель"
+  subtitle      String?                        // "Дело Чикатило"
+  description   String    @db.Text             // Подробное описание дела
+  
+  // Локация на карте
+  city          String                         // "Ростов-на-Дону"
+  years         String                         // "1978-1990"
+  coordinates   Json                           // { x: 65, y: 55 } — позиция на карте
+  
+  // Визуальное оформление
+  icon          String    @default("🔍")       // Эмодзи иконка
+  color         String    @default("#ef4444")  // Основной цвет
+  coverImage    String?                        // URL обложки
+  
+  // Сложность и награды
+  difficulty    InvestigationDifficulty @default(MEDIUM)
+  xpReward      Int       @default(500)        // XP за полное раскрытие
+  
+  // Доступность
+  unlockType    UnlockType @default(FREE)      // Как разблокируется
+  unlockValue   Int?                           // Цена в Stars / уровень / и т.д.
+  order         Int       @default(0)          // Порядок отображения
+  
+  // Статус
+  isActive      Boolean   @default(false)      // Доступно пользователям
+  isFeatured    Boolean   @default(false)      // Показывать на главной
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Связи
+  episodes      InvestigationEpisode[]
+  progress      InvestigationProgress[]
+  suspects      InvestigationSuspect[]
+  
+  @@index([isActive, order])
+  @@index([difficulty])
+}
+
+enum InvestigationDifficulty {
+  EASY          // Для новичков
+  MEDIUM        // Стандартная
+  HARD          // Сложная
+  EXTREME       // Экстремальная
+}
+
+enum UnlockType {
+  FREE          // Бесплатно для всех
+  LEVEL         // Нужен определённый уровень
+  STARS         // Покупка за Telegram Stars
+  PREVIOUS      // Нужно пройти предыдущее расследование
+  ACHIEVEMENT   // Нужно достижение
+}
+
+// ═══ ЭПИЗОДЫ РАССЛЕДОВАНИЯ ═══
+// Каждое расследование состоит из 5-7 эпизодов
+model InvestigationEpisode {
+  id                Int       @id @default(autoincrement())
+  investigationId   Int
+  investigation     Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  
+  order             Int                        // Порядок эпизода (1, 2, 3...)
+  title             String                     // "Осмотр места преступления"
+  description       String?                    // Краткое описание
+  
+  // Тип контента эпизода
+  type              EpisodeType @default(QUIZ)
+  
+  // Контент в зависимости от типа
+  content           Json                       // Структурированный контент эпизода
+  // Для QUIZ: { quizId: 1 } или { questions: [...] }
+  // Для STORY: { scenes: [...], choices: [...] }
+  // Для EVIDENCE: { items: [...], connections: [...] }
+  // Для INTERROGATION: { suspect: "...", dialogue: [...] }
+  
+  // Условия прохождения
+  minScore          Int?                       // Минимальный балл для прохода (для QUIZ)
+  timeLimit         Int?                       // Лимит времени в секундах
+  
+  // Награды за эпизод
+  xpReward          Int       @default(50)     // XP за прохождение
+  
+  // Что открывается после этого эпизода
+  unlocksClue       String?                    // ID улики которая открывается
+  
+  createdAt         DateTime  @default(now())
+  
+  // Связи
+  userProgress      EpisodeProgress[]
+  
+  @@unique([investigationId, order])
+  @@index([investigationId])
+}
+
+enum EpisodeType {
+  STORY           // Сюжетная вставка с текстом и выборами
+  QUIZ            // Квиз-вопросы по теме
+  EVIDENCE        // Анализ улик (connect-the-dots)
+  INTERROGATION   // Допрос подозреваемого
+  DEDUCTION       // Финальная дедукция — выбор преступника
+}
+
+// ═══ ПОДОЗРЕВАЕМЫЕ В РАССЛЕДОВАНИИ ═══
+// Для финальной дедукции
+model InvestigationSuspect {
+  id                Int       @id @default(autoincrement())
+  investigationId   Int
+  investigation     Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  
+  name              String                     // "Иван Петров"
+  description       String                     // Описание подозреваемого
+  photoUrl          String?                    // Фото
+  
+  isGuilty          Boolean   @default(false)  // Это преступник?
+  
+  // Улики за и против
+  evidenceFor       Json?                      // ["улика1", "улика2"]
+  evidenceAgainst   Json?                      // ["алиби", "мотив отсутствует"]
+  
+  order             Int       @default(0)
+  
+  @@index([investigationId])
+}
+
+// ═══ ПРОГРЕСС ПОЛЬЗОВАТЕЛЯ ПО РАССЛЕДОВАНИЮ ═══
+model InvestigationProgress {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investigationId   Int
+  investigation     Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  
+  // Статус
+  status            InvestigationStatus @default(NOT_STARTED)
+  
+  // Прогресс
+  currentEpisode    Int       @default(1)      // На каком эпизоде
+  totalScore        Int       @default(0)      // Общие очки за расследование
+  
+  // Собранные улики (ID улик)
+  collectedClues    Json      @default("[]")   // ["clue1", "clue2", ...]
+  
+  // Финальный выбор подозреваемого
+  suspectChoiceId   Int?                       // Кого обвинил
+  isCorrectChoice   Boolean?                   // Правильно ли угадал
+  
+  // Время
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+  
+  // Связи
+  episodeProgress   EpisodeProgress[]
+  
+  @@unique([userId, investigationId])
+  @@index([userId])
+  @@index([investigationId, status])
+}
+
+enum InvestigationStatus {
+  NOT_STARTED       // Не начато
+  IN_PROGRESS       // В процессе
+  COMPLETED         // Завершено (раскрыто)
+  FAILED            // Провалено (неправильный выбор)
+}
+
+// ═══ ПРОГРЕСС ПОЛЬЗОВАТЕЛЯ ПО ЭПИЗОДУ ═══
+model EpisodeProgress {
+  id                    Int       @id @default(autoincrement())
+  
+  investigationProgressId Int
+  investigationProgress   InvestigationProgress @relation(fields: [investigationProgressId], references: [id], onDelete: Cascade)
+  
+  episodeId             Int
+  episode               InvestigationEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  
+  // Результат
+  status                EpisodeStatus @default(NOT_STARTED)
+  score                 Int       @default(0)
+  
+  // Для сюжетных эпизодов — выборы пользователя
+  choices               Json?                  // { "choice1": "A", "choice2": "B" }
+  
+  // Для допросов — ответы
+  answers               Json?                  // Сохранённые ответы
+  
+  // Время
+  startedAt             DateTime  @default(now())
+  completedAt           DateTime?
+  timeSpentSeconds      Int       @default(0)
+  
+  @@unique([investigationProgressId, episodeId])
+  @@index([episodeId])
+}
+
+enum EpisodeStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
 }

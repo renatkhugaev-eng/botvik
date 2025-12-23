@@ -62,6 +62,13 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
   const reconnectAttemptRef = useRef(0);
   const newestMessageIdRef = useRef<number | null>(null);
   const realtimeWorkingRef = useRef(false); // Флаг что realtime работает
+  const messagesRef = useRef<ChatMessagePayload[]>([]); // Для синхронного доступа к messages
+  const pendingReactionsRef = useRef<Set<number>>(new Set()); // Защита от двойных кликов
+  
+  // Синхронизируем ref с state
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // ═══ Загрузка сообщений ═══
   const loadMessages = useCallback(async (mode: "initial" | "incremental" = "initial") => {
@@ -82,11 +89,34 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
         if (mode === "initial") {
           setMessages(data.messages);
         } else if (data.messages.length > 0) {
-          // Инкрементальное добавление новых
+          // Инкрементальное добавление новых + обновление реакций на существующих
           setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const newMessages = data.messages!.filter((m) => !existingIds.has(m.id));
-            return newMessages.length > 0 ? [...prev, ...newMessages] : prev;
+            const result = [...prev];
+            let hasChanges = false;
+            
+            for (const newMsg of data.messages!) {
+              const existingIdx = result.findIndex(m => m.id === newMsg.id);
+              if (existingIdx === -1) {
+                // Новое сообщение — добавляем
+                result.push(newMsg);
+                hasChanges = true;
+              } else {
+                // Существующее — обновляем реакции если изменились
+                const existing = result[existingIdx];
+                const reactionsChanged = JSON.stringify(existing.reactions) !== JSON.stringify(newMsg.reactions);
+                if (reactionsChanged) {
+                  result[existingIdx] = {
+                    ...existing,
+                    reactions: newMsg.reactions,
+                    // Сохраняем myReaction из локального state если есть
+                    myReaction: newMsg.myReaction,
+                  };
+                  hasChanges = true;
+                }
+              }
+            }
+            
+            return hasChanges ? result : prev;
           });
         }
         
@@ -108,6 +138,118 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
       setIsLoading(false);
     }
   }, []);
+
+  // ═══ Добавление/удаление реакции ═══
+  const toggleReaction = useCallback(async (
+    messageId: number, 
+    emoji: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    // ═══ ЗАЩИТА ОТ ДВОЙНЫХ КЛИКОВ ═══
+    if (pendingReactionsRef.current.has(messageId)) {
+      return { ok: false, error: "PENDING" };
+    }
+    pendingReactionsRef.current.add(messageId);
+    
+    try {
+      // Синхронно читаем текущее состояние через ref
+      const currentMessage = messagesRef.current.find(m => m.id === messageId);
+      if (!currentMessage) {
+        pendingReactionsRef.current.delete(messageId);
+        return { ok: false, error: "MESSAGE_NOT_FOUND" };
+      }
+      
+      const previousReaction = currentMessage.myReaction;
+      const previousReactions = { ...(currentMessage.reactions || {}) };
+      const isRemoving = previousReaction === emoji;
+      
+      // ═══ ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ ═══
+      setMessages(prev => prev.map(m => {
+        if (m.id !== messageId) return m;
+        
+        const newReactions = { ...(m.reactions || {}) };
+        
+        if (isRemoving) {
+          // Удаляем свою реакцию
+          if (newReactions[emoji]) {
+            newReactions[emoji]--;
+            if (newReactions[emoji] <= 0) {
+              delete newReactions[emoji];
+            }
+          }
+          return {
+            ...m,
+            reactions: Object.keys(newReactions).length > 0 ? newReactions : undefined,
+            myReaction: null,
+          };
+        } else {
+          // Убираем предыдущую реакцию если была
+          if (m.myReaction && newReactions[m.myReaction]) {
+            newReactions[m.myReaction]--;
+            if (newReactions[m.myReaction] <= 0) {
+              delete newReactions[m.myReaction];
+            }
+          }
+          // Добавляем новую
+          newReactions[emoji] = (newReactions[emoji] || 0) + 1;
+          return {
+            ...m,
+            reactions: newReactions,
+            myReaction: emoji,
+          };
+        }
+      }));
+      
+      // ═══ ЗАПРОС К СЕРВЕРУ ═══
+      let data: { ok: boolean; reactionCounts?: Record<string, number>; error?: string };
+      
+      if (isRemoving) {
+        data = await api.delete<typeof data>(`/api/chat/reactions?messageId=${messageId}`);
+      } else {
+        data = await api.post<typeof data>("/api/chat/reactions", { messageId, emoji });
+      }
+      
+      if (data.ok) {
+        // Синхронизируем с серверным состоянием
+        setMessages(prev => prev.map(m => {
+          if (m.id !== messageId) return m;
+          return {
+            ...m,
+            reactions: data.reactionCounts && Object.keys(data.reactionCounts).length > 0 
+              ? data.reactionCounts 
+              : undefined,
+            myReaction: isRemoving ? null : emoji,
+          };
+        }));
+        
+        // Broadcast reaction update
+        if (channelRef.current && realtimeWorkingRef.current) {
+          channelRef.current.send({
+            type: "broadcast",
+            event: "reaction",
+            payload: { messageId, reactions: data.reactionCounts, userId },
+          }).catch(() => {});
+        }
+      } else {
+        // ═══ ОТКАТ: восстанавливаем предыдущее состояние ═══
+        setMessages(prev => prev.map(m => {
+          if (m.id !== messageId) return m;
+          return {
+            ...m,
+            reactions: Object.keys(previousReactions).length > 0 ? previousReactions : undefined,
+            myReaction: previousReaction || null,
+          };
+        }));
+      }
+      
+      return { ok: data.ok, error: data.error };
+    } catch (err) {
+      if (isDev) console.error("[useRealtimeChat] Reaction error:", err);
+      return { ok: false, error: "NETWORK_ERROR" };
+    } finally {
+      // Снимаем блокировку
+      pendingReactionsRef.current.delete(messageId);
+    }
+  }, [userId]);
 
   // ═══ Отправка сообщения ═══
   const sendMessage = useCallback(async (text: string): Promise<{ ok: boolean; error?: string }> => {
@@ -203,6 +345,27 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
           if (!newestMessageIdRef.current || msg.id > newestMessageIdRef.current) {
             newestMessageIdRef.current = msg.id;
           }
+        }
+      })
+      // Слушаем реакции от других
+      .on("broadcast", { event: "reaction" }, ({ payload }) => {
+        log("Received reaction broadcast:", payload?.messageId);
+        realtimeWorkingRef.current = true;
+        
+        const { messageId, reactions, userId: reactorId } = payload as { 
+          messageId: number; 
+          reactions: Record<string, number>; 
+          userId: number;
+        };
+        
+        if (messageId && reactorId !== userId) { // Не обновляем свои реакции
+          setMessages((prev) => prev.map(m => {
+            if (m.id !== messageId) return m;
+            return {
+              ...m,
+              reactions: reactions && Object.keys(reactions).length > 0 ? reactions : undefined,
+            };
+          }));
         }
       })
       // Presence sync
@@ -306,6 +469,7 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
     isLoading,
     error,
     sendMessage,
+    toggleReaction,
     loadMessages: () => loadMessages("incremental"),
     scrollToBottom,
   };

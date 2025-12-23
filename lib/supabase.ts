@@ -52,6 +52,10 @@ export type ChatMessagePayload = {
   levelIcon: string;
   text: string;
   createdAt: string;
+  // Реакции: { "❤️": 3, "🔥": 1 }
+  reactions?: Record<string, number>;
+  // Моя реакция на это сообщение (если есть)
+  myReaction?: string | null;
 };
 
 export type PresenceUser = {

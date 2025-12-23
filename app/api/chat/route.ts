@@ -6,6 +6,8 @@ import { Redis } from "@upstash/redis";
 import { ChatMessagePayload } from "@/lib/supabase";
 import { levelFromXp, getLevelTitle } from "@/lib/xp";
 
+export const runtime = "nodejs";
+
 /**
  * Chat API — GET для истории, POST для отправки
  * 
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
       whereClause = { id: { lt: parseInt(before) } };
     }
 
-    // Fetch messages
+    // Fetch messages with reactions
     const messages = await prisma.chatMessage.findMany({
       where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       orderBy: { createdAt: after ? "asc" : "desc" }, // asc для after, desc для before/initial
@@ -91,16 +93,34 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        reactions: {
+          select: {
+            emoji: true,
+            userId: true,
+          },
+        },
       },
     });
 
     // Для initial load и before — реверсим для хронологического порядка
     const chronological = after ? messages : messages.reverse();
 
-    // Map to payload
+    // Map to payload with reactions
     const mappedMessages: ChatMessagePayload[] = chronological.map((m) => {
       const level = levelFromXp(m.user.xp);
       const { icon } = getLevelTitle(level);
+      
+      // Aggregate reactions: { "❤️": 3, "🔥": 1 }
+      const reactions: Record<string, number> = {};
+      let myReaction: string | null = null;
+      
+      for (const r of m.reactions) {
+        reactions[r.emoji] = (reactions[r.emoji] || 0) + 1;
+        if (r.userId === auth.user.id) {
+          myReaction = r.emoji;
+        }
+      }
+      
       return {
         id: m.id,
         odId: m.userId,
@@ -112,6 +132,8 @@ export async function GET(request: NextRequest) {
         levelIcon: icon,
         text: m.text,
         createdAt: m.createdAt.toISOString(),
+        reactions: Object.keys(reactions).length > 0 ? reactions : undefined,
+        myReaction,
       };
     });
 
@@ -203,7 +225,7 @@ export async function POST(request: NextRequest) {
     const level = levelFromXp(message.user.xp);
     const { icon: levelIcon } = getLevelTitle(level);
 
-    // Prepare payload
+    // Prepare payload (new message has no reactions)
     const payload: ChatMessagePayload = {
       id: message.id,
       odId: message.userId,
@@ -215,6 +237,8 @@ export async function POST(request: NextRequest) {
       levelIcon,
       text: message.text,
       createdAt: message.createdAt.toISOString(),
+      reactions: undefined,
+      myReaction: null,
     };
 
     // NOTE: Broadcast теперь делается на клиенте!

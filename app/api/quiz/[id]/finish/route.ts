@@ -18,6 +18,13 @@ import {
   getUserStats,
   checkComebackAchievement,
 } from "@/lib/achievement-checker";
+import { 
+  logQuizCompleted, 
+  logHighScore, 
+  logAchievement, 
+  logLevelUp,
+  logTournamentStage,
+} from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -830,6 +837,54 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       }
     } catch (tournamentError) {
       console.error("[finish] Tournament processing failed:", tournamentError);
+    }
+  }
+
+  // ═══ ACTIVITY LOGGING (для ленты друзей) ═══
+  if (!alreadyFinished) {
+    // Получаем название квиза для активности
+    const quizForActivity = await prisma.quiz.findUnique({
+      where: { id: quizId },
+      select: { title: true },
+    });
+    const quizTitle = quizForActivity?.title ?? "Квиз";
+
+    // 1. Логируем завершение квиза
+    logQuizCompleted(session.userId, quizId, quizTitle, currentGameScore).catch(err =>
+      console.error("[finish] Activity log failed:", err)
+    );
+
+    // 2. Если новый рекорд — отдельная активность
+    if (currentGameScore > currentBestScore) {
+      logHighScore(session.userId, quizId, quizTitle, currentGameScore).catch(err =>
+        console.error("[finish] High score activity log failed:", err)
+      );
+    }
+
+    // 3. Логируем каждое новое достижение
+    for (const achievement of newAchievements) {
+      logAchievement(session.userId, achievement.id, achievement.name).catch(err =>
+        console.error("[finish] Achievement activity log failed:", err)
+      );
+    }
+
+    // 4. Логируем повышение уровня
+    if (levelUp) {
+      logLevelUp(session.userId, newLevel).catch(err =>
+        console.error("[finish] Level up activity log failed:", err)
+      );
+    }
+
+    // 5. Логируем прохождение этапа турнира
+    if (tournamentStageInfo) {
+      logTournamentStage(
+        session.userId, 
+        tournamentStageInfo.tournamentId, 
+        tournamentStageInfo.tournamentTitle,
+        tournamentStageInfo.tournamentScore
+      ).catch(err =>
+        console.error("[finish] Tournament stage activity log failed:", err)
+      );
     }
   }
 

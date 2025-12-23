@@ -17,6 +17,7 @@ import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
 import { DailyRewardModal, DailyRewardButton } from "@/components/DailyRewardModal";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
+import { FriendsFeed } from "@/components/FriendsFeed";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
 
 // Detect Android for blur fallbacks (Android WebView has poor blur performance)
@@ -963,6 +964,23 @@ export default function MiniAppPage() {
             </motion.button>
           </div>
         </div>
+      </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          FRIENDS FEED — Activity from friends
+      ═══════════════════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+        className="rounded-2xl bg-gradient-to-br from-[#0f0f1a]/95 to-[#1a1a2e]/95 p-4 shadow-lg"
+      >
+        <FriendsFeed 
+          userId={session.user.id} 
+          limit={10}
+          maxVisible={3}
+          showHeader={true}
+        />
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════════════════

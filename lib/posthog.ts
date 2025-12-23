@@ -43,10 +43,20 @@ export function initPosthog() {
     mask_all_element_attributes: false,
     // Autocapture clicks, inputs, etc.
     autocapture: true,
+    // Suppress network errors in console (504, timeouts, etc.)
+    on_xhr_error: (error) => {
+      // Silently handle network errors - they're expected when offline
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[PostHog] Network error (suppressed):", error);
+      }
+    },
+    // Request timeout in ms (default is 10000)
+    request_timeout: 5000,
     // Load toolbar for debugging (dev only)
     loaded: (ph) => {
       if (process.env.NODE_ENV !== "production") {
-        ph.debug();
+        // Disable verbose debug logging which causes console spam
+        // ph.debug();
       }
     },
   });

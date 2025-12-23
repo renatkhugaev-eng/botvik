@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { checkRateLimit, tournamentJoinLimiter, getClientIdentifier } from "@/lib/ratelimit";
+import { logTournamentJoin } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -307,7 +308,10 @@ export async function POST(
       return participant;
     });
     
-    console.log(`[tournaments] User ${userId} joined tournament ${tournament.id}`);
+    // ═══ ACTIVITY LOGGING (для ленты друзей) ═══
+    logTournamentJoin(userId, tournament.id, tournament.title).catch(err =>
+      console.error("[tournaments] Activity log failed:", err)
+    );
     
     return NextResponse.json({
       ok: true,

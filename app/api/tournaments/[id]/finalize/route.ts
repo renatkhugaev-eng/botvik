@@ -5,6 +5,7 @@ import {
   sendTournamentResultNotifications, 
   type TournamentParticipantResult 
 } from "@/lib/notifications";
+import { logTournamentWin } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -210,10 +211,16 @@ async function finalizeTournament(tournamentId: number): Promise<FinalizationRes
         xpAwarded: xpToAward,
       });
 
-      console.log(
-        `[finalize] Prize ${prize.place} (${prize.title}) → ` +
-        `User ${winner.userId} (${winner.user.username}): +${xpToAward} XP`
-      );
+      // ═══ ACTIVITY LOGGING (для ленты друзей) ═══
+      // Логируем победу в турнире (fire-and-forget, не блокируем транзакцию)
+      // Используем setImmediate чтобы вызвать после транзакции
+      const winnerUserId = winner.userId;
+      const prizePlace = prize.place;
+      setImmediate(() => {
+        logTournamentWin(winnerUserId, tournamentId, tournament.title, prizePlace).catch(err =>
+          console.error("[finalize] Activity log failed:", err)
+        );
+      });
     }
 
     return {

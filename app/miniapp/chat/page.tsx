@@ -2,12 +2,18 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { useRealtimeChat } from "@/lib/useRealtimeChat";
 import { haptic } from "@/lib/haptic";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REACTION EMOJIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const REACTION_EMOJIS = ["❤️", "🔥", "😂", "👍", "😮", "😢"] as const;
 
 /**
  * Глобальный чат для всех пользователей
@@ -68,6 +74,7 @@ function ChatContent({ user }: ChatContentProps) {
     isLoading,
     error,
     sendMessage,
+    toggleReaction,
     scrollToBottom,
   } = useRealtimeChat({
     userId: user.id,
@@ -75,15 +82,50 @@ function ChatContent({ user }: ChatContentProps) {
     firstName: user.firstName,
     photoUrl: user.photoUrl,
   });
+  
+  // State для реакций
+  const [reactionPickerFor, setReactionPickerFor] = useState<number | null>(null);
+  const [reactionError, setReactionError] = useState<string | null>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Автоскролл при новых сообщениях
   useEffect(() => {
     scrollToBottom(messagesContainerRef.current);
   }, [messages, scrollToBottom]);
+  
+  // Закрытие picker при скролле (throttled)
+  const handleScroll = useCallback(() => {
+    // Throttle: закрываем только раз за 100ms
+    if (scrollTimeoutRef.current) return;
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      scrollTimeoutRef.current = null;
+    }, 100);
+    
+    setReactionPickerFor(null);
+  }, []);
+  
+  // Обработка реакции с показом ошибки
+  const handleReaction = useCallback(async (messageId: number, emoji: string) => {
+    setReactionError(null);
+    const result = await toggleReaction(messageId, emoji);
+    if (!result.ok) {
+      setReactionError(result.error || "Ошибка реакции");
+      haptic.error();
+      // Автоочистка ошибки через 3 секунды
+      setTimeout(() => setReactionError(null), 3000);
+    }
+  }, [toggleReaction]);
 
-  // Фокус на input при загрузке
+  // Фокус на input при загрузке + cleanup
   useEffect(() => {
     inputRef.current?.focus();
+    
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Отправка сообщения
@@ -114,6 +156,11 @@ function ChatContent({ user }: ChatContentProps) {
       e.preventDefault();
       handleSend();
     }
+  };
+  
+  // Закрыть reaction picker при клике на input
+  const handleInputFocus = () => {
+    setReactionPickerFor(null);
   };
 
   const formatTime = (dateStr: string) => {
@@ -156,6 +203,7 @@ function ChatContent({ user }: ChatContentProps) {
       {/* ═══ MESSAGES ═══ */}
       <div
         ref={messagesContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto scrollbar-hide py-4 space-y-3"
       >
         {isLoading ? (
@@ -217,36 +265,96 @@ function ChatContent({ user }: ChatContentProps) {
                       />
                     )}
                     
-                    {/* Message bubble */}
-                    <div
-                      className={`rounded-2xl px-4 py-2.5 ${
-                        isOwn
-                          ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-br-md"
-                          : "bg-white shadow-md text-slate-800 rounded-bl-md"
-                      }`}
-                    >
-                      {/* Username with level (only for others) */}
-                      {!isOwn && showAvatar && (
-                        <p className="text-[11px] font-semibold text-violet-600 mb-0.5 flex items-center gap-1">
-                          <span>{msg.firstName || msg.username || "Игрок"}</span>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 text-[9px] font-bold text-violet-700">
-                            {msg.levelIcon} {msg.level}
-                          </span>
-                        </p>
-                      )}
-                      
-                      {/* Text */}
-                      <p className="text-[14px] leading-snug whitespace-pre-wrap break-words">
-                        {msg.text}
-                      </p>
-                      
-                      {/* Time and level */}
-                      <p className={`text-[10px] mt-1 flex items-center gap-1.5 ${isOwn ? "text-white/60" : "text-slate-400"}`}>
-                        <span>{formatTime(msg.createdAt)}</span>
-                        {isOwn && (
-                          <span className="opacity-70">{msg.levelIcon} Lv.{msg.level}</span>
+                    {/* Message bubble with reactions */}
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => {
+                          haptic.light();
+                          setReactionPickerFor(reactionPickerFor === msg.id ? null : msg.id);
+                        }}
+                        className={`rounded-2xl px-4 py-2.5 text-left transition-all ${
+                          isOwn
+                            ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-br-md"
+                            : "bg-white shadow-md text-slate-800 rounded-bl-md"
+                        } ${reactionPickerFor === msg.id ? "ring-2 ring-violet-400" : ""}`}
+                      >
+                        {/* Username with level (only for others) */}
+                        {!isOwn && showAvatar && (
+                          <p className="text-[11px] font-semibold text-violet-600 mb-0.5 flex items-center gap-1">
+                            <span>{msg.firstName || msg.username || "Игрок"}</span>
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 text-[9px] font-bold text-violet-700">
+                              {msg.levelIcon} {msg.level}
+                            </span>
+                          </p>
                         )}
-                      </p>
+                        
+                        {/* Text */}
+                        <p className="text-[14px] leading-snug whitespace-pre-wrap break-words">
+                          {msg.text}
+                        </p>
+                        
+                        {/* Time and level */}
+                        <p className={`text-[10px] mt-1 flex items-center gap-1.5 ${isOwn ? "text-white/60" : "text-slate-400"}`}>
+                          <span>{formatTime(msg.createdAt)}</span>
+                          {isOwn && (
+                            <span className="opacity-70">{msg.levelIcon} Lv.{msg.level}</span>
+                          )}
+                        </p>
+                      </button>
+                      
+                      {/* Reaction picker */}
+                      <AnimatePresence>
+                        {reactionPickerFor === msg.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.8, y: -5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.8, y: -5 }}
+                            transition={{ duration: 0.15 }}
+                            className={`flex gap-1 ${isOwn ? "justify-end" : "justify-start"}`}
+                          >
+                            <div className="flex gap-0.5 p-1.5 rounded-full bg-white shadow-lg border border-slate-100">
+                              {REACTION_EMOJIS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => {
+                                    haptic.medium();
+                                    handleReaction(msg.id, emoji);
+                                    setReactionPickerFor(null);
+                                  }}
+                                  className={`w-8 h-8 flex items-center justify-center text-lg rounded-full transition-all hover:bg-slate-100 active:scale-90 ${
+                                    msg.myReaction === emoji ? "bg-violet-100 ring-2 ring-violet-400" : ""
+                                  }`}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      
+                      {/* Displayed reactions */}
+                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                        <div className={`flex gap-1 flex-wrap ${isOwn ? "justify-end" : "justify-start"}`}>
+                          {Object.entries(msg.reactions).map(([emoji, count]) => (
+                            <button
+                              key={emoji}
+                              onClick={() => {
+                                haptic.light();
+                                handleReaction(msg.id, emoji);
+                              }}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all active:scale-95 ${
+                                msg.myReaction === emoji 
+                                  ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300" 
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span className="font-semibold">{count}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -262,16 +370,16 @@ function ChatContent({ user }: ChatContentProps) {
         animate={{ opacity: 1, y: 0 }}
         className="shrink-0 py-3"
       >
-        {/* Error message */}
+        {/* Error messages */}
         <AnimatePresence>
-          {sendError && (
+          {(sendError || reactionError) && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl"
             >
-              <p className="text-[12px] text-red-600">{sendError}</p>
+              <p className="text-[12px] text-red-600">{sendError || reactionError}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -285,6 +393,7 @@ function ChatContent({ user }: ChatContentProps) {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={handleInputFocus}
               placeholder="Написать сообщение..."
               maxLength={500}
               disabled={isSending}

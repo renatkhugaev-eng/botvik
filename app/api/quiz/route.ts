@@ -14,13 +14,11 @@ const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000; // 4 часа в
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId");
   
-  // Получаем ID квизов, которые являются этапами активных/предстоящих турниров
+  // Получаем ID ВСЕХ квизов, которые являются этапами турниров (любого статуса)
+  // Турнирные квизы не должны показываться в общем списке
   const tournamentQuizIds = await prisma.tournamentStage.findMany({
     where: {
       quizId: { not: null },
-      tournament: {
-        status: { in: ["UPCOMING", "ACTIVE"] },
-      },
     },
     select: { quizId: true },
   });

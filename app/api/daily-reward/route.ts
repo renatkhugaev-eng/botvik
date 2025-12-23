@@ -11,8 +11,15 @@ import {
   isToday,
 } from "@/lib/daily-rewards";
 import { getLevelProgress, getLevelTitle } from "@/lib/xp";
+import { logStreakMilestone, logLevelUp } from "@/lib/activity";
 
 export const runtime = "nodejs";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STREAK MILESTONES — Значимые серии для ленты друзей
+// ═══════════════════════════════════════════════════════════════════════════
+
+const STREAK_MILESTONES = [7, 14, 21, 30, 60, 90, 100, 180, 365] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RATE LIMITING — Защита от abuse
@@ -201,11 +208,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimResp
     const levelUp = newLevelInfo.level > result.oldLevelInfo.level;
     const levelTitle = getLevelTitle(newLevelInfo.level);
 
-    console.log(
-      `[daily-reward] User ${auth.user.id} claimed day ${result.newStreak} reward: +${result.reward.xp} XP` +
-      (result.reward.bonusEnergy > 0 ? ` +${result.reward.bonusEnergy} energy` : "") +
-      (levelUp ? ` (Level up! ${result.oldLevelInfo.level} → ${newLevelInfo.level})` : "")
-    );
+    // ═══ ACTIVITY LOGGING (для ленты друзей) ═══
+    const totalStreak = result.newTotalStreak;
+    
+    // Логируем если достигнут milestone серии
+    if (STREAK_MILESTONES.includes(totalStreak as typeof STREAK_MILESTONES[number])) {
+      logStreakMilestone(auth.user.id, totalStreak).catch(err =>
+        console.error("[daily-reward] Streak milestone activity log failed:", err)
+      );
+    }
+    
+    // Логируем повышение уровня
+    if (levelUp) {
+      logLevelUp(auth.user.id, newLevelInfo.level).catch(err =>
+        console.error("[daily-reward] Level up activity log failed:", err)
+      );
+    }
 
     // ВАЖНО: Не проверяем достижения здесь!
     // Достижения проверяются при завершении квиза и на странице профиля.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logFriendAdded } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -209,6 +210,19 @@ export async function POST(req: NextRequest) {
             where: { id: existing.id },
             data: { status: "ACCEPTED" },
           });
+          
+          // Get current user name for activity
+          const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { firstName: true, username: true },
+          });
+          const myName = currentUser?.firstName || currentUser?.username || "Пользователь";
+          const friendName = friend.firstName || friend.username || "Пользователь";
+          
+          // Log activity for both users
+          logFriendAdded(userId, friend.id, friendName).catch(() => {});
+          logFriendAdded(friend.id, userId, myName).catch(() => {});
+          
           return NextResponse.json({ ok: true, status: "accepted" });
         }
         return NextResponse.json({ error: "request_pending" }, { status: 400 });
@@ -262,6 +276,10 @@ export async function PUT(req: NextRequest) {
 
     const friendship = await prisma.friendship.findUnique({
       where: { id: requestId },
+      include: {
+        user: { select: { id: true, firstName: true, username: true } },
+        friend: { select: { id: true, firstName: true, username: true } },
+      },
     });
 
     if (!friendship || friendship.status !== "PENDING") {
@@ -272,6 +290,17 @@ export async function PUT(req: NextRequest) {
       where: { id: requestId },
       data: { status: action === "accept" ? "ACCEPTED" : "DECLINED" },
     });
+
+    // Log activity when friendship is accepted
+    if (action === "accept") {
+      const senderName = friendship.user.firstName || friendship.user.username || "Пользователь";
+      const receiverName = friendship.friend.firstName || friendship.friend.username || "Пользователь";
+      
+      // Activity for sender: "Now friends with [receiver]"
+      logFriendAdded(friendship.userId, friendship.friendId, receiverName).catch(() => {});
+      // Activity for receiver: "Now friends with [sender]"  
+      logFriendAdded(friendship.friendId, friendship.userId, senderName).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
