@@ -6,13 +6,12 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMiniAppSession } from "@/app/miniapp/layout";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
-import { levelFromXp, getLevelTitle } from "@/lib/xp";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ТИПЫ
@@ -63,14 +62,29 @@ export default function ChallengePage() {
     
     async function loadFriends() {
       try {
-        const data = await api.get<{ friends: Friend[]; incomingRequests: unknown[]; outgoingRequests: unknown[] }>(
+        const data = await api.get<{ 
+          friends?: Friend[]; 
+          incomingRequests?: unknown[]; 
+          outgoingRequests?: unknown[];
+          error?: string;
+        }>(
           `/api/friends?userId=${userId}`
         );
-        if (data.friends) {
+        
+        if (data.error) {
+          console.error("[Challenge] API error:", data.error);
+          setError("Не удалось загрузить друзей");
+          return;
+        }
+        
+        if (data.friends && Array.isArray(data.friends)) {
           setFriends(data.friends);
+        } else {
+          setFriends([]);
         }
       } catch (err) {
         console.error("[Challenge] Failed to load friends:", err);
+        setError("Ошибка загрузки друзей");
       } finally {
         setLoading(false);
       }
@@ -280,11 +294,6 @@ export default function ChallengePage() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function FriendCard({ friend, onSelect }: { friend: Friend; onSelect: () => void }) {
-  // Приблизительный расчёт уровня из totalScore (если нет XP)
-  const estimatedXp = friend.stats?.totalScore ?? 0;
-  const level = levelFromXp(estimatedXp);
-  const { icon: levelIcon } = getLevelTitle(level);
-
   return (
     <button
       onClick={onSelect}
@@ -303,7 +312,7 @@ function FriendCard({ friend, onSelect }: { friend: Friend; onSelect: () => void
             {(friend.firstName?.[0] || friend.username?.[0] || "?").toUpperCase()}
           </div>
         )}
-        <span className="absolute -bottom-1 -right-1 text-sm">{levelIcon}</span>
+        <span className="absolute -bottom-1 -right-1 text-sm">⚔️</span>
       </div>
 
       {/* Инфо */}
@@ -312,7 +321,9 @@ function FriendCard({ friend, onSelect }: { friend: Friend; onSelect: () => void
           {friend.firstName || friend.username || "Игрок"}
         </div>
         <div className="text-sm text-white/50">
-          {friend.stats ? `${friend.stats.gamesPlayed} игр` : "Уровень 1"}
+          {friend.stats 
+            ? `${friend.stats.gamesPlayed} игр • ${friend.stats.totalScore} очков` 
+            : "Новый игрок"}
         </div>
       </div>
 
