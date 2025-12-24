@@ -7,7 +7,6 @@ import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonProfilePage, SkeletonFriendCard } from "@/components/Skeleton";
-import { usePerformance } from "@/lib/usePerformance";
 import { fetchWithAuth } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
@@ -17,16 +16,17 @@ import { ReferralSection } from "@/components/ReferralSection";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import { InventorySection } from "@/components/InventorySection";
 
-// Detect Android for blur fallbacks (Android WebView has poor blur performance)
-function useIsAndroid() {
-  const [isAndroid, setIsAndroid] = useState(false);
-  useEffect(() => {
-    setIsAndroid(/android/i.test(navigator.userAgent));
-  }, []);
-  return isAndroid;
-}
+// shadcn/ui components
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-// Detect iOS - iOS handles blur effects well, no need to disable during scroll
+// Detect iOS - iOS handles blur effects well
 function useIsIOS() {
   const [isIOS, setIsIOS] = useState(false);
   useEffect(() => {
@@ -51,18 +51,17 @@ type SummaryResponse = {
     } | null;
   };
   stats: {
-    totalScore: number;              // Сумма leaderboard scores (главная метрика)
+    totalScore: number;
     totalSessions: number;
     totalQuizzesPlayed: number;
     totalCorrectAnswers: number;
-    totalAnswers: number;            // Для точного расчёта accuracy
-    globalRank: number | null;       // Позиция среди всех игроков
+    totalAnswers: number;
+    globalRank: number | null;
     totalPlayers: number;
-    // XP System
     xp: {
       total: number;
       level: number;
-      progress: number;              // 0-100
+      progress: number;
       currentLevelXp: number;
       nextLevelXp: number;
       xpInCurrentLevel: number;
@@ -74,9 +73,9 @@ type SummaryResponse = {
     bestScoreByQuiz: { 
       quizId: number; 
       title: string; 
-      bestSessionScore: number;      // Лучший результат за 1 сессию
-      leaderboardScore: number;      // Взвешенный результат
-      attempts: number;              // Количество попыток
+      bestSessionScore: number;
+      leaderboardScore: number;
+      attempts: number;
     }[];
     lastSession: { quizId: number; quizTitle: string; score: number; finishedAt: string | Date } | null;
     todayAttempts: { quizId: number; attempts: number; remaining: number }[];
@@ -135,7 +134,7 @@ function getRank(score: number) {
   return { ...ranks[0], level: 1 };
 }
 
-// Optimized animated counter - uses requestAnimationFrame efficiently
+// Optimized animated counter
 function useAnimatedCounter(value: number, duration = 1500) {
   const [displayValue, setDisplayValue] = useState(0);
   const frameRef = useRef<number | undefined>(undefined);
@@ -167,16 +166,7 @@ function useAnimatedCounter(value: number, duration = 1500) {
   return displayValue;
 }
 
-// Check if device is touch (mobile)
-function useIsTouchDevice() {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  }, []);
-  return isTouch;
-}
-
-// Notification toggle component
+// Notification toggle component with shadcn style
 function NotificationToggle({ 
   label, 
   description, 
@@ -192,19 +182,19 @@ function NotificationToggle({
 }) {
   return (
     <div 
-      className="flex items-center justify-between py-2 cursor-pointer"
+      className="flex items-center justify-between py-3 cursor-pointer hover:bg-muted/50 rounded-lg px-2 -mx-2 transition-colors"
       onClick={() => onChange(!enabled)}
     >
       <div className="flex items-center gap-3">
-        <span className="flex items-center justify-center h-8 w-8">{icon}</span>
+        <span className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10">{icon}</span>
         <div>
-          <p className="text-[14px] font-semibold text-[#1a1a2e]">{label}</p>
-          <p className="text-[11px] text-slate-400">{description}</p>
+          <p className="text-sm font-semibold">{label}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         </div>
       </div>
       <div 
         className={`relative w-11 h-6 rounded-full transition-colors ${
-          enabled ? "bg-violet-500" : "bg-slate-200"
+          enabled ? "bg-primary" : "bg-muted"
         }`}
       >
         <div 
@@ -224,7 +214,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const session = useMiniAppSession();
-  const isAndroid = useIsAndroid();
   const isIOS = useIsIOS();
   const { config } = useDeviceTier();
   const { setPerfMode } = usePerfMode();
@@ -234,14 +223,12 @@ export default function ProfilePage() {
     debounceMs: config.scrollDebounceMs 
   });
   
-  // Проверяем, просматриваем ли мы чужой профиль
   const viewingUserId = searchParams.get("userId");
   const parsedViewingUserId = viewingUserId ? parseInt(viewingUserId, 10) : null;
   const isValidViewingUserId = parsedViewingUserId !== null && !isNaN(parsedViewingUserId);
   const isViewingOther = isValidViewingUserId && session.status === "ready" && parsedViewingUserId !== session.user.id;
   const targetUserId = isValidViewingUserId ? parsedViewingUserId : (session.status === "ready" ? session.user.id : null);
   
-  // Sync scroll state to global perf mode
   useEffect(() => {
     setPerfMode(isScrolling);
   }, [isScrolling, setPerfMode]);
@@ -249,7 +236,7 @@ export default function ProfilePage() {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"stats" | "history" | "friends" | "achievements" | "inventory">("stats");
+  const [activeTab, setActiveTab] = useState("stats");
   
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -270,26 +257,7 @@ export default function ProfilePage() {
     notifyLeaderboard: false,
     notifyFriends: true,
   });
-  const cardRef = useRef<HTMLDivElement>(null);
-  const isTouch = useIsTouchDevice();
-  
-  // Simple tilt state (only for desktop)
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-  // Debounced mouse handler for 3D effect (desktop only)
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (isTouch || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 8;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -8;
-    setTilt({ x, y });
-  }, [isTouch]);
-
-  const handleMouseLeave = useCallback(() => {
-    setTilt({ x: 0, y: 0 });
-  }, []);
-
-  // Для чужого профиля берём данные из API, для своего — из сессии
   const displayName = useMemo(() => {
     if (isViewingOther && data?.user) {
       return data.user.firstName ?? data.user.username ?? "Игрок";
@@ -307,10 +275,7 @@ export default function ProfilePage() {
   
   const avatarLetter = displayName ? displayName.slice(0, 1).toUpperCase() : "U";
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // OPTIMIZED DATA LOADING - All requests in parallel for faster LCP
-  // ═══════════════════════════════════════════════════════════════════════════
-  
+  // Data loading
   const loadAllData = useCallback(async () => {
     if (session.status !== "ready" || !targetUserId) {
       setError("Пользователь не авторизован");
@@ -323,23 +288,16 @@ export default function ProfilePage() {
     setError(null);
     
     try {
-      // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
-      // Для чужого профиля загружаем только summary (без friends/notifications)
       const [profileRes, friendsRes, notifyRes] = await Promise.all([
-        // 1. Profile summary (работает для любого userId)
         fetchWithAuth(`/api/me/summary?userId=${targetUserId}`),
-        // 2. Friends data (только для своего профиля)
         !isViewingOther ? fetchWithAuth(`/api/friends?userId=${targetUserId}`).catch(() => null) : Promise.resolve(null),
-        // 3. Notification settings (только для своего профиля)
         !isViewingOther ? fetchWithAuth(`/api/notifications/settings?userId=${targetUserId}`).catch(() => null) : Promise.resolve(null),
       ]);
       
-      // Process profile data
       if (!profileRes.ok) throw new Error("summary_load_failed");
       const profileData = (await profileRes.json()) as SummaryResponse;
       setData(profileData);
       
-      // Process friends data
       if (friendsRes?.ok) {
         const friendsData: FriendsData = await friendsRes.json();
         setFriends(friendsData.friends);
@@ -347,7 +305,6 @@ export default function ProfilePage() {
         setOutgoingRequests(friendsData.outgoingRequests);
       }
       
-      // Process notification settings
       if (notifyRes?.ok) {
         const notifyData = await notifyRes.json();
         if (notifyData.settings) {
@@ -363,12 +320,10 @@ export default function ProfilePage() {
     }
   }, [session, targetUserId, isViewingOther]);
   
-  // Initial data fetch - single effect for all data
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
   
-  // Refresh friends separately (for when user adds/removes friends)
   const loadFriends = useCallback(async () => {
     if (session.status !== "ready") return;
     
@@ -388,11 +343,9 @@ export default function ProfilePage() {
     }
   }, [session]);
   
-  // Update notification setting
   const updateNotifySetting = async (key: string, value: boolean) => {
     if (session.status !== "ready") return;
     
-    // Optimistic update
     setNotifySettings(prev => ({ ...prev, [key]: value }));
     haptic.selection();
     
@@ -407,17 +360,14 @@ export default function ProfilePage() {
       });
     } catch (err) {
       console.error("Failed to update notification setting", err);
-      // Revert on error
       setNotifySettings(prev => ({ ...prev, [key]: !value }));
     }
   };
 
-  // Pull to refresh handler - reuses optimized fetch
   const handleRefresh = useCallback(async () => {
     await loadAllData();
   }, [loadAllData]);
 
-  // Add friend (send request)
   const handleAddFriend = async () => {
     if (!friendUsername.trim() || session.status !== "ready") return;
     
@@ -452,14 +402,12 @@ export default function ProfilePage() {
         return;
       }
       
-      // Show success message
       if (data.status === "accepted") {
         setAddFriendSuccess("Вы теперь друзья! 🎉");
       } else {
         setAddFriendSuccess("Заявка отправлена! ✉️");
       }
       
-      // Reload friends list
       await loadFriends();
       
       setFriendUsername("");
@@ -471,7 +419,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Accept/Decline friend request
   const handleRespondRequest = async (requestId: number, action: "accept" | "decline") => {
     try {
       await fetch("/api/friends", {
@@ -485,7 +432,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Cancel outgoing request
   const handleCancelRequest = async (requestId: number) => {
     try {
       await fetch("/api/friends", {
@@ -499,7 +445,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Remove friend
   const handleRemoveFriend = async (friendshipId: number) => {
     try {
       await fetch("/api/friends", {
@@ -529,18 +474,18 @@ export default function ProfilePage() {
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex min-h-[60vh] flex-col items-center justify-center"
+        className="flex min-h-[60vh] flex-col items-center justify-center p-6"
       >
         <div className="text-7xl mb-6 animate-bounce">😔</div>
-        <p className="text-[18px] font-semibold text-slate-700">{error ?? "Ошибка загрузки"}</p>
-        <p className="mt-2 text-[14px] text-slate-400">Попробуйте позже</p>
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        <p className="text-lg font-semibold">{error ?? "Ошибка загрузки"}</p>
+        <p className="mt-2 text-sm text-muted-foreground">Попробуйте позже</p>
+        <Button
+          variant="default"
           onClick={() => router.back()}
-          className="mt-8 rounded-2xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] px-8 py-4 text-[14px] font-semibold text-white shadow-xl"
+          className="mt-8"
         >
           ← Вернуться
-        </motion.button>
+        </Button>
       </motion.div>
     );
   }
@@ -548,23 +493,20 @@ export default function ProfilePage() {
   // XP-based level system from API
   const xp = data.stats.xp ?? { total: 0, level: 1, progress: 0, title: "Новичок", icon: "🌱", color: "from-slate-400 to-slate-500", xpInCurrentLevel: 0, xpNeededForNext: 100 };
   
-  // Find rank by title to get proper PNG icon
   const rankFromTitle = ranks.find(r => r.label === xp.title) ?? ranks[0];
   const rank = { 
     level: xp.level, 
     label: xp.title, 
-    icon: rankFromTitle.icon, // Use PNG icon from ranks array instead of emoji
+    icon: rankFromTitle.icon,
     color: xp.color, 
     accent: rankFromTitle.accent 
   };
   const progress = xp.progress;
   
-  // Точный расчёт accuracy на основе реального количества ответов
   const accuracy = data.stats.totalAnswers > 0 
     ? Math.round((data.stats.totalCorrectAnswers / data.stats.totalAnswers) * 100) 
     : 0;
   
-  // Глобальный рейтинг
   const globalRankText = data.stats.globalRank 
     ? `${data.stats.globalRank} из ${data.stats.totalPlayers}` 
     : null;
@@ -574,809 +516,603 @@ export default function ProfilePage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-5 min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-24 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
-      {/* ═══════════════════════════════════════════════════════════════════
-          HEADER
-      ═══════════════════════════════════════════════════════════════════ */}
+    <div className={`relative flex flex-col gap-6 min-h-screen bg-gradient-to-b from-violet-50/50 via-background to-background dark:from-violet-950/20 px-4 pt-3 pb-24 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
+      {/* Header */}
       <motion.header 
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={spring}
         className="relative z-20 flex items-center justify-between py-3"
       >
-        <motion.button
-          whileTap={{ scale: 0.9 }}
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => {
             haptic.light();
             router.back();
           }}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-black/5 gpu-accelerated"
-          aria-label="Назад"
+          className="h-11 w-11 rounded-2xl border-2 shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-all duration-200 bg-white/80 backdrop-blur-sm"
         >
-          <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
-        </motion.button>
+        </Button>
         
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="flex items-center gap-2 rounded-full bg-[#0a0a0f] px-4 py-2 shadow-lg"
-        >
-          <div className={`h-2 w-2 rounded-full ${isViewingOther ? "bg-blue-500" : "bg-violet-500"} animate-pulse`} />
-          <span className="text-[14px] font-semibold text-white/90">
-            {isViewingOther ? `👤 ${displayName}` : "Профиль"}
-          </span>
-        </motion.div>
+        <Badge className="rounded-full px-5 py-2.5 text-sm font-bold bg-white/90 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.1)] border-0 text-foreground">
+          <div className={`h-2.5 w-2.5 rounded-full ${isViewingOther ? "bg-blue-500" : "bg-gradient-to-r from-violet-500 to-purple-500"} animate-pulse mr-2`} />
+          {isViewingOther ? `👤 ${displayName}` : "Профиль"}
+        </Badge>
         
-        {/* Right side buttons — скрываем при просмотре чужого профиля */}
         <div className="flex items-center gap-2">
           {!isViewingOther && (
-            <>
-              {/* Shop Button */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => {
-                  haptic.medium();
-                  router.push("/miniapp/shop");
-                }}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
-                aria-label="Магазин"
-              >
-                <span className="text-lg">🛒</span>
-              </motion.button>
-            </>
+            <Button
+              variant="default"
+              size="icon"
+              onClick={() => {
+                haptic.medium();
+                router.push("/miniapp/shop");
+              }}
+              className="h-11 w-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 shadow-[0_8px_20px_-4px_rgba(251,146,60,0.5)] hover:shadow-[0_12px_28px_-4px_rgba(251,146,60,0.6)] border-0 transition-all duration-200"
+            >
+              <span className="text-lg">🛒</span>
+            </Button>
           )}
           
-          {/* Admin Button - only visible to admin */}
           {!isViewingOther && data.user.telegramId === "5731136459" && (
-            <motion.button
-              whileTap={{ scale: 0.9 }}
+            <Button
+              variant="default"
+              size="icon"
               onClick={() => {
                 haptic.medium();
                 window.open("/admin", "_blank");
               }}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-pink-600 shadow-lg shadow-violet-500/30"
+              className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-[0_8px_20px_-4px_rgba(139,92,246,0.5)] hover:shadow-[0_12px_28px_-4px_rgba(139,92,246,0.6)] border-0 transition-all duration-200"
             >
               <span className="text-lg">⚙️</span>
-            </motion.button>
+            </Button>
           )}
         </div>
       </motion.header>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          3D HERO CARD (optimized)
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* Hero Section - Gradient Background */}
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...smoothSpring, delay: 0.1 }}
-        className="relative gpu-accelerated"
-        style={{ perspective: isTouch ? "none" : 1000, contain: 'layout' }}
+        className="relative"
       >
-        <div
-          ref={cardRef}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          className="gpu-accelerated"
-          style={{ 
-            transform: isTouch ? "none" : `rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`,
-            transition: "transform 0.1s ease-out",
-          }}
-        >
-          {/* DIFFUSED LIGHT EFFECT - soft glows without visible edges */}
-          {/* Top cyan glow - box-shadow for Android, blur for others */}
-          <div 
-            className="absolute gpu-accelerated animate-pulse"
-            style={{
-              top: '-60px',
-              left: '10%',
-              right: '10%',
-              height: '120px',
-              background: 'radial-gradient(ellipse 80% 100% at center, rgba(6, 182, 212, 0.5) 0%, rgba(6, 182, 212, 0.2) 40%, transparent 70%)',
-              ...(isAndroid ? { boxShadow: '0 0 60px 40px rgba(6, 182, 212, 0.3)' } : { filter: 'blur(40px)' }),
-              borderRadius: '50%',
-            }}
-          />
-          {/* Bottom violet glow - very diffused */}
-          <div 
-            className="absolute gpu-accelerated"
-            style={{
-              bottom: '-50px',
-              left: '5%',
-              right: '5%',
-              height: '100px',
-              background: 'radial-gradient(ellipse 90% 100% at center, rgba(139, 92, 246, 0.4) 0%, rgba(139, 92, 246, 0.15) 50%, transparent 80%)',
-              ...(isAndroid ? { boxShadow: '0 0 50px 30px rgba(139, 92, 246, 0.25)' } : { filter: 'blur(35px)' }),
-              borderRadius: '50%',
-            }}
-          />
-          {/* Left accent */}
-          <div 
-            className="absolute gpu-accelerated"
-            style={{
-              top: '20%',
-              left: '-40px',
-              width: '80px',
-              height: '60%',
-              background: 'radial-gradient(ellipse at center, rgba(6, 182, 212, 0.25) 0%, transparent 70%)',
-              ...(isAndroid ? { boxShadow: '0 0 40px 25px rgba(6, 182, 212, 0.2)' } : { filter: 'blur(30px)' }),
-              borderRadius: '50%',
-            }}
-          />
-          {/* Right accent */}
-          <div 
-            className="absolute gpu-accelerated"
-            style={{
-              top: '30%',
-              right: '-40px',
-              width: '80px',
-              height: '50%',
-              background: 'radial-gradient(ellipse at center, rgba(236, 72, 153, 0.2) 0%, transparent 70%)',
-              ...(isAndroid ? { boxShadow: '0 0 40px 25px rgba(236, 72, 153, 0.15)' } : { filter: 'blur(30px)' }),
-              borderRadius: '50%',
-            }}
-          />
+        {/* Animated gradient background */}
+        <div className="absolute -inset-4 -top-20 bg-gradient-to-br from-violet-600/30 via-purple-500/20 to-fuchsia-500/30 blur-3xl opacity-60 pointer-events-none" />
+        
+        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 shadow-[0_20px_70px_-15px_rgba(139,92,246,0.5)] dark:shadow-[0_20px_70px_-15px_rgba(139,92,246,0.3)]">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
           
-          {/* Animated conic gradient border - CSS animation */}
-          <div
-            className="absolute -inset-[2px] rounded-[28px] animate-spin-slow gpu-accelerated"
-            style={{
-              background: `conic-gradient(from 0deg, ${rank.accent}, #8b5cf6, #06b6d4, ${rank.accent})`,
-            }}
-          />
-          
-          {/* Main card */}
-          <div className="relative overflow-hidden rounded-[26px] bg-[#0a0a0f]">
-            {/* Static gradient orbs - GPU optimized, no blur */}
-            <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full glow-violet gpu-accelerated" />
-            <div className="absolute -bottom-20 -right-20 h-60 w-60 rounded-full glow-emerald opacity-60 gpu-accelerated" />
-
-            {/* Content */}
-            <div className="relative p-6">
-              {/* Top section: Avatar + Info */}
-              <div className="flex items-start gap-5">
-                {/* Avatar with CSS rotating rings */}
-                {(() => {
-                  const hasFrame = !!data?.user?.equippedFrame?.imageUrl;
-                  return (
-                    <div className="relative flex-shrink-0">
-                      {/* Декоративные кольца только когда НЕТ рамки */}
-                      {!hasFrame && (
-                        <>
-                          {/* Outer rotating ring - CSS */}
-                          <div
-                            className="absolute -inset-3 rounded-full animate-spin-slow gpu-accelerated"
-                            style={{
-                              background: `conic-gradient(from 0deg, transparent, ${rank.accent}, transparent)`,
-                            }}
-                          />
-                          {/* Middle counter-rotating ring - CSS */}
-                          <div className={`absolute -inset-2 rounded-full bg-gradient-to-r ${rank.color} opacity-60 animate-spin-medium reverse gpu-accelerated`} />
-                          {/* Inner glow - static */}
-                          <div className={`absolute -inset-1 rounded-full bg-gradient-to-r ${rank.color} opacity-40 gpu-accelerated`} />
-                        </>
-                      )}
-                      
-                      {/* Avatar с рамкой из магазина */}
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.3, type: "spring" }}
-                      >
-                        <AvatarWithFrame
-                          photoUrl={photoUrl}
-                          frameUrl={data?.user?.equippedFrame?.imageUrl}
-                          size={96}
-                          fallbackLetter={avatarLetter}
-                          className={hasFrame ? "" : "ring-4 ring-black gpu-accelerated"}
-                        />
-                      </motion.div>
-                    </div>
-                  );
-                })()}
-
-                {/* User info */}
-                <div className="flex-1 pt-2">
-                  <motion.h2
-                    initial={{ opacity: 0, x: -30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3, ...spring }}
-                    className="text-[28px] font-black tracking-tight text-white tabular-nums"
-                  >
-                    {displayName}
-                  </motion.h2>
-                  
-                  {data.user.username && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                      className="mt-1 text-[14px] text-white/40"
-                    >
-                      @{data.user.username}
-                    </motion.p>
+          <CardContent className="relative p-6 text-white">
+            {/* Top section: Avatar + Info */}
+            <div className="flex items-start gap-5">
+              {/* Avatar with glow */}
+              <div className="relative flex-shrink-0">
+                {/* Multi-layer glow effect */}
+                <div className="absolute -inset-4 bg-amber-400/40 rounded-full blur-2xl animate-pulse" />
+                <div className="absolute -inset-2 bg-white/40 rounded-full blur-xl" />
+                <div className="absolute -inset-1 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 rounded-full shadow-[0_0_30px_rgba(251,146,60,0.6)]" />
+                
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+                  className="relative"
+                >
+                  {data?.user?.equippedFrame?.imageUrl ? (
+                    <AvatarWithFrame
+                      photoUrl={photoUrl}
+                      frameUrl={data.user.equippedFrame.imageUrl}
+                      size={96}
+                      fallbackLetter={avatarLetter}
+                    />
+                  ) : (
+                    <Avatar className="h-24 w-24 border-4 border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
+                      <AvatarImage src={photoUrl ?? undefined} alt={displayName} />
+                      <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-inner">
+                        {avatarLetter}
+                      </AvatarFallback>
+                    </Avatar>
                   )}
-                  
-                  {/* Rank badge with level — compact for mobile */}
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ delay: 0.5, type: "spring" }}
-                    className="mt-2 inline-flex items-center gap-0 rounded-full overflow-hidden shadow-lg"
-                  >
-                    {/* Rank */}
-                    <div className={`inline-flex items-center gap-1.5 bg-gradient-to-r ${rank.color} px-3 py-1.5`}>
-                      <span className="text-base">{rank.icon}</span>
-                      <span className="text-[12px] font-bold text-white">{rank.label}</span>
-                    </div>
-                    
-                    {/* Level — compact */}
-                    <div className="inline-flex items-center gap-0.5 bg-white/10 px-2 py-1.5">
-                      <span className="text-[12px] font-bold text-white/90">{rank.level}</span>
-                      <span className="text-[10px] text-white/50">ур</span>
-                    </div>
-                  </motion.div>
-                </div>
+                </motion.div>
               </div>
 
-              {/* XP Progress to next level */}
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="mt-6"
+              {/* User info */}
+              <div className="flex-1 pt-2">
+                <motion.h2
+                  initial={{ opacity: 0, x: -30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3, ...spring }}
+                  className="text-2xl font-black tracking-tight drop-shadow-lg"
                 >
-                  <div className="flex items-center justify-between text-[12px] mb-2">
-                  <span className="text-white/50 flex items-center gap-1.5">
-                    <span className="text-base">📈</span> Уровень {xp.level}
-                  </span>
-                  <span className="font-mono text-white/70 tabular-nums">{xp.xpInCurrentLevel} / {xp.xpNeededForNext} XP</span>
-                  </div>
-                  <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progress}%` }}
-                      transition={{ delay: 0.8, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
-                    />
-                    {/* Shimmer - CSS animation */}
-                    <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                  </div>
-                <p className="text-[10px] text-white/30 mt-1.5 text-center">
-                  Всего: {xp.total.toLocaleString()} XP
-                </p>
-                </motion.div>
-
-              {/* Giant animated score */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.7, type: "spring" }}
-                className="relative mt-6 rounded-2xl bg-white/[0.05] p-5 ring-1 ring-white/20"
-                style={{
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 0 40px rgba(139,92,246,0.15)',
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-3xl">💎</span>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">Всего очков</p>
-                    </div>
-                    <p
-                      className="text-[56px] font-black leading-tight tracking-tighter pb-1 tabular-nums"
-style={{
-                        backgroundImage: `linear-gradient(135deg, #fff, ${rank.accent}, #fff)`,
-                        backgroundSize: "200% 200%",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
-                    >
-                      {animatedScore.toLocaleString()}
-                    </p>
-                  </div>
-                  
-                  {/* Mini stats */}
-                  <div className="flex gap-4">
-                    <div className="text-center">
-                      <p className="text-[24px] font-bold text-white tabular-nums">{animatedGames}</p>
-                      <p className="text-[10px] text-white/40">игр</p>
-                    </div>
-                    <div className="h-10 w-px bg-white/10" />
-                    <div className="text-center">
-                      <p className="text-[24px] font-bold text-white tabular-nums">{animatedCorrect}</p>
-                      <p className="text-[10px] text-white/40">верных</p>
-                    </div>
-                  </div>
-                </div>
+                  {displayName}
+                </motion.h2>
                 
-                {/* Global Rank */}
-                {globalRankText && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 }}
-                    className="mt-4 flex items-center justify-center gap-2"
+                {data.user.username && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="mt-1 text-sm text-white/70"
                   >
-                    <span className="text-xl">🏆</span>
-                    <span className="text-[13px] font-semibold text-white/60">
-                      Место в общем рейтинге:
-                    </span>
-                    <span className={`text-[14px] font-bold ${
-                      data.stats.globalRank && data.stats.globalRank <= 3 
-                        ? "text-amber-400" 
-                        : data.stats.globalRank && data.stats.globalRank <= 10 
-                          ? "text-violet-400" 
-                          : "text-white"
-                    }`}>
-                      {globalRankText}
-                    </span>
-                  </motion.div>
+                    @{data.user.username}
+                  </motion.p>
                 )}
-              </motion.div>
+                
+                {/* Rank badges */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: 0.5, type: "spring" }}
+                  className="mt-3 flex items-center gap-2"
+                >
+                  <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 hover:bg-white/30">
+                    <span className="mr-1">{rank.icon}</span>
+                    {rank.label}
+                  </Badge>
+                  <Badge className="bg-amber-500/90 text-white border-0 font-mono shadow-lg">
+                    Ур. {rank.level}
+                  </Badge>
+                </motion.div>
+              </div>
             </div>
-          </div>
-        </div>
+
+            {/* XP Progress - Enhanced */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="mt-6"
+            >
+              <div className="flex items-center justify-between text-xs mb-2">
+                <span className="text-white/80 flex items-center gap-1.5 font-medium">
+                  <span className="text-base">📈</span> Уровень {xp.level}
+                </span>
+                <span className="font-mono tabular-nums font-bold">{xp.xpInCurrentLevel} / {xp.xpNeededForNext} XP</span>
+              </div>
+              {/* Custom progress bar */}
+              <div className="h-4 rounded-full bg-white/20 backdrop-blur-sm overflow-hidden shadow-inner">
+                <motion.div 
+                  className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 rounded-full shadow-lg relative"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ delay: 0.8, duration: 1, ease: "easeOut" }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent" />
+                  <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-r from-transparent to-white/50 animate-pulse" />
+                </motion.div>
+              </div>
+              <p className="text-xs text-white/60 mt-1.5 text-center font-medium">
+                Всего: {xp.total.toLocaleString()} XP
+              </p>
+            </motion.div>
+          </CardContent>
+        </Card>
       </motion.div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          TAB SWITCHER — Modern Pill Design
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* Score Card - Glass morphism */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.5, type: "spring" }}
+      >
+        <Card className="overflow-hidden border-0 bg-card/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <motion.span 
+                    className="text-3xl"
+                    animate={{ rotate: [0, -10, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                  >
+                    💎
+                  </motion.span>
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Всего очков</p>
+                </div>
+                <p className="text-5xl font-black tracking-tighter tabular-nums bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
+                  {animatedScore.toLocaleString()}
+                </p>
+              </div>
+              
+              {/* Mini stats */}
+              <div className="flex gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold tabular-nums text-violet-600">{animatedGames}</p>
+                  <p className="text-xs text-muted-foreground font-medium">игр</p>
+                </div>
+                <div className="h-10 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold tabular-nums text-emerald-600">{animatedCorrect}</p>
+                  <p className="text-xs text-muted-foreground font-medium">верных</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Global Rank */}
+            {globalRankText && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 }}
+                className="mt-4 flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30"
+              >
+                <span className="text-xl">🏆</span>
+                <span className="text-sm text-muted-foreground font-medium">
+                  Место в рейтинге:
+                </span>
+                <Badge className={`${data.stats.globalRank && data.stats.globalRank <= 3 
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0" 
+                  : ""}`}
+                >
+                  {globalRankText}
+                </Badge>
+              </motion.div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Tabs */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="relative"
       >
-        {/* Scrollable container */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
-          {[
-            { id: "stats" as const, icon: "📊", label: "Стата" },
-            { id: "achievements" as const, icon: "🏆", label: "Ачивки" },
-            { id: "history" as const, icon: "🏅", label: "Рекорды" },
-            // Инвентарь и Друзья — только в своём профиле
-            ...(!isViewingOther ? [
-              { id: "inventory" as const, icon: "🎒", label: "Инвентарь" },
-              { id: "friends" as const, icon: "👥", label: "Друзья" },
-            ] : []),
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            const hasBadge = tab.id === "friends" && (friends.length > 0 || incomingRequests.length > 0);
-            const badgeCount = incomingRequests.length > 0 ? incomingRequests.length : friends.length;
-            const isUrgent = incomingRequests.length > 0;
-            
-            return (
-              <motion.button
-                key={tab.id}
-                onClick={() => {
-                  haptic.selection();
-                  setActiveTab(tab.id);
-                }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 ${
-                  isActive 
-                    ? "bg-[#0f0f1a] text-white shadow-lg shadow-black/20" 
-                    : "bg-white/80 text-slate-500 hover:bg-white hover:text-slate-700 shadow-sm"
-                }`}
-              >
-                <span className="text-sm">{tab.icon}</span>
-                <span>{tab.label}</span>
-                
-                {/* Badge for friends */}
-                {hasBadge && (
-                  <span className={`ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white ${
-                    isUrgent ? "bg-red-500 animate-pulse" : "bg-violet-500"
-                  }`}>
-                    {badgeCount}
-                  </span>
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
-        
-        {/* Fade edges for scroll indication */}
-        <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[#f5f5f7] to-transparent" />
-      </motion.div>
+        <Tabs value={activeTab} onValueChange={(v) => { haptic.selection(); setActiveTab(v); }} className="w-full">
+          <TabsList className="w-full h-auto p-1.5 grid grid-cols-3 lg:grid-cols-5 gap-1 bg-muted/60 backdrop-blur-sm rounded-2xl shadow-[inset_0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.2)]">
+            <TabsTrigger 
+              value="stats" 
+              className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-violet-600 font-semibold transition-all duration-200"
+            >
+              <span className="mr-1">📊</span> Стата
+            </TabsTrigger>
+            <TabsTrigger 
+              value="achievements" 
+              className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-amber-600 font-semibold transition-all duration-200"
+            >
+              <span className="mr-1">🏆</span> Ачивки
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-emerald-600 font-semibold transition-all duration-200"
+            >
+              <span className="mr-1">🏅</span> Рекорды
+            </TabsTrigger>
+            {!isViewingOther && (
+              <>
+                <TabsTrigger 
+                  value="inventory" 
+                  className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-rose-600 font-semibold transition-all duration-200"
+                >
+                  <span className="mr-1">🎒</span> Инвент.
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="friends" 
+                  className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-blue-600 font-semibold transition-all duration-200 relative"
+                >
+                  <span className="mr-1">👥</span> Друзья
+                  {incomingRequests.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-1.5 text-[10px] font-bold text-white shadow-[0_4px_12px_rgba(244,63,94,0.4)] animate-bounce">
+                      {incomingRequests.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </>
+            )}
+          </TabsList>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          TAB CONTENT
-      ═══════════════════════════════════════════════════════════════════ */}
-      <AnimatePresence mode="wait">
-        {activeTab === "stats" ? (
-          <motion.div
-            key="stats"
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 30 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col gap-4"
-            style={{ contain: 'layout' }}
-          >
-            {/* Stats — 2x2 Grid */}
+          {/* Stats Tab */}
+          <TabsContent value="stats" className="mt-4 space-y-4">
+            {/* Stats Grid - Colorful */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { icon: <span className="text-xl">🎮</span>, label: "Игры", value: data.stats.totalQuizzesPlayed, color: "#6366f1" },
-                { icon: <span className="text-xl">🎯</span>, label: "Попытки", value: data.stats.totalSessions, color: "#06b6d4" },
-                { icon: <span className="text-xl">✅</span>, label: "Верные", value: data.stats.totalCorrectAnswers, color: "#10b981" },
-                { icon: <span className="text-xl">📊</span>, label: "Точность", value: accuracy, suffix: "%", color: "#f59e0b" },
+                { icon: "🎮", label: "Игры", value: data.stats.totalQuizzesPlayed, gradient: "from-violet-500 to-purple-600", bg: "bg-violet-500/10" },
+                { icon: "🎯", label: "Попытки", value: data.stats.totalSessions, gradient: "from-rose-500 to-pink-600", bg: "bg-rose-500/10" },
+                { icon: "✅", label: "Верные", value: data.stats.totalCorrectAnswers, gradient: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10" },
+                { icon: "📊", label: "Точность", value: accuracy, suffix: "%", gradient: "from-amber-500 to-orange-600", bg: "bg-amber-500/10" },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ delay: 0.1 * i, ...spring }}
-                  className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4 active:scale-[0.98] transition-transform"
+                  whileHover={{ scale: 1.03, y: -4 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  {/* Content */}
-                  <div className="flex items-center gap-3">
-                    {/* Circular progress - simplified SVG */}
-                    <div className="relative h-14 w-14 flex-shrink-0">
-                      <svg className="h-14 w-14 -rotate-90" viewBox="0 0 56 56">
-                        <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-                        <circle
-                          cx="28" cy="28" r="24"
-                          fill="none"
-                          stroke={stat.color}
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeDasharray={150.8}
-                          strokeDashoffset={150.8 - (150.8 * Math.min(stat.value / (stat.suffix ? 100 : Math.max(stat.value, 10)), 1))}
-                          className="transition-all duration-1000 ease-out"
-                          style={{ transitionDelay: `${0.5 + i * 0.1}s` }}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-lg">{stat.icon}</span>
+                  <Card className="overflow-hidden border-0 shadow-[0_4px_20px_rgb(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.15)] dark:shadow-[0_4px_20px_rgb(0,0,0,0.2)] dark:hover:shadow-[0_12px_40px_rgb(0,0,0,0.4)] transition-all duration-300 cursor-default">
+                    {/* Gradient accent top */}
+                    <div className={`h-1.5 bg-gradient-to-r ${stat.gradient}`} />
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg} text-2xl shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)]`}>
+                          {stat.icon}
+                        </div>
+                        <div>
+                          <p className={`text-2xl font-black tabular-nums bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent drop-shadow-sm`}>
+                            {stat.value}{stat.suffix}
+                          </p>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                            {stat.label}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    
-                    {/* Text */}
-                    <div>
-                      <p className="text-[24px] font-bold text-white leading-none tabular-nums">
-                        {stat.value}{stat.suffix}
-                      </p>
-                      <p className="mt-1 text-[11px] font-medium text-white/50 uppercase tracking-wide">
-                        {stat.label}
-                      </p>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               ))}
             </div>
-            
-            {/* Achievement Banner */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-lg"
-              style={{
-                boxShadow: '0 10px 40px rgba(139, 92, 246, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08)',
-              }}
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-2xl shadow-lg">
-                  {data.stats.totalQuizzesPlayed >= 10 ? <span className="text-3xl">🏆</span> : data.stats.totalQuizzesPlayed >= 5 ? <span className="text-3xl">🏅</span> : <span className="text-3xl">📊</span>}
-                </div>
-                <div className="flex-1">
-                  <p className="text-[14px] font-bold text-[#1a1a2e]">
-                    {data.stats.totalQuizzesPlayed >= 10 ? "Активный игрок!" : 
-                     data.stats.totalQuizzesPlayed >= 5 ? "Хороший старт!" : 
-                     "Начни свой путь!"}
-                  </p>
-                  <p className="text-[12px] text-slate-400">
-                    {data.stats.totalQuizzesPlayed >= 10 ? `${data.stats.totalQuizzesPlayed} викторин пройдено` :
-                     data.stats.totalQuizzesPlayed >= 5 ? `Ещё ${10 - data.stats.totalQuizzesPlayed} до медали` :
-                     `Пройди ${5 - data.stats.totalQuizzesPlayed} викторин для звезды`}
-                  </p>
-                </div>
-                <span className="text-slate-300 animate-pulse">→</span>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((data.stats.totalQuizzesPlayed / 10) * 100, 100)}%` }}
-                  transition={{ delay: 0.6, duration: 1 }}
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600"
-                />
-              </div>
-            </motion.div>
 
-            {/* Last Game */}
+            {/* Last Game - Enhanced */}
             {data.stats.lastSession && (
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="relative overflow-hidden rounded-2xl bg-white"
-                style={{
-                  boxShadow: '0 15px 50px rgba(139, 92, 246, 0.2), 0 5px 20px rgba(0, 0, 0, 0.1)',
-                }}
               >
-                {/* Animated glow border */}
-                <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-violet-500/20 animate-pulse" />
-                <div className="relative bg-white rounded-2xl overflow-hidden">
-                <div className="bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] p-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🎯</span>
-                    <span className="text-[13px] font-semibold text-white/80">Последняя игра</span>
-                  </div>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[16px] font-bold text-[#1a1a2e]">{data.stats.lastSession.quizTitle}</p>
-                      <p className="mt-1 text-[12px] text-slate-400">{formatDate(data.stats.lastSession.finishedAt)}</p>
+                <Card className="overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+                  <div className="h-1.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg">
+                        <span className="text-sm">🎯</span>
+                      </div>
+                      <span className="font-bold">Последняя игра</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-muted/50">
+                      <div>
+                        <p className="font-bold">{data.stats.lastSession.quizTitle}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(data.stats.lastSession.finishedAt)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-3xl font-black tabular-nums bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">{data.stats.lastSession.score}</p>
+                        <p className="text-xs text-muted-foreground font-medium">очков</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[28px] font-black text-[#1a1a2e] tabular-nums">{data.stats.lastSession.score}</p>
-                      <p className="text-[11px] text-slate-400">очков</p>
-                    </div>
-                  </div>
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => router.push(`/miniapp/quiz/${data.stats.lastSession?.quizId}`)}
-                    className={`mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${rank.color} text-[15px] font-bold text-white shadow-xl`}
-                  >
-                    ▶ Играть снова
-                  </motion.button>
-                </div>
-                </div>
+                    <Button
+                      className="w-full h-12 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-[0_8px_25px_-5px_rgba(139,92,246,0.5)] hover:shadow-[0_12px_35px_-5px_rgba(139,92,246,0.6)] font-bold transition-all duration-300"
+                      onClick={() => router.push(`/miniapp/quiz/${data.stats.lastSession?.quizId}`)}
+                    >
+                      <span className="mr-2">▶</span> Играть снова
+                    </Button>
+                  </CardContent>
+                </Card>
               </motion.div>
             )}
-          </motion.div>
-        ) : activeTab === "achievements" ? (
-          <motion.div
-            key="achievements"
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-4"
-          >
-            {/* Реферальная секция */}
+          </TabsContent>
+
+          {/* Achievements Tab */}
+          <TabsContent value="achievements" className="mt-4 space-y-4">
             <ReferralSection />
-            
-            {/* Достижения — при начислении XP перезагружаем профиль */}
             <AchievementsSection onXpEarned={() => loadAllData()} />
-          </motion.div>
-        ) : activeTab === "history" ? (
-          <motion.div
-            key="history"
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-2xl bg-white p-5 shadow-xl shadow-black/5"
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-3xl">🏆</span>
-                <h3 className="font-display text-[17px] font-bold text-[#1a1a2e]">Лучшие результаты</h3>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-500">
-                {data.stats.bestScoreByQuiz.length} игр
-              </span>
-            </div>
-            
-            {data.stats.bestScoreByQuiz.length === 0 ? (
-              <div className="flex flex-col items-center py-12">
-                <span className="text-6xl animate-bounce">📊</span>
-                <p className="mt-6 text-[16px] font-semibold text-slate-600">Пока нет рекордов</p>
-                <p className="mt-2 text-[14px] text-slate-400">Пройди свою первую викторину!</p>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push("/miniapp")}
-                  className="mt-6 rounded-xl bg-gradient-to-r from-[#1a1a2e] to-[#2d1f3d] px-8 py-4 text-[14px] font-semibold text-white shadow-xl"
-                >
-                  К викторинам →
-                </motion.button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {data.stats.bestScoreByQuiz.map((item, i) => (
-                  <motion.button
-                    key={item.quizId}
-                    initial={{ opacity: 0, x: -30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.08, ...spring }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => router.push(`/miniapp/quiz/${item.quizId}`)}
-                    className="group flex items-center gap-4 rounded-xl bg-slate-50 p-4 text-left active:bg-slate-100"
-                  >
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl shadow-lg ${
-                      i === 0 ? "bg-gradient-to-br from-amber-400 to-orange-500" :
-                      i === 1 ? "bg-gradient-to-br from-slate-300 to-slate-400" :
-                      i === 2 ? "bg-gradient-to-br from-orange-400 to-amber-600" :
-                      "bg-slate-200"
-                    }`}>
-                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-[14px] font-bold text-slate-500">{i + 1}</span>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{item.title}</p>
-                      <p className="text-[12px] text-slate-400">
-                        {item.attempts} {item.attempts === 1 ? "попытка" : item.attempts < 5 ? "попытки" : "попыток"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[22px] font-black text-[#1a1a2e] tabular-nums">{item.leaderboardScore}</p>
-                      {item.bestSessionScore !== item.leaderboardScore && (
-                        <p className="text-[10px] text-slate-400">рекорд: {item.bestSessionScore}</p>
-                      )}
-                    </div>
-                    <svg 
-                      className="h-5 w-5 text-slate-300" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor" 
-                      strokeWidth={2}
+          </TabsContent>
+
+          {/* History Tab */}
+          <TabsContent value="history" className="mt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="text-2xl">🏆</span>
+                    Лучшие результаты
+                  </CardTitle>
+                  <Badge variant="secondary">
+                    {data.stats.bestScoreByQuiz.length} игр
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {data.stats.bestScoreByQuiz.length === 0 ? (
+                  <div className="flex flex-col items-center py-12">
+                    <span className="text-6xl animate-bounce">📊</span>
+                    <p className="mt-6 font-semibold">Пока нет рекордов</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Пройди свою первую викторину!</p>
+                    <Button
+                      onClick={() => router.push("/miniapp")}
+                      className="mt-6"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </motion.button>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        ) : activeTab === "inventory" ? (
-          <motion.div
-            key="inventory"
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-3xl bg-white p-4 shadow-xl shadow-black/5"
-          >
-            <InventorySection photoUrl={photoUrl} firstName={data.user.firstName} />
-          </motion.div>
-        ) : activeTab === "friends" ? (
-          <motion.div
-            key="friends"
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col gap-4"
-          >
+                      К викторинам →
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {data.stats.bestScoreByQuiz.map((item, i) => (
+                      <motion.div
+                        key={item.quizId}
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.08, ...spring }}
+                      >
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start h-auto p-4 hover:bg-muted"
+                          onClick={() => router.push(`/miniapp/quiz/${item.quizId}`)}
+                        >
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg mr-3 ${
+                            i === 0 ? "bg-gradient-to-br from-amber-400 to-orange-500" :
+                            i === 1 ? "bg-gradient-to-br from-slate-300 to-slate-400" :
+                            i === 2 ? "bg-gradient-to-br from-orange-400 to-amber-600" :
+                            "bg-muted"
+                          }`}>
+                            {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-sm font-bold">{i + 1}</span>}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="truncate font-semibold">{item.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.attempts} {item.attempts === 1 ? "попытка" : item.attempts < 5 ? "попытки" : "попыток"}
+                            </p>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-xl font-black tabular-nums">{item.leaderboardScore}</p>
+                            {item.bestSessionScore !== item.leaderboardScore && (
+                              <p className="text-[10px] text-muted-foreground">рекорд: {item.bestSessionScore}</p>
+                            )}
+                          </div>
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Inventory Tab */}
+          <TabsContent value="inventory" className="mt-4">
+            <Card>
+              <CardContent className="p-4">
+                <InventorySection photoUrl={photoUrl} firstName={data.user.firstName} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Friends Tab */}
+          <TabsContent value="friends" className="mt-4 space-y-4">
             {/* Add Friend Button */}
-            <motion.button
-              whileTap={{ scale: 0.98 }}
+            <Button
+              className="w-full h-14"
               onClick={() => {
                 haptic.medium();
                 setShowAddFriend(true);
               }}
-              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-[15px] font-bold text-white shadow-lg shadow-violet-500/25"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Добавить друга
-            </motion.button>
+            </Button>
 
-            {/* Loading */}
             {friendsLoading ? (
-              <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden divide-y divide-slate-50">
-                {[0, 1, 2].map((i) => (
-                  <SkeletonFriendCard key={i} index={i} />
-                ))}
-              </div>
+              <Card>
+                <CardContent className="divide-y">
+                  {[0, 1, 2].map((i) => (
+                    <SkeletonFriendCard key={i} index={i} />
+                  ))}
+                </CardContent>
+              </Card>
             ) : (
               <>
                 {/* Incoming Requests */}
                 {incomingRequests.length > 0 && (
-                  <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 p-4 shadow-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xl">👥</span>
-                      <h3 className="text-[14px] font-bold text-white">Заявки в друзья</h3>
-                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">
-                        {incomingRequests.length}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
+                  <Card className="bg-gradient-to-br from-primary to-purple-600 text-white border-0">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2 text-white">
+                        <span className="text-xl">👥</span>
+                        Заявки в друзья
+                        <Badge variant="secondary" className="ml-auto">{incomingRequests.length}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
                       {incomingRequests.map((req) => {
                         const reqName = req.firstName ?? req.username ?? "Пользователь";
                         return (
                           <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
-                            {req.photoUrl ? (
-                              <img src={req.photoUrl} alt={reqName} width={40} height={40} className="h-10 w-10 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
-                            ) : (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-[13px] font-bold text-white">
-                                {reqName[0].toUpperCase()}
-                              </div>
-                            )}
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={req.photoUrl ?? undefined} />
+                              <AvatarFallback className="bg-white/20 text-white">{reqName[0].toUpperCase()}</AvatarFallback>
+                            </Avatar>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[14px] font-semibold text-white truncate">{reqName}</p>
-                              {req.username && <p className="text-[11px] text-white/60">@{req.username}</p>}
+                              <p className="font-semibold truncate">{reqName}</p>
+                              {req.username && <p className="text-xs opacity-60">@{req.username}</p>}
                             </div>
                             <div className="flex gap-2">
-                              <button
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 bg-emerald-500 hover:bg-emerald-600 text-white"
                                 onClick={() => {
                                   haptic.success();
                                   handleRespondRequest(req.requestId, "accept");
                                 }}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white active:bg-emerald-600"
                               >
                                 ✓
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 bg-white/20 hover:bg-white/30 text-white"
                                 onClick={() => {
                                   haptic.light();
                                   handleRespondRequest(req.requestId, "decline");
                                 }}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white active:bg-white/30"
                               >
                                 ✕
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )}
 
                 {/* Outgoing Requests */}
                 {outgoingRequests.length > 0 && (
-                  <div className="rounded-2xl bg-white p-4 shadow-lg shadow-black/5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg">📤</span>
-                      <h3 className="text-[14px] font-bold text-[#1a1a2e]">Отправленные заявки</h3>
-                    </div>
-                    <div className="space-y-2">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <span className="text-lg">📤</span>
+                        Отправленные заявки
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
                       {outgoingRequests.map((req) => {
                         const reqName = req.firstName ?? req.username ?? "Пользователь";
                         return (
-                          <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                            {req.photoUrl ? (
-                              <img src={req.photoUrl} alt={reqName} width={40} height={40} className="h-10 w-10 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
-                            ) : (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[13px] font-bold text-white">
-                                {reqName[0].toUpperCase()}
-                              </div>
-                            )}
+                          <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-muted p-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={req.photoUrl ?? undefined} />
+                              <AvatarFallback>{reqName[0].toUpperCase()}</AvatarFallback>
+                            </Avatar>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[14px] font-semibold text-[#1a1a2e] truncate">{reqName}</p>
-                              <p className="text-[11px] text-slate-400">Ожидает подтверждения...</p>
+                              <p className="font-semibold truncate">{reqName}</p>
+                              <p className="text-xs text-muted-foreground">Ожидает подтверждения...</p>
                             </div>
-                            <button
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => {
                                 haptic.light();
                                 handleCancelRequest(req.requestId);
                               }}
-                              className="rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 active:bg-slate-300"
                             >
                               Отменить
-                            </button>
+                            </Button>
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )}
 
                 {/* Friends List */}
                 {friends.length === 0 && incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
-                  <div className="rounded-2xl bg-white p-8 shadow-lg shadow-black/5 text-center">
-                    <span className="text-5xl block mx-auto mb-4">👥</span>
-                    <p className="text-[16px] font-bold text-[#1a1a2e]">Пока нет друзей</p>
-                    <p className="text-[14px] text-slate-400 mt-2">
-                      Отправь заявку по username,<br />друг получит уведомление
-                    </p>
-                  </div>
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <span className="text-5xl block mx-auto mb-4">👥</span>
+                      <p className="font-semibold">Пока нет друзей</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Отправь заявку по username,<br />друг получит уведомление
+                      </p>
+                    </CardContent>
+                  </Card>
                 ) : friends.length > 0 && (
-                  <div className="rounded-2xl bg-white shadow-lg shadow-black/5 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-100">
-                      <h3 className="text-[14px] font-bold text-[#1a1a2e] flex items-center gap-2">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
                         <span className="text-xl">👥</span>
                         Мои друзья ({friends.length})
-                      </h3>
-                    </div>
-                    <div className="divide-y divide-slate-50">
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       {friends.map((friend, i) => {
                         const friendName = friend.firstName ?? friend.username ?? "Друг";
                         const friendRank = getRank(friend.stats.totalScore);
@@ -1387,219 +1123,205 @@ style={{
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.05, ...spring }}
-                            className="p-4"
+                            className="space-y-3"
                           >
-                            <div className="flex items-center gap-3 mb-3">
-<div className="relative">
-                            <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
-                            {friend.photoUrl ? (
-                              <img src={friend.photoUrl} alt={friendName} width={48} height={48} className="relative h-12 w-12 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
-                            ) : (
-                              <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d] text-[14px] font-bold text-white">
-                                {friendName[0].toUpperCase()}
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
+                                <Avatar className="relative h-12 w-12">
+                                  <AvatarImage src={friend.photoUrl ?? undefined} />
+                                  <AvatarFallback>{friendName[0].toUpperCase()}</AvatarFallback>
+                                </Avatar>
                               </div>
-                            )}
-                          </div>
                               
                               <div className="flex-1 min-w-0">
-                                <p className="text-[15px] font-bold text-[#1a1a2e] truncate">{friendName}</p>
+                                <p className="font-semibold truncate">{friendName}</p>
                                 {friend.username && (
-                                  <p className="text-[12px] text-slate-400">@{friend.username}</p>
+                                  <p className="text-xs text-muted-foreground">@{friend.username}</p>
                                 )}
                               </div>
                               
-                              <div className={`flex items-center gap-1.5 rounded-full bg-gradient-to-r ${friendRank.color} px-3 py-1`}>
-                                <span className="text-sm">{friendRank.icon}</span>
-                                <span className="text-[11px] font-bold text-white">{friendRank.level}</span>
-                              </div>
+                              <Badge className={`bg-gradient-to-r ${friendRank.color} text-white border-0`}>
+                                <span className="mr-1">{friendRank.icon}</span>
+                                {friendRank.level}
+                              </Badge>
                             </div>
                             
-                            <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                            <div className="flex items-center justify-between rounded-xl bg-muted p-3">
                               <div className="text-center flex-1">
                                 <div className="flex items-center justify-center gap-1">
-                                  <span className="text-2xl">💎</span>
-                                  <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.totalScore}</p>
+                                  <span className="text-xl">💎</span>
+                                  <p className="font-bold tabular-nums">{friend.stats.totalScore}</p>
                                 </div>
-                                <p className="text-[10px] text-slate-400">очков</p>
+                                <p className="text-[10px] text-muted-foreground">очков</p>
                               </div>
-                              <div className="h-8 w-px bg-slate-200" />
+                              <div className="h-8 w-px bg-border" />
                               <div className="text-center flex-1">
-                                <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.gamesPlayed}</p>
-                                <p className="text-[10px] text-slate-400">игр</p>
+                                <p className="font-bold tabular-nums">{friend.stats.gamesPlayed}</p>
+                                <p className="text-[10px] text-muted-foreground">игр</p>
                               </div>
-                              <div className="h-8 w-px bg-slate-200" />
+                              <div className="h-8 w-px bg-border" />
                               <div className="text-center flex-1">
-                                <p className="text-[18px] font-bold text-[#1a1a2e] tabular-nums">{friend.stats.bestScore}</p>
-                                <p className="text-[10px] text-slate-400">рекорд</p>
+                                <p className="font-bold tabular-nums">{friend.stats.bestScore}</p>
+                                <p className="text-[10px] text-muted-foreground">рекорд</p>
                               </div>
                             </div>
                             
-                            <button
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="w-full"
                               onClick={() => {
                                 haptic.warning();
                                 handleRemoveFriend(friend.friendshipId);
                               }}
-                              className="mt-3 w-full rounded-lg bg-red-50 py-2 text-[12px] font-semibold text-red-500 active:bg-red-100"
                             >
                               Удалить из друзей
-                            </button>
+                            </Button>
                           </motion.div>
                         );
                       })}
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )}
               </>
             )}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          </TabsContent>
+        </Tabs>
+      </motion.div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          ADD FRIEND MODAL
-      ═══════════════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {showAddFriend && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-            onClick={() => {
-              setShowAddFriend(false);
-              setFriendUsername("");
-              setAddFriendError(null);
-              setAddFriendSuccess(null);
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={spring}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
-            >
-              <div className="text-center mb-6">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600">
-                  <span className="text-3xl">👥</span>
-                </div>
-                <h2 className="font-display text-[20px] font-bold text-[#1a1a2e]">Добавить друга</h2>
-                <p className="text-[14px] text-slate-400 mt-1">Введи username друга в Telegram</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <input
-                    type="text"
-                    value={friendUsername}
-                    onChange={(e) => {
-                      setFriendUsername(e.target.value);
-                      setAddFriendError(null);
-                    }}
-                    placeholder="@username"
-                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-[15px] font-medium text-[#1a1a2e] outline-none transition-colors focus:border-violet-500 placeholder:text-slate-300"
-                  />
-                  {addFriendError && (
-                    <p className="mt-2 text-[13px] text-red-500">{addFriendError}</p>
-                  )}
-                  {addFriendSuccess && (
-                    <p className="mt-2 text-[13px] text-emerald-500 font-semibold">{addFriendSuccess}</p>
-                  )}
-                </div>
-                
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      haptic.light();
-                      setShowAddFriend(false);
-                      setFriendUsername("");
-                      setAddFriendError(null);
-                      setAddFriendSuccess(null);
-                    }}
-                    className="flex-1 rounded-xl bg-slate-100 py-3.5 text-[14px] font-semibold text-slate-600 active:bg-slate-200"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    onClick={() => {
-                      haptic.medium();
-                      handleAddFriend();
-                    }}
-                    disabled={addingFriend || !friendUsername.trim()}
-                    className="flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 text-[14px] font-bold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
-                  >
-                    {addingFriend ? "Добавляем..." : "Добавить"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Add Friend Dialog */}
+      <Dialog open={showAddFriend} onOpenChange={setShowAddFriend}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600">
+              <span className="text-3xl">👥</span>
+            </div>
+            <DialogTitle className="text-center">Добавить друга</DialogTitle>
+            <DialogDescription className="text-center">
+              Введи username друга в Telegram
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Input
+                type="text"
+                value={friendUsername}
+                onChange={(e) => {
+                  setFriendUsername(e.target.value);
+                  setAddFriendError(null);
+                }}
+                placeholder="@username"
+                className="text-center"
+              />
+              {addFriendError && (
+                <p className="mt-2 text-sm text-destructive text-center">{addFriendError}</p>
+              )}
+              {addFriendSuccess && (
+                <p className="mt-2 text-sm text-emerald-500 font-semibold text-center">{addFriendSuccess}</p>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  haptic.light();
+                  setShowAddFriend(false);
+                  setFriendUsername("");
+                  setAddFriendError(null);
+                  setAddFriendSuccess(null);
+                }}
+              >
+                Отмена
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  haptic.medium();
+                  handleAddFriend();
+                }}
+                disabled={addingFriend || !friendUsername.trim()}
+              >
+                {addingFriend ? "Добавляем..." : "Добавить"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          NOTIFICATION SETTINGS
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* Notification Settings - Enhanced */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.55 }}
-        className="rounded-2xl bg-white p-5 shadow-lg shadow-black/5"
       >
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-2xl">🔔</span>
-          <h3 className="text-[17px] font-bold text-[#1a1a2e]">Уведомления</h3>
-        </div>
-        
-        <div className="space-y-3">
-          <NotificationToggle
-            label="Level Up"
-            description="Когда достигаешь нового уровня"
-            icon={<span className="text-2xl">👑</span>}
-            enabled={notifySettings.notifyLevelUp}
-            onChange={(v) => updateNotifySetting("notifyLevelUp", v)}
-          />
-          <NotificationToggle
-            label="Энергия"
-            description="Когда энергия восстановлена"
-            icon={<span className="text-2xl">⚡</span>}
-            enabled={notifySettings.notifyEnergyFull}
-            onChange={(v) => updateNotifySetting("notifyEnergyFull", v)}
-          />
-          <NotificationToggle
-            label="Напоминания"
-            description="Ежедневные напоминания об игре"
-            icon={<span className="text-2xl">📅</span>}
-            enabled={notifySettings.notifyDailyReminder}
-            onChange={(v) => updateNotifySetting("notifyDailyReminder", v)}
-          />
-          <NotificationToggle
-            label="Друзья"
-            description="Активность друзей"
-            icon={<span className="text-2xl">👥</span>}
-            enabled={notifySettings.notifyFriends}
-            onChange={(v) => updateNotifySetting("notifyFriends", v)}
-          />
-        </div>
+        <Card className="overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+          <div className="h-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-lg">
+                <span className="text-lg">🔔</span>
+              </div>
+              <span className="font-bold">Уведомления</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <NotificationToggle
+              label="Level Up"
+              description="Когда достигаешь нового уровня"
+              icon={<span className="text-xl">👑</span>}
+              enabled={notifySettings.notifyLevelUp}
+              onChange={(v) => updateNotifySetting("notifyLevelUp", v)}
+            />
+            <NotificationToggle
+              label="Энергия"
+              description="Когда энергия восстановлена"
+              icon={<span className="text-xl">⚡</span>}
+              enabled={notifySettings.notifyEnergyFull}
+              onChange={(v) => updateNotifySetting("notifyEnergyFull", v)}
+            />
+            <NotificationToggle
+              label="Напоминания"
+              description="Ежедневные напоминания об игре"
+              icon={<span className="text-xl">📅</span>}
+              enabled={notifySettings.notifyDailyReminder}
+              onChange={(v) => updateNotifySetting("notifyDailyReminder", v)}
+            />
+            <NotificationToggle
+              label="Друзья"
+              description="Активность друзей"
+              icon={<span className="text-xl">👥</span>}
+              enabled={notifySettings.notifyFriends}
+              onChange={(v) => updateNotifySetting("notifyFriends", v)}
+            />
+          </CardContent>
+        </Card>
       </motion.div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          BACK BUTTON
-      ═══════════════════════════════════════════════════════════════════ */}
-      <motion.button
+      {/* Back Button */}
+      <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => {
-          haptic.light();
-          router.push("/miniapp");
-        }}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[15px] font-semibold text-slate-600 shadow-lg shadow-black/5"
       >
-        ← На главную
-      </motion.button>
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full h-14 rounded-2xl border-2 font-bold shadow-sm hover:shadow-md transition-all hover:bg-muted/50"
+          onClick={() => {
+            haptic.light();
+            router.push("/miniapp");
+          }}
+        >
+          <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+          </svg>
+          На главную
+        </Button>
+      </motion.div>
     </div>
     </PullToRefresh>
   );
