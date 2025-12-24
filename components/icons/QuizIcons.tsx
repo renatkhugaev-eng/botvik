@@ -1,5 +1,14 @@
-// Quizzo UI Kit - Icon Symbols
-// Exported from Figma
+/**
+ * Quizzo UI Kit - Icon Symbols
+ * Exported from Figma
+ * 
+ * NOTE: These icons are currently unused in the codebase but are kept
+ * for future use in quiz cards and achievement badges.
+ * 
+ * Usage example:
+ * import { CrownIcon, TrophyIcon } from '@/components/icons/QuizIcons';
+ * <CrownIcon size={32} className="text-amber-500" />
+ */
 
 import React from 'react';
 

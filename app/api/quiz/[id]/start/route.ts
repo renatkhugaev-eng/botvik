@@ -4,8 +4,12 @@ import { authenticateRequest } from "@/lib/auth";
 import { checkRateLimit, quizStartLimiter, getClientIdentifier } from "@/lib/ratelimit";
 import { getCachedQuestions, cacheQuestions } from "@/lib/quiz-cache";
 import { scheduleEnergyNotification } from "@/lib/notifications";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+
+// Child logger with route context
+const log = logger.child({ route: "quiz/start" });
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ANTI-ABUSE: Rate Limiting & Energy System (OPTIMIZED)
@@ -29,8 +33,7 @@ const bypassLimits =
   process.env.NODE_ENV !== "production";
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  console.log("[quiz/start] ═══════════════════════════════════════════");
-  console.log("[quiz/start] 🚀 NEW REQUEST at", new Date().toISOString());
+  log.debug("New request");
   
   // ═══ AUTHENTICATION ═══
   const auth = await authenticateRequest(req);
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
   const userId = auth.user.id;
-  console.log("[quiz/start] 👤 User:", userId);
+  log.debug("Authenticated", { userId });
 
   // ═══ RATE LIMITING ═══
   const identifier = getClientIdentifier(req, auth.user.telegramId);

@@ -79,34 +79,31 @@ export async function GET(req: NextRequest) {
 
   // ═══ GLOBAL LEADERBOARD ═══
   // Sum of all quiz scores per user (using unified formula)
+  // OPTIMIZATION: Use Prisma groupBy for aggregation instead of fetching all records
+  // This prevents memory issues with large datasets
   
-  const allEntries = await prisma.leaderboardEntry.findMany({
+  const aggregatedFromDb = await prisma.leaderboardEntry.groupBy({
+    by: ["userId"],
     where: { periodType: "ALL_TIME" },
-    select: {
-      userId: true,
+    _sum: {
       bestScore: true,
       attempts: true,
     },
+    orderBy: {
+      _sum: {
+        bestScore: "desc",
+      },
+    },
+    take: 200, // Limit to top 200 to process, then slice to 50
   });
 
-  // Aggregate per user
-  const userScores = new Map<number, { bestScore: number; attempts: number }>();
-  
-  for (const entry of allEntries) {
-    const current = userScores.get(entry.userId) ?? { bestScore: 0, attempts: 0 };
-    userScores.set(entry.userId, {
-      bestScore: current.bestScore + entry.bestScore,
-      attempts: current.attempts + entry.attempts,
-    });
-  }
-
-  // Calculate total scores
-  const aggregatedScores = Array.from(userScores.entries())
-    .map(([userId, data]) => ({
-      userId,
-      bestScore: data.bestScore,
-      attempts: data.attempts,
-      totalScore: calculateTotalScore(data.bestScore, data.attempts),
+  // Calculate total scores from aggregated data
+  const aggregatedScores = aggregatedFromDb
+    .map((entry) => ({
+      userId: entry.userId,
+      bestScore: entry._sum.bestScore ?? 0,
+      attempts: entry._sum.attempts ?? 0,
+      totalScore: calculateTotalScore(entry._sum.bestScore ?? 0, entry._sum.attempts ?? 0),
     }))
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, 50);

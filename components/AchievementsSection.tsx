@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
@@ -70,7 +70,7 @@ type AchievementsSectionProps = {
   onXpEarned?: (xpAmount: number) => void;  // Callback когда начислен XP
 };
 
-export function AchievementsSection({ compact = false, onXpEarned }: AchievementsSectionProps) {
+export const AchievementsSection = memo(function AchievementsSection({ compact = false, onXpEarned }: AchievementsSectionProps) {
   const [data, setData] = useState<AchievementsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory | "all">("all");
@@ -229,7 +229,10 @@ export function AchievementsSection({ compact = false, onXpEarned }: Achievement
       </AnimatePresence>
     </div>
   );
-}
+});
+
+// Display name for React DevTools
+AchievementsSection.displayName = "AchievementsSection";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SUB-COMPONENTS

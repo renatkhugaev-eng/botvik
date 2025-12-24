@@ -109,7 +109,7 @@ export default function InvestigationPage({ params }: { params: Promise<{ slug: 
   const handlePlayEpisode = () => {
     if (!selectedEpisode || !data) return;
     haptic.heavy();
-    // TODO: Navigate to episode player
+    // Navigate to episode player (implemented)
     router.push(`/miniapp/investigations/${slug}/episode/${selectedEpisode.order}`);
   };
 

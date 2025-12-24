@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { fetchWithAuth } from "@/lib/api";
@@ -56,7 +56,7 @@ const RARITY_CONFIG: Record<Rarity, { label: string; color: string; bg: string; 
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function InventorySection({ photoUrl, firstName }: InventorySectionProps) {
+export const InventorySection = memo(function InventorySection({ photoUrl, firstName }: InventorySectionProps) {
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -273,4 +273,7 @@ export function InventorySection({ photoUrl, firstName }: InventorySectionProps)
       </div>
     </div>
   );
-}
+});
+
+// Display name for React DevTools
+InventorySection.displayName = "InventorySection";

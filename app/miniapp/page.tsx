@@ -12,6 +12,7 @@ import { fetchWithAuth, api } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
+import { useIsIOS, useIsAndroid } from "@/components/hooks/usePlatform";
 import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
 import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
@@ -20,23 +21,7 @@ import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import { FriendsFeed } from "@/components/FriendsFeed";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
 
-// Detect Android for blur fallbacks (Android WebView has poor blur performance)
-function useIsAndroid() {
-  const [isAndroid, setIsAndroid] = useState(false);
-  useEffect(() => {
-    setIsAndroid(/android/i.test(navigator.userAgent));
-  }, []);
-  return isAndroid;
-}
-
-// Detect iOS - iOS handles blur effects well, no need to disable during scroll
-function useIsIOS() {
-  const [isIOS, setIsIOS] = useState(false);
-  useEffect(() => {
-    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-  }, []);
-  return isIOS;
-}
+// Platform detection moved to @/components/hooks/usePlatform
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN SYSTEM

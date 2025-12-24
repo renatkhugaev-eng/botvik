@@ -299,7 +299,9 @@ export function isAdmin(telegramId: string): boolean {
 
 /**
  * Authenticate and check admin access
- * Supports both Telegram auth AND browser session (admin_token cookie)
+ * Supports both Telegram auth AND JWT browser session (admin_token cookie)
+ * 
+ * SECURITY: Uses JWT verification instead of simple base64 decoding
  */
 export async function authenticateAdmin(req: NextRequest): Promise<AuthResult> {
   // ═══ OPTION 1: Try Telegram auth first ═══
@@ -316,36 +318,30 @@ export async function authenticateAdmin(req: NextRequest): Promise<AuthResult> {
     return auth;
   }
   
-  // ═══ OPTION 2: Check admin_token cookie (browser session) ═══
-  const adminToken = req.cookies.get("admin_token")?.value;
+  // ═══ OPTION 2: Check JWT admin_token cookie (secure browser session) ═══
+  // SECURITY: Uses proper JWT verification from lib/admin-auth.ts
+  const { verifyAdminToken } = await import("@/lib/admin-auth");
+  const session = await verifyAdminToken(req);
   
-  if (adminToken) {
-    try {
-      const decoded = JSON.parse(Buffer.from(adminToken, "base64").toString());
-      
-      if (decoded.authorized && decoded.expires > Date.now()) {
-        // Return a mock admin user for browser sessions
-        return {
-          ok: true,
-          user: {
-            id: 0,
-            telegramId: "browser-admin",
-            username: "admin",
-            firstName: "Admin",
-            lastName: null,
-            photoUrl: null,
-          },
-        };
-      }
-    } catch {
-      // Invalid token format - ignore
-    }
+  if (session.valid && session.adminId) {
+    // Return admin user for JWT-authenticated browser sessions
+    return {
+      ok: true,
+      user: {
+        id: 0, // Browser admin doesn't have DB ID
+        telegramId: session.adminId,
+        username: "admin",
+        firstName: "Admin",
+        lastName: null,
+        photoUrl: null,
+      },
+    };
   }
   
   // No valid auth
   return {
     ok: false,
-    error: "ADMIN_AUTH_REQUIRED",
+    error: session.error || "ADMIN_AUTH_REQUIRED",
     status: 401,
   };
 }

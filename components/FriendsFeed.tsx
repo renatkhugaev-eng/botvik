@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ТИПЫ
@@ -136,9 +137,12 @@ function ActivityItem({ activity, index }: { activity: Activity; index: number }
         className="flex-shrink-0 group"
       >
         {activity.user.photoUrl ? (
-          <img
+          <Image
             src={activity.user.photoUrl}
             alt=""
+            width={40}
+            height={40}
+            loading="lazy"
             className="w-10 h-10 rounded-full object-cover ring-2 ring-white/20 group-hover:ring-white/40 transition-all"
           />
         ) : (
@@ -263,7 +267,7 @@ type FriendsFeedProps = {
   className?: string;
 };
 
-export function FriendsFeed({ 
+export const FriendsFeed = memo(function FriendsFeed({ 
   userId, 
   limit = 10, 
   showHeader = true,
@@ -406,6 +410,9 @@ export function FriendsFeed({
       </AnimatePresence>
     </div>
   );
-}
+});
+
+// Display name for React DevTools
+FriendsFeed.displayName = "FriendsFeed";
 
 export default FriendsFeed;

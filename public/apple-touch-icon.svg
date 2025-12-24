@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    
+    <!-- Question mark gradient -->
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#ef4444"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background with rounded corners (iOS style) -->
+  <rect width="180" height="180" rx="40" fill="url(#bg)"/>
+  
+  <!-- Subtle inner glow -->
+  <rect x="10" y="10" width="160" height="160" rx="35" fill="white" opacity="0.1"/>
+  
+  <!-- Magnifying glass circle -->
+  <circle cx="78" cy="78" r="42" stroke="white" stroke-width="8" fill="none"/>
+  
+  <!-- Magnifying glass handle -->
+  <line x1="108" y1="108" x2="145" y2="145" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  
+  <!-- Question mark inside -->
+  <text x="78" y="92" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="url(#accent)" text-anchor="middle">?</text>
+  
+  <!-- Decorative sparkle -->
+  <circle cx="140" cy="40" r="6" fill="#fbbf24"/>
+  <circle cx="152" cy="52" r="3" fill="#fbbf24" opacity="0.7"/>
+</svg>
+

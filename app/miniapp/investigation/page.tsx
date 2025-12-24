@@ -461,7 +461,10 @@ export default function InvestigationPage() {
   }, []);
 
   const handleInsightDiscovered = useCallback((insight: string) => {
-    // TODO: Можно показать уведомление об инсайте
+    // ENHANCEMENT: Show in-app notification for discovered insights
+    // Could use InAppNotification component from @/components/InAppNotification
+    // Example: showNotification({ type: 'insight', message: insight });
+    console.log("[Investigation] Insight discovered:", insight);
   }, []);
 
   // ══════════════════════════════════════════════════════════════════════════

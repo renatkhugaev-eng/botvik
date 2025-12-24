@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   TextInput,
   Button,
@@ -29,22 +29,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem("admin_token");
-    if (savedToken) {
-      try {
-        const decoded = JSON.parse(atob(savedToken));
-        if (decoded.authorized && decoded.expires > Date.now()) {
-          setAuthorized(true);
-        } else {
-          localStorage.removeItem("admin_token");
-        }
-      } catch {
-        localStorage.removeItem("admin_token");
+  // Check auth status via API (cookies handled by browser)
+  const checkAuth = useCallback(async () => {
+    try {
+      // Make a request to check if we have a valid session
+      // The HttpOnly cookie will be sent automatically
+      const res = await fetch("/api/admin/stats", {
+        method: "GET",
+        credentials: "include", // Important: include cookies
+      });
+      
+      if (res.ok) {
+        setAuthorized(true);
+      } else {
+        setAuthorized(false);
       }
+    } catch {
+      setAuthorized(false);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -60,11 +69,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
+        credentials: "include", // Important: receive and store cookies
       });
 
       if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem("admin_token", data.token);
+        // Cookie is set automatically by the server response
+        // No need to store anything in localStorage (more secure!)
         setAuthorized(true);
       } else {
         setPasswordError(true);
@@ -78,8 +88,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem("admin_token");
-    await fetch("/api/admin/login", { method: "DELETE" });
+    // Server will clear the HttpOnly cookie
+    await fetch("/api/admin/login", { 
+      method: "DELETE",
+      credentials: "include",
+    });
     setAuthorized(false);
   };
 

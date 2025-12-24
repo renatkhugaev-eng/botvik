@@ -42,27 +42,7 @@ function CatLoadingAnimation() {
   );
 }
 
-type TelegramWebApp = {
-  WebApp?: {
-    initData?: string;
-    ready?: () => void;
-    disableVerticalSwipes?: () => void;
-    enableVerticalSwipes?: () => void;
-    isVerticalSwipesEnabled?: boolean;
-    // Share functionality
-    switchInlineQuery?: (query: string, chatTypes?: string[]) => void;
-    openTelegramLink?: (url: string) => void;
-    shareToStory?: (mediaUrl: string, params?: { text?: string; widget_link?: { url: string; name?: string } }) => void;
-    // Payments
-    openInvoice?: (url: string, callback?: (status: "paid" | "cancelled" | "failed" | "pending") => void) => void;
-  };
-};
-
-declare global {
-  interface Window {
-    Telegram?: TelegramWebApp;
-  }
-}
+// Telegram types imported from types/telegram.d.ts
 
 type MiniAppUser = {
   id: number;
@@ -155,12 +135,18 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
       const initData = tg?.initData;
       const initDataUnsafe = (tg as any)?.initDataUnsafe;
-      console.log("[MiniApp] initData length", initData?.length);
-      console.log("[MiniApp] initDataUnsafe", JSON.stringify(initDataUnsafe));
+      
+      // Only log in development to avoid leaking sensitive data
+      if (process.env.NODE_ENV === "development") {
+        console.log("[MiniApp] initData length", initData?.length);
+        // Don't log full initDataUnsafe — it contains sensitive user data
+      }
 
       // If initData is empty but initDataUnsafe has user, try to use it for dev
       if (!initData && initDataUnsafe?.user) {
-        console.log("[MiniApp] Using initDataUnsafe user directly");
+        if (process.env.NODE_ENV === "development") {
+          console.log("[MiniApp] Using initDataUnsafe user directly");
+        }
       }
 
       if (!initData) {

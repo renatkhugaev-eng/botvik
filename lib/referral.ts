@@ -36,11 +36,28 @@ const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 /**
  * Генерация уникального реферального кода
+ * 
+ * SECURITY: Используем crypto.getRandomValues для криптографически 
+ * безопасной генерации вместо Math.random()
  */
 export function generateReferralCode(): string {
+  // Node.js crypto или Web Crypto API
+  const getRandomBytes = (): Uint8Array => {
+    if (typeof globalThis.crypto !== "undefined" && globalThis.crypto.getRandomValues) {
+      const bytes = new Uint8Array(REFERRAL_CODE_LENGTH);
+      globalThis.crypto.getRandomValues(bytes);
+      return bytes;
+    }
+    // Fallback for Node.js without webcrypto
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nodeCrypto = require("crypto");
+    return new Uint8Array(nodeCrypto.randomBytes(REFERRAL_CODE_LENGTH));
+  };
+
+  const bytes = getRandomBytes();
   let code = "";
   for (let i = 0; i < REFERRAL_CODE_LENGTH; i++) {
-    code += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
+    code += CODE_CHARS.charAt(bytes[i] % CODE_CHARS.length);
   }
   return code;
 }

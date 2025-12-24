@@ -11,6 +11,7 @@ import { fetchWithAuth } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
+import { useIsIOS } from "@/components/hooks/usePlatform";
 import { AchievementsSection } from "@/components/AchievementsSection";
 import { ReferralSection } from "@/components/ReferralSection";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
@@ -26,14 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-// Detect iOS - iOS handles blur effects well
-function useIsIOS() {
-  const [isIOS, setIsIOS] = useState(false);
-  useEffect(() => {
-    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-  }, []);
-  return isIOS;
-}
+// Platform detection moved to @/components/hooks/usePlatform
 
 type SummaryResponse = {
   user: {

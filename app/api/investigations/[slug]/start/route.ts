@@ -64,8 +64,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
       });
     }
 
-    // TODO: Проверка разблокировки (уровень, покупка и т.д.)
-    // Пока пропускаем для простоты
+    // BACKLOG: Add proper unlock verification before starting
+    // Should check: level requirement, Stars purchase, achievement unlock
+    // Currently skipped - all investigations are startable
+    // See: app/api/investigations/route.ts for unlock logic
 
     // Создаём прогресс
     const progress = await prisma.investigationProgress.create({

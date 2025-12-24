@@ -90,7 +90,11 @@ export async function GET(req: NextRequest) {
           if (!isUnlocked) unlockReason = `Нужен ${inv.unlockValue} уровень`;
           break;
         case "STARS":
-          // TODO: Проверить покупку
+          // BACKLOG: Implement Telegram Stars purchase verification
+          // When user purchases investigation with Stars:
+          // 1. Check if InvestigationPurchase exists for this user+investigation
+          // 2. If exists and status=PAID, isUnlocked = true
+          // Related: app/api/shop/purchase/route.ts pattern
           isUnlocked = false;
           unlockReason = `${inv.unlockValue} ⭐`;
           break;
@@ -106,7 +110,11 @@ export async function GET(req: NextRequest) {
           }
           break;
         case "ACHIEVEMENT":
-          // TODO: Проверить достижение
+          // BACKLOG: Implement achievement-based unlock
+          // When investigation requires achievement:
+          // 1. Query UserAchievement where achievementId = inv.unlockValue
+          // 2. If exists, isUnlocked = true
+          // Related: lib/achievement-checker.ts
           isUnlocked = false;
           unlockReason = "Нужно достижение";
           break;

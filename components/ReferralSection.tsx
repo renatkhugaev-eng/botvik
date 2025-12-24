@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
 import type { ReferralStats } from "@/lib/referral";
@@ -19,7 +20,7 @@ type ReferralData = ReferralStats & {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ReferralSection() {
+export const ReferralSection = memo(function ReferralSection() {
   const [data, setData] = useState<ReferralData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -212,9 +213,12 @@ export function ReferralSection() {
                             className="flex items-center gap-2 rounded-lg bg-white/5 p-2"
                           >
                             {ref.photoUrl ? (
-                              <img
+                              <Image
                                 src={ref.photoUrl}
                                 alt=""
+                                width={32}
+                                height={32}
+                                loading="lazy"
                                 className="h-8 w-8 rounded-full"
                               />
                             ) : (
@@ -241,4 +245,7 @@ export function ReferralSection() {
       </AnimatePresence>
     </div>
   );
-}
+});
+
+// Display name for React DevTools
+ReferralSection.displayName = "ReferralSection";

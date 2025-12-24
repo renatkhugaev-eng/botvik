@@ -11,8 +11,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { Liveblocks } from "@liveblocks/node";
 import { authenticateRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+
+const log = logger.child({ route: "liveblocks-auth" });
 
 // Lazy initialization — создаём только при первом запросе
 let liveblocks: Liveblocks | null = null;
@@ -38,7 +41,7 @@ export async function POST(request: NextRequest) {
     
     // В dev-mode без initData используем dev-mock пользователя
     if (!auth.ok && isDevMode && process.env.NODE_ENV === "development") {
-      console.log("[Liveblocks Auth] Dev mode: using dev-mock user");
+      log.debug("Dev mode: using dev-mock user");
       
       // Находим или создаём dev-mock пользователя
       let devUser = await prisma.user.findUnique({
@@ -63,14 +66,14 @@ export async function POST(request: NextRequest) {
     }
     
     if (!auth.ok) {
-      console.error("[Liveblocks Auth] Authentication failed:", auth.error);
+      log.warn("Authentication failed", { error: auth.error });
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { user } = auth;
     return await handleLiveblocksAuth(request, user);
   } catch (error) {
-    console.error("[Liveblocks Auth] Error:", error);
+    log.error("Liveblocks auth error", { error });
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
@@ -88,14 +91,14 @@ async function handleLiveblocksAuth(
       room = body?.room;
     } catch {
       // Body может быть пустым — это нормально
-      console.log("[Liveblocks Auth] No room in body, granting access to all user duels");
+      log.debug("No room in body, granting access to all user duels");
     }
 
     // Если запрашивается конкретная комната дуэли — проверяем доступ
     if (room && room.startsWith("duel:")) {
       const duelId = room.replace("duel:", "");
       
-      console.log(`[Liveblocks Auth] User ${user.id} requesting room: ${room}`);
+      log.debug("User requesting room", { userId: user.id, room });
       
       const duel = await prisma.duel.findUnique({
         where: { id: duelId },
@@ -107,23 +110,23 @@ async function handleLiveblocksAuth(
       });
 
       if (!duel) {
-        console.error(`[Liveblocks Auth] Duel ${duelId} not found`);
+        log.warn("Duel not found", { duelId });
         return NextResponse.json({ error: "DUEL_NOT_FOUND" }, { status: 404 });
       }
 
       // Проверяем что пользователь — участник дуэли
       if (duel.challengerId !== user.id && duel.opponentId !== user.id) {
-        console.error(`[Liveblocks Auth] User ${user.id} is not participant of duel ${duelId}`);
+        log.warn("User is not participant", { userId: user.id, duelId });
         return NextResponse.json({ error: "NOT_PARTICIPANT" }, { status: 403 });
       }
 
       // Проверяем что дуэль в правильном статусе
       if (!["ACCEPTED", "IN_PROGRESS"].includes(duel.status)) {
-        console.error(`[Liveblocks Auth] Duel ${duelId} has wrong status: ${duel.status}`);
+        log.warn("Duel has wrong status", { duelId, status: duel.status });
         return NextResponse.json({ error: "DUEL_NOT_ACTIVE", status: duel.status }, { status: 400 });
       }
       
-      console.log(`[Liveblocks Auth] Access granted to user ${user.id} for duel ${duelId}`);
+      log.debug("Access granted", { userId: user.id, duelId });
     }
 
     // ═══ СОЗДАЁМ СЕССИЮ LIVEBLOCKS ═══
@@ -167,7 +170,7 @@ async function handleLiveblocksAuth(
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[Liveblocks Auth] handleLiveblocksAuth Error:", error);
+    log.error("handleLiveblocksAuth error", { error });
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }

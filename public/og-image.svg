@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="50%" style="stop-color:#312e81"/>
+      <stop offset="100%" style="stop-color:#4c1d95"/>
+    </linearGradient>
+    
+    <!-- Accent gradient -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#ef4444"/>
+    </linearGradient>
+    
+    <!-- Icon gradient -->
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+  
+  <!-- Decorative circles -->
+  <circle cx="100" cy="100" r="200" fill="#6366f1" opacity="0.1"/>
+  <circle cx="1100" cy="530" r="250" fill="#8b5cf6" opacity="0.1"/>
+  <circle cx="900" cy="100" r="150" fill="#f59e0b" opacity="0.08"/>
+  
+  <!-- Grid pattern -->
+  <g opacity="0.05" stroke="white" stroke-width="1">
+    <line x1="0" y1="157" x2="1200" y2="157"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+    <line x1="0" y1="473" x2="1200" y2="473"/>
+    <line x1="300" y1="0" x2="300" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="900" y1="0" x2="900" y2="630"/>
+  </g>
+  
+  <!-- Main icon (magnifying glass with question mark) -->
+  <g transform="translate(150, 200)" filter="url(#glow)">
+    <circle cx="110" cy="110" r="100" fill="url(#iconGrad)"/>
+    <circle cx="90" cy="90" r="50" stroke="white" stroke-width="8" fill="none"/>
+    <line x1="125" y1="125" x2="165" y2="165" stroke="white" stroke-width="10" stroke-linecap="round"/>
+    <text x="90" y="102" font-family="Arial, sans-serif" font-size="45" font-weight="bold" fill="url(#accentGrad)" text-anchor="middle">?</text>
+  </g>
+  
+  <!-- Title -->
+  <text x="380" y="260" font-family="Georgia, serif" font-size="72" font-weight="bold" fill="white">
+    Botvik
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="380" y="330" font-family="Arial, sans-serif" font-size="32" fill="#a5b4fc">
+    Квизы и расследования
+  </text>
+  
+  <!-- Features -->
+  <g transform="translate(380, 380)" font-family="Arial, sans-serif" font-size="22" fill="#e0e7ff">
+    <!-- Quiz icon -->
+    <circle cx="15" cy="-8" r="12" fill="#fbbf24"/>
+    <text x="40" y="0">Викторины</text>
+    
+    <!-- Duel icon -->
+    <circle cx="215" cy="-8" r="12" fill="#f472b6"/>
+    <text x="240" y="0">Дуэли 1×1</text>
+    
+    <!-- Tournament icon -->
+    <circle cx="385" cy="-8" r="12" fill="#34d399"/>
+    <text x="410" y="0">Турниры</text>
+    
+    <!-- Investigation icon -->
+    <circle cx="555" cy="-8" r="12" fill="#60a5fa"/>
+    <text x="580" y="0">Расследования</text>
+  </g>
+  
+  <!-- Telegram badge -->
+  <g transform="translate(380, 460)">
+    <rect x="0" y="0" width="220" height="50" rx="25" fill="white" opacity="0.1"/>
+    <text x="110" y="33" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle">
+      Telegram Mini App
+    </text>
+  </g>
+  
+  <!-- Decorative sparkles -->
+  <circle cx="750" cy="180" r="4" fill="#fbbf24"/>
+  <circle cx="780" cy="200" r="2" fill="#fbbf24" opacity="0.7"/>
+  <circle cx="1050" cy="280" r="5" fill="#f472b6"/>
+  <circle cx="1080" cy="260" r="3" fill="#f472b6" opacity="0.6"/>
+</svg>
+

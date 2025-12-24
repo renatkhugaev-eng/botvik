@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
 
   const rawInitData = payload?.initData ?? "";
   const referralCodeFromBody = payload?.referralCode?.toUpperCase()?.trim();
-  const initDataPreview = rawInitData ? rawInitData.slice(0, 120) : "";
-  console.log("[auth/telegram] incoming initData", {
-    length: rawInitData.length,
-    preview: initDataPreview,
-  });
+  
+  // Only log initData length in production, no preview (contains sensitive user data)
+  if (process.env.NODE_ENV === "development") {
+    console.log("[auth/telegram] incoming initData length:", rawInitData.length);
+  }
 
   if (!rawInitData) {
     return NextResponse.json({ ok: false, reason: "NO_INIT_DATA" }, { status: 400 });
@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
 
   const validation = validateInitData(rawInitData, botToken);
   if (!validation.ok) {
+    // Don't log initData content in production — contains sensitive user data
     console.error("[auth/telegram] invalid initData", {
       reason: validation.reason,
       initDataLength: rawInitData.length,
-      initDataPreview: rawInitData.slice(0, 80),
     });
     return NextResponse.json({ ok: false, reason: validation.reason }, { status: 401 });
   }

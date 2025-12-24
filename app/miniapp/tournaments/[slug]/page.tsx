@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
@@ -941,7 +942,7 @@ function LeaderboardTab({
                   >
                     <div className="relative mb-2">
                       {top3[1].user.photoUrl ? (
-                        <img src={top3[1].user.photoUrl} alt="" className="h-14 w-14 rounded-full object-cover ring-4 ring-slate-400" />
+                        <Image src={top3[1].user.photoUrl} alt="" width={56} height={56} loading="lazy" className="h-14 w-14 rounded-full object-cover ring-4 ring-slate-400" />
                       ) : (
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-500 text-xl font-bold text-white ring-4 ring-slate-400">
                           {(top3[1].user.firstName ?? top3[1].user.username ?? "?")[0].toUpperCase()}
@@ -974,7 +975,7 @@ function LeaderboardTab({
                     </motion.div>
                     <div className="relative mb-2">
                       {top3[0].user.photoUrl ? (
-                        <img src={top3[0].user.photoUrl} alt="" className="h-18 w-18 rounded-full object-cover ring-4 ring-amber-400 shadow-lg shadow-amber-500/50" style={{ width: 72, height: 72 }} />
+                        <Image src={top3[0].user.photoUrl} alt="" width={72} height={72} priority className="rounded-full object-cover ring-4 ring-amber-400 shadow-lg shadow-amber-500/50" />
                       ) : (
                         <div className="flex items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-2xl font-bold text-white ring-4 ring-amber-400 shadow-lg shadow-amber-500/50" style={{ width: 72, height: 72 }}>
                           {(top3[0].user.firstName ?? top3[0].user.username ?? "?")[0].toUpperCase()}
@@ -1000,7 +1001,7 @@ function LeaderboardTab({
                   >
                     <div className="relative mb-2">
                       {top3[2].user.photoUrl ? (
-                        <img src={top3[2].user.photoUrl} alt="" className="h-12 w-12 rounded-full object-cover ring-4 ring-orange-400" />
+                        <Image src={top3[2].user.photoUrl} alt="" width={48} height={48} loading="lazy" className="h-12 w-12 rounded-full object-cover ring-4 ring-orange-400" />
                       ) : (
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-500 text-lg font-bold text-white ring-4 ring-orange-400">
                           {(top3[2].user.firstName ?? top3[2].user.username ?? "?")[0].toUpperCase()}
@@ -1044,7 +1045,7 @@ function LeaderboardTab({
 
                       {/* Avatar */}
                       {entry.user.photoUrl ? (
-                        <img src={entry.user.photoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                        <Image src={entry.user.photoUrl} alt="" width={40} height={40} loading="lazy" className="h-10 w-10 rounded-full object-cover" />
                       ) : (
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 text-sm font-bold text-white">
                           {(entry.user.firstName ?? entry.user.username ?? "?")[0].toUpperCase()}

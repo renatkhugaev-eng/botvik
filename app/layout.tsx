@@ -32,8 +32,48 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Mini App Starter",
-  description: "Minimal Next.js starter for a Telegram Mini App",
+  title: {
+    default: "Botvik — Квизы и расследования",
+    template: "%s | Botvik",
+  },
+  description: "Telegram Mini App с квизами, дуэлями, турнирами и детективными расследованиями. Играй, соревнуйся с друзьями и получай награды!",
+  keywords: ["квизы", "telegram", "mini app", "викторины", "дуэли", "расследования"],
+  authors: [{ name: "Botvik Team" }],
+  creator: "Botvik",
+  publisher: "Botvik",
+  robots: {
+    index: false, // Telegram Mini App не индексируется
+    follow: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "ru_RU",
+    siteName: "Botvik",
+    title: "Botvik — Квизы и расследования",
+    description: "Telegram Mini App с квизами, дуэлями и детективными расследованиями",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Botvik — Квизы и расследования",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Botvik — Квизы и расследования",
+    description: "Telegram Mini App с квизами, дуэлями и детективными расследованиями",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

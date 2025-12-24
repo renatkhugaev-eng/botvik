@@ -191,6 +191,146 @@ export function trackError(errorType: string, errorMessage: string) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// DUEL EVENTS
+// ═══════════════════════════════════════════════════════════════════
+
+export function trackDuelCreated(duelId: number, opponentId: number) {
+  posthog.capture("duel_created", {
+    duel_id: duelId,
+    opponent_id: opponentId,
+  });
+}
+
+export function trackDuelCompleted(data: {
+  duelId: number;
+  result: "win" | "lose" | "draw";
+  myScore: number;
+  opponentScore: number;
+}) {
+  posthog.capture("duel_completed", {
+    duel_id: data.duelId,
+    result: data.result,
+    my_score: data.myScore,
+    opponent_score: data.opponentScore,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHOP EVENTS
+// ═══════════════════════════════════════════════════════════════════
+
+export function trackShopItemViewed(itemId: number, itemName: string, price: number) {
+  posthog.capture("shop_item_viewed", {
+    item_id: itemId,
+    item_name: itemName,
+    price,
+  });
+}
+
+export function trackPurchaseStarted(itemId: number, itemName: string, price: number) {
+  posthog.capture("purchase_started", {
+    item_id: itemId,
+    item_name: itemName,
+    price,
+  });
+}
+
+export function trackPurchaseCompleted(itemId: number, itemName: string, price: number) {
+  posthog.capture("purchase_completed", {
+    item_id: itemId,
+    item_name: itemName,
+    price,
+    revenue: price, // For revenue tracking
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOURNAMENT EVENTS
+// ═══════════════════════════════════════════════════════════════════
+
+export function trackTournamentJoined(tournamentId: number, tournamentTitle: string) {
+  posthog.capture("tournament_joined", {
+    tournament_id: tournamentId,
+    tournament_title: tournamentTitle,
+  });
+}
+
+export function trackTournamentStageCompleted(data: {
+  tournamentId: number;
+  stageOrder: number;
+  score: number;
+  passed: boolean;
+}) {
+  posthog.capture("tournament_stage_completed", {
+    tournament_id: data.tournamentId,
+    stage_order: data.stageOrder,
+    score: data.score,
+    passed: data.passed,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DAILY & REWARDS EVENTS
+// ═══════════════════════════════════════════════════════════════════
+
+export function trackDailyRewardClaimed(day: number, rewardType: string, rewardValue: number) {
+  posthog.capture("daily_reward_claimed", {
+    day,
+    reward_type: rewardType,
+    reward_value: rewardValue,
+  });
+}
+
+export function trackAchievementUnlocked(achievementId: string, achievementTitle: string) {
+  posthog.capture("achievement_unlocked", {
+    achievement_id: achievementId,
+    achievement_title: achievementTitle,
+  });
+}
+
+export function trackLevelUp(newLevel: number, totalXp: number) {
+  posthog.capture("level_up", {
+    new_level: newLevel,
+    total_xp: totalXp,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INVESTIGATION EVENTS
+// ═══════════════════════════════════════════════════════════════════
+
+export function trackInvestigationStarted(investigationId: string, investigationTitle: string) {
+  posthog.capture("investigation_started", {
+    investigation_id: investigationId,
+    investigation_title: investigationTitle,
+  });
+}
+
+export function trackInvestigationCompleted(investigationId: string, investigationTitle: string) {
+  posthog.capture("investigation_completed", {
+    investigation_id: investigationId,
+    investigation_title: investigationTitle,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION EVENTS
+// ═══════════════════════════════════════════════════════════════════
+
+export function trackAppOpened(source: "direct" | "notification" | "referral" | "share") {
+  posthog.capture("app_opened", {
+    source,
+  });
+}
+
+export function trackReferralUsed(referralCode: string, referrerId: number) {
+  posthog.capture("referral_used", {
+    referral_code: referralCode,
+    referrer_id: referrerId,
+  });
+}
+
 // Export posthog instance for advanced usage
 export { posthog };
 

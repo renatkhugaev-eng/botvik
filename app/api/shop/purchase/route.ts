@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   
   // Создаём запись о покупке со статусом PENDING
   // Используем crypto.randomUUID для гарантированной уникальности
-  const pendingId = `pending_${Date.now()}_${userId}_${itemId}_${Math.random().toString(36).slice(2, 8)}`;
+  const pendingId = `pending_${Date.now()}_${userId}_${itemId}_${crypto.randomUUID().slice(0, 8)}`;
   
   const purchase = await prisma.purchase.create({
     data: {

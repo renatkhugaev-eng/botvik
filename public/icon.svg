@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#ef4444"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="url(#bg)"/>
+  <!-- Magnifying glass (detective theme) -->
+  <circle cx="42" cy="42" r="18" stroke="white" stroke-width="5" fill="none"/>
+  <line x1="55" y1="55" x2="72" y2="72" stroke="white" stroke-width="6" stroke-linecap="round"/>
+  <!-- Question mark inside -->
+  <text x="42" y="48" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="url(#accent)" text-anchor="middle">?</text>
+  <!-- Sparkle -->
+  <circle cx="75" cy="25" r="4" fill="#fbbf24"/>
+  <circle cx="82" cy="32" r="2" fill="#fbbf24" opacity="0.7"/>
+</svg>
+

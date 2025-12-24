@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
@@ -12,15 +13,9 @@ import { api } from "@/lib/api";
 import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
+import { useIsIOS } from "@/components/hooks/usePlatform";
 
-// Detect iOS - iOS handles blur effects well, no need to disable during scroll
-function useIsIOS() {
-  const [isIOS, setIsIOS] = useState(false);
-  useEffect(() => {
-    setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-  }, []);
-  return isIOS;
-}
+// Platform detection moved to @/components/hooks/usePlatform
 
 type LeaderboardEntry = {
   place: number;
@@ -570,7 +565,7 @@ export default function LeaderboardPage() {
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-slate-400 to-slate-300 opacity-30" />
                           {top3[1].user.photoUrl ? (
-                            <img src={top3[1].user.photoUrl} alt="" width={48} height={48} className="relative h-12 w-12 rounded-full object-cover ring-2 ring-white/10" style={{ aspectRatio: '1/1' }} />
+                            <Image src={top3[1].user.photoUrl} alt="" width={48} height={48} loading="lazy" className="relative h-12 w-12 rounded-full object-cover ring-2 ring-white/10" />
                           ) : (
                             <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-300 to-slate-400 ring-2 ring-white/10">
                               <span className="text-base font-black text-white">
@@ -605,7 +600,7 @@ export default function LeaderboardPage() {
                           <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-40 animate-pulse gpu-accelerated" />
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 animate-spin-slow" />
                           {top3[0].user.photoUrl ? (
-                            <img src={top3[0].user.photoUrl} alt="" width={64} height={64} className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white/20" style={{ aspectRatio: '1/1' }} />
+                            <Image src={top3[0].user.photoUrl} alt="" width={64} height={64} priority className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white/20" />
                           ) : (
                             <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 ring-2 ring-white/20">
                               <span className="text-xl font-black text-white">
@@ -641,7 +636,7 @@ export default function LeaderboardPage() {
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 opacity-30" />
                           {top3[2].user.photoUrl ? (
-                            <img src={top3[2].user.photoUrl} alt="" width={40} height={40} className="relative h-10 w-10 rounded-full object-cover ring-2 ring-white/10" style={{ aspectRatio: '1/1' }} />
+                            <Image src={top3[2].user.photoUrl} alt="" width={40} height={40} loading="lazy" className="relative h-10 w-10 rounded-full object-cover ring-2 ring-white/10" />
                           ) : (
                             <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 ring-2 ring-white/10">
                               <span className="text-sm font-black text-white">
@@ -716,7 +711,7 @@ export default function LeaderboardPage() {
                         {/* Avatar */}
                         <div className="relative">
                           {entry.user.photoUrl ? (
-                            <img src={entry.user.photoUrl} alt="" width={36} height={36} className="h-9 w-9 rounded-full object-cover" style={{ aspectRatio: '1/1' }} />
+                            <Image src={entry.user.photoUrl} alt="" width={36} height={36} loading="lazy" className="h-9 w-9 rounded-full object-cover" />
                           ) : (
                             <div className={`flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br ${getPositionGradient(entry.place)} text-[12px] font-bold text-white`}>
                               {name[0].toUpperCase()}

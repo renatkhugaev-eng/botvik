@@ -15,8 +15,9 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
     deviceSizes: [640, 750, 828, 1080, 1200],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
-    // Domains for external images (Telegram avatars)
+    // Domains for external images (Telegram avatars, CDN)
     remotePatterns: [
+      // Telegram main domains
       {
         protocol: 'https',
         hostname: 't.me',
@@ -24,6 +25,20 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: '**.telegram.org',
+      },
+      // Telegram CDN for avatars (various subdomains)
+      {
+        protocol: 'https',
+        hostname: 'cdn*.telegram-cdn.org',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.cdn.telegram.org',
+      },
+      // Telegram avatar CDN
+      {
+        protocol: 'https',
+        hostname: 'api.telegram.org',
       },
     ],
   },
