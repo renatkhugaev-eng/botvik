@@ -11,6 +11,10 @@ import { prisma } from "@/lib/prisma";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type AuditAction = 
+  // Auth
+  | "auth.login_success"
+  | "auth.login_failed"
+  | "auth.logout"
   // Quiz management
   | "quiz.create"
   | "quiz.update"
@@ -35,8 +39,8 @@ export type AuditAction =
 
 export type AuditLogEntry = {
   action: AuditAction;
-  adminId: number;
-  adminTelegramId: string;
+  adminId?: number;
+  adminTelegramId?: string;
   targetType?: "user" | "quiz" | "tournament" | "item" | "system";
   targetId?: string | number;
   details?: Record<string, unknown>;
@@ -76,7 +80,7 @@ export async function auditLog(entry: AuditLogEntry): Promise<void> {
   
   // Always log to console for immediate visibility
   console.log(
-    `[AUDIT] ${timestamp} | ${entry.action} | admin:${entry.adminTelegramId} | ` +
+    `[AUDIT] ${timestamp} | ${entry.action} | admin:${entry.adminTelegramId || "unknown"} | ` +
     `${entry.targetType || ""}:${entry.targetId || ""} | ` +
     `${JSON.stringify(entry.details || {})}`
   );
@@ -100,7 +104,7 @@ export async function auditLogSync(entry: AuditLogEntry): Promise<void> {
   const timestamp = new Date().toISOString();
   
   console.log(
-    `[AUDIT:SYNC] ${timestamp} | ${entry.action} | admin:${entry.adminTelegramId} | ` +
+    `[AUDIT:SYNC] ${timestamp} | ${entry.action} | admin:${entry.adminTelegramId || "unknown"} | ` +
     `${entry.targetType || ""}:${entry.targetId || ""}`
   );
   
@@ -108,8 +112,8 @@ export async function auditLogSync(entry: AuditLogEntry): Promise<void> {
     await prisma.auditLog.create({
       data: {
         action: entry.action,
-        adminId: entry.adminId,
-        adminTelegramId: entry.adminTelegramId,
+        adminId: entry.adminId || null,
+        adminTelegramId: entry.adminTelegramId || null,
         targetType: entry.targetType || null,
         targetId: entry.targetId?.toString() || null,
         details: entry.details || {},
@@ -140,8 +144,8 @@ async function flushAuditLogs(): Promise<void> {
     await prisma.auditLog.createMany({
       data: logsToWrite.map(entry => ({
         action: entry.action,
-        adminId: entry.adminId,
-        adminTelegramId: entry.adminTelegramId,
+        adminId: entry.adminId || null,
+        adminTelegramId: entry.adminTelegramId || null,
         targetType: entry.targetType || null,
         targetId: entry.targetId?.toString() || null,
         details: entry.details || {},

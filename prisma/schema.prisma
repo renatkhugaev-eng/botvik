@@ -928,9 +928,9 @@ enum DuelStatus {
 model AuditLog {
   id              Int      @id @default(autoincrement())
   
-  action          String                     // "quiz.create", "user.ban", etc.
-  adminId         Int                        // ID админа в БД
-  adminTelegramId String                     // Telegram ID админа
+  action          String                     // "quiz.create", "user.ban", "auth.login_failed", etc.
+  adminId         Int?                       // ID админа в БД (null для failed logins)
+  adminTelegramId String?                    // Telegram ID админа (null для failed logins)
   
   targetType      String?                    // "user", "quiz", "tournament", etc.
   targetId        String?                    // ID целевого объекта

@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     console.warn(`[admin/login] Failed login attempt from ${identifier}`);
     
     await auditLog({
-      action: "ADMIN_LOGIN_FAILED",
+      action: "auth.login_failed",
       details: { 
         identifier,
         ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     
     // Log successful login
     await auditLog({
-      action: "ADMIN_LOGIN_SUCCESS",
+      action: "auth.login_success",
       details: {
         method: "password",
         identifier,
