@@ -185,8 +185,8 @@ export async function GET(req: NextRequest) {
       presetStatuses: PRESET_STATUSES,
     });
   } catch (error) {
-    logger.error("[Profile] Failed to get profile:", error);
-    return errors.internalServerError();
+    logger.error("[Profile] Failed to get profile:", { error: String(error) });
+    return errors.internal();
   }
 }
 
@@ -226,7 +226,7 @@ export async function PUT(req: NextRequest) {
     // Bio
     if (body.bio !== undefined) {
       if (body.bio && body.bio.length > MAX_BIO_LENGTH) {
-        return errors.badRequest(`Bio must be ${MAX_BIO_LENGTH} characters or less`);
+        return errors.validation(`Bio must be ${MAX_BIO_LENGTH} characters or less`);
       }
       updateData.bio = body.bio?.trim() || null;
     }
@@ -234,7 +234,7 @@ export async function PUT(req: NextRequest) {
     // Status
     if (body.status !== undefined) {
       if (!Object.values(UserStatus).includes(body.status)) {
-        return errors.badRequest("Invalid status");
+        return errors.validation("Invalid status");
       }
       updateData.status = body.status;
     }
@@ -242,7 +242,7 @@ export async function PUT(req: NextRequest) {
     // Status Emoji
     if (body.statusEmoji !== undefined) {
       if (body.statusEmoji && body.statusEmoji.length > MAX_STATUS_EMOJI_LENGTH) {
-        return errors.badRequest(`Status emoji too long`);
+        return errors.validation(`Status emoji too long`);
       }
       updateData.statusEmoji = body.statusEmoji?.trim() || null;
     }
@@ -250,7 +250,7 @@ export async function PUT(req: NextRequest) {
     // Status Text
     if (body.statusText !== undefined) {
       if (body.statusText && body.statusText.length > MAX_STATUS_TEXT_LENGTH) {
-        return errors.badRequest(`Status text must be ${MAX_STATUS_TEXT_LENGTH} characters or less`);
+        return errors.validation(`Status text must be ${MAX_STATUS_TEXT_LENGTH} characters or less`);
       }
       updateData.statusText = body.statusText?.trim() || null;
     }
@@ -274,7 +274,7 @@ export async function PUT(req: NextRequest) {
         for (let i = 0; i < 3; i++) {
           const achievementId = achievements[i] || null;
           if (achievementId && !unlockedIds.has(achievementId)) {
-            return errors.badRequest(`Achievement ${achievementId} is not unlocked`);
+            return errors.validation(`Achievement ${achievementId} is not unlocked`);
           }
           updateData[`showcaseAchievement${i + 1}`] = achievementId;
         }
@@ -334,8 +334,8 @@ export async function PUT(req: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error("[Profile] Failed to update profile:", error);
-    return errors.internalServerError();
+    logger.error("[Profile] Failed to update profile:", { error: String(error) });
+    return errors.internal();
   }
 }
 
@@ -387,10 +387,10 @@ export async function POST(req: NextRequest) {
       return success({ playing: false });
     }
     
-    return errors.badRequest("Invalid action");
+    return errors.validation("Invalid action");
   } catch (error) {
-    logger.error("[Profile] Failed to update playing status:", error);
-    return errors.internalServerError();
+    logger.error("[Profile] Failed to update playing status:", { error: String(error) });
+    return errors.internal();
   }
 }
 
