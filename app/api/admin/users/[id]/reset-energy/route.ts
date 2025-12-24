@@ -89,11 +89,11 @@ export async function POST(
 
     // ═══ AUDIT LOG ═══
     await auditLog({
-      userId: auth.user.id,
-      telegramId: auth.user.telegramId,
-      action: "ADMIN_USER_RESET_ENERGY",
-      entityType: "User",
-      entityId: userId.toString(),
+      action: "user.reset_energy",
+      adminId: auth.user.id,
+      adminTelegramId: auth.user.telegramId,
+      targetType: "user",
+      targetId: userId.toString(),
       details: {
         targetUser: {
           id: targetUser.id,
