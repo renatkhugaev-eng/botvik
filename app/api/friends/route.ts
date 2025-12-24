@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logFriendAdded } from "@/lib/activity";
+import { authenticateRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-// GET /api/friends?userId=X — Get user's friends and pending requests
+// GET /api/friends — Get user's friends and pending requests
 export async function GET(req: NextRequest) {
-  const userIdParam = req.nextUrl.searchParams.get("userId");
-  const userId = userIdParam ? Number(userIdParam) : NaN;
-
-  if (!userIdParam || Number.isNaN(userId)) {
-    return NextResponse.json({ error: "userId_required" }, { status: 400 });
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const userId = auth.user.id;
 
   try {
     // Get accepted friendships (where user is either sender or receiver)
@@ -164,10 +165,17 @@ export async function GET(req: NextRequest) {
 
 // POST /api/friends — Send a friend request
 export async function POST(req: NextRequest) {
-  try {
-    const { userId, friendUsername } = await req.json();
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const userId = auth.user.id;
 
-    if (!userId || !friendUsername) {
+  try {
+    const { friendUsername } = await req.json();
+
+    if (!friendUsername) {
       return NextResponse.json({ error: "missing_params" }, { status: 400 });
     }
 
@@ -263,6 +271,13 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/friends — Accept or decline a friend request
 export async function PUT(req: NextRequest) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const userId = auth.user.id;
+
   try {
     const { requestId, action } = await req.json();
 
@@ -284,6 +299,12 @@ export async function PUT(req: NextRequest) {
 
     if (!friendship || friendship.status !== "PENDING") {
       return NextResponse.json({ error: "request_not_found" }, { status: 404 });
+    }
+
+    // ═══ AUTHORIZATION: Only the recipient can accept/decline ═══
+    if (friendship.friendId !== userId) {
+      console.warn(`[friends] User ${userId} attempted to ${action} request ${requestId} not addressed to them`);
+      return NextResponse.json({ error: "not_authorized" }, { status: 403 });
     }
 
     await prisma.friendship.update({
@@ -311,11 +332,33 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/friends — Remove a friend or cancel request
 export async function DELETE(req: NextRequest) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const userId = auth.user.id;
+
   try {
     const { friendshipId } = await req.json();
 
     if (!friendshipId) {
       return NextResponse.json({ error: "missing_params" }, { status: 400 });
+    }
+
+    // ═══ AUTHORIZATION: Only participants can delete ═══
+    const friendship = await prisma.friendship.findUnique({
+      where: { id: friendshipId },
+      select: { userId: true, friendId: true },
+    });
+
+    if (!friendship) {
+      return NextResponse.json({ error: "friendship_not_found" }, { status: 404 });
+    }
+
+    if (friendship.userId !== userId && friendship.friendId !== userId) {
+      console.warn(`[friends] User ${userId} attempted to delete friendship ${friendshipId} they're not part of`);
+      return NextResponse.json({ error: "not_authorized" }, { status: 403 });
     }
 
     await prisma.friendship.delete({

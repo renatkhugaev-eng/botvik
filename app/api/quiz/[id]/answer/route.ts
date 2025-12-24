@@ -1,18 +1,11 @@
-import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
-import { checkRateLimit, quizAnswerLimiter, getClientIdentifier } from "@/lib/ratelimit";
+import { checkDualRateLimit, quizAnswerLimiter } from "@/lib/ratelimit";
 import { getCachedQuestions, cacheQuestions } from "@/lib/quiz-cache";
+import { parseAndValidate, validateId, quizAnswerSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
-
-type AnswerRequestBody = {
-  sessionId?: number;
-  questionId?: number;
-  optionId?: number;
-  timeSpentMs?: number;
-};
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FAIR SCORING SYSTEM v2.0 (OPTIMIZED)
@@ -114,32 +107,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
   const user = auth.user;
 
-  // ═══ RATE LIMITING (temporarily disabled for debugging) ═══
-  // const identifier = getClientIdentifier(req, user.telegramId);
-  // const rateLimit = await checkRateLimit(quizAnswerLimiter, identifier);
-  // if (rateLimit.limited) {
-  //   return rateLimit.response;
-  // }
+  // ═══ DUAL RATE LIMITING (User + IP) ═══
+  const rateLimit = await checkDualRateLimit(req, quizAnswerLimiter, `tg:${user.telegramId}`);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
 
+  // ═══ URL PARAM VALIDATION ═══
   const { id } = await context.params;
-  const quizId = Number(id);
-  if (!quizId || Number.isNaN(quizId)) {
-    return NextResponse.json({ error: "invalid_quiz_id" }, { status: 400 });
+  const idResult = validateId(id, "quizId");
+  if (!idResult.success) {
+    return idResult.response;
   }
+  const quizId = idResult.value;
 
-  let body: AnswerRequestBody;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+  // ═══ BODY VALIDATION (Zod) ═══
+  const validation = await parseAndValidate(req, quizAnswerSchema);
+  if (!validation.success) {
+    return validation.response;
   }
-
-  const { sessionId, questionId, optionId, timeSpentMs: clientTimeMs } = body;
-  const timeSpentMs = Math.max(0, Number(clientTimeMs ?? 0));
-
-  if (!sessionId || !questionId || !optionId) {
-    return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-  }
+  const { sessionId, questionId, optionId, timeSpentMs: clientTimeMs } = validation.data;
+  const timeSpentMs = Math.max(0, clientTimeMs ?? 0);
 
   // ═══ OPTIMIZED: Single query for session ═══
   const session = await prisma.quizSession.findUnique({

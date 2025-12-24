@@ -592,36 +592,36 @@ export default function ProfilePage() {
           <CardContent className="relative p-6 text-white">
             {/* Top section: Avatar + Info */}
             <div className="flex items-start gap-5">
-              {/* Avatar with glow */}
-              <div className="relative flex-shrink-0">
-                {/* Multi-layer glow effect */}
-                <div className="absolute -inset-4 bg-amber-400/40 rounded-full blur-2xl animate-pulse" />
-                <div className="absolute -inset-2 bg-white/40 rounded-full blur-xl" />
-                <div className="absolute -inset-1 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 rounded-full shadow-[0_0_30px_rgba(251,146,60,0.6)]" />
-                
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                  className="relative"
-                >
-                  {data?.user?.equippedFrame?.imageUrl ? (
-                    <AvatarWithFrame
-                      photoUrl={photoUrl}
-                      frameUrl={data.user.equippedFrame.imageUrl}
-                      size={96}
-                      fallbackLetter={avatarLetter}
-                    />
-                  ) : (
-                    <Avatar className="h-24 w-24 border-4 border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
-                      <AvatarImage src={photoUrl ?? undefined} alt={displayName} />
-                      <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-inner">
+              {/* Avatar — Clean Minimal */}
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+                className="relative flex-shrink-0"
+              >
+                {data?.user?.equippedFrame?.imageUrl ? (
+                  <AvatarWithFrame
+                    photoUrl={photoUrl}
+                    frameUrl={data.user.equippedFrame.imageUrl}
+                    size={88}
+                    fallbackLetter={avatarLetter}
+                  />
+                ) : (
+                  <div className="relative h-[88px] w-[88px] rounded-2xl overflow-hidden ring-2 ring-white/30">
+                    {photoUrl ? (
+                      <img 
+                        src={photoUrl} 
+                        alt={displayName} 
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-3xl font-bold bg-white/20 text-white backdrop-blur-sm">
                         {avatarLetter}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                </motion.div>
-              </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
 
               {/* User info */}
               <div className="flex-1 pt-2">

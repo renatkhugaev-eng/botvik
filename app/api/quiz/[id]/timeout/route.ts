@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,13 @@ type TimeoutRequestBody = {
  * Handle question timeout - sync server state when time expires
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const userId = auth.user.id;
+
   const { id } = await context.params;
   const quizId = Number(id);
   
@@ -39,6 +47,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     where: { id: sessionId },
     select: { 
       id: true, 
+      userId: true,
       quizId: true, 
       finishedAt: true, 
       totalScore: true,
@@ -48,6 +57,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   if (!session || session.quizId !== quizId) {
     return NextResponse.json({ error: "session_not_found" }, { status: 404 });
+  }
+
+  // ═══ SESSION OWNERSHIP CHECK ═══
+  if (session.userId !== userId) {
+    console.warn(`[quiz/timeout] ⚠️ SECURITY: User ${userId} attempted to timeout session ${sessionId} owned by user ${session.userId}`);
+    return NextResponse.json({ error: "session_not_yours" }, { status: 403 });
   }
 
   if (session.finishedAt) {

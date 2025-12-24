@@ -40,12 +40,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const userId = auth.user.id;
   console.log("[quiz/start] 👤 User:", userId);
 
-  // ═══ RATE LIMITING (temporarily disabled for debugging) ═══
-  // const identifier = getClientIdentifier(req, auth.user.telegramId);
-  // const rateLimit = await checkRateLimit(quizStartLimiter, identifier);
-  // if (rateLimit.limited) {
-  //   return rateLimit.response;
-  // }
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(quizStartLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
 
   const { id } = await context.params;
   const quizId = Number(id);

@@ -251,10 +251,28 @@ export function getClientIdentifier(req: NextRequest, telegramId?: string): stri
   }
   
   // Fallback to IP
+  return `ip:${getIpAddress(req)}`;
+}
+
+/**
+ * Extract IP address from request headers
+ */
+export function getIpAddress(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  const realIp = req.headers.get("x-real-ip");
+  const cfConnectingIp = req.headers.get("cf-connecting-ip"); // Cloudflare
   
-  return `ip:${ip}`;
+  // Cloudflare provides the real client IP
+  if (cfConnectingIp) {
+    return cfConnectingIp;
+  }
+  
+  // X-Forwarded-For: client, proxy1, proxy2
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  
+  return realIp || "unknown";
 }
 
 /**
@@ -268,5 +286,84 @@ export function addRateLimitHeaders(
   response.headers.set("X-RateLimit-Remaining", String(result.remaining));
   response.headers.set("X-RateLimit-Reset", String(result.reset));
   return response;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IP-BASED RATE LIMITING (additional layer)
+// Защита от атак с одного IP, даже если используются разные аккаунты
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** 
+ * Strict IP limiter: 200 requests per minute per IP
+ * Catches abuse even if attacker uses multiple accounts
+ */
+export const ipLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(200, "1 m"),
+  prefix: "ratelimit:ip",
+  analytics: true,
+});
+
+/**
+ * Very strict IP limiter for sensitive operations: 20 per minute
+ * For auth attempts, password resets, etc.
+ */
+export const ipStrictLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(20, "1 m"),
+  prefix: "ratelimit:ip:strict",
+  analytics: true,
+});
+
+/**
+ * Check both user-based and IP-based rate limits
+ * Returns rate limit error if either is exceeded
+ * 
+ * @example
+ * const result = await checkDualRateLimit(req, userLimiter, userId, ipLimiter);
+ * if (result.limited) return result.response;
+ */
+export async function checkDualRateLimit(
+  req: NextRequest,
+  userLimiter: Ratelimit,
+  userId: string,
+  ipBasedLimiter: Ratelimit = ipLimiter
+): Promise<{ limited: false } | { limited: true; response: NextResponse }> {
+  // Skip if not configured
+  if (!isRateLimitConfigured()) {
+    return { limited: false };
+  }
+  
+  const ip = getIpAddress(req);
+  
+  // Check IP limit first (cheaper, catches obvious abuse)
+  const ipResult = await checkRateLimit(ipBasedLimiter, `ip:${ip}`);
+  if (ipResult.limited) {
+    console.warn(`[ratelimit] IP ${ip} exceeded rate limit`);
+    return ipResult;
+  }
+  
+  // Then check user limit
+  const userResult = await checkRateLimit(userLimiter, userId);
+  if (userResult.limited) {
+    return userResult;
+  }
+  
+  return { limited: false };
+}
+
+/**
+ * Check IP-only rate limit (for unauthenticated endpoints)
+ */
+export async function checkIpRateLimit(
+  req: NextRequest,
+  limiter: Ratelimit = ipLimiter
+): Promise<{ limited: false } | { limited: true; response: NextResponse }> {
+  if (!isRateLimitConfigured()) {
+    return { limited: false };
+  }
+  
+  const ip = getIpAddress(req);
+  return checkRateLimit(limiter, `ip:${ip}`);
 }
 

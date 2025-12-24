@@ -1,9 +1,54 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ADMIN LOGIN API — Secure JWT-based authentication
+ * Best practices 2025: JWT tokens, timing-safe comparison, rate limiting
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, authLimiter, getClientIdentifier } from "@/lib/ratelimit";
+import { 
+  createAdminToken, 
+  createAdminTokenResponse, 
+  createLogoutResponse 
+} from "@/lib/admin-auth";
+import { auditLog } from "@/lib/audit-log";
+import { timingSafeEqual } from "crypto";
 
 export const runtime = "nodejs";
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme";
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Timing-safe password comparison to prevent timing attacks
+ */
+function verifyPassword(input: string, expected: string): boolean {
+  try {
+    const inputBuffer = Buffer.from(input);
+    const expectedBuffer = Buffer.from(expected);
+    
+    // Lengths must match for timingSafeEqual
+    if (inputBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+    
+    return timingSafeEqual(inputBuffer, expectedBuffer);
+  } catch {
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POST /api/admin/login — Password-based admin login
+// ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
   // ═══ RATE LIMITING (prevent brute force) ═══
@@ -13,6 +58,16 @@ export async function POST(req: NextRequest) {
     return rateLimit.response;
   }
 
+  // ═══ VALIDATE CONFIGURATION ═══
+  if (!ADMIN_PASSWORD) {
+    console.error("[admin/login] ADMIN_PASSWORD not configured");
+    return NextResponse.json(
+      { error: "server_misconfigured" },
+      { status: 500 }
+    );
+  }
+
+  // ═══ PARSE BODY ═══
   let body: { password?: string };
   try {
     body = await req.json();
@@ -22,46 +77,61 @@ export async function POST(req: NextRequest) {
 
   const { password } = body;
 
-  if (!password) {
+  if (!password || typeof password !== "string") {
     return NextResponse.json({ error: "password_required" }, { status: 400 });
   }
 
-  // Timing-safe comparison would be better, but for admin password it's acceptable
-  if (password === ADMIN_PASSWORD) {
-    // Generate a simple session token
-    const token = Buffer.from(
-      JSON.stringify({
-        authorized: true,
-        timestamp: Date.now(),
-        expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      })
-    ).toString("base64");
+  // ═══ VERIFY PASSWORD (timing-safe) ═══
+  const isValid = verifyPassword(password, ADMIN_PASSWORD);
 
-    return NextResponse.json(
-      { success: true, token },
-      {
-        headers: {
-          "Set-Cookie": `admin_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`,
-        },
-      }
-    );
+  if (!isValid) {
+    // Log failed attempt
+    console.warn(`[admin/login] Failed login attempt from ${identifier}`);
+    
+    await auditLog({
+      action: "ADMIN_LOGIN_FAILED",
+      details: { 
+        identifier,
+        ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+      },
+    });
+
+    return NextResponse.json({ error: "invalid_password" }, { status: 401 });
   }
 
-  // Log failed attempt
-  console.warn(`[Admin] Failed login attempt from ${identifier}`);
+  // ═══ CREATE JWT TOKEN ═══
+  try {
+    const token = await createAdminToken("password-admin");
+    
+    // Log successful login
+    await auditLog({
+      action: "ADMIN_LOGIN_SUCCESS",
+      details: {
+        method: "password",
+        identifier,
+      },
+    });
 
-  return NextResponse.json({ error: "invalid_password" }, { status: 401 });
+    console.log(`[admin/login] Successful login from ${identifier}`);
+    
+    return createAdminTokenResponse(token, { 
+      success: true,
+      message: "Logged in successfully",
+    });
+    
+  } catch (error) {
+    console.error("[admin/login] Failed to create token:", error);
+    return NextResponse.json(
+      { error: "token_creation_failed" },
+      { status: 500 }
+    );
+  }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DELETE /api/admin/login — Logout (clear cookie)
+// ═══════════════════════════════════════════════════════════════════════════
 
 export async function DELETE() {
-  // Logout - clear cookie
-  return NextResponse.json(
-    { success: true },
-    {
-      headers: {
-        "Set-Cookie": "admin_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
-      },
-    }
-  );
+  return createLogoutResponse();
 }
-

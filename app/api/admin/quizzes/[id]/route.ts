@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateAdmin } from "@/lib/auth";
+import { auditLog, createAuditEntry } from "@/lib/audit-log";
+import { parseAndValidate, validateId, updateQuizSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -8,6 +11,12 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ═══ ADMIN AUTHORIZATION ═══
+  const auth = await authenticateAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const { id } = await params;
   const quizId = Number(id);
 
@@ -47,17 +56,27 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const quizId = Number(id);
-
-  if (!quizId || Number.isNaN(quizId)) {
-    return NextResponse.json({ error: "Invalid quiz ID" }, { status: 400 });
+  // ═══ ADMIN AUTHORIZATION ═══
+  const auth = await authenticateAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  try {
-    const body = await req.json();
-    const { title, description, prizeTitle, prizeDescription, isActive } = body;
+  const { id } = await params;
+  const idResult = validateId(id, "quizId");
+  if (!idResult.success) {
+    return idResult.response;
+  }
+  const quizId = idResult.value;
 
+  // ═══ VALIDATION ═══
+  const validation = await parseAndValidate(req, updateQuizSchema);
+  if (!validation.success) {
+    return validation.response;
+  }
+  const { title, description, prizeTitle, prizeDescription, isActive } = validation.data;
+
+  try {
     const quiz = await prisma.quiz.update({
       where: { id: quizId },
       data: {
@@ -68,6 +87,15 @@ export async function PATCH(
         ...(isActive !== undefined && { isActive }),
       },
     });
+
+    // ═══ AUDIT LOG ═══
+    await auditLog(createAuditEntry(
+      req,
+      { id: auth.user.id, telegramId: auth.user.telegramId },
+      "quiz.update",
+      { type: "quiz", id: quizId },
+      { title, isActive }
+    ));
 
     return NextResponse.json({ quiz });
   } catch (error) {
@@ -81,11 +109,27 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const quizId = Number(id);
+  // ═══ ADMIN AUTHORIZATION ═══
+  const auth = await authenticateAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
 
-  if (!quizId || Number.isNaN(quizId)) {
-    return NextResponse.json({ error: "Invalid quiz ID" }, { status: 400 });
+  const { id } = await params;
+  const idResult = validateId(id, "quizId");
+  if (!idResult.success) {
+    return idResult.response;
+  }
+  const quizId = idResult.value;
+
+  // Get quiz title for audit log before deletion
+  const quizToDelete = await prisma.quiz.findUnique({
+    where: { id: quizId },
+    select: { title: true },
+  });
+
+  if (!quizToDelete) {
+    return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
   }
 
   try {
@@ -128,6 +172,15 @@ export async function DELETE(
         where: { id: quizId },
       });
     });
+
+    // ═══ AUDIT LOG ═══
+    await auditLog(createAuditEntry(
+      req,
+      { id: auth.user.id, telegramId: auth.user.telegramId },
+      "quiz.delete",
+      { type: "quiz", id: quizId },
+      { quizTitle: quizToDelete.title }
+    ));
 
     return NextResponse.json({ success: true });
   } catch (error) {

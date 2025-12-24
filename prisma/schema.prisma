@@ -919,3 +919,31 @@ enum DuelStatus {
   EXPIRED       // Истекла (не приняли за 24h)
   CANCELLED     // Отменена создателем
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIT LOG SYSTEM
+// Логирование всех административных действий
+// ═══════════════════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id              Int      @id @default(autoincrement())
+  
+  action          String                     // "quiz.create", "user.ban", etc.
+  adminId         Int                        // ID админа в БД
+  adminTelegramId String                     // Telegram ID админа
+  
+  targetType      String?                    // "user", "quiz", "tournament", etc.
+  targetId        String?                    // ID целевого объекта
+  
+  details         Json     @default("{}")    // Дополнительные данные
+  
+  ipAddress       String?                    // IP адрес админа
+  userAgent       String?                    // User-Agent браузера
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([action])
+  @@index([adminTelegramId])
+  @@index([targetType, targetId])
+  @@index([createdAt(sort: Desc)])
+}

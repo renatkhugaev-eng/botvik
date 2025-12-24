@@ -1,36 +1,91 @@
-import { NextRequest, NextResponse } from "next/server";
-
 /**
- * High-quality Stories share image (1080x1920)
- * Design: Matches app style with Manrope font, violet/pink gradients
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SHARE IMAGE API — Generate high-quality Stories share image (1080x1920)
+ * Best practices 2025: Authentication, rate limiting, Zod validation
+ * ═══════════════════════════════════════════════════════════════════════════
  */
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, getClientIdentifier } from "@/lib/ratelimit";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { validate } from "@/lib/validation";
+
+export const runtime = "nodejs";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
 
 const HCTI_USER_ID = process.env.HCTI_USER_ID;
 const HCTI_API_KEY = process.env.HCTI_API_KEY;
 
+// Special rate limiter for expensive image generation (5 per minute)
+const redis = Redis.fromEnv();
+const imageGenerationLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  prefix: "ratelimit:share-image",
+  analytics: true,
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VALIDATION SCHEMA
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ShareImageRequestSchema = z.object({
+  quizTitle: z.string().max(100).default("True Crime Quiz"),
+  score: z.number().int().min(0).default(0),
+  correct: z.number().int().min(0).default(0),
+  total: z.number().int().min(1).max(50).default(5),
+  streak: z.number().int().min(0).default(0),
+  stars: z.number().int().min(0).max(5).default(3),
+  player: z.string().max(50).optional().default(""),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POST /api/share-image — Generate share image
+// ═══════════════════════════════════════════════════════════════════════════
+
 export async function POST(request: NextRequest) {
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ═══ RATE LIMITING (strict for image generation) ═══
+  const identifier = getClientIdentifier(request, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(imageGenerationLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
+  // ═══ VALIDATE CONFIGURATION ═══
   if (!HCTI_USER_ID || !HCTI_API_KEY) {
     return NextResponse.json(
-      { error: "HCTI credentials not configured" },
+      { error: "Image generation service not configured" },
       { status: 500 }
     );
   }
 
-  try {
-    const body = await request.json();
-    const {
-      quizTitle = "True Crime Quiz",
-      score = 0,
-      correct = 0,
-      total = 5,
-      streak = 0,
-      stars = 3,
-      player = "",
-    } = body;
+  // ═══ VALIDATE BODY ═══
+  const body = await validate(request, ShareImageRequestSchema);
+  if (!body.success) {
+    return NextResponse.json(
+      { error: body.error, details: body.details },
+      { status: 400 }
+    );
+  }
 
+  const { quizTitle, score, correct, total, streak, stars, player } = body.data;
+
+  try {
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-    
-    // Rank based on stars - matches app exactly
+
+    // ═══ RANK INFO ═══
     const getRankInfo = (starCount: number) => {
       if (starCount >= 5) return { title: "ЛЕГЕНДА", color: "#FBBF24", emoji: "👑" };
       if (starCount >= 4) return { title: "МАСТЕР", color: "#A855F7", emoji: "⚡" };
@@ -39,16 +94,17 @@ export async function POST(request: NextRequest) {
       if (starCount >= 1) return { title: "НОВИЧОК", color: "#94A3B8", emoji: "🌟" };
       return { title: "ПОПРОБУЙ ЕЩЁ", color: "#64748B", emoji: "💪" };
     };
-    
+
     const rank = getRankInfo(stars);
-    
-    // Base URL for icons (production domain)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://botvik.app";
-    
-    // Generate filled/empty stars using custom icon
-    const starsHTML = [1, 2, 3, 4, 5].map(i => 
-      `<img class="star ${i <= stars ? 'filled' : 'empty'}" src="${baseUrl}/icons/5.webp" alt="★">`
-    ).join('');
+
+    // ═══ GENERATE HTML ═══
+    const starsHTML = [1, 2, 3, 4, 5]
+      .map(
+        (i) =>
+          `<img class="star ${i <= stars ? "filled" : "empty"}" src="${baseUrl}/icons/5.webp" alt="★">`
+      )
+      .join("");
 
     const html = `<!DOCTYPE html>
 <html>
@@ -58,38 +114,30 @@ export async function POST(request: NextRequest) {
 </head>
 <body>
   <div class="card">
-    <!-- Background glows -->
     <div class="glow glow-top"></div>
     <div class="glow glow-center"></div>
     <div class="glow glow-bottom"></div>
     
-    <!-- Content -->
     <div class="content">
-      <!-- Logo/Quiz badge -->
       <div class="badge">
         <img class="badge-icon" src="${baseUrl}/icons/36.webp" alt="">
-        <span class="badge-text">${quizTitle}</span>
+        <span class="badge-text">${escapeHtml(quizTitle)}</span>
       </div>
       
-      <!-- Player -->
-      ${player ? `<div class="player">${player}</div>` : ''}
+      ${player ? `<div class="player">${escapeHtml(player)}</div>` : ""}
       
-      <!-- Rank -->
       <div class="rank" style="--rank-color: ${rank.color}">
         <img class="rank-icon" src="${baseUrl}/icons/trophy.webp" alt="">
         <span class="rank-text">${rank.title}</span>
       </div>
       
-      <!-- Stars -->
       <div class="stars">${starsHTML}</div>
       
-      <!-- Score Card -->
       <div class="score-card">
         <div class="score-label">МОЙ РЕЗУЛЬТАТ</div>
         <div class="score-value">${score.toLocaleString()}</div>
         <div class="score-unit">очков</div>
         
-        <!-- Stats -->
         <div class="stats">
           <div class="stat">
             <img class="stat-icon" src="${baseUrl}/icons/38.webp" alt="">
@@ -99,7 +147,7 @@ export async function POST(request: NextRequest) {
           <div class="stat-divider"></div>
           <div class="stat">
             <img class="stat-icon" src="${baseUrl}/icons/medal.webp" alt="">
-            <div class="stat-value" style="color: ${accuracy >= 70 ? '#22C55E' : accuracy >= 50 ? '#FBBF24' : '#EF4444'}">${accuracy}%</div>
+            <div class="stat-value" style="color: ${accuracy >= 70 ? "#22C55E" : accuracy >= 50 ? "#FBBF24" : "#EF4444"}">${accuracy}%</div>
             <div class="stat-label">точность</div>
           </div>
           <div class="stat-divider"></div>
@@ -111,20 +159,17 @@ export async function POST(request: NextRequest) {
         </div>
       </div>
       
-      <!-- CTA -->
       <div class="cta">
         <img class="cta-icon" src="${baseUrl}/icons/49.webp" alt="">
         <div class="cta-text">Сможешь лучше? Проверь себя!</div>
       </div>
       
-      <!-- Bot link -->
       <div class="bot-link">
         <span class="dot"></span>
         <span>@truecrimetg_bot</span>
       </div>
     </div>
     
-    <!-- Decorative corners -->
     <div class="corner tl"></div>
     <div class="corner tr"></div>
     <div class="corner bl"></div>
@@ -133,7 +178,69 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-    const css = `
+    const css = generateCSS();
+
+    // ═══ CALL HCTI API ═══
+    const response = await fetch("https://hcti.io/v1/image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(
+          `${HCTI_USER_ID}:${HCTI_API_KEY}`
+        ).toString("base64")}`,
+      },
+      body: JSON.stringify({
+        html,
+        css,
+        google_fonts: "Manrope:400,500,600,700,800",
+        viewport_width: 1080,
+        viewport_height: 1920,
+        device_scale: 1,
+        full_page: true,
+        transparent: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("HCTI API error:", errorText);
+      return NextResponse.json(
+        { error: "Failed to generate image" },
+        { status: 500 }
+      );
+    }
+
+    const result = await response.json();
+
+    return NextResponse.json({
+      success: true,
+      url: result.url,
+    });
+    
+  } catch (error) {
+    console.error("Share image error:", error);
+    return NextResponse.json(
+      { error: "Failed to generate image" },
+      { status: 500 }
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function generateCSS(): string {
+  return `
 * {
   margin: 0;
   padding: 0;
@@ -158,7 +265,6 @@ html, body {
   font-family: 'Manrope', -apple-system, sans-serif;
 }
 
-/* Glows - app style */
 .glow {
   position: absolute;
   border-radius: 50%;
@@ -191,7 +297,6 @@ html, body {
   background: radial-gradient(circle, rgba(236, 72, 153, 0.3) 0%, transparent 60%);
 }
 
-/* Content */
 .content {
   position: relative;
   z-index: 10;
@@ -202,7 +307,6 @@ html, body {
   padding: 100px 60px 80px;
 }
 
-/* Badge */
 .badge {
   display: flex;
   align-items: center;
@@ -227,7 +331,6 @@ html, body {
   letter-spacing: 1px;
 }
 
-/* Player */
 .player {
   color: rgba(255, 255, 255, 0.7);
   font-size: 32px;
@@ -235,7 +338,6 @@ html, body {
   margin-bottom: 30px;
 }
 
-/* Rank */
 .rank {
   display: flex;
   align-items: center;
@@ -262,7 +364,6 @@ html, body {
   text-shadow: 0 0 30px color-mix(in srgb, var(--rank-color) 60%, transparent);
 }
 
-/* Stars */
 .stars {
   display: flex;
   gap: 20px;
@@ -284,7 +385,6 @@ html, body {
   filter: grayscale(1);
 }
 
-/* Score Card */
 .score-card {
   flex: 1;
   display: flex;
@@ -327,7 +427,6 @@ html, body {
   margin-bottom: 50px;
 }
 
-/* Stats */
 .stats {
   display: flex;
   align-items: center;
@@ -374,7 +473,6 @@ html, body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* CTA */
 .cta {
   display: flex;
   align-items: center;
@@ -399,7 +497,6 @@ html, body {
   font-weight: 700;
 }
 
-/* Bot link */
 .bot-link {
   display: flex;
   align-items: center;
@@ -421,7 +518,6 @@ html, body {
   letter-spacing: 2px;
 }
 
-/* Corners */
 .corner {
   position: absolute;
   width: 100px;
@@ -460,48 +556,4 @@ html, body {
   border-bottom-right-radius: 24px;
 }
 `;
-
-    // Call htmlcsstoimage API with exact Stories dimensions
-    const response = await fetch("https://hcti.io/v1/image", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(
-          `${HCTI_USER_ID}:${HCTI_API_KEY}`
-        ).toString("base64")}`,
-      },
-      body: JSON.stringify({
-        html,
-        css,
-        google_fonts: "Manrope:400,500,600,700,800",
-        viewport_width: 1080,
-        viewport_height: 1920,
-        device_scale: 1, // Use 1 since we already specify full size
-        full_page: true,
-        transparent: false, // Ensure no white artifacts
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("HCTI API error:", errorText);
-      return NextResponse.json(
-        { error: "Failed to generate image" },
-        { status: 500 }
-      );
-    }
-
-    const result = await response.json();
-
-    return NextResponse.json({
-      success: true,
-      url: result.url,
-    });
-  } catch (error) {
-    console.error("Share image error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate image" },
-      { status: 500 }
-    );
-  }
 }

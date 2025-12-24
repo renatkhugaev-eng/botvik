@@ -14,7 +14,8 @@ const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || null;
 
 // Предупреждение если secret не настроен в production
 if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
-  console.warn("[telegram/webhook] ⚠️ TELEGRAM_WEBHOOK_SECRET не настроен! Webhook уязвим.");
+  console.error("[telegram/webhook] ❌ CRITICAL: TELEGRAM_WEBHOOK_SECRET не настроен в production!");
+  // В production без секрета webhook должен быть отключен
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -22,8 +23,15 @@ if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
-  // Проверяем подпись (обязательно в production)
+  // Проверяем подпись (ОБЯЗАТЕЛЬНО в production)
   const headerToken = req.headers.get("x-telegram-bot-api-secret-token");
+  
+  // В production требуем наличие секрета
+  if (process.env.NODE_ENV === "production" && !WEBHOOK_SECRET) {
+    console.error("[telegram/webhook] CRITICAL: Webhook secret not configured in production");
+    return NextResponse.json({ error: "server_misconfigured" }, { status: 500 });
+  }
+  
   if (!isValidTelegramRequest(WEBHOOK_SECRET, headerToken)) {
     console.error("[telegram/webhook] Invalid secret token");
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

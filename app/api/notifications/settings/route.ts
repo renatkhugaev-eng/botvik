@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,15 +13,16 @@ type NotificationSettings = {
 };
 
 /**
- * GET /api/notifications/settings?userId=X
+ * GET /api/notifications/settings
  * Get user's notification preferences
  */
 export async function GET(req: NextRequest) {
-  const userId = Number(req.nextUrl.searchParams.get("userId"));
-  
-  if (!userId || Number.isNaN(userId)) {
-    return NextResponse.json({ error: "userId_required" }, { status: 400 });
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  const userId = auth.user.id;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -52,7 +54,14 @@ export async function GET(req: NextRequest) {
  * Update user's notification preferences
  */
 export async function PUT(req: NextRequest) {
-  let body: { userId?: number; settings?: Partial<NotificationSettings> };
+  // ═══ AUTHENTICATION ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const userId = auth.user.id;
+
+  let body: { settings?: Partial<NotificationSettings> };
   
   try {
     body = await req.json();
@@ -60,11 +69,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  const userId = body.userId;
   const settings = body.settings;
 
-  if (!userId || !settings) {
-    return NextResponse.json({ error: "userId_and_settings_required" }, { status: 400 });
+  if (!settings) {
+    return NextResponse.json({ error: "settings_required" }, { status: 400 });
   }
 
   // Validate that only allowed fields are being updated
