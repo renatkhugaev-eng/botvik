@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanupOldActivities } from "@/lib/activity";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 
@@ -21,14 +22,9 @@ export const runtime = "nodejs";
 const RETENTION_DAYS = parseInt(process.env.ACTIVITY_RETENTION_DAYS || "30", 10);
 
 export async function POST(req: NextRequest) {
-  // Verify cron secret (Vercel sends this automatically)
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Allow in development
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  // ═══ UNIFIED CRON AUTH ═══
+  const authError = requireCronAuth(req);
+  if (authError) return authError;
 
   const startTime = Date.now();
   console.log(`[Activity Cleanup] Starting cleanup. Retention: ${RETENTION_DAYS} days`);

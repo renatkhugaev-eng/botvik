@@ -15,13 +15,10 @@ export const maxDuration = 60;
  * Requires CRON_SECRET for authorization.
  */
 export async function POST(req: NextRequest) {
-  // Verify cron secret for security
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // ═══ UNIFIED CRON AUTH ═══
+  const { requireCronAuth } = await import("@/lib/cron-auth");
+  const authError = requireCronAuth(req);
+  if (authError) return authError;
 
   try {
     const result = await sendDailyReminders();

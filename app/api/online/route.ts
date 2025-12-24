@@ -30,10 +30,9 @@ export async function GET() {
       },
     });
     
-    // Add some randomness to make it feel more "live"
-    const baseCount = Math.max(activeUsers, 3);
-    const variance = Math.floor(Math.random() * 5);
-    const count = baseCount + variance;
+    // Возвращаем реальное количество (минимум 1 для UX)
+    // REMOVED: Фейковая рандомность убрана — это вводит пользователей в заблуждение
+    const count = Math.max(activeUsers, 1);
     
     // Update cache
     cachedCount = count;

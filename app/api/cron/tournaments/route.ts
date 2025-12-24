@@ -57,14 +57,10 @@ async function markStartingSoonNotified(tournamentId: number): Promise<void> {
 }
 
 export async function GET(req: NextRequest) {
-  // Проверяем что это Vercel CRON
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // В dev режиме пропускаем проверку
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  // ═══ UNIFIED CRON AUTH ═══
+  const { requireCronAuth } = await import("@/lib/cron-auth");
+  const authError = requireCronAuth(req);
+  if (authError) return authError;
 
   const now = new Date();
   const results = {

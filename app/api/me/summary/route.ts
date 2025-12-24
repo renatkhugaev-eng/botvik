@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getLevelProgress, getLevelTitle } from "@/lib/xp";
 import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, generalLimiter, getClientIdentifier } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -11,23 +12,27 @@ function toInt(value: string | null) {
 }
 
 export async function GET(req: NextRequest) {
+  // ═══ AUTHENTICATION (Required) ═══
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(req, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(generalLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   const search = req.nextUrl.searchParams;
   const userIdParam = toInt(search.get("userId"));
-
-  // ═══ UNIFIED AUTH: Use same auth as other endpoints ═══
-  const auth = await authenticateRequest(req);
   
-  let user = null;
+  // Определяем целевого пользователя
+  const targetUserId = userIdParam ?? auth.user.id;
+  const isOwnProfile = targetUserId === auth.user.id;
   
-  // Priority 1: userId from query params (if provided)
-  if (userIdParam !== null) {
-    user = await prisma.user.findUnique({ where: { id: userIdParam } });
-  }
-  
-  // Priority 2: Authenticated user
-  if (!user && auth.ok) {
-    user = await prisma.user.findUnique({ where: { id: auth.user.id } });
-  }
+  const user = await prisma.user.findUnique({ where: { id: targetUserId } });
 
   if (!user) {
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
@@ -209,6 +214,41 @@ export async function GET(req: NextRequest) {
   const levelProgress = getLevelProgress(userXp);
   const levelTitle = getLevelTitle(levelProgress.level);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECURITY: Разные ответы для своего и чужого профиля
+  // Чужой профиль — только публичные данные (без telegramId, энергии, деталей)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (!isOwnProfile) {
+    // PUBLIC PROFILE — ограниченные данные
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        // SECURITY: telegramId НЕ отправляем — приватная информация
+        username: user.username,
+        firstName: user.firstName,
+        photoUrl: user.photoUrl ?? null,
+        equippedFrame: equippedFrame ?? null,
+      },
+      stats: {
+        // Только публичные метрики
+        totalScore: leaderboardTotalScore,
+        globalRank: globalRank > 0 ? globalRank : null,
+        totalPlayers,
+        
+        // XP System (публичная часть)
+        xp: {
+          level: levelProgress.level,
+          title: levelTitle.title,
+          icon: levelTitle.icon,
+          color: levelTitle.color,
+        },
+      },
+      isPublicProfile: true,
+    });
+  }
+
+  // OWN PROFILE — полные данные
   return NextResponse.json({
     user: {
       id: user.id,
@@ -267,5 +307,6 @@ export async function GET(req: NextRequest) {
         bonus: bonusEnergy, // Бонусная энергия из Daily Rewards
       },
     },
+    isPublicProfile: false,
   });
 }

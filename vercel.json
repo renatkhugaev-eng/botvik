@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/duels-cleanup",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/energy-notifications",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

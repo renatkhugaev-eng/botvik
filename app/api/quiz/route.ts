@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,8 @@ const HOURS_PER_ATTEMPT = 4; // Часов на восстановление 1 �
 const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000; // 4 часа в мс
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get("userId");
+  const search = req.nextUrl.searchParams;
+  const withLimits = search.get("withLimits") === "true";
   
   // Получаем ID ВСЕХ квизов, которые являются этапами турниров (любого статуса)
   // Турнирные квизы не должны показываться в общем списке
@@ -45,8 +47,10 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Если userId не передан, возвращаем просто список квизов (можно кэшировать)
-  if (!userId) {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PUBLIC: Только список квизов (кэшируется)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (!withLimits) {
     return NextResponse.json(quizzes, {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
@@ -54,10 +58,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const userIdNum = Number(userId);
-  if (Number.isNaN(userIdNum)) {
-    return NextResponse.json(quizzes);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROTECTED: С информацией о лимитах — ТРЕБУЕТСЯ АВТОРИЗАЦИЯ
+  // SECURITY: Раньше принимался userId из query params — это IDOR уязвимость!
+  // ═══════════════════════════════════════════════════════════════════════════
+  const auth = await authenticateRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+  
+  const userId = auth.user.id;
 
   // ═══ ГЛОБАЛЬНАЯ ЭНЕРГИЯ — одна на все квизы ═══
   const cooldownAgo = new Date(Date.now() - ATTEMPT_COOLDOWN_MS);
@@ -65,7 +75,7 @@ export async function GET(req: NextRequest) {
   // Считаем ВСЕ сессии пользователя за период cooldown (глобально)
   const allRecentSessions = await prisma.quizSession.findMany({
     where: {
-      userId: userIdNum,
+      userId,
       startedAt: { gte: cooldownAgo },
     },
     orderBy: { startedAt: "asc" },
@@ -77,7 +87,7 @@ export async function GET(req: NextRequest) {
   
   // Получаем бонусную энергию пользователя
   const userBonusEnergy = await prisma.user.findUnique({
-    where: { id: userIdNum },
+    where: { id: userId },
     select: { bonusEnergy: true },
   });
   const bonusEnergy = userBonusEnergy?.bonusEnergy ?? 0;
@@ -93,50 +103,73 @@ export async function GET(req: NextRequest) {
     globalNextSlotAt = nextSlot.toISOString();
   }
 
-  // Для каждого квиза добавляем rate limit + глобальную энергию
-  const quizzesWithLimits = await Promise.all(
-    quizzes.map(async (quiz) => {
-      // Rate limit — per-quiz (последняя завершённая сессия ЭТОГО квиза)
-      const lastSession = await prisma.quizSession.findFirst({
-        where: { userId: userIdNum, quizId: quiz.id, finishedAt: { not: null } },
-        orderBy: { finishedAt: "desc" },
-        select: { finishedAt: true },
-      });
-
-      let rateLimitWaitSeconds: number | null = null;
-      if (lastSession?.finishedAt) {
-        const timeSinceLastSession = Date.now() - lastSession.finishedAt.getTime();
-        if (timeSinceLastSession < RATE_LIMIT_MS) {
-          rateLimitWaitSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastSession) / 1000);
-        }
-      }
-
-      // Проверяем незавершённую сессию
-      const unfinishedSession = await prisma.quizSession.findFirst({
-        where: { userId: userIdNum, quizId: quiz.id, finishedAt: null },
-        select: { id: true },
-      });
-
-      return {
-        ...quiz,
-        limitInfo: {
-          // Глобальная энергия (одна на все квизы)
-          usedAttempts: globalUsedAttempts,
-          maxAttempts: MAX_ATTEMPTS,
-          remaining: globalRemaining,
-          energyWaitMs: globalEnergyWaitMs,
-          nextSlotAt: globalNextSlotAt,
-          // Бонусная энергия — если есть, можно играть даже при remaining=0
-          bonusEnergy,
-          // Rate limit per-quiz
-          rateLimitWaitSeconds,
-          hasUnfinishedSession: !!unfinishedSession,
-          hoursPerAttempt: HOURS_PER_ATTEMPT,
-        },
-      };
-    })
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OPTIMIZED: Batch queries вместо N+1
+  // Раньше: 2 запроса на каждый квиз (lastSession + unfinishedSession)
+  // Теперь: 2 запроса на ВСЕ квизы
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const quizIds = quizzes.map(q => q.id);
+  
+  // Batch query 1: Последние завершённые сессии для каждого квиза
+  const lastFinishedSessions = await prisma.quizSession.findMany({
+    where: {
+      userId,
+      quizId: { in: quizIds },
+      finishedAt: { not: null },
+    },
+    orderBy: { finishedAt: "desc" },
+    distinct: ["quizId"],
+    select: { quizId: true, finishedAt: true },
+  });
+  
+  // Batch query 2: Незавершённые сессии
+  const unfinishedSessions = await prisma.quizSession.findMany({
+    where: {
+      userId,
+      quizId: { in: quizIds },
+      finishedAt: null,
+    },
+    select: { quizId: true },
+  });
+  
+  // Создаём lookup maps для O(1) доступа
+  const lastFinishedByQuiz = new Map(
+    lastFinishedSessions.map(s => [s.quizId, s.finishedAt])
   );
+  const unfinishedQuizIds = new Set(unfinishedSessions.map(s => s.quizId));
+
+  // Формируем ответ без дополнительных запросов в цикле
+  const quizzesWithLimits = quizzes.map((quiz) => {
+    // Rate limit — per-quiz (последняя завершённая сессия ЭТОГО квиза)
+    const lastFinished = lastFinishedByQuiz.get(quiz.id);
+    let rateLimitWaitSeconds: number | null = null;
+    
+    if (lastFinished) {
+      const timeSinceLastSession = Date.now() - lastFinished.getTime();
+      if (timeSinceLastSession < RATE_LIMIT_MS) {
+        rateLimitWaitSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastSession) / 1000);
+      }
+    }
+
+    return {
+      ...quiz,
+      limitInfo: {
+        // Глобальная энергия (одна на все квизы)
+        usedAttempts: globalUsedAttempts,
+        maxAttempts: MAX_ATTEMPTS,
+        remaining: globalRemaining,
+        energyWaitMs: globalEnergyWaitMs,
+        nextSlotAt: globalNextSlotAt,
+        // Бонусная энергия — если есть, можно играть даже при remaining=0
+        bonusEnergy,
+        // Rate limit per-quiz
+        rateLimitWaitSeconds,
+        hasUnfinishedSession: unfinishedQuizIds.has(quiz.id),
+        hoursPerAttempt: HOURS_PER_ATTEMPT,
+      },
+    };
+  });
 
   return NextResponse.json(quizzesWithLimits);
 }
-

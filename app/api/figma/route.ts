@@ -2,13 +2,24 @@
  * ══════════════════════════════════════════════════════════════════════════════
  * FIGMA API ENDPOINT
  * Проксирует запросы к Figma API
+ * 
+ * SECURITY: Требует авторизации админа для предотвращения:
+ * - Злоупотребления API ключом Figma
+ * - Утечки конфиденциальных макетов
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getFile, getNode, exportImages, extractFileKey, extractNodeId } from "@/lib/figma";
+import { authenticateAdmin } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
+  // ═══ ADMIN AUTHENTICATION ═══
+  const auth = await authenticateAdmin(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
   const action = searchParams.get("action") || "file";

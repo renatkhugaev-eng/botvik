@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
-import { checkRateLimit, shopEquipLimiter } from "@/lib/ratelimit";
+import { checkRateLimit, shopEquipLimiter, getClientIdentifier } from "@/lib/ratelimit";
+import { z } from "zod";
+import { parseAndValidate } from "@/lib/validation";
 
 export const runtime = "nodejs";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VALIDATION SCHEMA
+// ═══════════════════════════════════════════════════════════════════════════
+
+const EquipRequestSchema = z.object({
+  itemId: z.number().int().positive().nullable(),
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/shop/equip — Надеть/снять рамку
@@ -18,19 +28,19 @@ export async function POST(req: NextRequest) {
   const userId = auth.user.id;
 
   // Rate limiting
-  const rateLimit = await checkRateLimit(shopEquipLimiter, `user:${userId}`);
+  const identifier = getClientIdentifier(req, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(shopEquipLimiter, identifier);
   if (rateLimit.limited) {
     return rateLimit.response;
   }
 
-  let body: { itemId: number | null };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+  // ═══ ZOD VALIDATION ═══
+  const validation = await parseAndValidate(req, EquipRequestSchema);
+  if (!validation.success) {
+    return validation.response;
   }
-
-  const { itemId } = body;
+  
+  const { itemId } = validation.data;
 
   // Если itemId = null, снимаем рамку
   if (itemId === null) {
@@ -53,10 +63,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Проверяем что itemId — число
-  if (typeof itemId !== "number") {
-    return NextResponse.json({ error: "invalid_item_id" }, { status: 400 });
-  }
+  // itemId уже валидирован Zod как positive int
 
   // Проверяем владение товаром
   const ownership = await prisma.userInventory.findUnique({

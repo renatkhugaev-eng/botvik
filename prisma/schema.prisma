@@ -63,6 +63,9 @@ model User {
   referredBy      User?     @relation("ReferralRelation", fields: [referredById], references: [id])
   referrals       User[]    @relation("ReferralRelation")  // Кого пригласил этот пользователь
   
+  @@index([referredById])           // Для referral queries
+  @@index([xp(sort: Desc)])         // Для global leaderboard queries
+  
   // Tournaments
   tournamentParticipations TournamentParticipant[]
   tournamentStageResults   TournamentStageResult[]
@@ -141,6 +144,9 @@ model Question {
   quiz             Quiz            @relation(fields: [quizId], references: [id])
   answers          AnswerOption[]
   responses        Answer[]        @relation("QuestionResponses")
+  
+  @@index([quizId])                 // Для загрузки вопросов квиза
+  @@index([quizId, order])          // Для упорядоченной загрузки
 }
 
 model AnswerOption {
@@ -150,6 +156,8 @@ model AnswerOption {
   isCorrect  Boolean   @default(false)
   question   Question  @relation(fields: [questionId], references: [id])
   answers    Answer[]
+  
+  @@index([questionId])             // Для загрузки вариантов ответа
 }
 
 model QuizSession {
@@ -169,6 +177,9 @@ model QuizSession {
   answers                  Answer[]
   
   @@index([userId, quizId])
+  @@index([startedAt])              // Для energy calculations
+  @@index([userId, startedAt])      // Для global energy queries
+  @@index([userId, finishedAt])     // Для rate limit queries
 }
 
 model Answer {

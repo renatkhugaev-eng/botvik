@@ -104,13 +104,10 @@ async function calculateUserEnergy(userId: number): Promise<{
  * Should run every 30 minutes via Vercel Cron.
  */
 export async function POST(req: NextRequest) {
-  // Verify cron secret
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // ═══ UNIFIED CRON AUTH ═══
+  const { requireCronAuth } = await import("@/lib/cron-auth");
+  const authError = requireCronAuth(req);
+  if (authError) return authError;
   
   const results = {
     checked: 0,

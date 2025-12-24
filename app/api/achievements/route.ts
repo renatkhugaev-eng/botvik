@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
+import { checkRateLimit, generalLimiter, getClientIdentifier } from "@/lib/ratelimit";
 import {
   checkAndUnlockAchievements,
   getUserAchievements,
@@ -26,6 +27,14 @@ export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ═══ RATE LIMITING ═══
+  // checkAndUnlockAchievements — дорогая операция, ограничиваем частоту
+  const identifier = getClientIdentifier(request, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(generalLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
   }
 
   const search = request.nextUrl.searchParams;
@@ -117,6 +126,13 @@ export async function POST(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ═══ RATE LIMITING ═══
+  const identifier = getClientIdentifier(request, auth.user.telegramId);
+  const rateLimit = await checkRateLimit(generalLimiter, identifier);
+  if (rateLimit.limited) {
+    return rateLimit.response;
   }
 
   const body = await request.json().catch(() => ({}));

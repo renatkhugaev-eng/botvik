@@ -12,20 +12,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyDuelExpired } from "@/lib/notifications";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Защита от внешних вызовов
-const CRON_SECRET = process.env.CRON_SECRET;
-
 export async function GET(request: NextRequest) {
   try {
-    // Проверяем авторизацию cron
-    const authHeader = request.headers.get("authorization");
-    if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // ═══ UNIFIED CRON AUTH ═══
+    const authError = requireCronAuth(request);
+    if (authError) return authError;
 
     const now = new Date();
     let expiredPending = 0;

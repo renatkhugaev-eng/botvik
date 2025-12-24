@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getWeekStart, getWeekEnd } from "@/lib/week";
 import { calculateTotalScore } from "@/lib/scoring";
 import { notifyWeeklyWinner } from "@/lib/notifications";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 
@@ -21,14 +22,9 @@ export const runtime = "nodejs";
  * Note: We don't delete WeeklyScore - new week automatically uses new weekStart
  */
 export async function POST(req: NextRequest) {
-  // Verify cron secret (Vercel sends this automatically)
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Allow in development
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  // ═══ UNIFIED CRON AUTH ═══
+  const authError = requireCronAuth(req);
+  if (authError) return authError;
 
   const now = new Date();
   const weekStart = getWeekStart(now);

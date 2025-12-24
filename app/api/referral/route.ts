@@ -90,8 +90,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Формируем ссылку (прямая ссылка на Mini App в Telegram)
-    const botName = "truecrimetg_bot";
-    const appShortName = "miniapp";
+    const botName = process.env.TELEGRAM_BOT_NAME || "truecrimetg_bot";
+    const appShortName = process.env.TELEGRAM_APP_NAME || "miniapp";
     const referralLink = `https://t.me/${botName}/${appShortName}?startapp=ref_${referralCode}`;
 
     // Считаем статистику

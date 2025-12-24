@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
-
-// Секрет для защиты cron endpoint
-const CRON_SECRET = process.env.CRON_SECRET;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /api/cron/cleanup-purchases — Очистка старых PENDING покупок
 // Вызывается по расписанию (Vercel Cron или внешний сервис)
+// NOTE: Объединённый endpoint (раньше был также cleanup-pending-purchases)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
-  // Проверяем авторизацию
-  const authHeader = req.headers.get("authorization");
-  
-  // В production требуем секрет
-  if (process.env.NODE_ENV === "production") {
-    if (!CRON_SECRET) {
-      console.error("[cron/cleanup] CRON_SECRET not configured");
-      return NextResponse.json({ error: "not_configured" }, { status: 500 });
-    }
-    
-    if (authHeader !== `Bearer ${CRON_SECRET}`) {
-      console.warn("[cron/cleanup] Unauthorized attempt");
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  // ═══ UNIFIED CRON AUTH ═══
+  const authError = requireCronAuth(req);
+  if (authError) return authError;
 
   try {
     // Удаляем PENDING покупки старше 24 часов
