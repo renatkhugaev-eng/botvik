@@ -144,8 +144,8 @@ export const updateQuizSchema = z.object({
 
 export const episodeCompleteSchema = z.object({
   score: z.number().int().min(0).optional(),
-  choices: z.record(z.string()).optional(),
-  answers: z.record(z.unknown()).optional(),
+  choices: z.record(z.string(), z.string()).optional(),
+  answers: z.record(z.string(), z.unknown()).optional(),
   timeSpent: z.number().int().min(0).optional(),
 });
 
