@@ -216,19 +216,13 @@ export function createAuditEntry(
 /**
  * Get recent audit logs for admin dashboard
  */
-export async function getRecentAuditLogs(limit: number = 50): Promise<{
-  action: string;
-  adminTelegramId: string;
-  targetType: string | null;
-  targetId: string | null;
-  details: unknown;
-  createdAt: Date;
-}[]> {
+export async function getRecentAuditLogs(limit: number = 50) {
   return prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
     take: limit,
     select: {
       action: true,
+      adminId: true,
       adminTelegramId: true,
       targetType: true,
       targetId: true,
@@ -244,7 +238,7 @@ export async function getRecentAuditLogs(limit: number = 50): Promise<{
 export async function getAdminAuditLogs(
   adminTelegramId: string,
   limit: number = 50
-): Promise<typeof prisma.auditLog.findMany> {
+) {
   return prisma.auditLog.findMany({
     where: { adminTelegramId },
     orderBy: { createdAt: "desc" },
@@ -259,7 +253,7 @@ export async function getTargetAuditLogs(
   targetType: string,
   targetId: string,
   limit: number = 50
-): Promise<typeof prisma.auditLog.findMany> {
+) {
   return prisma.auditLog.findMany({
     where: { targetType, targetId },
     orderBy: { createdAt: "desc" },
