@@ -466,6 +466,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     );
   }
 
+  // ═══ PROFILE 2.0: Update "currently playing" status ═══
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        currentQuizId: quizId,
+        currentSessionStart: now,
+        status: "PLAYING",
+        lastSeenAt: now,
+      },
+    });
+  } catch {
+    // Non-critical, don't fail the request
+    log.warn("Failed to update playing status", { userId, quizId });
+  }
+
   return NextResponse.json({
     sessionId: session.id,
     quizId,

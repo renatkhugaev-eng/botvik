@@ -17,6 +17,16 @@ import { ReferralSection } from "@/components/ReferralSection";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import { InventorySection } from "@/components/InventorySection";
 
+// Profile 2.0 Components
+import { ProfileEditor } from "@/components/ProfileEditor";
+import { 
+  StatusBadge, 
+  CurrentlyPlaying, 
+  AchievementShowcase, 
+  ProfileBio,
+  LastSeen 
+} from "@/components/ProfileShowcase";
+
 // shadcn/ui components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +115,37 @@ type FriendsData = {
   friends: Friend[];
   incomingRequests: FriendRequest[];
   outgoingRequests: FriendRequest[];
+};
+
+// Profile 2.0 Types
+type UserStatus = "ONLINE" | "PLAYING" | "LOOKING_DUEL" | "BUSY" | "OFFLINE";
+
+type PresetStatus = {
+  id: string;
+  emoji: string;
+  text: string;
+  status: UserStatus;
+};
+
+type Profile2Data = {
+  bio: string | null;
+  status: UserStatus | null;
+  statusEmoji: string | null;
+  statusText: string | null;
+  lastSeenAt: string | null;
+  showcaseAchievements: string[];
+  unlockedAchievements: string[];
+  currentlyPlaying: {
+    quizId: number;
+    title: string;
+    since: string | null;
+  } | null;
+  privacy?: {
+    profilePublic: boolean;
+    showActivity: boolean;
+    showOnlineStatus: boolean;
+  };
+  presetStatuses: PresetStatus[];
 };
 
 function formatDate(value: string | Date | null | undefined) {
@@ -251,6 +292,10 @@ export default function ProfilePage() {
     notifyLeaderboard: false,
     notifyFriends: true,
   });
+  
+  // Profile 2.0 state
+  const [profile2Data, setProfile2Data] = useState<Profile2Data | null>(null);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   const displayName = useMemo(() => {
     if (isViewingOther && data?.user) {
@@ -282,10 +327,12 @@ export default function ProfilePage() {
     setError(null);
     
     try {
-      const [profileRes, friendsRes, notifyRes] = await Promise.all([
+      const [profileRes, friendsRes, notifyRes, profile2Res] = await Promise.all([
         fetchWithAuth(`/api/me/summary?userId=${targetUserId}`),
         !isViewingOther ? fetchWithAuth(`/api/friends?userId=${targetUserId}`).catch(() => null) : Promise.resolve(null),
         !isViewingOther ? fetchWithAuth(`/api/notifications/settings?userId=${targetUserId}`).catch(() => null) : Promise.resolve(null),
+        // Profile 2.0 data
+        fetchWithAuth(`/api/me/profile?userId=${targetUserId}`).catch(() => null),
       ]);
       
       if (!profileRes.ok) throw new Error("summary_load_failed");
@@ -303,6 +350,14 @@ export default function ProfilePage() {
         const notifyData = await notifyRes.json();
         if (notifyData.settings) {
           setNotifySettings(notifyData.settings);
+        }
+      }
+      
+      // Profile 2.0 data
+      if (profile2Res?.ok) {
+        const profile2Json = await profile2Res.json();
+        if (profile2Json.ok && profile2Json.data) {
+          setProfile2Data(profile2Json.data);
         }
       }
     } catch (err) {
@@ -639,6 +694,23 @@ export default function ProfilePage() {
                   </motion.p>
                 )}
                 
+                {/* Profile 2.0: Status Badge */}
+                {profile2Data?.status && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="mt-2"
+                  >
+                    <StatusBadge
+                      status={profile2Data.status}
+                      statusEmoji={profile2Data.statusEmoji}
+                      statusText={profile2Data.statusText}
+                      size="sm"
+                    />
+                  </motion.div>
+                )}
+                
                 {/* Rank badges */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.5, y: 20 }}
@@ -655,7 +727,36 @@ export default function ProfilePage() {
                   </Badge>
                 </motion.div>
               </div>
+              
+              {/* Edit Profile Button (own profile only) */}
+              {!isViewingOther && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    haptic.light();
+                    setShowProfileEditor(true);
+                  }}
+                  className="absolute top-4 right-4 h-9 w-9 rounded-xl bg-white/20 hover:bg-white/30 text-white"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                  </svg>
+                </Button>
+              )}
             </div>
+            
+            {/* Profile 2.0: Bio */}
+            {profile2Data?.bio && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.55 }}
+                className="mt-4"
+              >
+                <ProfileBio bio={profile2Data.bio} />
+              </motion.div>
+            )}
 
             {/* XP Progress - Enhanced */}
             <motion.div
@@ -752,6 +853,36 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </motion.div>
+      
+      {/* Profile 2.0: Currently Playing */}
+      {profile2Data?.currentlyPlaying && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+        >
+          <CurrentlyPlaying
+            quizId={profile2Data.currentlyPlaying.quizId}
+            quizTitle={profile2Data.currentlyPlaying.title}
+            since={profile2Data.currentlyPlaying.since}
+          />
+        </motion.div>
+      )}
+      
+      {/* Profile 2.0: Achievement Showcase */}
+      {profile2Data?.showcaseAchievements && profile2Data.showcaseAchievements.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="overflow-hidden border-0 bg-card/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+            <CardContent className="p-4">
+              <AchievementShowcase achievementIds={profile2Data.showcaseAchievements} size="md" />
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Tabs */}
       <motion.div
@@ -1245,6 +1376,29 @@ export default function ProfilePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Profile 2.0 Editor Dialog */}
+      {profile2Data && !isViewingOther && (
+        <ProfileEditor
+          open={showProfileEditor}
+          onOpenChange={setShowProfileEditor}
+          initialData={{
+            bio: profile2Data.bio,
+            status: profile2Data.status,
+            statusEmoji: profile2Data.statusEmoji,
+            statusText: profile2Data.statusText,
+            showcaseAchievements: profile2Data.showcaseAchievements,
+            privacy: profile2Data.privacy || {
+              profilePublic: true,
+              showActivity: true,
+              showOnlineStatus: true,
+            },
+          }}
+          unlockedAchievements={profile2Data.unlockedAchievements}
+          presetStatuses={profile2Data.presetStatuses}
+          onSave={loadAllData}
+        />
+      )}
 
       {/* Notification Settings - Enhanced */}
       <motion.div

@@ -6,6 +6,15 @@ datasource db {
   provider = "postgresql"
 }
 
+// Profile Status enum
+enum UserStatus {
+  ONLINE        // В сети
+  PLAYING       // Играет (автоматически при активной сессии)
+  LOOKING_DUEL  // Ищу дуэль
+  BUSY          // Занят
+  OFFLINE       // Не в сети
+}
+
 model User {
   id         Int           @id @default(autoincrement())
   telegramId String        @unique
@@ -15,6 +24,32 @@ model User {
   photoUrl   String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROFILE 2.0 - Enhanced Social Profile
+  // ═══════════════════════════════════════════════════════════════════════════
+  bio                 String?         @db.VarChar(100)  // Короткое описание (до 100 символов)
+  status              UserStatus      @default(ONLINE)  // Текущий статус
+  statusEmoji         String?         @db.VarChar(10)   // Кастомный emoji для статуса
+  statusText          String?         @db.VarChar(50)   // Кастомный текст статуса
+  lastSeenAt          DateTime        @default(now())   // Последняя активность
+  
+  // Showcase Achievements (3 избранных достижения для показа в профиле)
+  showcaseAchievement1  String?       // ID достижения #1
+  showcaseAchievement2  String?       // ID достижения #2
+  showcaseAchievement3  String?       // ID достижения #3
+  
+  // Privacy Settings
+  profilePublic       Boolean         @default(true)    // Профиль виден всем
+  showActivity        Boolean         @default(true)    // Показывать активность друзьям
+  showOnlineStatus    Boolean         @default(true)    // Показывать статус онлайн
+  
+  // Currently playing (автоматически обновляется)
+  currentQuizId       Int?            // Какой квиз сейчас проходит
+  currentQuiz         Quiz?           @relation("CurrentlyPlaying", fields: [currentQuizId], references: [id])
+  currentSessionStart DateTime?       // Когда начал текущую сессию
+  
+  // ═══════════════════════════════════════════════════════════════════════════
   
   // XP System
   xp              Int       @default(0)      // Total experience points
@@ -132,6 +167,9 @@ model Quiz {
   
   // Duels using this quiz
   duels            Duel[]
+  
+  // Users currently playing this quiz (Profile 2.0)
+  usersCurrentlyPlaying User[] @relation("CurrentlyPlaying")
 }
 
 model Question {

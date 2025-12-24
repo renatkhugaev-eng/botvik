@@ -43,17 +43,19 @@ export type NotificationType =
 /**
  * Важные уведомления, которые обходят rate limit:
  * - level_up: редкое и важное событие
+ * - energy_full: пользователь ждёт чтобы играть
  * - tournament_winner: одноразовое уведомление о победе
  * - tournament_finished: одноразовое уведомление о завершении
+ * - tournament_starting: важно не пропустить старт
  * - weekly_winner: еженедельное уведомление о победе
- * - duel_challenge: вызов на дуэль требует быстрой реакции
- * - duel_accepted: оппонент принял вызов
- * - duel_result: результат дуэли
+ * - duel_*: дуэли требуют быстрой реакции
  */
 const RATE_LIMIT_BYPASS_TYPES: NotificationType[] = [
   "level_up",
+  "energy_full",        // ← Добавлено! Пользователь ждёт восстановления
   "tournament_winner",
   "tournament_finished",
+  "tournament_starting", // ← Добавлено! Важно не пропустить
   "weekly_winner",
   "duel_challenge",
   "duel_accepted",
@@ -399,6 +401,10 @@ export async function sendNotification(
   const canSend = await canSendNotification(userId, type);
   
   if (!canSend.allowed) {
+    // Логируем причину пропуска для диагностики
+    if (process.env.NODE_ENV === "development" || process.env.DEBUG_NOTIFICATIONS === "true") {
+      console.log(`[notifications] Skipped ${type} for user ${userId}: ${canSend.reason}`);
+    }
     return { success: false, reason: canSend.reason };
   }
 

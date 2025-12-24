@@ -76,13 +76,22 @@ test.describe('API Endpoints', () => {
     expect([400, 404, 405]).toContain(response.status());
   });
 
-  test('GET /api/friends требует userId', async ({ request }) => {
+  test('GET /api/friends требует аутентификации', async ({ request }) => {
     const response = await request.get('/api/friends');
     
-    expect(response.status()).toBe(400);
+    // Без Telegram auth header:
+    // - Production: 401 NO_AUTH_DATA
+    // - Dev mode с ALLOW_DEV_NO_TELEGRAM=true: 200 с mock данными
+    const status = response.status();
+    expect([200, 401]).toContain(status);
     
     const json = await response.json();
-    expect(json.error).toBe('userId_required');
+    if (status === 401) {
+      expect(json.error).toBe('NO_AUTH_DATA');
+    } else {
+      // Dev mode - возвращает friends list
+      expect(json).toHaveProperty('friends');
+    }
   });
 
   test('POST /api/auth/telegram без initData должен вернуть 400', async ({ request }) => {
@@ -96,9 +105,23 @@ test.describe('API Endpoints', () => {
   test('GET /api/me/summary требует аутентификации', async ({ request }) => {
     const response = await request.get('/api/me/summary');
     
-    // Без auth header возвращает пустой или ошибку
-    // В dev режиме может вернуть 200 с mock данными
-    expect([200, 401]).toContain(response.status());
+    // Без Telegram auth header:
+    // - Production: 401 NO_AUTH_DATA
+    // - Dev mode с ALLOW_DEV_NO_TELEGRAM=true: 200 с mock данными
+    // - Dev mode без mock user в БД: 404 user_not_found
+    const status = response.status();
+    expect([200, 401, 404]).toContain(status);
+    
+    const json = await response.json();
+    if (status === 401) {
+      expect(json.error).toBe('NO_AUTH_DATA');
+    } else if (status === 404) {
+      expect(json.error).toBe('user_not_found');
+    } else {
+      // Dev mode - возвращает user summary
+      expect(json).toHaveProperty('user');
+      expect(json).toHaveProperty('stats');
+    }
   });
 
   test('API должен возвращать JSON', async ({ request }) => {

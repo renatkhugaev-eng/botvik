@@ -906,6 +906,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
   }
 
+  // ═══ PROFILE 2.0: Clear "currently playing" status ═══
+  try {
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: {
+        currentQuizId: null,
+        currentSessionStart: null,
+        status: "ONLINE",
+        lastSeenAt: new Date(),
+      },
+    });
+  } catch {
+    // Non-critical, don't fail the request
+    console.warn(`[finish] Failed to clear playing status for user ${session.userId}`);
+  }
+
   return NextResponse.json({ 
     // Current game result
     gameScore: currentGameScore,
