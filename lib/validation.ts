@@ -252,3 +252,41 @@ export function validateId(value: string | undefined, name: string = "id"):
   return { success: true, value: num };
 }
 
+/**
+ * Validate request body with Zod schema (async version for NextRequest)
+ * Alias for parseAndValidate with simpler return type
+ */
+export async function validate<T extends z.ZodSchema>(
+  request: Request,
+  schema: T
+): Promise<
+  | { success: true; data: z.infer<T> }
+  | { success: false; error: string; details?: z.ZodIssue[] }
+> {
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return {
+      success: false,
+      error: "Invalid JSON body",
+    };
+  }
+
+  const result = schema.safeParse(body);
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: "Validation failed",
+      details: result.error.issues,
+    };
+  }
+
+  return {
+    success: true,
+    data: result.data,
+  };
+}
+
