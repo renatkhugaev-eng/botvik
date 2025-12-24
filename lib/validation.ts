@@ -205,7 +205,7 @@ export async function parseAndValidate<T extends z.ZodSchema>(
   const result = schema.safeParse(body);
   
   if (!result.success) {
-    const firstError = result.error.errors[0];
+    const firstError = result.error.issues[0];
     const path = firstError?.path.join(".") || "body";
     const message = firstError?.message || "Validation failed";
     
@@ -215,7 +215,7 @@ export async function parseAndValidate<T extends z.ZodSchema>(
         { 
           error: "validation_error", 
           message: `${path}: ${message}`,
-          details: result.error.errors.map(e => ({
+          details: result.error.issues.map(e => ({
             path: e.path.join("."),
             message: e.message,
           })),
