@@ -67,35 +67,10 @@ function ChatContent({ user }: ChatContentProps) {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  // Debug logging для проблемы с чатом
+  // Debug logging
   useEffect(() => {
     console.log("[ChatContent] Mounted with user:", { id: user.id, username: user.username });
   }, [user.id, user.username]);
-
-  let chatHookResult;
-  try {
-    chatHookResult = useRealtimeChat({
-      userId: user.id,
-      username: user.username,
-      firstName: user.firstName,
-      photoUrl: user.photoUrl,
-    });
-  } catch (hookError) {
-    console.error("[ChatContent] useRealtimeChat hook error:", hookError);
-    return (
-      <div className="flex flex-col min-h-screen items-center justify-center p-6">
-        <span className="text-5xl mb-4">😵</span>
-        <p className="text-lg font-semibold">Ошибка загрузки чата</p>
-        <p className="text-sm text-muted-foreground mt-2">Попробуйте перезагрузить</p>
-        <button 
-          onClick={() => router.back()}
-          className="mt-4 px-4 py-2 bg-violet-600 text-white rounded-xl"
-        >
-          Назад
-        </button>
-      </div>
-    );
-  }
 
   const {
     messages,
@@ -106,7 +81,12 @@ function ChatContent({ user }: ChatContentProps) {
     sendMessage,
     toggleReaction,
     scrollToBottom,
-  } = chatHookResult;
+  } = useRealtimeChat({
+    userId: user.id,
+    username: user.username ?? undefined,
+    firstName: user.firstName,
+    photoUrl: user.photoUrl ?? undefined,
+  });
   
   // State для реакций
   const [reactionPickerFor, setReactionPickerFor] = useState<number | null>(null);

@@ -313,31 +313,46 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
     }, SMART_POLL_INTERVAL);
   }, [loadMessages]);
 
+  // ═══ Fallback на polling (для iOS и при ошибках) ═══
+  const startPollingFallback = useCallback(() => {
+    log("Starting polling fallback");
+    setConnectionState("disconnected");
+    if (!pollingIntervalRef.current) {
+      pollingIntervalRef.current = setInterval(() => loadMessages("incremental"), 3000);
+    }
+  }, [loadMessages]);
+
   // ═══ Подключение к Supabase ═══
   const connect = useCallback(() => {
-    if (!isSupabaseConfigured()) {
-      log("Supabase not configured, using polling only");
-      setConnectionState("disconnected");
-      pollingIntervalRef.current = setInterval(() => loadMessages("incremental"), 3000);
-      return;
-    }
-
-    setConnectionState("connecting");
-    
-    // Создаём канал с обработкой ошибок
-    let channel;
+    // Оборачиваем ВСЁ в try-catch для защиты от краша на iOS
     try {
-      channel = createChatChannel(`user:${userId}`);
-      channelRef.current = channel;
-    } catch (error) {
-      console.error("[useRealtimeChat] Failed to create channel:", error);
-      setConnectionState("disconnected");
-      // Fallback to polling
-      pollingIntervalRef.current = setInterval(() => loadMessages("incremental"), 3000);
-      return;
-    }
+      if (!isSupabaseConfigured()) {
+        log("Supabase not configured, using polling only");
+        startPollingFallback();
+        return;
+      }
 
-    channel
+      // Проверяем поддержку WebSocket (iOS Safari иногда блокирует)
+      if (typeof WebSocket === "undefined") {
+        console.warn("[useRealtimeChat] WebSocket not supported, using polling");
+        startPollingFallback();
+        return;
+      }
+
+      setConnectionState("connecting");
+      
+      // Создаём канал с обработкой ошибок
+      let channel;
+      try {
+        channel = createChatChannel(`user:${userId}`);
+        channelRef.current = channel;
+      } catch (error) {
+        console.error("[useRealtimeChat] Failed to create channel:", error);
+        startPollingFallback();
+        return;
+      }
+
+      channel
       // Слушаем сообщения от других
       .on("broadcast", { event: "message" }, ({ payload }) => {
         log("Received broadcast:", payload?.id);
@@ -435,10 +450,15 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
         }
       });
       
-    // Запускаем умный polling
-    startSmartPolling();
-    
-  }, [userId, username, firstName, photoUrl, loadMessages, startSmartPolling]);
+      // Запускаем умный polling
+      startSmartPolling();
+      
+    } catch (error) {
+      // Критическая ошибка — fallback на polling
+      console.error("[useRealtimeChat] Critical error in connect:", error);
+      startPollingFallback();
+    }
+  }, [userId, username, firstName, photoUrl, loadMessages, startSmartPolling, startPollingFallback]);
 
   // ═══ Lifecycle ═══
   useEffect(() => {
