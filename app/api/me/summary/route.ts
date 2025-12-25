@@ -220,7 +220,7 @@ export async function GET(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════════════
 
   if (!isOwnProfile) {
-    // PUBLIC PROFILE — ограниченные данные
+    // PUBLIC PROFILE — публичные данные (без приватной информации)
     return NextResponse.json({
       user: {
         id: user.id,
@@ -231,18 +231,31 @@ export async function GET(req: NextRequest) {
         equippedFrame: equippedFrame ?? null,
       },
       stats: {
-        // Только публичные метрики
+        // Публичные метрики
         totalScore: leaderboardTotalScore,
+        totalSessions,
+        totalQuizzesPlayed: quizzesPlayed.length,
+        totalCorrectAnswers,
+        totalAnswers,
         globalRank: globalRank > 0 ? globalRank : null,
         totalPlayers,
         
-        // XP System (публичная часть)
+        // XP System (полная информация для публичного профиля)
         xp: {
+          total: userXp,
           level: levelProgress.level,
+          progress: levelProgress.progress,
+          currentLevelXp: levelProgress.currentLevelXp,
+          nextLevelXp: levelProgress.nextLevelXp,
+          xpInCurrentLevel: levelProgress.xpInCurrentLevel,
+          xpNeededForNext: levelProgress.xpNeededForNext,
           title: levelTitle.title,
           icon: levelTitle.icon,
           color: levelTitle.color,
         },
+        
+        // Лучшие результаты
+        bestScoreByQuiz,
       },
       isPublicProfile: true,
     });
