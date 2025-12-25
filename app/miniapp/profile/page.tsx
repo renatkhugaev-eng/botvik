@@ -42,10 +42,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 type SummaryResponse = {
   user: {
     id: number;
-    telegramId: string;
+    telegramId?: string; // Optional for public profiles (security)
     username: string | null;
     firstName: string | null;
-    lastName: string | null;
+    lastName?: string | null;
     photoUrl?: string | null;
     equippedFrame?: {
       id: number;
@@ -56,35 +56,43 @@ type SummaryResponse = {
   };
   stats: {
     totalScore: number;
-    totalSessions: number;
-    totalQuizzesPlayed: number;
-    totalCorrectAnswers: number;
-    totalAnswers: number;
+    totalSessions?: number; // Not available for public profiles
+    totalQuizzesPlayed?: number; // Not available for public profiles
+    totalCorrectAnswers?: number; // Not available for public profiles
+    totalAnswers?: number; // Not available for public profiles
     globalRank: number | null;
     totalPlayers: number;
     xp: {
-      total: number;
+      total?: number; // Not available for public profiles
       level: number;
-      progress: number;
-      currentLevelXp: number;
-      nextLevelXp: number;
-      xpInCurrentLevel: number;
-      xpNeededForNext: number;
+      progress?: number; // Not available for public profiles
+      currentLevelXp?: number;
+      nextLevelXp?: number;
+      xpInCurrentLevel?: number;
+      xpNeededForNext?: number;
       title: string;
       icon: string;
       color: string;
     };
-    bestScoreByQuiz: { 
+    bestScoreByQuiz?: { 
       quizId: number; 
       title: string; 
       bestSessionScore: number;
       leaderboardScore: number;
       attempts: number;
     }[];
-    lastSession: { quizId: number; quizTitle: string; score: number; finishedAt: string | Date } | null;
-    todayAttempts: { quizId: number; attempts: number; remaining: number }[];
-    maxDailyAttempts: number;
+    lastSession?: { quizId: number; quizTitle: string; score: number; finishedAt: string | Date } | null;
+    todayAttempts?: { quizId: number; attempts: number; remaining: number }[];
+    maxDailyAttempts?: number;
+    globalEnergy?: {
+      used: number;
+      remaining: number;
+      max: number;
+      hoursPerAttempt: number;
+      bonus: number;
+    };
   };
+  isPublicProfile?: boolean;
 };
 
 type Friend = {
@@ -552,8 +560,8 @@ export default function ProfilePage() {
   };
   const progress = xp.progress;
   
-  const accuracy = data.stats.totalAnswers > 0 
-    ? Math.round((data.stats.totalCorrectAnswers / data.stats.totalAnswers) * 100) 
+  const accuracy = (data.stats.totalAnswers ?? 0) > 0 
+    ? Math.round(((data.stats.totalCorrectAnswers ?? 0) / data.stats.totalAnswers!) * 100) 
     : 0;
   
   const globalRankText = data.stats.globalRank 
@@ -784,7 +792,7 @@ export default function ProfilePage() {
                 </motion.div>
               </div>
               <p className="text-xs text-white/60 mt-1.5 text-center font-medium">
-                Всего: {xp.total.toLocaleString()} XP
+                Всего: {(xp.total ?? 0).toLocaleString()} XP
               </p>
             </motion.div>
           </CardContent>
@@ -935,12 +943,13 @@ export default function ProfilePage() {
 
           {/* Stats Tab */}
           <TabsContent value="stats" className="mt-4 space-y-4">
-            {/* Stats Grid - Colorful */}
+            {/* Stats Grid - Colorful (only for own profile) */}
+            {!isViewingOther && (
             <div className="grid grid-cols-2 gap-3">
               {[
-                { icon: "🎮", label: "Игры", value: data.stats.totalQuizzesPlayed, gradient: "from-violet-500 to-purple-600", bg: "bg-violet-500/10" },
-                { icon: "🎯", label: "Попытки", value: data.stats.totalSessions, gradient: "from-rose-500 to-pink-600", bg: "bg-rose-500/10" },
-                { icon: "✅", label: "Верные", value: data.stats.totalCorrectAnswers, gradient: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10" },
+                { icon: "🎮", label: "Игры", value: data.stats.totalQuizzesPlayed ?? 0, gradient: "from-violet-500 to-purple-600", bg: "bg-violet-500/10" },
+                { icon: "🎯", label: "Попытки", value: data.stats.totalSessions ?? 0, gradient: "from-rose-500 to-pink-600", bg: "bg-rose-500/10" },
+                { icon: "✅", label: "Верные", value: data.stats.totalCorrectAnswers ?? 0, gradient: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10" },
                 { icon: "📊", label: "Точность", value: accuracy, suffix: "%", gradient: "from-amber-500 to-orange-600", bg: "bg-amber-500/10" },
               ].map((stat, i) => (
                 <motion.div
@@ -973,9 +982,10 @@ export default function ProfilePage() {
                 </motion.div>
               ))}
             </div>
+            )}
 
-            {/* Last Game - Enhanced */}
-            {data.stats.lastSession && (
+            {/* Last Game - Enhanced (only for own profile) */}
+            {!isViewingOther && data.stats.lastSession && (
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1012,6 +1022,33 @@ export default function ProfilePage() {
                 </Card>
               </motion.div>
             )}
+            
+            {/* Public Profile Stats Summary */}
+            {isViewingOther && (
+              <Card className="overflow-hidden border-0 shadow-lg">
+                <div className="h-1.5 bg-gradient-to-r from-violet-500 to-purple-600" />
+                <CardContent className="p-6 text-center">
+                  <div className="flex items-center justify-center gap-6">
+                    <div>
+                      <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                        {data.stats.totalScore}
+                      </p>
+                      <p className="text-sm text-muted-foreground font-medium mt-1">Общий счёт</p>
+                    </div>
+                    {data.stats.globalRank && (
+                      <div className="border-l pl-6">
+                        <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                          #{data.stats.globalRank}
+                        </p>
+                        <p className="text-sm text-muted-foreground font-medium mt-1">
+                          из {data.stats.totalPlayers}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Achievements Tab */}
@@ -1022,6 +1059,14 @@ export default function ProfilePage() {
 
           {/* History Tab */}
           <TabsContent value="history" className="mt-4">
+            {isViewingOther ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <span className="text-5xl">🔒</span>
+                  <p className="mt-4 text-muted-foreground">История недоступна для просмотра</p>
+                </CardContent>
+              </Card>
+            ) : (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1030,12 +1075,12 @@ export default function ProfilePage() {
                     Лучшие результаты
                   </CardTitle>
                   <Badge variant="secondary">
-                    {data.stats.bestScoreByQuiz.length} игр
+                    {(data.stats.bestScoreByQuiz ?? []).length} игр
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                {data.stats.bestScoreByQuiz.length === 0 ? (
+                {(data.stats.bestScoreByQuiz ?? []).length === 0 ? (
                   <div className="flex flex-col items-center py-12">
                     <span className="text-6xl animate-bounce">📊</span>
                     <p className="mt-6 font-semibold">Пока нет рекордов</p>
@@ -1049,7 +1094,7 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    {data.stats.bestScoreByQuiz.map((item, i) => (
+                    {(data.stats.bestScoreByQuiz ?? []).map((item, i) => (
                       <motion.div
                         key={item.quizId}
                         initial={{ opacity: 0, x: -30 }}
@@ -1088,6 +1133,7 @@ export default function ProfilePage() {
                 )}
               </CardContent>
             </Card>
+            )}
           </TabsContent>
 
           {/* Inventory Tab */}
