@@ -324,9 +324,18 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
 
     setConnectionState("connecting");
     
-    // Создаём канал
-    const channel = createChatChannel(`user:${userId}`);
-    channelRef.current = channel;
+    // Создаём канал с обработкой ошибок
+    let channel;
+    try {
+      channel = createChatChannel(`user:${userId}`);
+      channelRef.current = channel;
+    } catch (error) {
+      console.error("[useRealtimeChat] Failed to create channel:", error);
+      setConnectionState("disconnected");
+      // Fallback to polling
+      pollingIntervalRef.current = setInterval(() => loadMessages("incremental"), 3000);
+      return;
+    }
 
     channel
       // Слушаем сообщения от других

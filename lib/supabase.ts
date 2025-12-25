@@ -25,17 +25,31 @@ if (!supabaseUrl || !supabaseAnonKey) {
   warn("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
 
-export const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder-key",
-  {
-    realtime: {
-      params: {
-        eventsPerSecond: 10, // Rate limiting на клиенте
+// Безопасное создание клиента с обработкой ошибок
+let supabaseClient: ReturnType<typeof createClient>;
+
+try {
+  supabaseClient = createClient(
+    supabaseUrl || "https://placeholder.supabase.co",
+    supabaseAnonKey || "placeholder-key",
+    {
+      realtime: {
+        params: {
+          eventsPerSecond: 10, // Rate limiting на клиенте
+        },
       },
-    },
-  }
-);
+    }
+  );
+} catch (error) {
+  warn("Failed to create Supabase client:", error);
+  // Создаём dummy клиент который не будет падать
+  supabaseClient = createClient(
+    "https://placeholder.supabase.co",
+    "placeholder-key"
+  );
+}
+
+export const supabase = supabaseClient;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
