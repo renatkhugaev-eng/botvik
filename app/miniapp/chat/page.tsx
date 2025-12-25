@@ -83,9 +83,9 @@ function ChatContent({ user }: ChatContentProps) {
     scrollToBottom,
   } = useRealtimeChat({
     userId: user.id,
-    username: user.username ?? undefined,
+    username: user.username ?? null,
     firstName: user.firstName,
-    photoUrl: user.photoUrl ?? undefined,
+    photoUrl: user.photoUrl ?? null,
   });
   
   // State для реакций
