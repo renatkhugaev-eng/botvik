@@ -2,6 +2,7 @@
 
 @plugin "tailwindcss-animate";
 @import "tw-animate-css";
+@import "../styles/responsive.css";
 
 @custom-variant dark (&:is(.dark *));
 

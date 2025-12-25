@@ -12,6 +12,7 @@ import { identifyUser } from "@/lib/posthog";
 import { PerfModeProvider } from "@/components/context/PerfModeContext";
 import { WebVitalsOverlay } from "@/components/debug/WebVitalsOverlay";
 import { haptic } from "@/lib/haptic";
+import { useDeviceCSSVariables } from "@/lib/useDeviceInfo";
 
 // Динамический импорт Lottie для загрузочного экрана
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
@@ -67,6 +68,9 @@ export function useMiniAppSession() {
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<MiniAppSession>({ status: "loading" });
   const allowDevMock = process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true";
+  
+  // Устанавливаем CSS переменные для адаптивного layout
+  const deviceInfo = useDeviceCSSVariables();
 
   useEffect(() => {
     let aborted = false;
