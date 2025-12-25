@@ -70,7 +70,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
   const allowDevMock = process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true";
   
   // Устанавливаем CSS переменные для адаптивного layout
-  const deviceInfo = useDeviceCSSVariables();
+  useDeviceCSSVariables();
 
   useEffect(() => {
     let aborted = false;
