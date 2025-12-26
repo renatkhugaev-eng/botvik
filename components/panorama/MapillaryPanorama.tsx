@@ -138,13 +138,25 @@ export const MapillaryPanorama = forwardRef<MapillaryPanoramaRef, MapillaryPanor
     useImperativeHandle(ref, () => ({
       getDirection: () => {
         if (!viewerRef.current) return null;
-        const pov = viewerRef.current.getPointOfView();
-        return [pov.bearing, pov.tilt];
+        try {
+          // Mapillary v4 API
+          const bearing = viewerRef.current.getBearing?.() ?? 0;
+          const tilt = viewerRef.current.getTilt?.() ?? 0;
+          return [bearing, tilt];
+        } catch {
+          return [0, 0];
+        }
       },
       
       setDirection: (dir: CameraDirection) => {
         if (viewerRef.current) {
-          viewerRef.current.setPointOfView({ bearing: dir[0], tilt: dir[1] });
+          try {
+            // Mapillary v4: setCenter принимает [lng, lat] или bearing
+            viewerRef.current.setBearing?.(dir[0]);
+            viewerRef.current.setTilt?.(dir[1]);
+          } catch (e) {
+            console.warn("[MapillaryPanorama] Failed to set direction:", e);
+          }
         }
       },
       
@@ -219,15 +231,26 @@ export const MapillaryPanorama = forwardRef<MapillaryPanoramaRef, MapillaryPanor
           
           if (!mounted) return;
           
-          // Устанавливаем начальное направление
+          // Устанавливаем начальное направление (Mapillary v4 API)
           if (direction) {
-            viewer.setPointOfView({ bearing: direction[0], tilt: direction[1] });
+            try {
+              viewer.setBearing?.(direction[0]);
+              viewer.setTilt?.(direction[1]);
+            } catch (e) {
+              console.warn("[MapillaryPanorama] Failed to set initial direction:", e);
+            }
           }
           
           // События
           if (onDirectionChange) {
-            viewer.on("pov", (event: any) => {
-              onDirectionChange([event.pov.bearing, event.pov.tilt]);
+            viewer.on("bearing", () => {
+              try {
+                const bearing = viewer.getBearing?.() ?? 0;
+                const tilt = viewer.getTilt?.() ?? 0;
+                onDirectionChange([bearing, tilt]);
+              } catch {
+                // ignore
+              }
             });
           }
           
