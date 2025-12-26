@@ -3,7 +3,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PANORAMA MISSIONS LIST PAGE
- * Список всех панорамных миссий
+ * Все миссии используют систему скрытых улик
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -11,21 +11,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
-import { getAllMissions, getAllHiddenClueMissions } from "@/lib/panorama-missions";
-import type { PanoramaMission } from "@/types/panorama";
+import { getAllMissions } from "@/lib/panorama-missions";
 import type { HiddenClueMission } from "@/types/hidden-clue";
-
-type AnyMission = PanoramaMission | HiddenClueMission;
-
-function isHiddenMission(mission: AnyMission): mission is HiddenClueMission {
-  return "startCoordinates" in mission && "startPanoId" in mission;
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIFFICULTY CONFIG
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DIFFICULTY_CONFIG: Record<PanoramaMission["difficulty"], { label: string; color: string }> = {
+const DIFFICULTY_CONFIG: Record<HiddenClueMission["difficulty"], { label: string; color: string }> = {
   easy: { label: "Лёгкая", color: "#22c55e" },
   medium: { label: "Средняя", color: "#f59e0b" },
   hard: { label: "Сложная", color: "#ef4444" },
@@ -38,23 +31,13 @@ const DIFFICULTY_CONFIG: Record<PanoramaMission["difficulty"], { label: string; 
 
 export default function PanoramaMissionsPage() {
   const router = useRouter();
-  const [selectedMission, setSelectedMission] = useState<AnyMission | null>(null);
+  const [selectedMission, setSelectedMission] = useState<HiddenClueMission | null>(null);
   
-  const regularMissions = getAllMissions();
-  const hiddenMissions = getAllHiddenClueMissions();
-  const allMissions: AnyMission[] = [...regularMissions, ...hiddenMissions];
+  const missions = getAllMissions();
   
-  const handleMissionClick = (mission: AnyMission) => {
+  const handleMissionClick = (mission: HiddenClueMission) => {
     haptic.medium();
     setSelectedMission(mission);
-  };
-  
-  const getClueCount = (mission: AnyMission): number => {
-    return mission.clues.length;
-  };
-  
-  const getTimeLimit = (mission: AnyMission): number | undefined => {
-    return mission.timeLimit;
   };
   
   const handleStartMission = () => {
@@ -82,17 +65,17 @@ export default function PanoramaMissionsPage() {
           </button>
           
           <div className="flex items-center gap-2">
-            <span className="text-xs text-cyan-400 font-medium">BETA</span>
+            <span className="text-xs text-cyan-400 font-medium">НОВАЯ МЕХАНИКА</span>
             <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
           </div>
         </div>
 
         <div className="px-4 mt-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-            🗺️ Панорамные миссии
+            🔍 Расследования
           </h1>
           <p className="text-sm text-white/50 mt-1">
-            Исследуй реальные улицы и ищи улики
+            Улики скрыты — ищи внимательно!
           </p>
         </div>
       </div>
@@ -100,94 +83,75 @@ export default function PanoramaMissionsPage() {
       {/* Missions Grid */}
       <div className="px-4 pb-24">
         <div className="grid gap-4">
-          {allMissions.map((mission, index) => {
-            const isHidden = isHiddenMission(mission);
-            const clueCount = getClueCount(mission);
-            const timeLimit = getTimeLimit(mission);
-            
-            return (
-              <motion.button
-                key={mission.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                onClick={() => handleMissionClick(mission)}
-                className={`relative w-full p-4 rounded-2xl text-left transition-all
-                  ${selectedMission?.id === mission.id 
-                    ? "bg-white/10 border-2 border-cyan-500/50 shadow-[0_0_30px_rgba(6,182,212,0.2)]" 
-                    : isHidden 
-                      ? "bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10 border border-red-500/30 hover:border-red-500/50"
-                      : "bg-white/5 border border-white/10 hover:bg-white/10"
-                  }`}
-              >
-                {/* NEW badge for hidden missions */}
-                {isHidden && (
-                  <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded bg-red-500 text-[10px] font-bold text-white shadow-lg">
-                    НОВОЕ!
-                  </div>
-                )}
+          {missions.map((mission, index) => (
+            <motion.button
+              key={mission.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.08 }}
+              onClick={() => handleMissionClick(mission)}
+              className={`relative w-full p-4 rounded-2xl text-left transition-all
+                ${selectedMission?.id === mission.id 
+                  ? "bg-white/10 border-2 border-cyan-500/50 shadow-[0_0_30px_rgba(6,182,212,0.2)]" 
+                  : "bg-white/5 border border-white/10 hover:bg-white/10"
+                }`}
+            >
+              <div className="flex gap-4">
+                {/* Icon */}
+                <div 
+                  className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                  style={{ 
+                    backgroundColor: `${mission.color || "#06b6d4"}20`,
+                    boxShadow: `0 0 20px ${mission.color || "#06b6d4"}20`,
+                  }}
+                >
+                  {mission.icon || "🔍"}
+                </div>
                 
-                <div className="flex gap-4">
-                  {/* Icon */}
-                  <div 
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
-                      isHidden ? "bg-gradient-to-br from-red-500 to-orange-500" : ""
-                    }`}
-                    style={!isHidden ? { 
-                      backgroundColor: `${mission.color || "#06b6d4"}20`,
-                      boxShadow: `0 0 20px ${mission.color || "#06b6d4"}20`,
-                    } : undefined}
-                  >
-                    {mission.icon || "🗺️"}
-                  </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-white truncate">
+                    {mission.title}
+                  </h3>
+                  <p className="text-sm text-white/50 mt-0.5">
+                    📍 {mission.location}
+                  </p>
                   
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white truncate">
-                      {mission.title}
-                    </h3>
-                    <p className="text-sm text-white/50 mt-0.5">
-                      📍 {mission.location}
-                    </p>
-                    
-                    {/* Meta */}
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <span 
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ 
-                          backgroundColor: `${DIFFICULTY_CONFIG[mission.difficulty].color}20`,
-                          color: DIFFICULTY_CONFIG[mission.difficulty].color,
-                        }}
-                      >
-                        {DIFFICULTY_CONFIG[mission.difficulty].label}
-                      </span>
-                      <span className="text-xs text-white/40">
-                        🔍 {clueCount} улик
-                      </span>
-                      {timeLimit && (
-                        <span className="text-xs text-white/40">
-                          ⏱️ {Math.floor(timeLimit / 60)}:{(timeLimit % 60).toString().padStart(2, "0")}
-                        </span>
-                      )}
-                      {isHidden && (
-                        <span className="text-xs text-orange-400">
-                          👁️ Скрытые улики
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* XP Badge */}
-                  <div className="flex flex-col items-end justify-center">
-                    <span className="text-lg font-bold text-green-400">
-                      +{mission.xpReward}
+                  {/* Meta */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span 
+                      className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ 
+                        backgroundColor: `${DIFFICULTY_CONFIG[mission.difficulty].color}20`,
+                        color: DIFFICULTY_CONFIG[mission.difficulty].color,
+                      }}
+                    >
+                      {DIFFICULTY_CONFIG[mission.difficulty].label}
                     </span>
-                    <span className="text-xs text-white/40">XP</span>
+                    <span className="text-xs text-white/40">
+                      🔍 {mission.clues.length} улик
+                    </span>
+                    <span className="text-xs text-white/40">
+                      ✓ {mission.requiredClues} нужно
+                    </span>
+                    {mission.timeLimit && (
+                      <span className="text-xs text-white/40">
+                        ⏱️ {Math.floor(mission.timeLimit / 60)} мин
+                      </span>
+                    )}
                   </div>
                 </div>
-              </motion.button>
-            );
-          })}
+                
+                {/* XP Badge */}
+                <div className="flex flex-col items-end justify-center">
+                  <span className="text-lg font-bold text-green-400">
+                    +{mission.xpReward}
+                  </span>
+                  <span className="text-xs text-white/40">XP</span>
+                </div>
+              </div>
+            </motion.button>
+          ))}
         </div>
         
         {/* Info card */}
@@ -198,12 +162,13 @@ export default function PanoramaMissionsPage() {
           className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl"
         >
           <div className="flex gap-3">
-            <span className="text-2xl">💡</span>
+            <span className="text-2xl">👁️</span>
             <div>
-              <h4 className="font-medium text-cyan-400 mb-1">Как играть?</h4>
+              <h4 className="font-medium text-cyan-400 mb-1">Как найти улики?</h4>
               <p className="text-sm text-white/60">
-                Осматривай панораму, вращая камеру. Ищи подсвеченные улики и нажимай на них. 
-                Некоторые улики требуют ответа на вопрос.
+                Улики скрыты! Вращай камеру, смотри по сторонам. 
+                Когда смотришь в нужную сторону — улика появится. 
+                Сворачивай в переулки для секретных находок!
               </p>
             </div>
           </div>
@@ -223,7 +188,7 @@ export default function PanoramaMissionsPage() {
                 className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
                 style={{ backgroundColor: `${selectedMission.color || "#06b6d4"}20` }}
               >
-                {selectedMission.icon || "🗺️"}
+                {selectedMission.icon || "🔍"}
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">{selectedMission.title}</h3>
@@ -242,7 +207,7 @@ export default function PanoramaMissionsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Начать миссию
+                Начать расследование
               </span>
             </button>
           </div>
@@ -251,4 +216,3 @@ export default function PanoramaMissionsPage() {
     </div>
   );
 }
-

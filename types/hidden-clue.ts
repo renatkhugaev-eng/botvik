@@ -41,13 +41,13 @@ export interface HiddenClue {
   name: string;
   
   /** Описание (показывается после сбора) */
-  description: string;
+  description?: string;
   
   /** Иконка */
   icon: string;
   
   /** Контекст истории — что это значит для расследования */
-  storyContext: string;
+  storyContext?: string;
   
   /** XP за сбор */
   xpReward: number;
@@ -92,6 +92,7 @@ export interface HiddenClueMission {
   startCoordinates: [number, number]; // [lat, lng]
   startPanoId: string;
   startHeading: number;
+  allowNavigation: boolean;
   
   // ─── Улики ───
   clues: HiddenClue[];
@@ -102,6 +103,9 @@ export interface HiddenClueMission {
   // ─── Время и награды ───
   timeLimit?: number;
   xpReward: number;
+  
+  /** Бонус XP за каждую секунду до лимита */
+  speedBonusPerSecond?: number;
   
   // ─── Мета ───
   location: string;

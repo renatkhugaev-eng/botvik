@@ -3,16 +3,15 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PANORAMA MISSION PLAY PAGE
- * Страница прохождения панорамной миссии (поддержка обоих типов)
+ * Все миссии используют систему скрытых улик
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { PanoramaMission, HiddenClueMission } from "@/components/panorama";
-import { getMissionById, getHiddenClueMissionById } from "@/lib/panorama-missions";
-import type { PanoramaMission as MissionType, PanoramaMissionProgress } from "@/types/panorama";
-import type { HiddenClueMission as HiddenMissionType } from "@/types/hidden-clue";
+import { HiddenClueMission } from "@/components/panorama";
+import { getMissionById } from "@/lib/panorama-missions";
+import type { HiddenClueMission as MissionType } from "@/types/hidden-clue";
 import { haptic } from "@/lib/haptic";
 
 export default function PanoramaMissionPage() {
@@ -21,32 +20,21 @@ export default function PanoramaMissionPage() {
   const missionId = params.id as string;
   
   const [mission, setMission] = useState<MissionType | null>(null);
-  const [hiddenMission, setHiddenMission] = useState<HiddenMissionType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Загрузка миссии — проверяем оба типа
+  // Загрузка миссии
   useEffect(() => {
     const loadMission = async () => {
       try {
-        // Сначала ищем в обычных миссиях
         const foundMission = getMissionById(missionId);
-        if (foundMission) {
-          setMission(foundMission);
-          setHiddenMission(null);
+        
+        if (!foundMission) {
+          setError("Миссия не найдена");
           return;
         }
         
-        // Потом ищем в миссиях со скрытыми уликами
-        const foundHiddenMission = getHiddenClueMissionById(missionId);
-        if (foundHiddenMission) {
-          setHiddenMission(foundHiddenMission);
-          setMission(null);
-          return;
-        }
-        
-        // Ничего не нашли
-        setError("Миссия не найдена");
+        setMission(foundMission);
       } catch (err) {
         console.error("Failed to load mission:", err);
         setError("Не удалось загрузить миссию");
@@ -59,15 +47,8 @@ export default function PanoramaMissionPage() {
   }, [missionId]);
   
   // Обработчик завершения миссии
-  const handleComplete = async (result: PanoramaMissionProgress) => {
-    console.log("Mission completed:", result);
-    
-    // TODO: Отправить результат на сервер
-    // await api.post(`/api/panorama/${missionId}/complete`, result);
-    
+  const handleComplete = async () => {
     haptic.success();
-    
-    // Возвращаемся к списку миссий
     router.push("/miniapp/panorama");
   };
   
@@ -90,7 +71,7 @@ export default function PanoramaMissionPage() {
   }
   
   // Error state
-  if (error || (!mission && !hiddenMission)) {
+  if (error || !mission) {
     return (
       <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center px-4">
         <div className="text-center">
@@ -107,30 +88,11 @@ export default function PanoramaMissionPage() {
     );
   }
   
-  // Hidden Clue Mission (новая система)
-  if (hiddenMission) {
-    return (
-      <HiddenClueMission
-        mission={hiddenMission}
-        onComplete={() => {
-          haptic.success();
-          router.push("/miniapp/panorama");
-        }}
-        onExit={handleExit}
-      />
-    );
-  }
-  
-  // Regular Mission (старая система)
-  if (mission) {
-    return (
-      <PanoramaMission
-        mission={mission}
-        onComplete={handleComplete}
-        onExit={handleExit}
-      />
-    );
-  }
-  
-  return null;
+  return (
+    <HiddenClueMission
+      mission={mission}
+      onComplete={handleComplete}
+      onExit={handleExit}
+    />
+  );
 }
