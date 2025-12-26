@@ -445,38 +445,38 @@ export function HiddenClueMission({
           )}
         </div>
         
-        {/* Panorama */}
-        <div className="flex-1 relative">
-          <GooglePanorama
-            ref={panoramaRef}
-            coordinates={mission.startCoordinates}
-            direction={[mission.startHeading, 0]}
-            allowNavigation={true}
-            onDirectionChange={handleDirectionChange}
-            onPositionChange={() => {
-              // Get panoId from ref when position changes
-              const panoId = panoramaRef.current?.getPanoId();
-              if (panoId) handlePositionChange(panoId);
-            }}
-            onReady={() => {
-              // Get initial panoId from ref
-              const panoId = panoramaRef.current?.getPanoId();
-              if (panoId) setCurrentPanoId(panoId);
-            }}
-            className="w-full h-full"
-          />
+        {/* Panorama - занимает всё доступное пространство */}
+        <div className="flex-1 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <GooglePanorama
+              ref={panoramaRef}
+              coordinates={mission.startCoordinates}
+              direction={[mission.startHeading, 0]}
+              allowNavigation={true}
+              onDirectionChange={handleDirectionChange}
+              onPositionChange={() => {
+                // Get panoId from ref when position changes
+                const panoId = panoramaRef.current?.getPanoId();
+                if (panoId) handlePositionChange(panoId);
+              }}
+              onReady={() => {
+                // Get initial panoId from ref
+                const panoId = panoramaRef.current?.getPanoId();
+                if (panoId) setCurrentPanoId(panoId);
+              }}
+              className="w-full h-full"
+            />
+          </div>
           
-          {/* Soft hint flash */}
+          {/* Overlay elements - all have pointer-events-none */}
           <SoftHintFlash visible={showHintFlash} />
           
-          {/* Reveal progress indicator */}
           <AnimatePresence>
             {revealingClue && (
               <RevealProgress clue={revealingClue} progress={revealProgress} />
             )}
           </AnimatePresence>
           
-          {/* Revealed clue marker */}
           <AnimatePresence>
             {revealedClue && revealedClueState && (
               <RevealedClueMarker

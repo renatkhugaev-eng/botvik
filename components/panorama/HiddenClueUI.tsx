@@ -30,7 +30,7 @@ export function RevealProgress({ clue, progress }: RevealProgressProps) {
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30"
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none"
     >
       {/* Круговой прогресс */}
       <div className="relative w-24 h-24">
