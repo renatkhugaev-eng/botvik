@@ -96,31 +96,27 @@ function isInRevealCone(
 
 /**
  * Проверяет соответствует ли виртуальный panoId текущему состоянию
+ * Упрощённая версия — улики доступны на текущем шаге и всех последующих
  */
 function matchesVirtualPanoId(
   cluePanoId: string,
-  stepCount: number,
-  usedVirtualIds: Set<string>
+  stepCount: number
 ): boolean {
-  // Если улика уже была использована для этого виртуального ID — пропускаем
-  if (cluePanoId !== "ANY" && usedVirtualIds.has(cluePanoId)) {
-    return false;
-  }
-  
   switch (cluePanoId) {
     case "START":
-      return stepCount === 0;
+      // START доступен всегда (игрок может вернуться)
+      return true;
     case "STEP_1":
-      return stepCount === 1;
+      return stepCount >= 1;
     case "STEP_2":
-      return stepCount === 2;
+      return stepCount >= 2;
     case "STEP_3+":
       return stepCount >= 3;
     case "ANY":
       return true;
     default:
-      // Реальный panoId — точное совпадение не поддерживается в виртуальном режиме
-      return false;
+      // Реальный panoId — пока не поддерживается
+      return true; // Показываем все улики
   }
 }
 
@@ -152,39 +148,11 @@ export function useClueDiscovery({
   
   const [revealingClue, setRevealingClue] = useState<HiddenClue | null>(null);
   const [revealProgress, setRevealProgress] = useState(0);
-  const [usedVirtualIds, setUsedVirtualIds] = useState<Set<string>>(new Set());
   
   // ─── Refs ───
   const lastHintTimeRef = useRef<Map<string, number>>(new Map());
   const dwellStartRef = useRef<number | null>(null);
   const lastScannerHintRef = useRef<number>(0);
-  const previousStepCountRef = useRef<number>(0);
-  
-  // ─── Track step changes to mark used virtual IDs ───
-  useEffect(() => {
-    if (stepCount !== previousStepCountRef.current) {
-      // Помечаем виртуальные ID как использованные когда покидаем панораму
-      const currentVirtualId = stepCount === 0 ? "START" 
-        : stepCount === 1 ? "STEP_1"
-        : stepCount === 2 ? "STEP_2"
-        : "STEP_3+";
-      
-      // Если ушли с панорамы где была нескрытая улика — помечаем как пропущенную
-      setUsedVirtualIds(prev => {
-        const newSet = new Set(prev);
-        // Не помечаем STEP_3+ так как таких панорам много
-        if (previousStepCountRef.current < 3) {
-          const prevVirtualId = previousStepCountRef.current === 0 ? "START"
-            : previousStepCountRef.current === 1 ? "STEP_1"
-            : "STEP_2";
-          newSet.add(prevVirtualId);
-        }
-        return newSet;
-      });
-      
-      previousStepCountRef.current = stepCount;
-    }
-  }, [stepCount]);
   
   // ─── Available clues in current location ───
   const availableClues = clues.filter(clue => {
@@ -192,7 +160,7 @@ export function useClueDiscovery({
     // Уже собрана — не показываем
     if (state?.state === "collected") return false;
     // Проверяем виртуальный panoId
-    return matchesVirtualPanoId(clue.panoId, stepCount, usedVirtualIds);
+    return matchesVirtualPanoId(clue.panoId, stepCount);
   });
   
   // ─── Has hint in current pano ───
@@ -255,7 +223,7 @@ export function useClueDiscovery({
     
     // Предпочитаем улики доступные в текущей локации
     const priorityClues = hiddenClues.filter(c => 
-      matchesVirtualPanoId(c.panoId, stepCount, usedVirtualIds)
+      matchesVirtualPanoId(c.panoId, stepCount)
     );
     
     const targetClues = priorityClues.length > 0 ? priorityClues : hiddenClues;
@@ -265,7 +233,7 @@ export function useClueDiscovery({
     haptic.light();
     
     return randomClue.scannerHint || "Сканер обнаружил что-то поблизости...";
-  }, [clues, clueStates, stepCount, usedVirtualIds]);
+  }, [clues, clueStates, stepCount]);
   
   // ─── Main discovery loop ───
   useEffect(() => {
