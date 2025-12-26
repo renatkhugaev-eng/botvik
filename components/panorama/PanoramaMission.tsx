@@ -10,10 +10,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GooglePanorama, GooglePanoramaRef } from "./GooglePanorama";
-import { ClueChecklist } from "./ClueChecklist";
-import { ClueDetector } from "./ClueDetector";
-import { ClueDiscoveryModal } from "./ClueDiscoveryModal";
-import { ClueRadar } from "./ClueRadar";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { 
   PanoramaMission as MissionType, 
@@ -91,8 +87,6 @@ export function PanoramaMission({
   const [timeSpent, setTimeSpent] = useState(existingProgress?.timeSpent || 0);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [showHint, setShowHint] = useState(false);
-  const [checklistCollapsed, setChecklistCollapsed] = useState(false);
-  const [activeClue, setActiveClue] = useState<ClueType | null>(null);
   
   // ─── Derived state ───
   const totalClues = mission.clues.length;
@@ -476,106 +470,10 @@ export function PanoramaMission({
             className="w-full h-full"
           />
           
-          {/* Clue detector — показывает когда камера смотрит на улику */}
-          {phase === "playing" && (
-            <ClueDetector
-              clues={mission.clues}
-              foundClueIds={foundClueIds}
-              cameraDirection={cameraDirection}
-              onClueDetected={(clue) => {
-                setActiveClue(clue);
-                investigationHaptic?.clueDiscovered();
-              }}
-            />
-          )}
-          
-          {/* Clue radar — индикатор теплее/холоднее (слева) */}
-          {phase === "playing" && (
-            <div className="absolute top-20 left-4 z-20 w-48">
-              <ClueRadar
-                clues={mission.clues}
-                foundClueIds={foundClueIds}
-                cameraDirection={cameraDirection}
-              />
-            </div>
-          )}
-          
-          {/* Clue checklist — список улик справа */}
-          {phase === "playing" && (
-            <div className="absolute top-20 right-4 z-20 w-56">
-              <ClueChecklist
-                clues={mission.clues}
-                foundClueIds={foundClueIds}
-                collapsed={checklistCollapsed}
-                onToggleCollapse={() => setChecklistCollapsed(!checklistCollapsed)}
-              />
-            </div>
-          )}
+          {/* TODO: Здесь будет новая система заданий */}
         </div>
         
-        {/* HUD - Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/80 to-transparent">
-          {/* Progress bar */}
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm text-white/60">Улики:</span>
-            <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-cyan-500 to-green-500 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${(foundCount / totalClues) * 100}%` }}
-                transition={{ type: "spring" }}
-              />
-            </div>
-            <span className="text-sm font-bold text-white">
-              {foundCount}/{totalClues}
-            </span>
-          </div>
-          
-          {/* Found clues mini-icons */}
-          <div className="flex gap-2 justify-center">
-            {mission.clues.map((clue) => (
-              <div
-                key={clue.id}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm
-                  transition-all duration-300
-                  ${foundClueIds.includes(clue.id)
-                    ? "bg-green-500/30 border border-green-500/50"
-                    : "bg-white/10 border border-white/20"
-                  }`}
-              >
-                {foundClueIds.includes(clue.id) ? "✓" : clue.icon || "?"}
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Clue discovery modal */}
-        <ClueDiscoveryModal
-          clue={activeClue}
-          onComplete={(clueId, isCorrect, answer) => {
-            // Обновляем прогресс
-            if (!foundClueIds.includes(clueId)) {
-              setFoundClueIds(prev => [...prev, clueId]);
-            }
-            setCluesProgress(prev =>
-              prev.map(cp =>
-                cp.clueId === clueId
-                  ? { ...cp, found: true, foundAt: new Date(), userAnswer: answer, isCorrect }
-                  : cp
-              )
-            );
-            
-            if (isCorrect) {
-              haptic.success();
-              investigationHaptic?.clueDiscovered();
-            } else {
-              haptic.error();
-            }
-            
-            setActiveClue(null);
-          }}
-          onClose={() => setActiveClue(null)}
-        />
+        {/* TODO: Здесь будет новый UI */}
       </div>
     );
   }
