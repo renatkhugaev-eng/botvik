@@ -269,6 +269,13 @@ export function useClueDiscovery({
             setRevealingClue(clue);
             dwellStartRef.current = now;
             haptic.light();
+            
+            // Отправляем событие начала обнаружения
+            onClueEvent?.({
+              type: "revealing",
+              clue,
+              timestamp: new Date(),
+            });
           } else if (currentState.state === "revealing") {
             // Продолжаем revealing — считаем время
             const elapsed = (now - (dwellStartRef.current || now)) / 1000;

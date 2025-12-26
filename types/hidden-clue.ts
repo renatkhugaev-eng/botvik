@@ -119,6 +119,12 @@ export interface HiddenClueMission {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface ClueDiscoveryEvent {
+  /** Тип события:
+   * - hint: мягкая подсказка (вибрация/звук)
+   * - revealing: начало обнаружения (игрок смотрит на улику)
+   * - revealed: улика обнаружена
+   * - collected: улика собрана
+   */
   type: "hint" | "revealing" | "revealed" | "collected";
   clue: HiddenClue;
   timestamp: Date;

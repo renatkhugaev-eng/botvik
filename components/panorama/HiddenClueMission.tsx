@@ -4,6 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * HIDDEN CLUE MISSION COMPONENT
  * Миссия с системой скрытых улик — они появляются только после обнаружения
+ * Включает аудио-подсказки: heartbeat, static, discovery sounds
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -19,6 +20,7 @@ import {
   ClueCounter,
 } from "./HiddenClueUI";
 import { useClueDiscovery } from "@/lib/useClueDiscovery";
+import { useAudioHints } from "@/lib/useAudioHints";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { HiddenClueMission as MissionType, HiddenClue, ClueDiscoveryEvent } from "@/types/hidden-clue";
 
@@ -30,6 +32,8 @@ interface HiddenClueMissionProps {
   mission: MissionType;
   onComplete?: (result: MissionResult) => void;
   onExit?: () => void;
+  /** Отключить аудио-подсказки */
+  disableAudio?: boolean;
 }
 
 interface MissionResult {
@@ -69,6 +73,7 @@ export function HiddenClueMission({
   mission,
   onComplete,
   onExit,
+  disableAudio = false,
 }: HiddenClueMissionProps) {
   // ─── Refs ───
   const panoramaRef = useRef<GooglePanoramaRef>(null);
@@ -86,6 +91,19 @@ export function HiddenClueMission({
   const [showHintFlash, setShowHintFlash] = useState(false);
   const [scannerHintText, setScannerHintText] = useState<string | null>(null);
   const [collectedClue, setCollectedClue] = useState<HiddenClue | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(!disableAudio);
+  
+  // ─── Audio hints ───
+  const audio = useAudioHints({
+    enabled: audioEnabled && !disableAudio,
+    autoInit: true,
+    config: {
+      masterVolume: 0.7,
+      heartbeatVolume: 0.5,
+      staticVolume: 0.25,
+      effectsVolume: 0.8,
+    },
+  });
   
   // ─── Clue discovery hook ───
   const {
@@ -111,19 +129,27 @@ export function HiddenClueMission({
   function handleClueEvent(event: ClueDiscoveryEvent) {
     switch (event.type) {
       case "hint":
-        // Показываем блик
+        // Показываем блик + звук подсказки
         setShowHintFlash(true);
         setTimeout(() => setShowHintFlash(false), 300);
+        audio.playSound("hint");
+        break;
+        
+      case "revealing":
+        // Начало обнаружения — whisper эффект
+        audio.playSound("whisper");
         break;
         
       case "revealed":
-        // Улика обнаружена — можно теперь собрать
+        // Улика обнаружена — звук discovery
         investigationHaptic?.clueDiscovered();
+        audio.playSound("discovery");
         break;
         
       case "collected":
-        // Показываем модальное окно
+        // Показываем модальное окно + звук сбора
         setCollectedClue(event.clue);
+        audio.playSound("collect");
         
         // Проверяем завершение
         const newCollectedCount = collectedClues.length + 1;
@@ -135,6 +161,17 @@ export function HiddenClueMission({
         break;
     }
   }
+  
+  // ─── Audio reveal progress sync ───
+  useEffect(() => {
+    if (revealProgress > 0) {
+      // Обновляем аудио при прогрессе обнаружения
+      audio.updateRevealProgress(revealProgress);
+    } else {
+      // Отменяем звуки если обнаружение прервано
+      audio.cancelReveal();
+    }
+  }, [revealProgress]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // ─── Timer effect ───
   useEffect(() => {
@@ -172,11 +209,12 @@ export function HiddenClueMission({
       const hint = showScannerHint();
       if (hint) {
         setScannerHintText(hint);
+        audio.playSound("scanner");
       }
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [phase, showScannerHint]);
+  }, [phase, showScannerHint]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // ─── Handle time up ───
   const handleTimeUp = useCallback(() => {
@@ -191,9 +229,18 @@ export function HiddenClueMission({
   }, [collectedClues.length, mission.requiredClues]);
   
   // ─── Start mission ───
-  const handleStart = () => {
+  const handleStart = async () => {
     haptic.heavy();
     investigationHaptic?.suspense();
+    
+    // Инициализируем аудио (требует user gesture)
+    if (!audio.isReady) {
+      await audio.init();
+    }
+    
+    // Играем звук напряжения при старте
+    audio.playSound("tension");
+    
     setPhase("playing");
     if (mission.timeLimit) setTimeRemaining(mission.timeLimit);
   };
@@ -222,6 +269,9 @@ export function HiddenClueMission({
   const handleComplete = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     
+    // Останавливаем все звуки
+    audio.stopAll();
+    
     const earnedXp = Math.round(
       mission.xpReward * (collectedClues.length / mission.clues.length)
     );
@@ -237,6 +287,14 @@ export function HiddenClueMission({
     
     haptic.success();
     onComplete?.(result);
+  };
+  
+  // ─── Toggle audio ───
+  const toggleAudio = () => {
+    const newState = !audioEnabled;
+    setAudioEnabled(newState);
+    audio.setEnabled(newState);
+    haptic.light();
   };
   
   // ─── Format time ───
@@ -421,8 +479,34 @@ export function HiddenClueMission({
               </div>
             )}
             
-            {/* Clue counter */}
-            <div className="pointer-events-auto">
+            {/* Audio toggle + Clue counter */}
+            <div className="flex items-center gap-2 pointer-events-auto">
+              {/* Audio toggle */}
+              <button
+                onClick={toggleAudio}
+                className={`w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-colors
+                  ${audioEnabled ? "bg-cyan-500/30 text-cyan-400" : "bg-black/40 text-white/40"}`}
+                title={audioEnabled ? "Выключить звук" : "Включить звук"}
+              >
+                {audioEnabled ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" 
+                    />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" 
+                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" 
+                    />
+                  </svg>
+                )}
+              </button>
+              
+              {/* Clue counter */}
               <ClueCounter 
                 found={collectedClues.length} 
                 total={mission.clues.length}
