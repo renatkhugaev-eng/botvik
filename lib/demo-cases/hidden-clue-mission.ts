@@ -219,6 +219,7 @@ export const TIMES_SQUARE_HIDDEN_MISSION: HiddenClueMission = {
     Сворачивайте в переулки. Смотрите по сторонам.
   `,
   
+  startCoordinates: [40.758, -73.9855], // Times Square
   startPanoId: "START",
   startHeading: 0,
   

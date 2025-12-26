@@ -89,6 +89,7 @@ export interface HiddenClueMission {
   briefing: string;
   
   // ─── Стартовая точка ───
+  startCoordinates: [number, number]; // [lat, lng]
   startPanoId: string;
   startHeading: number;
   

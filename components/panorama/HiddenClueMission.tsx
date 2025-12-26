@@ -447,7 +447,7 @@ export function HiddenClueMission({
         <div className="flex-1 relative">
           <GooglePanorama
             ref={panoramaRef}
-            coordinates={[40.758, -73.9855]} // Times Square
+            coordinates={mission.startCoordinates}
             direction={[mission.startHeading, 0]}
             allowNavigation={true}
             onDirectionChange={handleDirectionChange}

@@ -3,15 +3,16 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PANORAMA MISSION PLAY PAGE
- * Страница прохождения панорамной миссии
+ * Страница прохождения панорамной миссии с системой скрытых улик
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { PanoramaMission } from "@/components/panorama";
+import { HiddenClueMission } from "@/components/panorama";
 import { getMissionById } from "@/lib/panorama-missions";
-import type { PanoramaMission as MissionType, PanoramaMissionProgress } from "@/types/panorama";
+import { convertToHiddenClueMission } from "@/lib/convert-to-hidden-clue";
+import type { HiddenClueMission as HiddenMissionType } from "@/types/hidden-clue";
 import { haptic } from "@/lib/haptic";
 
 export default function PanoramaMissionPage() {
@@ -19,7 +20,7 @@ export default function PanoramaMissionPage() {
   const params = useParams();
   const missionId = params.id as string;
   
-  const [mission, setMission] = useState<MissionType | null>(null);
+  const [mission, setMission] = useState<HiddenMissionType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -27,8 +28,7 @@ export default function PanoramaMissionPage() {
   useEffect(() => {
     const loadMission = async () => {
       try {
-        // Пока используем статические данные
-        // TODO: Загружать из API
+        // Загружаем старый формат миссии
         const foundMission = getMissionById(missionId);
         
         if (!foundMission) {
@@ -36,7 +36,9 @@ export default function PanoramaMissionPage() {
           return;
         }
         
-        setMission(foundMission);
+        // Конвертируем в новый формат со скрытыми уликами
+        const hiddenMission = convertToHiddenClueMission(foundMission);
+        setMission(hiddenMission);
       } catch (err) {
         console.error("Failed to load mission:", err);
         setError("Не удалось загрузить миссию");
@@ -49,7 +51,14 @@ export default function PanoramaMissionPage() {
   }, [missionId]);
   
   // Обработчик завершения миссии
-  const handleComplete = async (result: PanoramaMissionProgress) => {
+  const handleComplete = async (result: {
+    missionId: string;
+    cluesCollected: number;
+    cluesTotal: number;
+    timeSpent: number;
+    earnedXp: number;
+    completed: boolean;
+  }) => {
     console.log("Mission completed:", result);
     
     // TODO: Отправить результат на сервер
@@ -97,13 +106,12 @@ export default function PanoramaMissionPage() {
     );
   }
   
-  // Mission component
+  // Mission component with hidden clues
   return (
-    <PanoramaMission
+    <HiddenClueMission
       mission={mission}
       onComplete={handleComplete}
       onExit={handleExit}
     />
   );
 }
-
