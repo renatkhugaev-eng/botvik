@@ -1624,6 +1624,39 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────
+          PANORAMA MISSIONS — кликабельный блок ведёт на /miniapp/panorama
+      ───────────────────────────────────────────────────────────────── */}
+      <motion.div
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          haptic.medium();
+          router.push("/miniapp/panorama");
+        }}
+        className="cursor-pointer"
+      >
+        <Card title="Панорамы" badge={<span className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/20 text-cyan-500 rounded-full">BETA</span>}>
+          <div className="flex items-center gap-4 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg">
+              <span className="text-3xl">🗺️</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-bold text-slate-700">Поиск улик на улицах</p>
+              <p className="text-[12px] text-slate-500 mt-0.5">Исследуй реальные панорамы</p>
+            </div>
+            <Chevron />
+          </div>
+          
+          {/* CTA */}
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 py-3">
+            <span className="text-sm font-semibold text-white">Начать поиск</span>
+            <svg className="h-4 w-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* ─────────────────────────────────────────────────────────────────
           TOURNAMENTS — кликабельный блок ведёт на /miniapp/tournaments
       ───────────────────────────────────────────────────────────────── */}
       <motion.div

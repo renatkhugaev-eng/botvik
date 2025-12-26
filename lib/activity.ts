@@ -50,6 +50,7 @@ const ACTIVITY_ICONS: Record<ActivityType, string> = {
   DUEL_WON: "🏆",
   DUEL_LOST: "😔",
   DUEL_DRAW: "🤝",
+  PANORAMA_COMPLETE: "🗺️",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
