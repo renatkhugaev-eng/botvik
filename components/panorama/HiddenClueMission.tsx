@@ -502,25 +502,20 @@ export function HiddenClueMission({
           )}
         </AnimatePresence>
         
-        {/* Bottom navigation hint + DEBUG */}
+        {/* Bottom navigation hint */}
         <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
           <div className="flex items-center justify-center gap-2 text-white/50 text-sm">
-            <span>👆 Крутите камеру</span>
+            <span>👆 Вращайте камеру медленно</span>
             <span>•</span>
-            <span>🚶 Кликайте стрелки</span>
+            <span>🚶 Кликайте стрелки для перемещения</span>
           </div>
           
-          {/* DEBUG INFO */}
-          <div className="text-center text-white/40 text-xs mt-2 space-y-1">
-            <div>Шагов: {stepCount} | Heading: {Math.round(currentHeading)}°</div>
-            <div>PanoId: {currentPanoId ? currentPanoId.substring(0, 12) + "..." : "null"}</div>
-            <div>Доступно улик: {availableClues.length} | Скрыто: {availableClues.filter(c => clueStates.get(c.id)?.state === "hidden").length}</div>
-            {revealingClue && (
-              <div className="text-cyan-400">
-                ⏳ Обнаружение: {revealingClue.name} ({Math.round(revealProgress * 100)}%)
-              </div>
-            )}
-          </div>
+          {/* Subtle hint about clues */}
+          {availableClues.filter(c => clueStates.get(c.id)?.state === "hidden").length > 0 && (
+            <div className="text-center text-cyan-400/60 text-xs mt-2">
+              🔍 Здесь есть скрытые улики...
+            </div>
+          )}
         </div>
       </div>
     );
