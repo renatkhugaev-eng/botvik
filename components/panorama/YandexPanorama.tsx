@@ -215,27 +215,37 @@ export const YandexPanorama = forwardRef<YandexPanoramaRef, YandexPanoramaProps>
       let player: YandexPanoramaPlayer | null = null;
       
       async function init() {
-        if (!containerRef.current) return;
+        if (!containerRef.current) {
+          console.log("[YandexPanorama] No container ref");
+          return;
+        }
         
         try {
           setLoading(true);
           setError(null);
           setNotAvailable(false);
           
+          console.log("[YandexPanorama] Loading API...");
           const ymaps = await loadYandexMapsAPI();
+          console.log("[YandexPanorama] API loaded, checking support...");
           ymapsRef.current = ymaps;
           
           if (!mounted) return;
           
           // Проверяем поддержку панорам
-          if (!ymaps.panorama.isSupported()) {
+          const isSupported = ymaps.panorama.isSupported();
+          console.log("[YandexPanorama] Panorama supported:", isSupported);
+          
+          if (!isSupported) {
             setError("Ваш браузер не поддерживает панорамы");
             setLoading(false);
             return;
           }
           
           // Ищем панораму по координатам
+          console.log("[YandexPanorama] Locating panorama at:", coordinates);
           const panoramas = await ymaps.panorama.locate(coordinates);
+          console.log("[YandexPanorama] Found panoramas:", panoramas.length);
           
           if (!mounted) return;
           
@@ -246,6 +256,7 @@ export const YandexPanorama = forwardRef<YandexPanoramaRef, YandexPanoramaProps>
           }
           
           // Создаём плеер
+          console.log("[YandexPanorama] Creating player...");
           player = new ymaps.panorama.Player(
             containerRef.current!,
             panoramas[0],
@@ -257,6 +268,7 @@ export const YandexPanorama = forwardRef<YandexPanoramaRef, YandexPanoramaProps>
           ) as YandexPanoramaPlayer;
           
           playerRef.current = player;
+          console.log("[YandexPanorama] Player created!");
           
           // Подписываемся на события
           if (onDirectionChange) {
@@ -271,6 +283,7 @@ export const YandexPanorama = forwardRef<YandexPanoramaRef, YandexPanoramaProps>
           }
           
           setLoading(false);
+          console.log("[YandexPanorama] Ready!");
           onReady?.(player);
           
         } catch (err) {
