@@ -98,12 +98,10 @@ function loadYandexMapsAPI(): Promise<YmapsAPI> {
     const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_KEY;
     console.log("[YandexPanorama] API Key present:", !!apiKey, apiKey?.substring(0, 8));
     
-    if (!apiKey) {
-      reject(new Error("NEXT_PUBLIC_YANDEX_MAPS_KEY not configured"));
-      return;
-    }
-    
-    const scriptUrl = `https://api-maps.yandex.ru/2.1/?apikey=${apiKey}&lang=ru_RU`;
+    // Яндекс разрешает ограниченное использование без ключа
+    const scriptUrl = apiKey 
+      ? `https://api-maps.yandex.ru/2.1/?apikey=${apiKey}&lang=ru_RU`
+      : `https://api-maps.yandex.ru/2.1/?lang=ru_RU`;
     console.log("[YandexPanorama] Loading script:", scriptUrl.substring(0, 60) + "...");
     
     const script = document.createElement("script");
