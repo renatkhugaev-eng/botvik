@@ -76,66 +76,51 @@ export function ClueDetector({
     <AnimatePresence>
       {visibleClue && (
         <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.9 }}
-          transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          transition={{ type: "spring", damping: 25, stiffness: 400 }}
+          className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20"
         >
-          {/* Пульсирующий круг */}
-          <motion.div
-            className="absolute inset-0 bg-blue-500/30 rounded-full blur-xl"
-            animate={{ 
-              scale: [1, 1.3, 1],
-              opacity: [0.5, 0.2, 0.5]
-            }}
-            transition={{ 
-              duration: 1.5,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          
-          {/* Кнопка */}
           <motion.button
             onClick={handleClick}
-            className="relative flex flex-col items-center gap-2 px-6 py-4 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl shadow-2xl shadow-blue-500/30 border border-white/20"
-            whileHover={{ scale: 1.05 }}
+            className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full shadow-lg shadow-blue-500/40 border border-white/20"
             whileTap={{ scale: 0.95 }}
+            animate={{ 
+              boxShadow: [
+                "0 10px 40px rgba(59, 130, 246, 0.4)",
+                "0 10px 60px rgba(59, 130, 246, 0.6)",
+                "0 10px 40px rgba(59, 130, 246, 0.4)"
+              ]
+            }}
+            transition={{ duration: 1.5, repeat: Infinity }}
           >
-            {/* Иконка */}
-            <motion.div
-              className="text-3xl"
-              animate={{ 
-                rotate: [-5, 5, -5],
-                y: [0, -3, 0]
-              }}
-              transition={{ 
-                duration: 0.5,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
+            {/* Иконка с пульсацией */}
+            <motion.span
+              className="text-2xl"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 0.6, repeat: Infinity }}
             >
               🔍
-            </motion.div>
+            </motion.span>
             
             {/* Текст */}
-            <div className="text-center">
-              <p className="text-white font-bold text-sm">
-                Здесь что-то есть!
-              </p>
-              <p className="text-white/70 text-xs mt-0.5">
-                Нажми чтобы исследовать
-              </p>
-            </div>
+            <span className="text-white font-bold text-sm">
+              Нашёл! Нажми сюда
+            </span>
             
-            {/* Награда */}
+            {/* XP badge */}
             {visibleClue.xpReward && (
-              <div className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs font-bold px-2 py-0.5 rounded-full">
-                +{visibleClue.xpReward} XP
-              </div>
+              <span className="bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-full">
+                +{visibleClue.xpReward}
+              </span>
             )}
           </motion.button>
+          
+          {/* Подсказка под кнопкой */}
+          <p className="text-center text-white/50 text-xs mt-2">
+            {visibleClue.hint || "Ты смотришь в нужном направлении!"}
+          </p>
         </motion.div>
       )}
     </AnimatePresence>
