@@ -11,6 +11,7 @@ export type { GooglePanoramaRef } from "./GooglePanorama";
 export { ClueChecklist } from "./ClueChecklist";
 export { ClueDetector, ClueProximityIndicator } from "./ClueDetector";
 export { ClueDiscoveryModal } from "./ClueDiscoveryModal";
+export { ClueRadar } from "./ClueRadar";
 
 // Main mission component
 export { PanoramaMission } from "./PanoramaMission";

@@ -13,6 +13,7 @@ import { GooglePanorama, GooglePanoramaRef } from "./GooglePanorama";
 import { ClueChecklist } from "./ClueChecklist";
 import { ClueDetector } from "./ClueDetector";
 import { ClueDiscoveryModal } from "./ClueDiscoveryModal";
+import { ClueRadar } from "./ClueRadar";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { 
   PanoramaMission as MissionType, 
@@ -488,22 +489,25 @@ export function PanoramaMission({
             />
           )}
           
-          {/* Clue checklist — список улик справа */}
+          {/* Clue radar — индикатор теплее/холоднее (слева) */}
           {phase === "playing" && (
-            <div className="absolute top-20 right-4 z-20 w-64">
-              <ClueChecklist
+            <div className="absolute top-20 left-4 z-20 w-48">
+              <ClueRadar
                 clues={mission.clues}
                 foundClueIds={foundClueIds}
                 cameraDirection={cameraDirection}
-                activeClueId={activeClue?.id}
+              />
+            </div>
+          )}
+          
+          {/* Clue checklist — список улик справа */}
+          {phase === "playing" && (
+            <div className="absolute top-20 right-4 z-20 w-56">
+              <ClueChecklist
+                clues={mission.clues}
+                foundClueIds={foundClueIds}
                 collapsed={checklistCollapsed}
                 onToggleCollapse={() => setChecklistCollapsed(!checklistCollapsed)}
-                onClueSelect={(clueId) => {
-                  const clue = mission.clues.find(c => c.id === clueId);
-                  if (clue && !foundClueIds.includes(clueId)) {
-                    haptic.light();
-                  }
-                }}
               />
             </div>
           )}

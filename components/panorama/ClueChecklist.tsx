@@ -3,13 +3,12 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * CLUE CHECKLIST COMPONENT
- * Интерактивный чек-лист улик для панорамной миссии
+ * Список найденных улик (скрытые показываются как "???")
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { motion, AnimatePresence } from "framer-motion";
-import type { PanoramaClue, CameraDirection } from "@/types/panorama";
-import { getClueDirection } from "@/lib/panorama-utils";
+import type { PanoramaClue } from "@/types/panorama";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -18,36 +17,9 @@ import { getClueDirection } from "@/lib/panorama-utils";
 interface ClueChecklistProps {
   clues: PanoramaClue[];
   foundClueIds: string[];
-  cameraDirection: CameraDirection;
-  activeClueId?: string | null;
-  onClueSelect?: (clueId: string) => void;
   className?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DIRECTION INDICATOR
-// ═══════════════════════════════════════════════════════════════════════════
-
-function DirectionIndicator({ 
-  direction 
-}: { 
-  direction: "left" | "right" | "behind" | "ahead" | null 
-}) {
-  if (!direction || direction === "ahead") return null;
-  
-  const arrows = {
-    left: "←",
-    right: "→",
-    behind: "↩",
-  };
-  
-  return (
-    <span className="text-xs text-blue-400 ml-1">
-      {arrows[direction]}
-    </span>
-  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -57,81 +29,60 @@ function DirectionIndicator({
 function ClueItem({
   clue,
   isFound,
-  isActive,
-  direction,
-  onClick,
+  index,
 }: {
   clue: PanoramaClue;
   isFound: boolean;
-  isActive: boolean;
-  direction: "left" | "right" | "behind" | "ahead" | null;
-  onClick: () => void;
+  index: number;
 }) {
-  return (
-    <motion.button
-      layout
-      onClick={onClick}
-      className={`
-        w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all
-        ${isFound 
-          ? "bg-green-500/20 border-green-500/30" 
-          : isActive
-            ? "bg-blue-500/20 border-blue-500/40 ring-2 ring-blue-500/30"
-            : "bg-white/5 border-white/10 hover:bg-white/10"
-        }
-        border
-      `}
-      whileTap={{ scale: 0.98 }}
-    >
-      {/* Status icon */}
-      <div className={`
-        w-8 h-8 rounded-full flex items-center justify-center text-lg shrink-0
-        ${isFound 
-          ? "bg-green-500/30 text-green-400" 
-          : "bg-white/10 text-white/60"
-        }
-      `}>
-        {isFound ? "✓" : clue.icon || "🔍"}
-      </div>
-      
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1">
-          <span className={`
-            text-sm font-medium truncate
-            ${isFound ? "text-green-400 line-through" : "text-white"}
-          `}>
-            {clue.name}
-          </span>
-          {!isFound && <DirectionIndicator direction={direction} />}
+  // Скрытые улики показываем как "???"
+  if (!isFound) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg shrink-0 bg-white/10 text-white/30">
+          ?
         </div>
-        
-        {clue.hint && !isFound && (
-          <p className="text-xs text-white/50 truncate mt-0.5">
-            {clue.hint}
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium text-white/40">
+            Улика #{index + 1}
+          </span>
+          <p className="text-xs text-white/30 mt-0.5">
+            Ещё не найдена...
           </p>
-        )}
-        
-        {isFound && clue.description && (
+        </div>
+        <div className="text-xs font-medium px-2 py-1 rounded-full shrink-0 bg-white/10 text-white/40">
+          ???
+        </div>
+      </div>
+    );
+  }
+  
+  // Найденные улики показываем полностью
+  return (
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className="flex items-center gap-3 p-3 rounded-xl bg-green-500/20 border border-green-500/30"
+    >
+      <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg shrink-0 bg-green-500/30 text-green-400">
+        ✓
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-green-400">
+          {clue.name}
+        </span>
+        {clue.description && (
           <p className="text-xs text-green-400/70 truncate mt-0.5">
             {clue.description}
           </p>
         )}
       </div>
-      
-      {/* XP reward */}
       {clue.xpReward && (
-        <div className={`
-          text-xs font-medium px-2 py-1 rounded-full shrink-0
-          ${isFound 
-            ? "bg-green-500/20 text-green-400" 
-            : "bg-yellow-500/20 text-yellow-400"
-          }
-        `}>
+        <div className="text-xs font-medium px-2 py-1 rounded-full shrink-0 bg-green-500/20 text-green-400">
           +{clue.xpReward} XP
         </div>
       )}
-    </motion.button>
+    </motion.div>
   );
 }
 
@@ -142,9 +93,6 @@ function ClueItem({
 export function ClueChecklist({
   clues,
   foundClueIds,
-  cameraDirection,
-  activeClueId,
-  onClueSelect,
   className = "",
   collapsed = false,
   onToggleCollapse,
@@ -204,19 +152,15 @@ export function ClueChecklist({
             className="overflow-hidden"
           >
             <div className="p-3 pt-0 space-y-2 max-h-[40vh] overflow-y-auto">
-              {clues.map((clue) => {
+              {clues.map((clue, index) => {
                 const isFound = foundClueIds.includes(clue.id);
-                const isActive = activeClueId === clue.id;
-                const direction = isFound ? null : getClueDirection(clue, cameraDirection[0]);
                 
                 return (
                   <ClueItem
                     key={clue.id}
                     clue={clue}
                     isFound={isFound}
-                    isActive={isActive}
-                    direction={direction}
-                    onClick={() => onClueSelect?.(clue.id)}
+                    index={index}
                   />
                 );
               })}
