@@ -90,29 +90,40 @@ function loadYandexMapsAPI(): Promise<YmapsAPI> {
   ymapsLoadPromise = new Promise((resolve, reject) => {
     // Уже загружен
     if (window.ymaps) {
+      console.log("[YandexPanorama] ymaps already loaded");
       window.ymaps.ready(() => resolve(window.ymaps!));
       return;
     }
     
     const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_KEY;
+    console.log("[YandexPanorama] API Key present:", !!apiKey, apiKey?.substring(0, 8));
+    
     if (!apiKey) {
       reject(new Error("NEXT_PUBLIC_YANDEX_MAPS_KEY not configured"));
       return;
     }
     
+    const scriptUrl = `https://api-maps.yandex.ru/2.1/?apikey=${apiKey}&lang=ru_RU`;
+    console.log("[YandexPanorama] Loading script:", scriptUrl.substring(0, 60) + "...");
+    
     const script = document.createElement("script");
-    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${apiKey}&lang=ru_RU`;
+    script.src = scriptUrl;
     script.async = true;
     
     script.onload = () => {
+      console.log("[YandexPanorama] Script loaded, ymaps:", !!window.ymaps);
       if (window.ymaps) {
-        window.ymaps.ready(() => resolve(window.ymaps!));
+        window.ymaps.ready(() => {
+          console.log("[YandexPanorama] ymaps ready!");
+          resolve(window.ymaps!);
+        });
       } else {
         reject(new Error("Yandex Maps API failed to initialize"));
       }
     };
     
-    script.onerror = () => {
+    script.onerror = (e) => {
+      console.error("[YandexPanorama] Script load error:", e);
       ymapsLoadPromise = null;
       reject(new Error("Failed to load Yandex Maps script"));
     };
