@@ -257,7 +257,7 @@ export function ScannerHint({ text, onDismiss }: ScannerHintProps) {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className="absolute top-24 left-4 right-4 z-30"
+          className="fixed top-24 left-4 right-4 z-50 pointer-events-none"
         >
           <div className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 rounded-xl p-4">
             <div className="flex items-center gap-3">

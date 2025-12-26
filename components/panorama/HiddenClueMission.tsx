@@ -445,30 +445,30 @@ export function HiddenClueMission({
           )}
         </div>
         
-        {/* Panorama - занимает всё доступное пространство */}
-        <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0">
-            <GooglePanorama
-              ref={panoramaRef}
-              coordinates={mission.startCoordinates}
-              direction={[mission.startHeading, 0]}
-              allowNavigation={true}
-              onDirectionChange={handleDirectionChange}
-              onPositionChange={() => {
-                // Get panoId from ref when position changes
-                const panoId = panoramaRef.current?.getPanoId();
-                if (panoId) handlePositionChange(panoId);
-              }}
-              onReady={() => {
-                // Get initial panoId from ref
-                const panoId = panoramaRef.current?.getPanoId();
-                if (panoId) setCurrentPanoId(panoId);
-              }}
-              className="w-full h-full"
-            />
-          </div>
+        {/* Panorama - как в рабочем PanoramaMission */}
+        <div className="flex-1 relative">
+          <GooglePanorama
+            ref={panoramaRef}
+            coordinates={mission.startCoordinates}
+            direction={[mission.startHeading, 0]}
+            allowNavigation={true}
+            onDirectionChange={handleDirectionChange}
+            onPositionChange={() => {
+              const panoId = panoramaRef.current?.getPanoId();
+              if (panoId) handlePositionChange(panoId);
+            }}
+            onReady={() => {
+              const panoId = panoramaRef.current?.getPanoId();
+              if (panoId) setCurrentPanoId(panoId);
+            }}
+            className="w-full h-full"
+          />
           
-          {/* Overlay elements - all have pointer-events-none */}
+          {/* Overlay elements - вынесены за пределы panorama div */}
+        </div>
+        
+        {/* Overlays - абсолютно позиционированы поверх, но не блокируют */}
+        <div className="absolute inset-0 z-10 pointer-events-none">
           <SoftHintFlash visible={showHintFlash} />
           
           <AnimatePresence>
@@ -479,11 +479,13 @@ export function HiddenClueMission({
           
           <AnimatePresence>
             {revealedClue && revealedClueState && (
-              <RevealedClueMarker
-                clue={revealedClue}
-                state={revealedClueState}
-                onCollect={() => handleCollect(revealedClue)}
-              />
+              <div className="pointer-events-auto">
+                <RevealedClueMarker
+                  clue={revealedClue}
+                  state={revealedClueState}
+                  onCollect={() => handleCollect(revealedClue)}
+                />
+              </div>
             )}
           </AnimatePresence>
         </div>
