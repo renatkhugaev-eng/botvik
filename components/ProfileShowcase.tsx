@@ -66,7 +66,7 @@ export function StatusBadge({
   return (
     <Badge
       variant="secondary"
-      className={`${textSize} px-2 py-0.5 flex items-center gap-1.5`}
+      className={`${textSize} px-3 py-1 inline-flex items-center gap-1.5 w-fit rounded-full`}
     >
       {/* Status dot or emoji */}
       {displayEmoji ? (
@@ -234,11 +234,68 @@ export function ProfileBio({ bio }: ProfileBioProps) {
   if (!bio) return null;
 
   return (
-    <div className="py-2">
-      <p className="text-sm text-muted-foreground italic text-center">
-        "{bio}"
-      </p>
-    </div>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, type: "spring" }}
+      className="relative flex justify-center w-full py-2"
+    >
+      {/* Glowing neon text effect */}
+      <div className="relative">
+        {/* Animated sparkles */}
+        <motion.span
+          className="absolute -left-2 top-0 text-xs"
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+          transition={{ duration: 2, repeat: Infinity, delay: 0 }}
+        >
+          ✦
+        </motion.span>
+        <motion.span
+          className="absolute -right-2 bottom-0 text-xs"
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+          transition={{ duration: 2, repeat: Infinity, delay: 0.7 }}
+        >
+          ✦
+        </motion.span>
+        <motion.span
+          className="absolute left-1/4 -top-2 text-[10px]"
+          animate={{ opacity: [0.2, 0.8, 0.2], y: [0, -3, 0] }}
+          transition={{ duration: 3, repeat: Infinity, delay: 0.3 }}
+        >
+          ·
+        </motion.span>
+        <motion.span
+          className="absolute right-1/4 -bottom-1 text-[10px]"
+          animate={{ opacity: [0.2, 0.8, 0.2], y: [0, 3, 0] }}
+          transition={{ duration: 3, repeat: Infinity, delay: 1 }}
+        >
+          ·
+        </motion.span>
+
+        {/* Main text with glow */}
+        <motion.p
+          className="relative text-sm font-semibold text-center italic px-4"
+          style={{
+            background: "linear-gradient(135deg, #fff 0%, #e0e7ff 50%, #fff 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            textShadow: "0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(167,139,250,0.3)",
+            filter: "drop-shadow(0 0 8px rgba(255,255,255,0.4))",
+          }}
+          animate={{
+            textShadow: [
+              "0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(167,139,250,0.3)",
+              "0 0 30px rgba(255,255,255,0.7), 0 0 60px rgba(167,139,250,0.5)",
+              "0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(167,139,250,0.3)",
+            ],
+          }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          « {bio} »
+        </motion.p>
+      </div>
+    </motion.div>
   );
 }
 

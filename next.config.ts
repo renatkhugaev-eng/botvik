@@ -40,6 +40,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'api.telegram.org',
       },
+      // DiceBear avatars (for test users/placeholders)
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+      },
     ],
   },
   

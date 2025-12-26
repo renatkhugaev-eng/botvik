@@ -122,11 +122,11 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         } catch (e) {
           console.warn("[MiniApp] Failed to fetch dev user:", e);
         }
-        // Fallback
+        // Fallback - use actual dev-mock user ID from database
         setSession({
           status: "ready",
           user: {
-            id: 1,
+            id: 2952,
             telegramId: "dev-mock",
             username: "devuser",
             firstName: "Dev",
@@ -182,11 +182,11 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
           } catch (e) {
             console.warn("[MiniApp] Failed to fetch dev user:", e);
           }
-          // Fallback
+          // Fallback - use actual dev-mock user ID from database
           setSession({
             status: "ready",
             user: {
-              id: 1,
+              id: 2952,
               telegramId: "dev-mock",
               username: "devuser",
               firstName: "Dev",

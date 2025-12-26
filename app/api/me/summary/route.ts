@@ -32,9 +32,14 @@ export async function GET(req: NextRequest) {
   const targetUserId = userIdParam ?? auth.user.id;
   const isOwnProfile = targetUserId === auth.user.id;
   
+  console.log("[Summary] auth.user.id:", auth.user.id, "targetUserId:", targetUserId);
+  
   const user = await prisma.user.findUnique({ where: { id: targetUserId } });
 
+  console.log("[Summary] Found user:", user?.id, user?.telegramId);
+
   if (!user) {
+    console.log("[Summary] User not found for ID:", targetUserId);
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
   }
 

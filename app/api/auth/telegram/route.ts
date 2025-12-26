@@ -29,6 +29,43 @@ export async function POST(req: NextRequest) {
     console.log("[auth/telegram] incoming initData length:", rawInitData.length);
   }
 
+  // ═══ DEV MODE: Return dev-mock user when no initData in development ═══
+  if (!rawInitData && process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" && process.env.NODE_ENV === "development") {
+    console.log("[auth/telegram] Dev mode - returning dev-mock user");
+    
+    // Find or create dev-mock user
+    let devUser = await prisma.user.findUnique({
+      where: { telegramId: "dev-mock" },
+    });
+    
+    if (!devUser) {
+      devUser = await prisma.user.create({
+        data: {
+          telegramId: "dev-mock",
+          username: "dev_user",
+          firstName: "Developer",
+          lastName: "Mode",
+          xp: 1000,
+          status: "ONLINE",
+        },
+      });
+      console.log("[auth/telegram] Created dev-mock user:", devUser.id);
+    }
+    
+    return NextResponse.json({
+      ok: true,
+      user: {
+        id: devUser.id,
+        telegramId: devUser.telegramId,
+        username: devUser.username,
+        firstName: devUser.firstName,
+        lastName: devUser.lastName,
+        photoUrl: devUser.photoUrl,
+      },
+      isNewUser: false,
+    });
+  }
+
   if (!rawInitData) {
     return NextResponse.json({ ok: false, reason: "NO_INIT_DATA" }, { status: 400 });
   }
