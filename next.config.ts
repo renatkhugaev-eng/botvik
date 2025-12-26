@@ -86,8 +86,8 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Scripts: self + inline (Next.js hydration) + eval (dev only)
               process.env.NODE_ENV === 'production'
-                ? "script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://api-maps.yandex.ru https://*.yandex.ru https://*.yandex.net https://*.yastatic.net"
-                : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://api-maps.yandex.ru https://*.yandex.ru https://*.yandex.net https://*.yastatic.net",
+                ? "script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://api-maps.yandex.ru https://*.yandex.ru https://*.yandex.net https://yastatic.net https://*.yastatic.net"
+                : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://api-maps.yandex.ru https://*.yandex.ru https://*.yandex.net https://yastatic.net https://*.yastatic.net",
               // Styles: self + inline (Tailwind, framer-motion)
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Images: self + data URIs + Telegram avatars + external
@@ -95,7 +95,7 @@ const nextConfig: NextConfig = {
               // Fonts: self + Google Fonts
               "font-src 'self' https://fonts.gstatic.com data:",
               // Connect: API calls + Telegram + analytics
-              "connect-src 'self' https://api.telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://*.liveblocks.io wss://*.liveblocks.io https://*.upstash.io https://api-maps.yandex.ru https://*.yandex.ru https://*.yandex.net https://*.yastatic.net",
+              "connect-src 'self' https://api.telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://*.liveblocks.io wss://*.liveblocks.io https://*.upstash.io https://api-maps.yandex.ru https://*.yandex.ru https://*.yandex.net https://yastatic.net https://*.yastatic.net",
               // Frames: Telegram for Mini App embedding
               "frame-src 'self' https://telegram.org https://*.telegram.org",
               // Frame ancestors: Telegram can embed us
