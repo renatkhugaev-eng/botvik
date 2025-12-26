@@ -86,10 +86,10 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Scripts: self + inline (Next.js hydration) + eval (dev only)
               process.env.NODE_ENV === 'production'
-                ? "script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://unpkg.com https://*.mapillary.com"
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://unpkg.com https://*.mapillary.com"
                 : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://unpkg.com https://*.mapillary.com",
-              // Styles: self + inline (Tailwind, framer-motion)
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              // Styles: self + inline (Tailwind, framer-motion, Mapillary)
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
               // Images: self + data URIs + Telegram avatars + external
               "img-src 'self' data: blob: https: http:",
               // Fonts: self + Google Fonts
