@@ -502,17 +502,24 @@ export function HiddenClueMission({
           )}
         </AnimatePresence>
         
-        {/* Bottom navigation hint */}
+        {/* Bottom navigation hint + DEBUG */}
         <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
           <div className="flex items-center justify-center gap-2 text-white/50 text-sm">
             <span>👆 Крутите камеру</span>
             <span>•</span>
-            <span>🚶 Кликайте стрелки для перемещения</span>
+            <span>🚶 Кликайте стрелки</span>
           </div>
           
-          {/* Step counter (debug) */}
-          <div className="text-center text-white/30 text-xs mt-2">
-            Шагов: {stepCount}
+          {/* DEBUG INFO */}
+          <div className="text-center text-white/40 text-xs mt-2 space-y-1">
+            <div>Шагов: {stepCount} | Heading: {Math.round(currentHeading)}°</div>
+            <div>PanoId: {currentPanoId ? currentPanoId.substring(0, 12) + "..." : "null"}</div>
+            <div>Доступно улик: {availableClues.length} | Скрыто: {availableClues.filter(c => clueStates.get(c.id)?.state === "hidden").length}</div>
+            {revealingClue && (
+              <div className="text-cyan-400">
+                ⏳ Обнаружение: {revealingClue.name} ({Math.round(revealProgress * 100)}%)
+              </div>
+            )}
           </div>
         </div>
       </div>
