@@ -7,16 +7,25 @@
 export { GooglePanorama } from "./GooglePanorama";
 export type { GooglePanoramaRef } from "./GooglePanorama";
 
-// Clue system
+// Hidden Clue System (NEW!)
+export { HiddenClueMission } from "./HiddenClueMission";
+export { 
+  RevealProgress, 
+  RevealedClueMarker, 
+  ClueCollectionModal,
+  SoftHintFlash,
+  ScannerHint,
+  ClueCounter,
+} from "./HiddenClueUI";
+
+// Legacy mission component
+export { PanoramaMission } from "./PanoramaMission";
+
+// Legacy clue system (deprecated)
 export { ClueChecklist } from "./ClueChecklist";
 export { ClueDetector, ClueProximityIndicator } from "./ClueDetector";
 export { ClueDiscoveryModal } from "./ClueDiscoveryModal";
 export { ClueRadar } from "./ClueRadar";
-
-// Main mission component
-export { PanoramaMission } from "./PanoramaMission";
-
-// Legacy (deprecated)
 export { MapillaryPanorama } from "./MapillaryPanorama";
 export type { MapillaryPanoramaRef } from "./MapillaryPanorama";
 export { YandexPanorama } from "./YandexPanorama";

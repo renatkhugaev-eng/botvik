@@ -6,6 +6,8 @@
  */
 
 import type { PanoramaMission } from "@/types/panorama";
+import type { HiddenClueMission } from "@/types/hidden-clue";
+import { TIMES_SQUARE_HIDDEN_MISSION } from "./demo-cases/hidden-clue-mission";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ДЕМО-ДЕЛО: ИСЧЕЗНОВЕНИЕ НА ТАЙМС СКВЕР
@@ -466,4 +468,26 @@ export function getAllMissions(): PanoramaMission[] {
  */
 export function getMissionsByDifficulty(difficulty: PanoramaMission["difficulty"]): PanoramaMission[] {
   return DEMO_MISSIONS.filter(m => m.difficulty === difficulty);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HIDDEN CLUE MISSIONS (новая система)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const HIDDEN_CLUE_MISSIONS: HiddenClueMission[] = [
+  TIMES_SQUARE_HIDDEN_MISSION,
+];
+
+/**
+ * Получить миссию со скрытыми уликами по ID
+ */
+export function getHiddenClueMissionById(id: string): HiddenClueMission | undefined {
+  return HIDDEN_CLUE_MISSIONS.find(m => m.id === id);
+}
+
+/**
+ * Получить все миссии со скрытыми уликами
+ */
+export function getAllHiddenClueMissions(): HiddenClueMission[] {
+  return HIDDEN_CLUE_MISSIONS;
 }

@@ -151,6 +151,45 @@ export default function PanoramaMissionsPage() {
           ))}
         </div>
         
+        {/* NEW: Hidden Clues banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="mb-6"
+        >
+          <button
+            onClick={() => {
+              haptic.heavy();
+              router.push("/miniapp/panorama/hidden");
+            }}
+            className="w-full p-4 rounded-2xl text-left transition-all
+              bg-gradient-to-r from-red-500/20 via-orange-500/20 to-yellow-500/20
+              border border-red-500/30 hover:border-red-500/50
+              shadow-[0_0_40px_rgba(239,68,68,0.15)]"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-2xl shadow-lg">
+                🔍
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-white">Скрытые улики</h3>
+                  <span className="px-1.5 py-0.5 rounded bg-red-500 text-[10px] font-bold text-white">
+                    NEW!
+                  </span>
+                </div>
+                <p className="text-sm text-white/60 mt-0.5">
+                  Улики появляются только когда ты их найдёшь!
+                </p>
+              </div>
+              <svg className="w-5 h-5 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        </motion.div>
+        
         {/* Info card */}
         <motion.div
           initial={{ opacity: 0 }}

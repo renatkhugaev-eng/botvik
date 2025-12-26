@@ -1,0 +1,394 @@
+"use client";
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * USE CLUE DISCOVERY HOOK
+ * Отслеживает обнаружение скрытых улик на панораме
+ * 
+ * Поддерживает виртуальные panoId:
+ * - "START" — стартовая панорама
+ * - "STEP_1" — после 1 перехода
+ * - "STEP_2" — после 2 переходов
+ * - "STEP_3+" — после 3+ переходов
+ * - "ANY" — любая панорама
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { haptic } from "@/lib/haptic";
+import type {
+  HiddenClue,
+  ClueRuntimeState,
+  ClueDiscoveryEvent,
+} from "@/types/hidden-clue";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface UseClueDiscoveryProps {
+  clues: HiddenClue[];
+  currentPanoId: string | null;
+  currentHeading: number;
+  stepCount: number; // Количество переходов от старта
+  enabled?: boolean;
+  onClueEvent?: (event: ClueDiscoveryEvent) => void;
+}
+
+interface UseClueDiscoveryResult {
+  /** Состояния всех улик */
+  clueStates: Map<string, ClueRuntimeState>;
+  
+  /** Улики доступные в текущей панораме */
+  availableClues: HiddenClue[];
+  
+  /** Улика которую сейчас "открывает" игрок */
+  revealingClue: HiddenClue | null;
+  
+  /** Прогресс обнаружения (0-1) */
+  revealProgress: number;
+  
+  /** Все обнаруженные улики */
+  revealedClues: HiddenClue[];
+  
+  /** Все собранные улики */
+  collectedClues: HiddenClue[];
+  
+  /** Есть ли подсказка в текущей панораме */
+  hasHintInCurrentPano: boolean;
+  
+  /** Собрать улику */
+  collectClue: (clueId: string) => void;
+  
+  /** Показать подсказку сканера */
+  showScannerHint: () => string | null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Нормализует угол в диапазон 0-360
+ */
+function normalizeHeading(heading: number): number {
+  let h = heading % 360;
+  if (h < 0) h += 360;
+  return h;
+}
+
+/**
+ * Проверяет попадает ли heading в конус обнаружения
+ */
+function isInRevealCone(
+  currentHeading: number,
+  targetHeading: number,
+  coneDegrees: number
+): boolean {
+  const current = normalizeHeading(currentHeading);
+  const target = normalizeHeading(targetHeading);
+  
+  let diff = Math.abs(current - target);
+  if (diff > 180) diff = 360 - diff;
+  
+  return diff <= coneDegrees / 2;
+}
+
+/**
+ * Проверяет соответствует ли виртуальный panoId текущему состоянию
+ */
+function matchesVirtualPanoId(
+  cluePanoId: string,
+  stepCount: number,
+  usedVirtualIds: Set<string>
+): boolean {
+  // Если улика уже была использована для этого виртуального ID — пропускаем
+  if (cluePanoId !== "ANY" && usedVirtualIds.has(cluePanoId)) {
+    return false;
+  }
+  
+  switch (cluePanoId) {
+    case "START":
+      return stepCount === 0;
+    case "STEP_1":
+      return stepCount === 1;
+    case "STEP_2":
+      return stepCount === 2;
+    case "STEP_3+":
+      return stepCount >= 3;
+    case "ANY":
+      return true;
+    default:
+      // Реальный panoId — точное совпадение не поддерживается в виртуальном режиме
+      return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOOK
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function useClueDiscovery({
+  clues,
+  currentPanoId,
+  currentHeading,
+  stepCount,
+  enabled = true,
+  onClueEvent,
+}: UseClueDiscoveryProps): UseClueDiscoveryResult {
+  
+  // ─── State ───
+  const [clueStates, setClueStates] = useState<Map<string, ClueRuntimeState>>(() => {
+    const map = new Map<string, ClueRuntimeState>();
+    clues.forEach(clue => {
+      map.set(clue.id, {
+        clueId: clue.id,
+        state: "hidden",
+        dwellProgress: 0,
+      });
+    });
+    return map;
+  });
+  
+  const [revealingClue, setRevealingClue] = useState<HiddenClue | null>(null);
+  const [revealProgress, setRevealProgress] = useState(0);
+  const [usedVirtualIds, setUsedVirtualIds] = useState<Set<string>>(new Set());
+  
+  // ─── Refs ───
+  const lastHintTimeRef = useRef<Map<string, number>>(new Map());
+  const dwellStartRef = useRef<number | null>(null);
+  const lastScannerHintRef = useRef<number>(0);
+  const previousStepCountRef = useRef<number>(0);
+  
+  // ─── Track step changes to mark used virtual IDs ───
+  useEffect(() => {
+    if (stepCount !== previousStepCountRef.current) {
+      // Помечаем виртуальные ID как использованные когда покидаем панораму
+      const currentVirtualId = stepCount === 0 ? "START" 
+        : stepCount === 1 ? "STEP_1"
+        : stepCount === 2 ? "STEP_2"
+        : "STEP_3+";
+      
+      // Если ушли с панорамы где была нескрытая улика — помечаем как пропущенную
+      setUsedVirtualIds(prev => {
+        const newSet = new Set(prev);
+        // Не помечаем STEP_3+ так как таких панорам много
+        if (previousStepCountRef.current < 3) {
+          const prevVirtualId = previousStepCountRef.current === 0 ? "START"
+            : previousStepCountRef.current === 1 ? "STEP_1"
+            : "STEP_2";
+          newSet.add(prevVirtualId);
+        }
+        return newSet;
+      });
+      
+      previousStepCountRef.current = stepCount;
+    }
+  }, [stepCount]);
+  
+  // ─── Available clues in current location ───
+  const availableClues = clues.filter(clue => {
+    const state = clueStates.get(clue.id);
+    // Уже собрана — не показываем
+    if (state?.state === "collected") return false;
+    // Проверяем виртуальный panoId
+    return matchesVirtualPanoId(clue.panoId, stepCount, usedVirtualIds);
+  });
+  
+  // ─── Has hint in current pano ───
+  const hasHintInCurrentPano = availableClues.some(clue => {
+    const state = clueStates.get(clue.id);
+    return state?.state === "hidden";
+  });
+  
+  // ─── Derived ───
+  const revealedClues = clues.filter(c => {
+    const state = clueStates.get(c.id);
+    return state?.state === "revealed" || state?.state === "collected";
+  });
+  
+  const collectedClues = clues.filter(c => {
+    const state = clueStates.get(c.id);
+    return state?.state === "collected";
+  });
+  
+  // ─── Collect clue ───
+  const collectClue = useCallback((clueId: string) => {
+    const clue = clues.find(c => c.id === clueId);
+    if (!clue) return;
+    
+    setClueStates(prev => {
+      const newMap = new Map(prev);
+      const current = newMap.get(clueId);
+      if (current && current.state === "revealed") {
+        newMap.set(clueId, {
+          ...current,
+          state: "collected",
+          collectedAt: new Date(),
+        });
+        
+        haptic.success();
+        onClueEvent?.({
+          type: "collected",
+          clue,
+          timestamp: new Date(),
+        });
+      }
+      return newMap;
+    });
+  }, [clues, onClueEvent]);
+  
+  // ─── Scanner hint ───
+  const showScannerHint = useCallback((): string | null => {
+    const now = Date.now();
+    
+    // Только раз в 30 секунд
+    if (now - lastScannerHintRef.current < 30000) return null;
+    
+    // Найти скрытую улику
+    const hiddenClues = clues.filter(c => {
+      const state = clueStates.get(c.id);
+      return state?.state === "hidden";
+    });
+    
+    if (hiddenClues.length === 0) return null;
+    
+    // Предпочитаем улики доступные в текущей локации
+    const priorityClues = hiddenClues.filter(c => 
+      matchesVirtualPanoId(c.panoId, stepCount, usedVirtualIds)
+    );
+    
+    const targetClues = priorityClues.length > 0 ? priorityClues : hiddenClues;
+    const randomClue = targetClues[Math.floor(Math.random() * targetClues.length)];
+    lastScannerHintRef.current = now;
+    
+    haptic.light();
+    
+    return randomClue.scannerHint || "Сканер обнаружил что-то поблизости...";
+  }, [clues, clueStates, stepCount, usedVirtualIds]);
+  
+  // ─── Main discovery loop ───
+  useEffect(() => {
+    if (!enabled || !currentPanoId) return;
+    
+    const interval = setInterval(() => {
+      const now = Date.now();
+      
+      // Проверяем каждую доступную улику
+      availableClues.forEach(clue => {
+        const currentState = clueStates.get(clue.id);
+        if (!currentState) return;
+        
+        // Уже собрана или обнаружена — пропускаем
+        if (currentState.state === "collected" || currentState.state === "revealed") {
+          return;
+        }
+        
+        // Проверяем попадание в конус
+        const inCone = isInRevealCone(currentHeading, clue.revealHeading, clue.coneDegrees);
+        
+        if (inCone) {
+          // Игрок смотрит в нужную сторону
+          if (currentState.state === "hidden") {
+            // Начинаем revealing
+            setClueStates(prev => {
+              const newMap = new Map(prev);
+              newMap.set(clue.id, {
+                ...currentState,
+                state: "revealing",
+                dwellProgress: 0,
+              });
+              return newMap;
+            });
+            setRevealingClue(clue);
+            dwellStartRef.current = now;
+            haptic.light();
+          } else if (currentState.state === "revealing") {
+            // Продолжаем revealing — считаем время
+            const elapsed = (now - (dwellStartRef.current || now)) / 1000;
+            const progress = Math.min(1, elapsed / clue.dwellTime);
+            
+            setRevealProgress(progress);
+            
+            if (progress >= 1) {
+              // ОБНАРУЖЕНО!
+              setClueStates(prev => {
+                const newMap = new Map(prev);
+                newMap.set(clue.id, {
+                  ...currentState,
+                  state: "revealed",
+                  dwellProgress: 1,
+                  revealedAt: new Date(),
+                });
+                return newMap;
+              });
+              setRevealingClue(null);
+              setRevealProgress(0);
+              dwellStartRef.current = null;
+              
+              haptic.heavy();
+              onClueEvent?.({
+                type: "revealed",
+                clue,
+                timestamp: new Date(),
+              });
+            }
+          }
+        } else {
+          // Игрок НЕ смотрит в нужную сторону
+          if (currentState.state === "revealing") {
+            // Сбрасываем прогресс
+            setClueStates(prev => {
+              const newMap = new Map(prev);
+              newMap.set(clue.id, {
+                ...currentState,
+                state: "hidden",
+                dwellProgress: 0,
+              });
+              return newMap;
+            });
+            setRevealingClue(null);
+            setRevealProgress(0);
+            dwellStartRef.current = null;
+          }
+          
+          // Мягкая подсказка — раз в 10 секунд с шансом 20%
+          const lastHint = lastHintTimeRef.current.get(clue.id) || 0;
+          if (now - lastHint > 10000 && currentState.state === "hidden") {
+            lastHintTimeRef.current.set(clue.id, now);
+            
+            if (Math.random() < 0.2) {
+              haptic.light();
+              onClueEvent?.({
+                type: "hint",
+                clue,
+                timestamp: new Date(),
+              });
+            }
+          }
+        }
+      });
+    }, 100); // 10 FPS
+    
+    return () => clearInterval(interval);
+  }, [
+    enabled,
+    currentPanoId,
+    currentHeading,
+    availableClues,
+    clueStates,
+    onClueEvent,
+  ]);
+  
+  return {
+    clueStates,
+    availableClues,
+    revealingClue,
+    revealProgress,
+    revealedClues,
+    collectedClues,
+    hasHintInCurrentPano,
+    collectClue,
+    showScannerHint,
+  };
+}
