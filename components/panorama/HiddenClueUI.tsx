@@ -30,7 +30,7 @@ export function RevealProgress({ clue, progress }: RevealProgressProps) {
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none"
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none"
     >
       {/* Круговой прогресс */}
       <div className="relative w-24 h-24">
@@ -103,7 +103,7 @@ export function RevealedClueMarker({ clue, state, onCollect }: RevealedClueMarke
       initial={{ opacity: 0, scale: 0, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0 }}
-      className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30"
+      className="fixed bottom-32 left-1/2 -translate-x-1/2 z-30"
     >
       <motion.button
         onClick={() => {
@@ -222,7 +222,7 @@ export function SoftHintFlash({ visible }: SoftHintFlashProps) {
           animate={{ opacity: 0.3 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="absolute inset-0 pointer-events-none z-20"
+          className="fixed inset-0 pointer-events-none z-20"
           style={{
             background: "radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.3), transparent 70%)",
           }}

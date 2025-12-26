@@ -445,7 +445,7 @@ export function HiddenClueMission({
           )}
         </div>
         
-        {/* Panorama - как в рабочем PanoramaMission */}
+        {/* Panorama - занимает всё пространство */}
         <div className="flex-1 relative">
           <GooglePanorama
             ref={panoramaRef}
@@ -463,32 +463,28 @@ export function HiddenClueMission({
             }}
             className="w-full h-full"
           />
-          
-          {/* Overlay elements - вынесены за пределы panorama div */}
         </div>
         
-        {/* Overlays - абсолютно позиционированы поверх, но не блокируют */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <SoftHintFlash visible={showHintFlash} />
-          
-          <AnimatePresence>
-            {revealingClue && (
-              <RevealProgress clue={revealingClue} progress={revealProgress} />
-            )}
-          </AnimatePresence>
-          
-          <AnimatePresence>
-            {revealedClue && revealedClueState && (
-              <div className="pointer-events-auto">
-                <RevealedClueMarker
-                  clue={revealedClue}
-                  state={revealedClueState}
-                  onCollect={() => handleCollect(revealedClue)}
-                />
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Soft hint flash - fixed position, pointer-events-none */}
+        <SoftHintFlash visible={showHintFlash} />
+        
+        {/* Reveal progress - center of screen */}
+        <AnimatePresence>
+          {revealingClue && (
+            <RevealProgress clue={revealingClue} progress={revealProgress} />
+          )}
+        </AnimatePresence>
+        
+        {/* Revealed clue marker - clickable */}
+        <AnimatePresence>
+          {revealedClue && revealedClueState && (
+            <RevealedClueMarker
+              clue={revealedClue}
+              state={revealedClueState}
+              onCollect={() => handleCollect(revealedClue)}
+            />
+          )}
+        </AnimatePresence>
         
         {/* Scanner hint */}
         <ScannerHint 
