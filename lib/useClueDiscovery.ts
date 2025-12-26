@@ -95,8 +95,8 @@ function isInRevealCone(
 }
 
 /**
- * Проверяет соответствует ли виртуальный panoId текущему состоянию
- * Упрощённая версия — улики доступны на текущем шаге и всех последующих
+ * Проверяет соответствует ли виртуальный panoId текущему шагу
+ * Улики доступны ТОЛЬКО на своём шаге (кроме ANY)
  */
 function matchesVirtualPanoId(
   cluePanoId: string,
@@ -104,19 +104,17 @@ function matchesVirtualPanoId(
 ): boolean {
   switch (cluePanoId) {
     case "START":
-      // START доступен всегда (игрок может вернуться)
-      return true;
+      return stepCount === 0;
     case "STEP_1":
-      return stepCount >= 1;
+      return stepCount === 1;
     case "STEP_2":
-      return stepCount >= 2;
+      return stepCount === 2;
     case "STEP_3+":
       return stepCount >= 3;
     case "ANY":
-      return true;
+      return true; // Везде
     default:
-      // Реальный panoId — пока не поддерживается
-      return true; // Показываем все улики
+      return false;
   }
 }
 
