@@ -397,12 +397,12 @@ export function HiddenClueMission({
     return (
       <div className="h-screen bg-[#0a0a12] text-white flex flex-col overflow-hidden relative">
         {/* HUD - Top */}
-        <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/80 to-transparent">
+        <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
           <div className="flex items-center justify-between">
             {/* Back button */}
             <button
               onClick={onExit}
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center pointer-events-auto"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -411,22 +411,24 @@ export function HiddenClueMission({
             
             {/* Timer */}
             {mission.timeLimit ? (
-              <div className={`px-4 py-2 rounded-full backdrop-blur-sm font-mono text-lg font-bold
+              <div className={`px-4 py-2 rounded-full backdrop-blur-sm font-mono text-lg font-bold pointer-events-auto
                 ${timeRemaining <= 30 ? "bg-red-500/30 text-red-400 animate-pulse" : "bg-black/40 text-white"}`}>
                 ⏱️ {formatTime(timeRemaining)}
               </div>
             ) : (
-              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-sm font-mono text-lg">
+              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-sm font-mono text-lg pointer-events-auto">
                 {formatTime(timeSpent)}
               </div>
             )}
             
             {/* Clue counter */}
-            <ClueCounter 
-              found={collectedClues.length} 
-              total={mission.clues.length}
-              required={mission.requiredClues}
-            />
+            <div className="pointer-events-auto">
+              <ClueCounter 
+                found={collectedClues.length} 
+                total={mission.clues.length}
+                required={mission.requiredClues}
+              />
+            </div>
           </div>
           
           {/* Hint indicator */}
@@ -503,7 +505,7 @@ export function HiddenClueMission({
         </AnimatePresence>
         
         {/* Bottom navigation hint */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
           <div className="flex items-center justify-center gap-2 text-white/50 text-sm">
             <span>👆 Крутите камеру</span>
             <span>•</span>
