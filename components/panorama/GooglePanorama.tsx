@@ -49,6 +49,13 @@ export interface GooglePanoramaRef {
   
   /** Перейти к координатам */
   moveTo: (coordinates: GeoCoordinates) => void;
+  
+  /** Получить текущий panoId */
+  getPanoId: () => string | null;
+  
+  /** Получить доступ к нативному объекту панорамы (google.maps.StreetViewPanorama) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getPlayer: () => any | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -166,6 +173,15 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
             new window.google.maps.LatLng(coords[0], coords[1])
           );
         }
+      },
+      
+      getPanoId: () => {
+        if (!panoramaRef.current) return null;
+        return panoramaRef.current.getPano() || null;
+      },
+      
+      getPlayer: () => {
+        return panoramaRef.current;
       },
     }));
     

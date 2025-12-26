@@ -451,17 +451,15 @@ export function HiddenClueMission({
             direction={[mission.startHeading, 0]}
             allowNavigation={true}
             onDirectionChange={handleDirectionChange}
-            onPositionChange={(coords) => {
-              // Google Street View returns panoId in position change
-              const panorama = panoramaRef.current?.getPlayer();
-              if (panorama) {
-                const pano = panorama.getPano();
-                if (pano) handlePositionChange(pano);
-              }
+            onPositionChange={() => {
+              // Get panoId from ref when position changes
+              const panoId = panoramaRef.current?.getPanoId();
+              if (panoId) handlePositionChange(panoId);
             }}
-            onReady={(player) => {
-              const pano = player.getPano();
-              if (pano) setCurrentPanoId(pano);
+            onReady={() => {
+              // Get initial panoId from ref
+              const panoId = panoramaRef.current?.getPanoId();
+              if (panoId) setCurrentPanoId(panoId);
             }}
             className="w-full h-full"
           />
