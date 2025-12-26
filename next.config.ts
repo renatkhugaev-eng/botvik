@@ -86,16 +86,16 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Scripts: self + inline (Next.js hydration) + eval (dev only)
               process.env.NODE_ENV === 'production'
-                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://unpkg.com https://*.mapillary.com"
-                : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://unpkg.com https://*.mapillary.com",
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com"
+                : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com",
               // Styles: self + inline (Tailwind, framer-motion, Mapillary)
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Images: self + data URIs + Telegram avatars + external
               "img-src 'self' data: blob: https: http:",
               // Fonts: self + Google Fonts
               "font-src 'self' https://fonts.gstatic.com data:",
               // Connect: API calls + Telegram + analytics
-              "connect-src 'self' https://api.telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://*.liveblocks.io wss://*.liveblocks.io https://*.upstash.io https://graph.mapillary.com https://*.mapillary.com https://unpkg.com https://*.fbcdn.net https://*.facebook.com",
+              "connect-src 'self' https://api.telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://*.liveblocks.io wss://*.liveblocks.io https://*.upstash.io https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com https://*.google.com",
               // Frames: Telegram for Mini App embedding
               "frame-src 'self' https://telegram.org https://*.telegram.org",
               // Frame ancestors: Telegram can embed us
