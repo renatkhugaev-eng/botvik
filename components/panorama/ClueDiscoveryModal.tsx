@@ -157,13 +157,29 @@ export function ClueDiscoveryModal({
           
           {/* Content based on type */}
           <div className="space-y-4">
-            {/* Visual — just confirm */}
+            {/* Visual — show story context */}
             {clue.type === "visual" && (
-              <div className="text-center py-4">
-                <p className="text-white/80">Улика найдена!</p>
-                <p className="text-sm text-white/50 mt-1">
-                  {clue.hint || "Это может пригодиться в расследовании"}
-                </p>
+              <div className="py-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <p className="text-green-400 font-medium">Улика найдена!</p>
+                </div>
+                
+                {/* Story context — что это значит для расследования */}
+                {clue.storyContext ? (
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <p className="text-xs text-white/40 uppercase tracking-wider mb-2">
+                      📋 Заметка детектива
+                    </p>
+                    <p className="text-white/90 text-sm leading-relaxed">
+                      {clue.storyContext}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/50 text-center">
+                    {clue.hint || "Это может пригодиться в расследовании"}
+                  </p>
+                )}
               </div>
             )}
             

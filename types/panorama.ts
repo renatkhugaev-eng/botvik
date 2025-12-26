@@ -86,6 +86,10 @@ export type PanoramaClue = {
   options?: string[];
   /** Индекс правильного ответа */
   correctOptionIndex?: number;
+  
+  // ─── Story context ───
+  /** Контекст истории — что эта улика значит для расследования */
+  storyContext?: string;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
