@@ -95,7 +95,7 @@ const nextConfig: NextConfig = {
               // Fonts: self + Google Fonts
               "font-src 'self' https://fonts.gstatic.com data:",
               // Connect: API calls + Telegram + analytics
-              "connect-src 'self' https://api.telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://*.liveblocks.io wss://*.liveblocks.io https://*.upstash.io https://graph.mapillary.com https://*.mapillary.com https://unpkg.com",
+              "connect-src 'self' https://api.telegram.org https://*.telegram.org https://*.posthog.com https://*.sentry.io https://*.liveblocks.io wss://*.liveblocks.io https://*.upstash.io https://graph.mapillary.com https://*.mapillary.com https://unpkg.com https://*.fbcdn.net https://*.facebook.com",
               // Frames: Telegram for Mini App embedding
               "frame-src 'self' https://telegram.org https://*.telegram.org",
               // Frame ancestors: Telegram can embed us
