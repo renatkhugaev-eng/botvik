@@ -233,14 +233,23 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
                     pitch: direction?.[1] || 0,
                   },
                   zoom: 1,
+                  // UI controls
                   addressControl: false,
                   showRoadLabels: false,
                   linksControl: allowNavigation,
-                  panControl: true,
+                  panControl: false, // Убираем кнопки - используем touch/drag
                   zoomControl: true,
                   fullscreenControl: false,
+                  // Interaction
+                  clickToGo: allowNavigation,
+                  scrollwheel: true,
+                  disableDefaultUI: false,
+                  disableDoubleClickZoom: false,
+                  // Motion
                   motionTracking: false,
                   motionTrackingControl: false,
+                  // Enable all interaction
+                  enableCloseButton: false,
                 }
               );
               
@@ -297,13 +306,19 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
     
     // ─── Render ───
     return (
-      <div className={`relative bg-[#0a0a12] ${className}`}>
-        {/* Panorama container */}
+      <div 
+        className={`relative bg-[#0a0a12] ${className}`}
+        style={{ minHeight: "100%", minWidth: "100%" }}
+      >
+        {/* Panorama container - needs explicit sizing */}
         <div 
           ref={containerRef} 
           className="absolute inset-0"
           style={{ 
-            visibility: loading || error || notAvailable ? "hidden" : "visible" 
+            visibility: loading || error || notAvailable ? "hidden" : "visible",
+            width: "100%",
+            height: "100%",
+            touchAction: "none", // Prevent browser touch handling
           }}
         />
         
