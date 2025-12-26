@@ -297,12 +297,8 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
       };
     }, [coordinates[0], coordinates[1], allowNavigation]); // eslint-disable-line react-hooks/exhaustive-deps
     
-    // ─── Update direction when prop changes ───
-    useEffect(() => {
-      if (panoramaRef.current && direction) {
-        panoramaRef.current.setPov({ heading: direction[0], pitch: direction[1] });
-      }
-    }, [direction]);
+    // Direction is only set on initial load, not on prop changes
+    // This prevents the panorama from resetting when user rotates it
     
     // ─── Render ───
     return (
@@ -318,7 +314,6 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
             visibility: loading || error || notAvailable ? "hidden" : "visible",
             width: "100%",
             height: "100%",
-            touchAction: "none", // Prevent browser touch handling
           }}
         />
         
