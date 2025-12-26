@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { YandexPanorama, YandexPanoramaRef } from "./YandexPanorama";
+import { MapillaryPanorama, MapillaryPanoramaRef } from "./MapillaryPanorama";
 import { ClueOverlay } from "./PanoramaClue";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { 
@@ -68,7 +68,7 @@ export function PanoramaMission({
   existingProgress,
 }: PanoramaMissionProps) {
   // ─── Refs ───
-  const panoramaRef = useRef<YandexPanoramaRef>(null);
+  const panoramaRef = useRef<MapillaryPanoramaRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -462,7 +462,7 @@ export function PanoramaMission({
         
         {/* Panorama */}
         <div ref={containerRef} className="flex-1 relative">
-          <YandexPanorama
+          <MapillaryPanorama
             ref={panoramaRef}
             coordinates={mission.startPoint}
             direction={mission.startDirection}
