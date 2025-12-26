@@ -10,7 +10,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GooglePanorama, GooglePanoramaRef } from "./GooglePanorama";
-import { ClueOverlay } from "./PanoramaClue";
+import { ClueChecklist } from "./ClueChecklist";
+import { ClueDetector } from "./ClueDetector";
+import { ClueDiscoveryModal } from "./ClueDiscoveryModal";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { 
   PanoramaMission as MissionType, 
@@ -88,6 +90,8 @@ export function PanoramaMission({
   const [timeSpent, setTimeSpent] = useState(existingProgress?.timeSpent || 0);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [showHint, setShowHint] = useState(false);
+  const [checklistCollapsed, setChecklistCollapsed] = useState(false);
+  const [activeClue, setActiveClue] = useState<ClueType | null>(null);
   
   // ─── Derived state ───
   const totalClues = mission.clues.length;
@@ -471,15 +475,38 @@ export function PanoramaMission({
             className="w-full h-full"
           />
           
-          {/* Clue overlay */}
-          <ClueOverlay
-            clues={mission.clues}
-            cameraDirection={cameraDirection}
-            containerRef={containerRef as React.RefObject<HTMLDivElement>}
-            foundClueIds={foundClueIds}
-            onFind={handleFindClue}
-            onAnswer={handleAnswerClue}
-          />
+          {/* Clue detector — показывает когда камера смотрит на улику */}
+          {phase === "playing" && (
+            <ClueDetector
+              clues={mission.clues}
+              foundClueIds={foundClueIds}
+              cameraDirection={cameraDirection}
+              onClueDetected={(clue) => {
+                setActiveClue(clue);
+                investigationHaptic?.clueDiscovered();
+              }}
+            />
+          )}
+          
+          {/* Clue checklist — список улик справа */}
+          {phase === "playing" && (
+            <div className="absolute top-20 right-4 z-20 w-64">
+              <ClueChecklist
+                clues={mission.clues}
+                foundClueIds={foundClueIds}
+                cameraDirection={cameraDirection}
+                activeClueId={activeClue?.id}
+                collapsed={checklistCollapsed}
+                onToggleCollapse={() => setChecklistCollapsed(!checklistCollapsed)}
+                onClueSelect={(clueId) => {
+                  const clue = mission.clues.find(c => c.id === clueId);
+                  if (clue && !foundClueIds.includes(clueId)) {
+                    haptic.light();
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
         
         {/* HUD - Bottom */}
@@ -517,6 +544,34 @@ export function PanoramaMission({
             ))}
           </div>
         </div>
+        
+        {/* Clue discovery modal */}
+        <ClueDiscoveryModal
+          clue={activeClue}
+          onComplete={(clueId, isCorrect, answer) => {
+            // Обновляем прогресс
+            if (!foundClueIds.includes(clueId)) {
+              setFoundClueIds(prev => [...prev, clueId]);
+            }
+            setCluesProgress(prev =>
+              prev.map(cp =>
+                cp.clueId === clueId
+                  ? { ...cp, found: true, foundAt: new Date(), userAnswer: answer, isCorrect }
+                  : cp
+              )
+            );
+            
+            if (isCorrect) {
+              haptic.success();
+              investigationHaptic?.clueDiscovered();
+            } else {
+              haptic.error();
+            }
+            
+            setActiveClue(null);
+          }}
+          onClose={() => setActiveClue(null)}
+        />
       </div>
     );
   }

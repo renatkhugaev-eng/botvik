@@ -104,11 +104,14 @@ export function PanoramaClue({
   const [userAnswer, setUserAnswer] = useState("");
   const [answered, setAnswered] = useState(false);
   
-  // Вычисляем позицию на экране
-  const screenPos = useMemo(
-    () => clueToScreenPosition(clue.position, cameraDirection, containerSize, fieldOfView),
-    [clue.position, cameraDirection, containerSize, fieldOfView]
-  );
+  // Вычисляем позицию на экране (только если есть position)
+  const screenPos = useMemo(() => {
+    // Если нет точной позиции — возвращаем "невидимую" позицию
+    if (!clue.position) {
+      return { x: 0, y: 0, visible: false, distance: 999 };
+    }
+    return clueToScreenPosition(clue.position, cameraDirection, containerSize, fieldOfView);
+  }, [clue.position, cameraDirection, containerSize, fieldOfView]);
   
   // Размер улики (уменьшается с расстоянием)
   const size = useMemo(() => {
