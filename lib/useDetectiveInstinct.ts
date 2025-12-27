@@ -193,6 +193,12 @@ export function useDetectiveInstinct({
     ...userConfig,
   }), [userConfig]);
   
+  // ─── Stable callback ref ───
+  const onInstinctEventRef = useRef(onInstinctEvent);
+  useEffect(() => {
+    onInstinctEventRef.current = onInstinctEvent;
+  }, [onInstinctEvent]);
+  
   // ─── Instinct Meter State ───
   const [meterLevel, setMeterLevel] = useState(0);
   const [nearestClue, setNearestClue] = useState<HiddenClue | null>(null);
@@ -259,15 +265,15 @@ export function useDetectiveInstinct({
         // Haptic feedback при изменении уровня
         if (newCategory === "burning") {
           haptic.heavy();
-          onInstinctEvent?.({ type: "meter_burning", clue: foundClue, timestamp: new Date() });
+          onInstinctEventRef.current?.({ type: "meter_burning", clue: foundClue, timestamp: new Date() });
         } else if (newCategory === "hot") {
           haptic.medium();
-          onInstinctEvent?.({ type: "meter_hot", clue: foundClue, timestamp: new Date() });
+          onInstinctEventRef.current?.({ type: "meter_hot", clue: foundClue, timestamp: new Date() });
         } else if (newCategory === "warm") {
           haptic.light();
-          onInstinctEvent?.({ type: "meter_warming", clue: foundClue, timestamp: new Date() });
+          onInstinctEventRef.current?.({ type: "meter_warming", clue: foundClue, timestamp: new Date() });
         } else if (newCategory === "cold" || newCategory === "cool") {
-          onInstinctEvent?.({ type: "meter_cold", timestamp: new Date() });
+          onInstinctEventRef.current?.({ type: "meter_cold", timestamp: new Date() });
         }
       }
       
@@ -285,13 +291,13 @@ export function useDetectiveInstinct({
         setShownFlashbacks(prev => new Set([...prev, foundClue.id]));
         
         haptic.medium();
-        onInstinctEvent?.({ type: "flashback_start", clue: foundClue, timestamp: new Date() });
+        onInstinctEventRef.current?.({ type: "flashback_start", clue: foundClue, timestamp: new Date() });
         
         // Автоматически скрываем
         flashbackTimerRef.current = setTimeout(() => {
           setFlashbackActive(false);
           setFlashbackContent(null);
-          onInstinctEvent?.({ type: "flashback_end", timestamp: new Date() });
+          onInstinctEventRef.current?.({ type: "flashback_end", timestamp: new Date() });
         }, config.flashbackDuration);
       }
       
@@ -304,7 +310,7 @@ export function useDetectiveInstinct({
       
       if (lastMeterLevel.current !== "cold") {
         lastMeterLevel.current = "cold";
-        onInstinctEvent?.({ type: "meter_cold", timestamp: new Date() });
+        onInstinctEventRef.current?.({ type: "meter_cold", timestamp: new Date() });
       }
     }
   }, [
@@ -314,7 +320,6 @@ export function useDetectiveInstinct({
     currentHeading, 
     shownFlashbacks, 
     flashbackActive,
-    onInstinctEvent,
   ]);
   
   // ─── Clue Directions for Vision ───
@@ -339,7 +344,7 @@ export function useDetectiveInstinct({
     setVisionRemaining(config.visionDuration);
     
     haptic.heavy();
-    onInstinctEvent?.({ type: "vision_start", timestamp: new Date() });
+    onInstinctEventRef.current?.({ type: "vision_start", timestamp: new Date() });
     
     // Таймер обратного отсчёта
     visionTimerRef.current = setInterval(() => {
@@ -350,7 +355,7 @@ export function useDetectiveInstinct({
           setVisionActive(false);
           setVisionCooldown(config.visionCooldown);
           
-          onInstinctEvent?.({ type: "vision_end", timestamp: new Date() });
+          onInstinctEventRef.current?.({ type: "vision_end", timestamp: new Date() });
           
           // Запускаем cooldown
           cooldownTimerRef.current = setInterval(() => {
@@ -368,7 +373,7 @@ export function useDetectiveInstinct({
         return prev - 1;
       });
     }, 1000);
-  }, [config, visionCooldown, visionActive, onInstinctEvent]);
+  }, [config, visionCooldown, visionActive]);
   
   // ─── Dismiss Flashback ───
   const dismissFlashback = useCallback(() => {
@@ -377,8 +382,8 @@ export function useDetectiveInstinct({
     }
     setFlashbackActive(false);
     setFlashbackContent(null);
-    onInstinctEvent?.({ type: "flashback_end", timestamp: new Date() });
-  }, [onInstinctEvent]);
+    onInstinctEventRef.current?.({ type: "flashback_end", timestamp: new Date() });
+  }, []);
   
   // ─── Reset ───
   const reset = useCallback(() => {

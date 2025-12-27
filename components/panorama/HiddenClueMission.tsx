@@ -113,10 +113,13 @@ export function HiddenClueMission({
     },
   });
   
-  // ─── Ref для отслеживания reveal progress (избегаем circular dependency) ───
+  // ─── Refs для stable callbacks (избегаем circular dependencies) ───
   const revealProgressRef = useRef(0);
+  const collectedCountRef = useRef(0);
+  const clueEventRef = useRef<((event: ClueDiscoveryEvent) => void) | null>(null);
+  const instinctEventRef = useRef<((event: InstinctEvent) => void) | null>(null);
   
-  // ─── Clue discovery hook ───
+  // ─── Clue discovery hook (использует ref для callback) ───
   const {
     clueStates,
     availableClues,
@@ -133,41 +136,12 @@ export function HiddenClueMission({
     currentHeading,
     stepCount,
     enabled: phase === "playing",
-    onClueEvent: handleClueEvent,
+    onClueEvent: useCallback((event: ClueDiscoveryEvent) => {
+      clueEventRef.current?.(event);
+    }, []),
   });
   
-  // Синхронизируем ref с актуальным значением
-  revealProgressRef.current = revealProgress;
-  
-  // ─── Instinct event handler ───
-  // Координируем с reveal progress чтобы не дублировать звуки
-  const handleInstinctEvent = useCallback((event: InstinctEvent) => {
-    // Если идёт revealing — пропускаем instinct звуки (они уже играют через updateRevealProgress)
-    if (revealProgressRef.current > 0) return;
-    
-    switch (event.type) {
-      case "meter_warming":
-        audio.playSound("hint");
-        break;
-      case "meter_hot":
-        // Только hint, не heartbeat — чтобы не дублировать
-        audio.playSound("hint");
-        break;
-      case "meter_burning":
-        // Близко к улике — scanner ping
-        audio.playSound("scanner");
-        break;
-      case "vision_start":
-        audio.playSound("scanner");
-        break;
-      case "flashback_start":
-        audio.playSound("whisper");
-        audio.playSound("tension");
-        break;
-    }
-  }, [audio]);
-  
-  // ─── Detective Instinct hook ───
+  // ─── Detective Instinct hook (использует ref для callback) ───
   const {
     meter: instinctMeter,
     vision: detectiveVision,
@@ -180,11 +154,17 @@ export function HiddenClueMission({
     currentHeading,
     stepCount,
     enabled: phase === "playing",
-    onInstinctEvent: handleInstinctEvent,
+    onInstinctEvent: useCallback((event: InstinctEvent) => {
+      instinctEventRef.current?.(event);
+    }, []),
   });
   
-  // ─── Clue event handler ───
-  function handleClueEvent(event: ClueDiscoveryEvent) {
+  // Синхронизируем refs с актуальными значениями
+  revealProgressRef.current = revealProgress;
+  collectedCountRef.current = collectedClues.length;
+  
+  // ─── Clue event handler (присваиваем в ref) ───
+  clueEventRef.current = useCallback((event: ClueDiscoveryEvent) => {
     switch (event.type) {
       case "hint":
         // Показываем блик + звук подсказки
@@ -209,8 +189,8 @@ export function HiddenClueMission({
         setCollectedClue(event.clue);
         audio.playSound("collect");
         
-        // Проверяем завершение
-        const newCollectedCount = collectedClues.length + 1;
+        // Проверяем завершение (используем ref для актуального значения)
+        const newCollectedCount = collectedCountRef.current + 1;
         if (newCollectedCount >= mission.requiredClues) {
           setTimeout(() => {
             setPhase("completed");
@@ -218,7 +198,35 @@ export function HiddenClueMission({
         }
         break;
     }
-  }
+  }, [audio, mission.requiredClues]);
+  
+  // ─── Instinct event handler (присваиваем в ref) ───
+  // Координируем с reveal progress чтобы не дублировать звуки
+  instinctEventRef.current = useCallback((event: InstinctEvent) => {
+    // Если идёт revealing — пропускаем instinct звуки (они уже играют через updateRevealProgress)
+    if (revealProgressRef.current > 0) return;
+    
+    switch (event.type) {
+      case "meter_warming":
+        audio.playSound("hint");
+        break;
+      case "meter_hot":
+        // Только hint, не heartbeat — чтобы не дублировать
+        audio.playSound("hint");
+        break;
+      case "meter_burning":
+        // Близко к улике — scanner ping
+        audio.playSound("scanner");
+        break;
+      case "vision_start":
+        audio.playSound("scanner");
+        break;
+      case "flashback_start":
+        audio.playSound("whisper");
+        audio.playSound("tension");
+        break;
+    }
+  }, [audio]);
   
   // ─── Audio reveal progress sync ───
   useEffect(() => {

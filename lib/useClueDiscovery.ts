@@ -14,7 +14,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { haptic } from "@/lib/haptic";
 import type {
   HiddenClue,
@@ -151,32 +151,56 @@ export function useClueDiscovery({
   const lastHintTimeRef = useRef<Map<string, number>>(new Map());
   const dwellStartRef = useRef<number | null>(null);
   const lastScannerHintRef = useRef<number>(0);
+  const clueStatesRef = useRef(clueStates);
+  const headingRef = useRef(currentHeading);
+  const stepCountRef = useRef(stepCount);
   
-  // ─── Available clues in current location ───
-  const availableClues = clues.filter(clue => {
-    const state = clueStates.get(clue.id);
-    // Уже собрана — не показываем
-    if (state?.state === "collected") return false;
-    // Проверяем виртуальный panoId
-    return matchesVirtualPanoId(clue.panoId, stepCount);
-  });
+  // Keep refs updated
+  useEffect(() => {
+    clueStatesRef.current = clueStates;
+  }, [clueStates]);
+  
+  useEffect(() => {
+    headingRef.current = currentHeading;
+  }, [currentHeading]);
+  
+  useEffect(() => {
+    stepCountRef.current = stepCount;
+  }, [stepCount]);
+  
+  // ─── Available clues in current location (MEMOIZED) ───
+  const availableClues = useMemo(() => {
+    return clues.filter(clue => {
+      const state = clueStates.get(clue.id);
+      // Уже собрана — не показываем
+      if (state?.state === "collected") return false;
+      // Проверяем виртуальный panoId
+      return matchesVirtualPanoId(clue.panoId, stepCount);
+    });
+  }, [clues, clueStates, stepCount]);
   
   // ─── Has hint in current pano ───
-  const hasHintInCurrentPano = availableClues.some(clue => {
-    const state = clueStates.get(clue.id);
-    return state?.state === "hidden";
-  });
+  const hasHintInCurrentPano = useMemo(() => {
+    return availableClues.some(clue => {
+      const state = clueStates.get(clue.id);
+      return state?.state === "hidden";
+    });
+  }, [availableClues, clueStates]);
   
-  // ─── Derived ───
-  const revealedClues = clues.filter(c => {
-    const state = clueStates.get(c.id);
-    return state?.state === "revealed" || state?.state === "collected";
-  });
+  // ─── Derived (MEMOIZED) ───
+  const revealedClues = useMemo(() => {
+    return clues.filter(c => {
+      const state = clueStates.get(c.id);
+      return state?.state === "revealed" || state?.state === "collected";
+    });
+  }, [clues, clueStates]);
   
-  const collectedClues = clues.filter(c => {
-    const state = clueStates.get(c.id);
-    return state?.state === "collected";
-  });
+  const collectedClues = useMemo(() => {
+    return clues.filter(c => {
+      const state = clueStates.get(c.id);
+      return state?.state === "collected";
+    });
+  }, [clues, clueStates]);
   
   // ─── Collect clue ───
   const collectClue = useCallback((clueId: string) => {
@@ -233,16 +257,34 @@ export function useClueDiscovery({
     return randomClue.scannerHint || "Сканер обнаружил что-то поблизости...";
   }, [clues, clueStates, stepCount]);
   
+  // ─── Stable callback ref ───
+  const onClueEventRef = useRef(onClueEvent);
+  useEffect(() => {
+    onClueEventRef.current = onClueEvent;
+  }, [onClueEvent]);
+  
   // ─── Main discovery loop ───
+  // Минимальные зависимости — только enabled и currentPanoId
+  // Остальное читаем из refs
   useEffect(() => {
     if (!enabled || !currentPanoId) return;
     
     const interval = setInterval(() => {
       const now = Date.now();
+      const heading = headingRef.current;
+      const step = stepCountRef.current;
+      const states = clueStatesRef.current;
+      
+      // Получаем доступные улики из текущего состояния
+      const currentAvailable = clues.filter(clue => {
+        const state = states.get(clue.id);
+        if (state?.state === "collected") return false;
+        return matchesVirtualPanoId(clue.panoId, step);
+      });
       
       // Проверяем каждую доступную улику
-      availableClues.forEach(clue => {
-        const currentState = clueStates.get(clue.id);
+      currentAvailable.forEach(clue => {
+        const currentState = states.get(clue.id);
         if (!currentState) return;
         
         // Уже собрана или обнаружена — пропускаем
@@ -251,7 +293,7 @@ export function useClueDiscovery({
         }
         
         // Проверяем попадание в конус
-        const inCone = isInRevealCone(currentHeading, clue.revealHeading, clue.coneDegrees);
+        const inCone = isInRevealCone(heading, clue.revealHeading, clue.coneDegrees);
         
         if (inCone) {
           // Игрок смотрит в нужную сторону
@@ -271,7 +313,7 @@ export function useClueDiscovery({
             haptic.light();
             
             // Отправляем событие начала обнаружения
-            onClueEvent?.({
+            onClueEventRef.current?.({
               type: "revealing",
               clue,
               timestamp: new Date(),
@@ -300,7 +342,7 @@ export function useClueDiscovery({
               dwellStartRef.current = null;
               
               haptic.heavy();
-              onClueEvent?.({
+              onClueEventRef.current?.({
                 type: "revealed",
                 clue,
                 timestamp: new Date(),
@@ -332,7 +374,7 @@ export function useClueDiscovery({
             
             if (Math.random() < 0.2) {
               haptic.light();
-              onClueEvent?.({
+              onClueEventRef.current?.({
                 type: "hint",
                 clue,
                 timestamp: new Date(),
@@ -344,14 +386,7 @@ export function useClueDiscovery({
     }, 100); // 10 FPS
     
     return () => clearInterval(interval);
-  }, [
-    enabled,
-    currentPanoId,
-    currentHeading,
-    availableClues,
-    clueStates,
-    onClueEvent,
-  ]);
+  }, [enabled, currentPanoId, clues]);
   
   return {
     clueStates,
