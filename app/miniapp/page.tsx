@@ -370,12 +370,9 @@ export default function MiniAppPage() {
         api.get<WeeklyLeaderboard>(`/api/leaderboard/weekly?userId=${session.user.id}`).catch(() => null),
         // 4. Online count (non-critical, can fail silently)
         fetch('/api/online').then(r => r.json()).catch(() => ({ count: 5 })),
-        // 5. Subscription check
-        fetch("/api/check-subscription", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ telegramUserId: session.user.telegramId }),
-        }).then(r => r.json()).catch(() => ({ subscribed: null })),
+        // 5. Subscription check (must use fetchWithAuth for authorization!)
+        fetchWithAuth("/api/check-subscription", { method: "POST" })
+          .then(r => r.json()).catch(() => ({ subscribed: null })),
         // 6. Daily reward status
         api.get<DailyRewardStatus>("/api/daily-reward").catch(() => null),
         // 7. Active/Upcoming tournaments
@@ -525,11 +522,7 @@ export default function MiniAppPage() {
     
     setCheckingSubscription(true);
     try {
-      const res = await fetch("/api/check-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telegramUserId: session.user.telegramId }),
-      });
+      const res = await fetchWithAuth("/api/check-subscription", { method: "POST" });
       const data = await res.json();
       setIsSubscribed(data.subscribed);
       return data.subscribed;
