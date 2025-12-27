@@ -32,13 +32,17 @@ export async function POST(req: NextRequest) {
 
   console.log(`[Weekly Reset] Processing week ${weekStart.toISOString()} - ${weekEnd.toISOString()}`);
 
-  // Get all participants for this week
+  // Get all participants for this week (including panorama and duel stats)
   const allScores = await prisma.weeklyScore.findMany({
     where: { weekStart },
     select: {
       userId: true,
       bestScore: true,
       quizzes: true,
+      panoramaBestScore: true,
+      panoramaCount: true,
+      duelBestScore: true,
+      duelCount: true,
       user: {
         select: {
           id: true,
@@ -59,12 +63,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Calculate total scores using unified formula and sort
+  // Calculate total scores using unified formula (Quiz + Panorama + Duel)
   const rankedScores = allScores
-    .map(entry => ({
-      ...entry,
-      totalScore: calculateTotalScore(entry.bestScore, entry.quizzes),
-    }))
+    .map(entry => {
+      const combinedBestScore = entry.bestScore + entry.panoramaBestScore + entry.duelBestScore;
+      const totalGames = entry.quizzes + entry.panoramaCount + entry.duelCount;
+      return {
+        ...entry,
+        combinedBestScore,
+        totalGames,
+        totalScore: calculateTotalScore(combinedBestScore, totalGames),
+      };
+    })
     .sort((a, b) => b.totalScore - a.totalScore);
 
   // Get top 3
@@ -104,12 +114,15 @@ export async function POST(req: NextRequest) {
         place,
         user: entry.user,
         score: entry.totalScore,
-        bestScore: entry.bestScore,
+        combinedBestScore: entry.combinedBestScore,
+        totalGames: entry.totalGames,
         quizzes: entry.quizzes,
+        panoramas: entry.panoramaCount,
+        duels: entry.duelCount,
         prize: prizes[i],
       });
 
-      console.log(`[Weekly Reset] Winner #${place}: ${entry.user.firstName || entry.user.username} with ${entry.totalScore} points (best: ${entry.bestScore}, games: ${entry.quizzes})`);
+      console.log(`[Weekly Reset] Winner #${place}: ${entry.user.firstName || entry.user.username} with ${entry.totalScore} points (quiz: ${entry.bestScore}, panorama: ${entry.panoramaBestScore}, duel: ${entry.duelBestScore}, games: ${entry.totalGames})`);
     }
   }
 
@@ -122,8 +135,8 @@ export async function POST(req: NextRequest) {
         winner.user.id,
         winner.place as 1 | 2 | 3,
         winner.score,
-        winner.bestScore,
-        winner.quizzes,
+        winner.combinedBestScore,
+        winner.totalGames,
         winner.prize
       );
       
@@ -153,7 +166,7 @@ export async function POST(req: NextRequest) {
     totalParticipants: allScores.length,
     winners,
     notifications: notificationResults,
-    scoringFormula: "TotalScore = BestScore + ActivityBonus (max 500 for 10 games)",
+    scoringFormula: "TotalScore = (QuizBest + PanoramaBest + DuelBest) + ActivityBonus (max 500 for 10 games)",
   });
 }
 
