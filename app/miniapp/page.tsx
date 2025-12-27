@@ -472,6 +472,19 @@ export default function MiniAppPage() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Refetch data when returning to page (e.g., after quiz)
+  // This ensures energy display is always up-to-date
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && session.status === "ready") {
+        fetchAllData();
+      }
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchAllData, session.status]);
+
   // Pull to refresh handler - reuses the optimized fetch
   const handleRefresh = useCallback(async () => {
     await fetchAllData();
