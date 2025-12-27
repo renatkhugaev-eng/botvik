@@ -16,7 +16,7 @@ import type { HiddenClue, HiddenClueMission } from "@/types/hidden-clue";
 const TOKYO_CLUES: HiddenClue[] = [
   {
     id: "tk_poster",
-    panoId: "START",
+    panoId: "START", // Шаг 0 — видно сразу
     revealHeading: 45,
     coneDegrees: 40,
     dwellTime: 1.5,
@@ -29,7 +29,7 @@ const TOKYO_CLUES: HiddenClue[] = [
   },
   {
     id: "tk_phone",
-    panoId: "STEP_1",
+    panoId: "STEP_4-6", // Шаги 4-6 — надо пройти дальше
     revealHeading: 180,
     coneDegrees: 35,
     dwellTime: 1.8,
@@ -42,7 +42,7 @@ const TOKYO_CLUES: HiddenClue[] = [
   },
   {
     id: "tk_card",
-    panoId: "STEP_1",
+    panoId: "STEP_8-12", // Шаги 8-12 — ещё дальше
     revealHeading: 280,
     coneDegrees: 30,
     dwellTime: 2.0,
@@ -55,7 +55,7 @@ const TOKYO_CLUES: HiddenClue[] = [
   },
   {
     id: "tk_watch",
-    panoId: "STEP_2",
+    panoId: "STEP_15-20", // Шаги 15-20 — глубоко
     revealHeading: 90,
     coneDegrees: 25,
     dwellTime: 2.2,
@@ -68,7 +68,7 @@ const TOKYO_CLUES: HiddenClue[] = [
   },
   {
     id: "tk_blood",
-    panoId: "STEP_3+",
+    panoId: "STEP_25+", // Шаги 25+ — самая дальняя
     revealHeading: 200,
     coneDegrees: 20,
     dwellTime: 2.8,
@@ -125,7 +125,7 @@ export const TOKYO_MISSION: HiddenClueMission = {
 const LONDON_CLUES: HiddenClue[] = [
   {
     id: "ln_newspaper",
-    panoId: "START",
+    panoId: "START", // Шаг 0
     revealHeading: 320,
     coneDegrees: 45,
     dwellTime: 1.3,
@@ -138,7 +138,7 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_umbrella",
-    panoId: "STEP_1",
+    panoId: "STEP_5-8", // Шаги 5-8
     revealHeading: 90,
     coneDegrees: 40,
     dwellTime: 1.6,
@@ -151,7 +151,7 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_coin",
-    panoId: "STEP_1",
+    panoId: "STEP_10-14", // Шаги 10-14
     revealHeading: 220,
     coneDegrees: 30,
     dwellTime: 2.0,
@@ -164,7 +164,7 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_note",
-    panoId: "STEP_2",
+    panoId: "STEP_18-22", // Шаги 18-22
     revealHeading: 45,
     coneDegrees: 35,
     dwellTime: 1.8,
@@ -177,7 +177,7 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_cufflink",
-    panoId: "STEP_3+",
+    panoId: "STEP_28+", // Шаги 28+
     revealHeading: 160,
     coneDegrees: 22,
     dwellTime: 2.5,
@@ -234,7 +234,7 @@ export const LONDON_MISSION: HiddenClueMission = {
 const VEGAS_CLUES: HiddenClue[] = [
   {
     id: "lv_chip",
-    panoId: "START",
+    panoId: "START", // Шаг 0
     revealHeading: 60,
     coneDegrees: 45,
     dwellTime: 1.2,
@@ -247,7 +247,7 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_glasses",
-    panoId: "STEP_1",
+    panoId: "STEP_6-9", // Шаги 6-9
     revealHeading: 180,
     coneDegrees: 40,
     dwellTime: 1.5,
@@ -260,7 +260,7 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_receipt",
-    panoId: "STEP_1",
+    panoId: "STEP_12-16", // Шаги 12-16
     revealHeading: 300,
     coneDegrees: 35,
     dwellTime: 1.8,
@@ -273,7 +273,7 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_keycard",
-    panoId: "STEP_2",
+    panoId: "STEP_20-25", // Шаги 20-25
     revealHeading: 120,
     coneDegrees: 30,
     dwellTime: 2.0,
@@ -286,7 +286,7 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_note",
-    panoId: "STEP_3+",
+    panoId: "STEP_30+", // Шаги 30+
     revealHeading: 240,
     coneDegrees: 22,
     dwellTime: 2.5,
@@ -343,7 +343,7 @@ export const VEGAS_MISSION: HiddenClueMission = {
 const ROME_CLUES: HiddenClue[] = [
   {
     id: "rm_rosary",
-    panoId: "START",
+    panoId: "START", // Шаг 0
     revealHeading: 30,
     coneDegrees: 45,
     dwellTime: 1.3,
@@ -356,7 +356,7 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_letter",
-    panoId: "STEP_1",
+    panoId: "STEP_4-7", // Шаги 4-7
     revealHeading: 270,
     coneDegrees: 40,
     dwellTime: 1.6,
@@ -369,7 +369,7 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_glove",
-    panoId: "STEP_2",
+    panoId: "STEP_10-15", // Шаги 10-15
     revealHeading: 150,
     coneDegrees: 35,
     dwellTime: 1.8,
@@ -382,7 +382,7 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_map",
-    panoId: "STEP_2",
+    panoId: "STEP_18-23", // Шаги 18-23
     revealHeading: 330,
     coneDegrees: 30,
     dwellTime: 2.2,
@@ -395,7 +395,7 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_ring",
-    panoId: "STEP_3+",
+    panoId: "STEP_28+", // Шаги 28+
     revealHeading: 60,
     coneDegrees: 20,
     dwellTime: 2.8,
@@ -452,7 +452,7 @@ export const ROME_MISSION: HiddenClueMission = {
 const SYDNEY_CLUES: HiddenClue[] = [
   {
     id: "sy_manifest",
-    panoId: "START",
+    panoId: "START", // Шаг 0
     revealHeading: 120,
     coneDegrees: 45,
     dwellTime: 1.4,
@@ -465,7 +465,7 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_radio",
-    panoId: "STEP_1",
+    panoId: "STEP_5-9", // Шаги 5-9
     revealHeading: 200,
     coneDegrees: 40,
     dwellTime: 1.7,
@@ -478,7 +478,7 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_gloves",
-    panoId: "STEP_1",
+    panoId: "STEP_12-17", // Шаги 12-17
     revealHeading: 330,
     coneDegrees: 35,
     dwellTime: 1.9,
@@ -491,7 +491,7 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_photo",
-    panoId: "STEP_2",
+    panoId: "STEP_22-28", // Шаги 22-28
     revealHeading: 60,
     coneDegrees: 30,
     dwellTime: 2.0,
@@ -504,7 +504,7 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_key",
-    panoId: "STEP_3+",
+    panoId: "STEP_35+", // Шаги 35+
     revealHeading: 180,
     coneDegrees: 22,
     dwellTime: 2.6,
@@ -563,7 +563,7 @@ $50 миллионов. 200 кг чистоты 94%.
 const AMSTERDAM_CLUES: HiddenClue[] = [
   {
     id: "am_frame",
-    panoId: "START",
+    panoId: "START", // Шаг 0
     revealHeading: 45,
     coneDegrees: 45,
     dwellTime: 1.3,
@@ -576,7 +576,7 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_ticket",
-    panoId: "STEP_1",
+    panoId: "STEP_6-10", // Шаги 6-10
     revealHeading: 270,
     coneDegrees: 40,
     dwellTime: 1.6,
@@ -589,7 +589,7 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_glove",
-    panoId: "STEP_1",
+    panoId: "STEP_14-19", // Шаги 14-19
     revealHeading: 150,
     coneDegrees: 35,
     dwellTime: 1.8,
@@ -602,7 +602,7 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_phone",
-    panoId: "STEP_2",
+    panoId: "STEP_24-30", // Шаги 24-30
     revealHeading: 330,
     coneDegrees: 30,
     dwellTime: 2.0,
@@ -615,7 +615,7 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_map",
-    panoId: "STEP_3+",
+    panoId: "STEP_38+", // Шаги 38+
     revealHeading: 90,
     coneDegrees: 22,
     dwellTime: 2.5,

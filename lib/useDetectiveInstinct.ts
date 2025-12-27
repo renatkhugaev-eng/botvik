@@ -134,16 +134,33 @@ function distanceToLevel(distance: number, maxRadius: number): InstinctLevel {
 
 /**
  * Проверяет соответствует ли виртуальный panoId текущему шагу
+ * Поддерживает: START, STEP_N, STEP_N+, STEP_N-M, ANY
  */
 function matchesVirtualPanoId(cluePanoId: string, stepCount: number): boolean {
-  switch (cluePanoId) {
-    case "START": return stepCount === 0;
-    case "STEP_1": return stepCount === 1;
-    case "STEP_2": return stepCount === 2;
-    case "STEP_3+": return stepCount >= 3;
-    case "ANY": return true;
-    default: return false;
+  if (cluePanoId === "START") return stepCount === 0;
+  if (cluePanoId === "ANY") return true;
+  
+  // STEP_N-M (диапазон)
+  const rangeMatch = cluePanoId.match(/^STEP_(\d+)-(\d+)$/);
+  if (rangeMatch) {
+    const min = parseInt(rangeMatch[1], 10);
+    const max = parseInt(rangeMatch[2], 10);
+    return stepCount >= min && stepCount <= max;
   }
+  
+  // STEP_N+ (N и выше)
+  const plusMatch = cluePanoId.match(/^STEP_(\d+)\+$/);
+  if (plusMatch) {
+    return stepCount >= parseInt(plusMatch[1], 10);
+  }
+  
+  // STEP_N (точный шаг)
+  const exactMatch = cluePanoId.match(/^STEP_(\d+)$/);
+  if (exactMatch) {
+    return stepCount === parseInt(exactMatch[1], 10);
+  }
+  
+  return false;
 }
 
 /**

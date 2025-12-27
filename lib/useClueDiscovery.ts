@@ -96,26 +96,45 @@ function isInRevealCone(
 
 /**
  * Проверяет соответствует ли виртуальный panoId текущему шагу
- * Улики доступны ТОЛЬКО на своём шаге (кроме ANY)
+ * 
+ * Поддерживаемые форматы:
+ * - "START" → шаг 0
+ * - "STEP_N" → точно шаг N (например "STEP_5" = шаг 5)
+ * - "STEP_N+" → шаг N и выше (например "STEP_10+" = шаг 10+)
+ * - "STEP_N-M" → диапазон шагов (например "STEP_5-10" = шаги 5-10)
+ * - "ANY" → любой шаг
  */
 function matchesVirtualPanoId(
   cluePanoId: string,
   stepCount: number
 ): boolean {
-  switch (cluePanoId) {
-    case "START":
-      return stepCount === 0;
-    case "STEP_1":
-      return stepCount === 1;
-    case "STEP_2":
-      return stepCount === 2;
-    case "STEP_3+":
-      return stepCount >= 3;
-    case "ANY":
-      return true; // Везде
-    default:
-      return false;
+  // Специальные значения
+  if (cluePanoId === "START") return stepCount === 0;
+  if (cluePanoId === "ANY") return true;
+  
+  // Проверяем формат STEP_N-M (диапазон)
+  const rangeMatch = cluePanoId.match(/^STEP_(\d+)-(\d+)$/);
+  if (rangeMatch) {
+    const min = parseInt(rangeMatch[1], 10);
+    const max = parseInt(rangeMatch[2], 10);
+    return stepCount >= min && stepCount <= max;
   }
+  
+  // Проверяем формат STEP_N+ (N и выше)
+  const plusMatch = cluePanoId.match(/^STEP_(\d+)\+$/);
+  if (plusMatch) {
+    const min = parseInt(plusMatch[1], 10);
+    return stepCount >= min;
+  }
+  
+  // Проверяем формат STEP_N (точный шаг)
+  const exactMatch = cluePanoId.match(/^STEP_(\d+)$/);
+  if (exactMatch) {
+    const exact = parseInt(exactMatch[1], 10);
+    return stepCount === exact;
+  }
+  
+  return false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
