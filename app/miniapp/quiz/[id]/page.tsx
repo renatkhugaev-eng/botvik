@@ -161,17 +161,17 @@ export default function QuizPlayPage() {
 
   // Сигнал серверу что вопрос показан (запускает серверный таймер)
   const signalQuestionView = useCallback(async (questionIdx: number) => {
-    if (!sessionId) return;
+    // Don't signal if session not ready, quiz finished, or index out of bounds
+    if (!sessionId || finished || questionIdx >= questions.length) return;
     try {
       await fetchWithAuth(`/api/quiz/${quizId}/view`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, questionIndex: questionIdx }),
       });
-    } catch (err) {
-      console.error("[View] Failed to signal:", err);
+    } catch {
+      // Silently ignore - server may have already finished session
     }
-  }, [quizId, sessionId]);
+  }, [quizId, sessionId, finished, questions.length]);
 
   // Timer effect - reset on new question
   useEffect(() => {
