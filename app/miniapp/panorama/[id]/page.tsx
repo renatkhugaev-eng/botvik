@@ -47,7 +47,47 @@ export default function PanoramaMissionPage() {
   }, [missionId]);
   
   // Обработчик завершения миссии
-  const handleComplete = async () => {
+  const handleComplete = async (result: {
+    missionId: string;
+    cluesCollected: number;
+    cluesTotal: number;
+    timeSpent: number;
+    earnedXp: number;
+    completed: boolean;
+  }) => {
+    try {
+      // Вызываем API для начисления XP
+      const response = await fetch(`/api/panorama/${missionId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cluesFound: result.cluesCollected,
+          cluesTotal: result.cluesTotal,
+          timeSpent: result.timeSpent,
+          status: result.completed ? "completed" : "failed",
+          // Новый формат для Hidden Clue системы
+          cluesProgress: Array.from({ length: result.cluesCollected }, (_, i) => ({
+            clueId: `clue_${i}`,
+            isCorrect: true,
+          })),
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[Panorama] Mission completed:", data);
+        
+        if (data.levelUp) {
+          haptic.success();
+          // TODO: показать анимацию level up
+        }
+      } else {
+        console.error("[Panorama] Failed to save progress:", await response.text());
+      }
+    } catch (error) {
+      console.error("[Panorama] Error saving progress:", error);
+    }
+    
     haptic.success();
     router.push("/miniapp/panorama");
   };

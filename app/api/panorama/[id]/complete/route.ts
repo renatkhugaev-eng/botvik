@@ -3,11 +3,19 @@ import { authenticateRequest } from "@/lib/auth";
 import { getMissionById } from "@/lib/panorama-missions";
 import { prisma } from "@/lib/prisma";
 import { getLevelProgress } from "@/lib/xp";
-import type { PanoramaMissionProgress } from "@/types/panorama";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
+
+interface MissionCompleteBody {
+  cluesFound: number;
+  cluesTotal: number;
+  timeSpent: number;
+  status: "completed" | "failed";
+  // Опциональный старый формат для обратной совместимости
+  cluesProgress?: { clueId: string; isCorrect: boolean }[];
+}
 
 /**
  * POST /api/panorama/[id]/complete
@@ -34,30 +42,35 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
     
     // Получаем результат из тела запроса
-    const body = await req.json() as PanoramaMissionProgress;
+    const body = await req.json() as MissionCompleteBody;
     
-    // Валидация
-    if (!body.cluesProgress || !Array.isArray(body.cluesProgress)) {
+    // Валидация — поддерживаем оба формата
+    const cluesFound = body.cluesFound ?? 
+      (body.cluesProgress?.filter(c => c.isCorrect).length ?? 0);
+    const cluesTotal = body.cluesTotal ?? mission.clues.length;
+    
+    if (typeof cluesFound !== "number" || cluesFound < 0) {
       return NextResponse.json(
-        { error: "Invalid progress data" },
+        { error: "Invalid cluesFound" },
         { status: 400 }
       );
     }
     
-    // Считаем XP
-    const correctClues = body.cluesProgress.filter(c => c.isCorrect).length;
-    const totalClues = mission.clues.length;
-    const accuracyMultiplier = totalClues > 0 ? correctClues / totalClues : 0;
-    
+    // Считаем XP на основе собранных улик
+    const accuracyMultiplier = cluesTotal > 0 ? cluesFound / cluesTotal : 0;
     let earnedXp = Math.round(mission.xpReward * accuracyMultiplier);
     
     // Бонус за скорость
-    if (mission.speedBonusPerSecond && mission.timeLimit && body.timeSpent) {
-      const timeRemaining = mission.timeLimit - body.timeSpent;
+    const timeSpent = body.timeSpent ?? 0;
+    if (mission.speedBonusPerSecond && mission.timeLimit && timeSpent > 0) {
+      const timeRemaining = mission.timeLimit - timeSpent;
       if (timeRemaining > 0) {
-        earnedXp += timeRemaining * mission.speedBonusPerSecond;
+        earnedXp += Math.round(timeRemaining * mission.speedBonusPerSecond);
       }
     }
+    
+    // Округляем итоговый XP
+    earnedXp = Math.max(0, Math.round(earnedXp));
     
     // Получаем старый уровень
     const oldUser = await prisma.user.findUnique({
@@ -111,9 +124,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         data: {
           missionId: id,
           missionTitle: mission.title,
-          cluesFound: body.cluesFound,
-          cluesTotal: body.cluesTotal,
+          cluesFound,
+          cluesTotal,
+          timeSpent,
           earnedXp,
+          status: body.status,
         },
       },
     });
