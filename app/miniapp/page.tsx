@@ -362,8 +362,8 @@ export default function MiniAppPage() {
     try {
       // 🚀 PARALLEL REQUESTS - All API calls execute simultaneously
       const [quizzesRes, statsRes, weeklyRes, onlineRes, subscriptionRes, dailyRewardRes, tournamentsRes, finishedTournamentsRes] = await Promise.all([
-        // 1. Quizzes with limits
-        fetchWithAuth(`/api/quiz?userId=${session.user.id}`),
+        // 1. Quizzes with limits (withLimits=true to get energy info!)
+        fetchWithAuth(`/api/quiz?withLimits=true`),
         // 2. User stats
         fetchWithAuth(`/api/me/summary?userId=${session.user.id}`),
         // 3. Weekly leaderboard
