@@ -22,7 +22,6 @@ import type {
   InstinctLevel,
   InstinctEvent,
   DetectiveInstinctConfig,
-  DEFAULT_INSTINCT_CONFIG,
 } from "@/types/detective-instinct";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -214,11 +213,12 @@ export function useDetectiveInstinct({
   const [shownFlashbacks, setShownFlashbacks] = useState<Set<string>>(new Set());
   const flashbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // ─── Available clues (hidden only, in current location) ───
+  // ─── Available clues (hidden only, not revealing/revealed/collected) ───
   const availableClues = useMemo(() => {
     return clues.filter(clue => {
       const state = clueStates.get(clue.id);
-      if (!state || state.state === "collected" || state.state === "revealed") {
+      // Пропускаем улики которые уже обнаружены, собраны или в процессе обнаружения
+      if (!state || state.state === "collected" || state.state === "revealed" || state.state === "revealing") {
         return false;
       }
       return matchesVirtualPanoId(clue.panoId, stepCount);

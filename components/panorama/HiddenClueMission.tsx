@@ -113,27 +113,8 @@ export function HiddenClueMission({
     },
   });
   
-  // ─── Instinct event handler ───
-  const handleInstinctEvent = useCallback((event: InstinctEvent) => {
-    switch (event.type) {
-      case "meter_warming":
-        audio.playSound("hint");
-        break;
-      case "meter_hot":
-        audio.playSound("heartbeat");
-        break;
-      case "meter_burning":
-        audio.playSound("static");
-        break;
-      case "vision_start":
-        audio.playSound("scanner");
-        break;
-      case "flashback_start":
-        audio.playSound("whisper");
-        audio.playSound("tension");
-        break;
-    }
-  }, [audio]);
+  // ─── Ref для отслеживания reveal progress (избегаем circular dependency) ───
+  const revealProgressRef = useRef(0);
   
   // ─── Clue discovery hook ───
   const {
@@ -154,6 +135,37 @@ export function HiddenClueMission({
     enabled: phase === "playing",
     onClueEvent: handleClueEvent,
   });
+  
+  // Синхронизируем ref с актуальным значением
+  revealProgressRef.current = revealProgress;
+  
+  // ─── Instinct event handler ───
+  // Координируем с reveal progress чтобы не дублировать звуки
+  const handleInstinctEvent = useCallback((event: InstinctEvent) => {
+    // Если идёт revealing — пропускаем instinct звуки (они уже играют через updateRevealProgress)
+    if (revealProgressRef.current > 0) return;
+    
+    switch (event.type) {
+      case "meter_warming":
+        audio.playSound("hint");
+        break;
+      case "meter_hot":
+        // Только hint, не heartbeat — чтобы не дублировать
+        audio.playSound("hint");
+        break;
+      case "meter_burning":
+        // Близко к улике — scanner ping
+        audio.playSound("scanner");
+        break;
+      case "vision_start":
+        audio.playSound("scanner");
+        break;
+      case "flashback_start":
+        audio.playSound("whisper");
+        audio.playSound("tension");
+        break;
+    }
+  }, [audio]);
   
   // ─── Detective Instinct hook ───
   const {

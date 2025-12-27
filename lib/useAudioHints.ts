@@ -203,6 +203,9 @@ export function useAudioHints({
       case "static":
         audioRef.current.startStatic();
         break;
+      case "ambient":
+        // Ambient handled via intensity system
+        break;
     }
   }, [isReady]);
   

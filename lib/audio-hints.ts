@@ -17,9 +17,7 @@
 
 import type { 
   AudioConfig, 
-  SoundType, 
   IntensityLevel,
-  DEFAULT_AUDIO_CONFIG 
 } from "@/types/audio-hints";
 
 // ═══════════════════════════════════════════════════════════════════════════
