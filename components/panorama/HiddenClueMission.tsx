@@ -200,6 +200,9 @@ export function HiddenClueMission({
     }
   }, [audio, mission.requiredClues]);
   
+  // ─── State для подсказки "иди дальше" ───
+  const [upcomingHint, setUpcomingHint] = useState<string | null>(null);
+  
   // ─── Instinct event handler (присваиваем в ref) ───
   // Координируем с reveal progress чтобы не дублировать звуки
   instinctEventRef.current = useCallback((event: InstinctEvent) => {
@@ -209,14 +212,29 @@ export function HiddenClueMission({
     switch (event.type) {
       case "meter_warming":
         audio.playSound("hint");
+        setUpcomingHint(null);
         break;
       case "meter_hot":
         // Только hint, не heartbeat — чтобы не дублировать
         audio.playSound("hint");
+        setUpcomingHint(null);
         break;
       case "meter_burning":
         // Близко к улике — scanner ping
         audio.playSound("scanner");
+        setUpcomingHint(null);
+        break;
+      case "meter_upcoming":
+        // Улика впереди — показываем подсказку
+        if (event.stepsAway && event.stepsAway <= 3) {
+          setUpcomingHint(`🚶 Иди дальше... ~${event.stepsAway} шаг${event.stepsAway === 1 ? '' : 'а'}`);
+        } else {
+          setUpcomingHint("🔮 Чутьё подсказывает: исследуй дальше...");
+        }
+        audio.playSound("whisper");
+        break;
+      case "meter_cold":
+        setUpcomingHint(null);
         break;
       case "vision_start":
         audio.playSound("scanner");
@@ -588,7 +606,7 @@ export function HiddenClueMission({
           </div>
           
           {/* Hint indicator */}
-          {hasHintInCurrentPano && (
+          {hasHintInCurrentPano ? (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -598,7 +616,17 @@ export function HiddenClueMission({
                 👁️ Что-то есть здесь... Осмотрись
               </span>
             </motion.div>
-          )}
+          ) : upcomingHint ? (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 text-center"
+            >
+              <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs">
+                {upcomingHint}
+              </span>
+            </motion.div>
+          ) : null}
         </div>
         
         {/* Panorama - занимает всё пространство */}

@@ -164,6 +164,24 @@ function matchesVirtualPanoId(cluePanoId: string, stepCount: number): boolean {
 }
 
 /**
+ * Проверяет, будет ли улика доступна в ближайших N шагах (для "предвестия")
+ * Возвращает через сколько шагов улика станет доступна (0 = уже доступна, -1 = недоступна)
+ */
+function stepsUntilAvailable(cluePanoId: string, stepCount: number, lookahead: number = 5): number {
+  // Уже доступна
+  if (matchesVirtualPanoId(cluePanoId, stepCount)) return 0;
+  
+  // Проверяем следующие N шагов
+  for (let i = 1; i <= lookahead; i++) {
+    if (matchesVirtualPanoId(cluePanoId, stepCount + i)) {
+      return i;
+    }
+  }
+  
+  return -1; // Недоступна в ближайших шагах
+}
+
+/**
  * Генерирует flashback контент из улики
  */
 function generateFlashback(clue: HiddenClue): FlashbackContent {
@@ -248,6 +266,29 @@ export function useDetectiveInstinct({
     });
   }, [clues, clueStates, stepCount]);
   
+  // ─── Upcoming clues (будут доступны в ближайших 5 шагах) ───
+  const upcomingClues = useMemo(() => {
+    return clues.filter(clue => {
+      const state = clueStates.get(clue.id);
+      if (!state || state.state === "collected" || state.state === "revealed" || state.state === "revealing") {
+        return false;
+      }
+      const stepsAway = stepsUntilAvailable(clue.panoId, stepCount, 5);
+      return stepsAway > 0; // Будет доступна, но ещё не сейчас
+    }).map(clue => ({
+      clue,
+      stepsAway: stepsUntilAvailable(clue.panoId, stepCount, 5),
+    }));
+  }, [clues, clueStates, stepCount]);
+  
+  // ─── Nearest upcoming clue (для подсказки "иди дальше") ───
+  const nearestUpcoming = useMemo(() => {
+    if (upcomingClues.length === 0) return null;
+    return upcomingClues.reduce((nearest, current) => 
+      current.stepsAway < nearest.stepsAway ? current : nearest
+    );
+  }, [upcomingClues]);
+  
   // ─── Instinct Meter Update ───
   useEffect(() => {
     if (!enabled || !config.meterEnabled) return;
@@ -318,8 +359,32 @@ export function useDetectiveInstinct({
         }, config.flashbackDuration);
       }
       
+    } else if (nearestUpcoming) {
+      // Нет доступных улик, но есть приближающаяся — показываем "предвестие"
+      const upcoming = nearestUpcoming.clue;
+      const stepsAway = nearestUpcoming.stepsAway;
+      
+      // Слабый сигнал: 0.1 - 0.25 в зависимости от близости
+      const previewLevel = Math.max(0.1, 0.3 - stepsAway * 0.04);
+      
+      setMeterLevel(previewLevel);
+      setNearestClue(null); // Не показываем конкретную улику
+      setAngleToClue(null); // Нет направления — просто "что-то впереди"
+      setDistanceToClue(null);
+      
+      // Категория "cool" — лёгкое предчувствие
+      if (lastMeterLevel.current !== "cool") {
+        lastMeterLevel.current = "cool";
+        // Событие "upcoming" для специальной подсказки
+        onInstinctEventRef.current?.({ 
+          type: "meter_upcoming", 
+          clue: upcoming, 
+          stepsAway,
+          timestamp: new Date() 
+        });
+      }
     } else {
-      // Нет улик в радиусе
+      // Нет улик вообще
       setMeterLevel(0);
       setNearestClue(null);
       setAngleToClue(null);
@@ -334,6 +399,7 @@ export function useDetectiveInstinct({
     enabled, 
     config, 
     availableClues, 
+    nearestUpcoming,
     currentHeading, 
     shownFlashbacks, 
     flashbackActive,

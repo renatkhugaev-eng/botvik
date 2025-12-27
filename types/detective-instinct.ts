@@ -171,6 +171,7 @@ export type InstinctEventType =
   | "meter_warming"   // Чутьё нагревается
   | "meter_hot"       // Чутьё горячее
   | "meter_burning"   // Чутьё на максимуме
+  | "meter_upcoming"  // Чутьё предчувствует (улика в ближайших шагах)
   | "vision_start"    // Начало Detective Vision
   | "vision_end"      // Конец Detective Vision
   | "flashback_start" // Начало Flashback
@@ -179,6 +180,8 @@ export type InstinctEventType =
 export interface InstinctEvent {
   type: InstinctEventType;
   clue?: HiddenClue;
+  /** Количество шагов до улики (для meter_upcoming) */
+  stepsAway?: number;
   timestamp: Date;
 }
 
