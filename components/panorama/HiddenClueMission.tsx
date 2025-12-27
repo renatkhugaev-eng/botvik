@@ -19,10 +19,18 @@ import {
   ScannerHint,
   ClueCounter,
 } from "./HiddenClueUI";
+import {
+  InstinctMeter,
+  VisionButton,
+  DetectiveVisionOverlay,
+  FlashbackOverlay,
+} from "./DetectiveInstinctUI";
 import { useClueDiscovery } from "@/lib/useClueDiscovery";
 import { useAudioHints } from "@/lib/useAudioHints";
+import { useDetectiveInstinct } from "@/lib/useDetectiveInstinct";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { HiddenClueMission as MissionType, HiddenClue, ClueDiscoveryEvent } from "@/types/hidden-clue";
+import type { InstinctEvent } from "@/types/detective-instinct";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -105,6 +113,28 @@ export function HiddenClueMission({
     },
   });
   
+  // ─── Instinct event handler ───
+  const handleInstinctEvent = useCallback((event: InstinctEvent) => {
+    switch (event.type) {
+      case "meter_warming":
+        audio.playSound("hint");
+        break;
+      case "meter_hot":
+        audio.playSound("heartbeat");
+        break;
+      case "meter_burning":
+        audio.playSound("static");
+        break;
+      case "vision_start":
+        audio.playSound("scanner");
+        break;
+      case "flashback_start":
+        audio.playSound("whisper");
+        audio.playSound("tension");
+        break;
+    }
+  }, [audio]);
+  
   // ─── Clue discovery hook ───
   const {
     clueStates,
@@ -123,6 +153,22 @@ export function HiddenClueMission({
     stepCount,
     enabled: phase === "playing",
     onClueEvent: handleClueEvent,
+  });
+  
+  // ─── Detective Instinct hook ───
+  const {
+    meter: instinctMeter,
+    vision: detectiveVision,
+    flashback,
+    activateVision,
+    dismissFlashback,
+  } = useDetectiveInstinct({
+    clues: mission.clues,
+    clueStates,
+    currentHeading,
+    stepCount,
+    enabled: phase === "playing",
+    onInstinctEvent: handleInstinctEvent,
   });
   
   // ─── Clue event handler ───
@@ -479,8 +525,14 @@ export function HiddenClueMission({
               </div>
             )}
             
-            {/* Audio toggle + Clue counter */}
+            {/* Vision + Audio + Clue counter */}
             <div className="flex items-center gap-2 pointer-events-auto">
+              {/* Detective Vision button */}
+              <VisionButton 
+                state={detectiveVision} 
+                onActivate={activateVision}
+              />
+              
               {/* Audio toggle */}
               <button
                 onClick={toggleAudio}
@@ -586,21 +638,38 @@ export function HiddenClueMission({
           )}
         </AnimatePresence>
         
-        {/* Bottom navigation hint */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
-          <div className="flex items-center justify-center gap-2 text-white/50 text-sm">
-            <span>👆 Вращайте камеру медленно</span>
-            <span>•</span>
-            <span>🚶 Кликайте стрелки для перемещения</span>
+        {/* Bottom HUD with Instinct Meter */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+          {/* Instinct Meter */}
+          <div className="max-w-xs mx-auto mb-3">
+            <InstinctMeter state={instinctMeter} />
           </div>
           
-          {/* Subtle hint about clues */}
-          {availableClues.filter(c => clueStates.get(c.id)?.state === "hidden").length > 0 && (
-            <div className="text-center text-cyan-400/60 text-xs mt-2">
-              🔍 Здесь есть скрытые улики...
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-2 text-white/50 text-xs">
+            <span>👆 Вращайте камеру</span>
+            <span>•</span>
+            <span>🚶 Стрелки для перемещения</span>
+            <span>•</span>
+            <span>👁️ Режим видения</span>
+          </div>
         </div>
+        
+        {/* Detective Vision Overlay */}
+        <AnimatePresence>
+          {detectiveVision.isActive && (
+            <DetectiveVisionOverlay state={detectiveVision} />
+          )}
+        </AnimatePresence>
+        
+        {/* Flashback Overlay */}
+        <AnimatePresence>
+          {flashback.isActive && (
+            <FlashbackOverlay 
+              state={flashback} 
+              onDismiss={dismissFlashback} 
+            />
+          )}
+        </AnimatePresence>
       </div>
     );
   }

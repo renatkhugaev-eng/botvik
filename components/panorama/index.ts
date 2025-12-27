@@ -7,7 +7,7 @@
 export { GooglePanorama } from "./GooglePanorama";
 export type { GooglePanoramaRef } from "./GooglePanorama";
 
-// Hidden Clue System (NEW!)
+// Hidden Clue System
 export { HiddenClueMission } from "./HiddenClueMission";
 export { 
   RevealProgress, 
@@ -17,6 +17,14 @@ export {
   ScannerHint,
   ClueCounter,
 } from "./HiddenClueUI";
+
+// Detective Instinct System
+export {
+  InstinctMeter,
+  VisionButton,
+  DetectiveVisionOverlay,
+  FlashbackOverlay,
+} from "./DetectiveInstinctUI";
 
 // Legacy mission component
 export { PanoramaMission } from "./PanoramaMission";
