@@ -79,11 +79,11 @@ const defaultConfig: DetectiveInstinctConfig = {
   meterEnabled: true,
   visionEnabled: true,
   flashbackEnabled: true,
-  visionDuration: 5,
-  visionCooldown: 30,
-  meterDetectionRadius: 90,
-  flashbackRadius: 60,
-  flashbackDuration: 3000,
+  visionDuration: 4,         // Было 5 сек → 4 сек (меньше времени смотреть)
+  visionCooldown: 60,        // Было 30 сек → 60 сек (реже можно использовать)
+  meterDetectionRadius: 50,  // Было 90° → 50° (надо точнее смотреть)
+  flashbackRadius: 35,       // Было 60° → 35° (flashback только когда очень близко)
+  flashbackDuration: 2500,   // Было 3000 → 2500 мс (быстрее исчезает)
 };
 
 /**

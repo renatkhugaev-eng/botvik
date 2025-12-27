@@ -18,8 +18,8 @@ const TOKYO_CLUES: HiddenClue[] = [
     id: "tk_poster",
     panoId: "START", // Шаг 0 — видно сразу
     revealHeading: 45,
-    coneDegrees: 40,
-    dwellTime: 1.5,
+    coneDegrees: 25,   // Было 40 → 25 (уже́)
+    dwellTime: 2.5,    // Было 1.5 → 2.5 (дольше смотреть)
     name: "Разорванный постер",
     icon: "📰",
     storyContext: "Лицо журналиста Кэндзи Танаки на обложке. Заголовок: 'Я раскрою тайны клана Ямагути.' Его последняя статья.",
@@ -31,8 +31,8 @@ const TOKYO_CLUES: HiddenClue[] = [
     id: "tk_phone",
     panoId: "STEP_4-6", // Шаги 4-6 — надо пройти дальше
     revealHeading: 180,
-    coneDegrees: 35,
-    dwellTime: 1.8,
+    coneDegrees: 22,   // Было 35 → 22
+    dwellTime: 2.8,    // Было 1.8 → 2.8
     name: "Брошенный телефон",
     icon: "📱",
     storyContext: "Телефон Танаки! Последнее фото: размытое лицо мужчины с татуировкой дракона на шее. Якудза.",
@@ -44,8 +44,8 @@ const TOKYO_CLUES: HiddenClue[] = [
     id: "tk_card",
     panoId: "STEP_8-12", // Шаги 8-12 — ещё дальше
     revealHeading: 280,
-    coneDegrees: 30,
-    dwellTime: 2.0,
+    coneDegrees: 20,   // Было 30 → 20
+    dwellTime: 3.0,    // Было 2.0 → 3.0
     name: "Визитка пачинко-зала",
     icon: "🎰",
     storyContext: "'Golden Dragon Pachinko.' На обороте от руки: 'Подвал, 23:00.' Это была ловушка.",
@@ -57,8 +57,8 @@ const TOKYO_CLUES: HiddenClue[] = [
     id: "tk_watch",
     panoId: "STEP_15-20", // Шаги 15-20 — глубоко
     revealHeading: 90,
-    coneDegrees: 25,
-    dwellTime: 2.2,
+    coneDegrees: 18,   // Было 25 → 18
+    dwellTime: 3.2,    // Было 2.2 → 3.2
     name: "Разбитые часы Rolex",
     icon: "⌚",
     storyContext: "Часы остановились в 22:47. Стекло разбито. На задней крышке гравировка: 'За правду — К.Т.'",
@@ -70,8 +70,8 @@ const TOKYO_CLUES: HiddenClue[] = [
     id: "tk_blood",
     panoId: "STEP_25+", // Шаги 25+ — самая дальняя
     revealHeading: 200,
-    coneDegrees: 20,
-    dwellTime: 2.8,
+    coneDegrees: 15,   // Было 20 → 15 (самая сложная)
+    dwellTime: 3.5,    // Было 2.8 → 3.5
     name: "Следы крови",
     icon: "🩸",
     storyContext: "ДНК совпадает с Танакой. Следы ведут к служебному выходу клуба 'Kabukicho Kings'. Он ещё жив?",
@@ -125,10 +125,10 @@ export const TOKYO_MISSION: HiddenClueMission = {
 const LONDON_CLUES: HiddenClue[] = [
   {
     id: "ln_newspaper",
-    panoId: "START", // Шаг 0
+    panoId: "START",
     revealHeading: 320,
-    coneDegrees: 45,
-    dwellTime: 1.3,
+    coneDegrees: 28,   // Было 45 → 28
+    dwellTime: 2.3,    // Было 1.3 → 2.3
     name: "Газета с шифром",
     icon: "📰",
     storyContext: "The Times, вчерашний номер. В объявлениях подчёркнуты буквы: 'R-E-D-F-O-X-C-O-M-P-R-O-M-I-S-E-D.'",
@@ -138,10 +138,10 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_umbrella",
-    panoId: "STEP_5-8", // Шаги 5-8
+    panoId: "STEP_5-8",
     revealHeading: 90,
-    coneDegrees: 40,
-    dwellTime: 1.6,
+    coneDegrees: 24,   // Было 40 → 24
+    dwellTime: 2.6,    // Было 1.6 → 2.6
     name: "Зонт с меткой",
     icon: "☂️",
     storyContext: "Классический английский зонт. На ручке выгравировано: 'Vauxhall Cross' — адрес штаб-квартиры MI6.",
@@ -151,10 +151,10 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_coin",
-    panoId: "STEP_10-14", // Шаги 10-14
+    panoId: "STEP_10-14",
     revealHeading: 220,
-    coneDegrees: 30,
-    dwellTime: 2.0,
+    coneDegrees: 18,   // Было 30 → 18
+    dwellTime: 3.0,    // Было 2.0 → 3.0
     name: "Монета-контейнер",
     icon: "🪙",
     storyContext: "Полый пенни! Внутри — микроплёнка с фото. На снимке: двое мужчин у российского посольства. Один — замминистра.",
@@ -164,10 +164,10 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_note",
-    panoId: "STEP_18-22", // Шаги 18-22
+    panoId: "STEP_18-22",
     revealHeading: 45,
-    coneDegrees: 35,
-    dwellTime: 1.8,
+    coneDegrees: 20,   // Было 35 → 20
+    dwellTime: 3.2,    // Было 1.8 → 3.2
     name: "Записка в урне",
     icon: "🗑️",
     storyContext: "'Pub. 21:00. Booth 3. Come alone.' Классика шпионских встреч. Но кто-то пришёл не один.",
@@ -177,10 +177,10 @@ const LONDON_CLUES: HiddenClue[] = [
   },
   {
     id: "ln_cufflink",
-    panoId: "STEP_28+", // Шаги 28+
+    panoId: "STEP_28+",
     revealHeading: 160,
-    coneDegrees: 22,
-    dwellTime: 2.5,
+    coneDegrees: 14,   // Было 22 → 14 (очень узкий!)
+    dwellTime: 3.8,    // Было 2.5 → 3.8
     name: "Запонка с гербом",
     icon: "🔘",
     storyContext: "Герб Итонского колледжа. Такие носят только выпускники. Агент 'Red Fox' учился там в 1987-1992.",
@@ -234,10 +234,10 @@ export const LONDON_MISSION: HiddenClueMission = {
 const VEGAS_CLUES: HiddenClue[] = [
   {
     id: "lv_chip",
-    panoId: "START", // Шаг 0
+    panoId: "START",
     revealHeading: 60,
-    coneDegrees: 45,
-    dwellTime: 1.2,
+    coneDegrees: 26,   // Было 45 → 26
+    dwellTime: 2.2,    // Было 1.2 → 2.2
     name: "Фишка казино Bellagio",
     icon: "🎰",
     storyContext: "$10,000 фишка. Серийный номер: B-7749-X. В базе казино: 'Выдана VIP-клиенту. Имя засекречено.'",
@@ -247,10 +247,10 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_glasses",
-    panoId: "STEP_6-9", // Шаги 6-9
+    panoId: "STEP_6-9",
     revealHeading: 180,
-    coneDegrees: 40,
-    dwellTime: 1.5,
+    coneDegrees: 22,   // Было 40 → 22
+    dwellTime: 2.8,    // Было 1.5 → 2.8
     name: "Солнцезащитные очки",
     icon: "🕶️",
     storyContext: "Ray-Ban Aviator. На дужке — микрокамера! Кто-то снимал вход в хранилище изнутри.",
@@ -260,10 +260,10 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_receipt",
-    panoId: "STEP_12-16", // Шаги 12-16
+    panoId: "STEP_12-16",
     revealHeading: 300,
-    coneDegrees: 35,
-    dwellTime: 1.8,
+    coneDegrees: 20,   // Было 35 → 20
+    dwellTime: 3.0,    // Было 1.8 → 3.0
     name: "Чек из оружейного магазина",
     icon: "🧾",
     storyContext: "'Desert Eagle Arms. 3 × глушитель. 500 патронов.' Оплачено наличными. Камера 'не работала.'",
@@ -273,10 +273,10 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_keycard",
-    panoId: "STEP_20-25", // Шаги 20-25
+    panoId: "STEP_20-25",
     revealHeading: 120,
-    coneDegrees: 30,
-    dwellTime: 2.0,
+    coneDegrees: 18,   // Было 30 → 18
+    dwellTime: 3.3,    // Было 2.0 → 3.3
     name: "Карта доступа персонала",
     icon: "💳",
     storyContext: "Bellagio, уровень доступа: VAULT. Имя: Martinez, Security. Martinez уволен 2 года назад. Карта активна.",
@@ -286,10 +286,10 @@ const VEGAS_CLUES: HiddenClue[] = [
   },
   {
     id: "lv_note",
-    panoId: "STEP_30+", // Шаги 30+
+    panoId: "STEP_30+",
     revealHeading: 240,
-    coneDegrees: 22,
-    dwellTime: 2.5,
+    coneDegrees: 14,   // Было 22 → 14
+    dwellTime: 4.0,    // Было 2.5 → 4.0
     name: "План хранилища",
     icon: "📋",
     storyContext: "Схема от руки. Время смены охраны. Слепые зоны камер. Пометка: 'Суббота, 3:00 AM. $47M.'",
@@ -343,10 +343,10 @@ export const VEGAS_MISSION: HiddenClueMission = {
 const ROME_CLUES: HiddenClue[] = [
   {
     id: "rm_rosary",
-    panoId: "START", // Шаг 0
+    panoId: "START",
     revealHeading: 30,
-    coneDegrees: 45,
-    dwellTime: 1.3,
+    coneDegrees: 28,   // Было 45 → 28
+    dwellTime: 2.3,    // Было 1.3 → 2.3
     name: "Оброненные чётки",
     icon: "📿",
     storyContext: "Антикварные чётки XVI века. Такие носят только кардиналы. На распятии — герб семьи Борджиа.",
@@ -356,10 +356,10 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_letter",
-    panoId: "STEP_4-7", // Шаги 4-7
+    panoId: "STEP_4-7",
     revealHeading: 270,
-    coneDegrees: 40,
-    dwellTime: 1.6,
+    coneDegrees: 24,   // Было 40 → 24
+    dwellTime: 2.6,    // Было 1.6 → 2.6
     name: "Письмо с печатью",
     icon: "✉️",
     storyContext: "Латынь: 'Opus Dei требует молчания. Реликвия должна исчезнуть.' Подпись нечитаема.",
@@ -369,10 +369,10 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_glove",
-    panoId: "STEP_10-15", // Шаги 10-15
+    panoId: "STEP_10-15",
     revealHeading: 150,
-    coneDegrees: 35,
-    dwellTime: 1.8,
+    coneDegrees: 20,   // Было 35 → 20
+    dwellTime: 3.0,    // Было 1.8 → 3.0
     name: "Белая перчатка",
     icon: "🧤",
     storyContext: "Шёлковая перчатка для работы с реликвиями. Внутри — пылинки золота. Кто-то держал ковчег.",
@@ -382,10 +382,10 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_map",
-    panoId: "STEP_18-23", // Шаги 18-23
+    panoId: "STEP_18-23",
     revealHeading: 330,
-    coneDegrees: 30,
-    dwellTime: 2.2,
+    coneDegrees: 18,   // Было 30 → 18
+    dwellTime: 3.4,    // Было 2.2 → 3.4
     name: "Карта катакомб",
     icon: "🗺️",
     storyContext: "Секретные туннели под Ватиканом! Маршрут отмечен красным. Конечная точка: 'Archivio Segreto.'",
@@ -395,10 +395,10 @@ const ROME_CLUES: HiddenClue[] = [
   },
   {
     id: "rm_ring",
-    panoId: "STEP_28+", // Шаги 28+
+    panoId: "STEP_28+",
     revealHeading: 60,
-    coneDegrees: 20,
-    dwellTime: 2.8,
+    coneDegrees: 12,   // Было 20 → 12 (очень сложно!)
+    dwellTime: 4.0,    // Было 2.8 → 4.0
     name: "Перстень кардинала",
     icon: "💍",
     storyContext: "Аметист в золоте. Гравировка: 'Silentium est aurum.' Принадлежит кардиналу Риенци — главе комиссии по реликвиям.",
@@ -452,10 +452,10 @@ export const ROME_MISSION: HiddenClueMission = {
 const SYDNEY_CLUES: HiddenClue[] = [
   {
     id: "sy_manifest",
-    panoId: "START", // Шаг 0
+    panoId: "START",
     revealHeading: 120,
-    coneDegrees: 45,
-    dwellTime: 1.4,
+    coneDegrees: 26,   // Было 45 → 26
+    dwellTime: 2.4,    // Было 1.4 → 2.4
     name: "Судовой манифест",
     icon: "📋",
     storyContext: "Контейнер #7749: 'Текстиль.' Но вес не сходится — на 200 кг больше. Что внутри?",
@@ -465,10 +465,10 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_radio",
-    panoId: "STEP_5-9", // Шаги 5-9
+    panoId: "STEP_5-9",
     revealHeading: 200,
-    coneDegrees: 40,
-    dwellTime: 1.7,
+    coneDegrees: 22,   // Было 40 → 22
+    dwellTime: 2.7,    // Было 1.7 → 2.7
     name: "Рация докеров",
     icon: "📻",
     storyContext: "Последнее сообщение: 'Груз на месте. Ждём Кобру.' Частота нестандартная — военный диапазон.",
@@ -478,10 +478,10 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_gloves",
-    panoId: "STEP_12-17", // Шаги 12-17
+    panoId: "STEP_12-17",
     revealHeading: 330,
-    coneDegrees: 35,
-    dwellTime: 1.9,
+    coneDegrees: 19,   // Было 35 → 19
+    dwellTime: 3.1,    // Было 1.9 → 3.1
     name: "Перчатки со следами",
     icon: "🧤",
     storyContext: "Белый порошок! Лабораторный тест: героин, чистота 94%. Партия на $50 миллионов.",
@@ -491,10 +491,10 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_photo",
-    panoId: "STEP_22-28", // Шаги 22-28
+    panoId: "STEP_22-28",
     revealHeading: 60,
-    coneDegrees: 30,
-    dwellTime: 2.0,
+    coneDegrees: 17,   // Было 30 → 17
+    dwellTime: 3.4,    // Было 2.0 → 3.4
     name: "Фото с камеры",
     icon: "📸",
     storyContext: "Размытое лицо, но татуировка чёткая: китайский дракон. Триада. 'Кобра' — их связной в порту.",
@@ -504,10 +504,10 @@ const SYDNEY_CLUES: HiddenClue[] = [
   },
   {
     id: "sy_key",
-    panoId: "STEP_35+", // Шаги 35+
+    panoId: "STEP_35+",
     revealHeading: 180,
-    coneDegrees: 22,
-    dwellTime: 2.6,
+    coneDegrees: 13,   // Было 22 → 13
+    dwellTime: 4.2,    // Было 2.6 → 4.2
     name: "Ключ от контейнера",
     icon: "🔑",
     storyContext: "Номер 7749. Ключ с гравировкой: 'Sun Yee On' — одна из крупнейших триад мира. Доставка сегодня ночью.",
@@ -563,10 +563,10 @@ $50 миллионов. 200 кг чистоты 94%.
 const AMSTERDAM_CLUES: HiddenClue[] = [
   {
     id: "am_frame",
-    panoId: "START", // Шаг 0
+    panoId: "START",
     revealHeading: 45,
-    coneDegrees: 45,
-    dwellTime: 1.3,
+    coneDegrees: 27,   // Было 45 → 27
+    dwellTime: 2.3,    // Было 1.3 → 2.3
     name: "Осколок рамы",
     icon: "🖼️",
     storyContext: "Золочёное дерево XVII века. Совпадает с рамой украденного Вермеера. Картина стоит €300 миллионов.",
@@ -576,10 +576,10 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_ticket",
-    panoId: "STEP_6-10", // Шаги 6-10
+    panoId: "STEP_6-10",
     revealHeading: 270,
-    coneDegrees: 40,
-    dwellTime: 1.6,
+    coneDegrees: 23,   // Было 40 → 23
+    dwellTime: 2.6,    // Было 1.6 → 2.6
     name: "Билет в музей",
     icon: "🎫",
     storyContext: "Рейксмузеум, вчера, 16:47. За 13 минут до закрытия. Имя: J. van der Berg. Подставное.",
@@ -589,10 +589,10 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_glove",
-    panoId: "STEP_14-19", // Шаги 14-19
+    panoId: "STEP_14-19",
     revealHeading: 150,
-    coneDegrees: 35,
-    dwellTime: 1.8,
+    coneDegrees: 19,   // Было 35 → 19
+    dwellTime: 3.0,    // Было 1.8 → 3.0
     name: "Хирургическая перчатка",
     icon: "🧤",
     storyContext: "Латекс, без пудры. Профессионал. Внутри — волос. ДНК в базе: Марко Визер, арт-дилер из Вены.",
@@ -602,10 +602,10 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_phone",
-    panoId: "STEP_24-30", // Шаги 24-30
+    panoId: "STEP_24-30",
     revealHeading: 330,
-    coneDegrees: 30,
-    dwellTime: 2.0,
+    coneDegrees: 16,   // Было 30 → 16
+    dwellTime: 3.5,    // Было 2.0 → 3.5
     name: "Выброшенный телефон",
     icon: "📱",
     storyContext: "Burner phone. Один номер в истории: Москва, +7 495... Связь с российским олигархом?",
@@ -615,10 +615,10 @@ const AMSTERDAM_CLUES: HiddenClue[] = [
   },
   {
     id: "am_map",
-    panoId: "STEP_38+", // Шаги 38+
+    panoId: "STEP_38+",
     revealHeading: 90,
-    coneDegrees: 22,
-    dwellTime: 2.5,
+    coneDegrees: 12,   // Было 22 → 12 (очень сложно!)
+    dwellTime: 4.5,    // Было 2.5 → 4.5
     name: "Карта маршрута побега",
     icon: "🗺️",
     storyContext: "Маршрут к частному аэродрому. Время вылета: 06:00. Направление: Москва. Осталось 2 часа!",

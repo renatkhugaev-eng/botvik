@@ -225,13 +225,18 @@ export function HiddenClueMission({
         setUpcomingHint(null);
         break;
       case "meter_upcoming":
-        // Улика впереди — показываем подсказку
-        if (event.stepsAway && event.stepsAway <= 3) {
-          setUpcomingHint(`🚶 Иди дальше... ~${event.stepsAway} шаг${event.stepsAway === 1 ? '' : 'а'}`);
-        } else {
-          setUpcomingHint("🔮 Чутьё подсказывает: исследуй дальше...");
+        // Улика впереди — показываем НЕТОЧНУЮ подсказку (баланс!)
+        const hints = [
+          "🔮 Чутьё подсказывает: исследуй дальше...",
+          "🚶 Что-то ждёт впереди...",
+          "👁️ Интуиция говорит идти дальше...",
+          "🌫️ Смутное ощущение... продолжай путь",
+        ];
+        setUpcomingHint(hints[Math.floor(Math.random() * hints.length)]);
+        // Whisper только с 30% шансом (не спамить)
+        if (Math.random() < 0.3) {
+          audio.playSound("whisper");
         }
-        audio.playSound("whisper");
         break;
       case "meter_cold":
         setUpcomingHint(null);
