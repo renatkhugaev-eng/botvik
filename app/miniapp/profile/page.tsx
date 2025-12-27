@@ -407,11 +407,9 @@ export default function ProfilePage() {
     haptic.selection();
     
     try {
-      await fetch("/api/notifications/settings", {
+      await fetchWithAuth("/api/notifications/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: session.user.id,
           settings: { [key]: value },
         }),
       });
@@ -433,11 +431,9 @@ export default function ProfilePage() {
     setAddFriendSuccess(null);
     
     try {
-      const res = await fetch("/api/friends", {
+      const res = await fetchWithAuth("/api/friends", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: session.user.id,
           friendUsername: friendUsername.trim(),
         }),
       });
@@ -478,9 +474,8 @@ export default function ProfilePage() {
 
   const handleRespondRequest = async (requestId: number, action: "accept" | "decline") => {
     try {
-      await fetch("/api/friends", {
+      await fetchWithAuth("/api/friends", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId, action }),
       });
       await loadFriends();
@@ -491,9 +486,8 @@ export default function ProfilePage() {
 
   const handleCancelRequest = async (requestId: number) => {
     try {
-      await fetch("/api/friends", {
+      await fetchWithAuth("/api/friends", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ friendshipId: requestId }),
       });
       await loadFriends();
@@ -504,9 +498,8 @@ export default function ProfilePage() {
 
   const handleRemoveFriend = async (friendshipId: number) => {
     try {
-      await fetch("/api/friends", {
+      await fetchWithAuth("/api/friends", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ friendshipId }),
       });
       await loadFriends();

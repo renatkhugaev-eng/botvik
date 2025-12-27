@@ -1006,9 +1006,8 @@ export default function QuizPlayPage() {
                 
                 try {
                   // Генерируем картинку через htmlcsstoimage API
-                  const response = await fetch("/api/share-image", {
+                  const response = await fetchWithAuth("/api/share-image", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       quizTitle,
                       score: totalScore,
