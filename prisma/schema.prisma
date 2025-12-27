@@ -59,6 +59,11 @@ model User {
   panoramaBestScore Int     @default(0)      // Лучший результат панорамы за всё время
   panoramaCount     Int     @default(0)      // Всего пройденных панорам
   
+  // Duel Stats (for all-time leaderboard)
+  duelBestScore     Int     @default(0)      // Лучший результат дуэли за всё время
+  duelCount         Int     @default(0)      // Всего сыгранных дуэлей
+  duelWins          Int     @default(0)      // Всего побед в дуэлях
+  
   // Daily Rewards System
   dailyRewardStreak   Int       @default(0)      // Текущая серия дней (1-7, для UI цикла наград)
   totalDailyStreak    Int       @default(0)      // Общая непрерывная серия дней (для достижений, не сбрасывается на 7)
@@ -273,6 +278,11 @@ model WeeklyScore {
   // Panorama scores (панорамные миссии)
   panoramaBestScore Int @default(0)  // Лучший результат панорамы на неделе
   panoramaCount     Int @default(0)  // Количество пройденных панорам за неделю
+  
+  // Duel scores (дуэли)
+  duelBestScore     Int @default(0)  // Лучший результат дуэли на неделе
+  duelCount         Int @default(0)  // Количество дуэлей за неделю
+  duelWins          Int @default(0)  // Побед в дуэлях за неделю
   
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])

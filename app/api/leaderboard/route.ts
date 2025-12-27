@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
   }
 
   // ═══ GLOBAL LEADERBOARD ═══
-  // Combined: Quiz scores + Panorama scores
-  // Formula: (QuizBestSum + PanoramaBest) + ActivityBonus(quizAttempts + panoramaCount)
+  // Combined: Quiz scores + Panorama scores + Duel scores
+  // Formula: (QuizBestSum + PanoramaBest + DuelBest) + ActivityBonus(quizAttempts + panoramaCount + duelCount)
   
   // Step 1: Get quiz aggregated scores
   const quizAggregated = await prisma.leaderboardEntry.groupBy({
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
     { bestScore: e._sum.bestScore ?? 0, attempts: e._sum.attempts ?? 0 }
   ]));
   
-  // Step 2: Get all users with panorama stats
+  // Step 2: Get all users with panorama and duel stats
   const allUsers = await prisma.user.findMany({
     select: {
       id: true,
@@ -105,6 +105,9 @@ export async function GET(req: NextRequest) {
       photoUrl: true,
       panoramaBestScore: true,
       panoramaCount: true,
+      duelBestScore: true,
+      duelCount: true,
+      duelWins: true,
     },
   });
   
@@ -112,8 +115,8 @@ export async function GET(req: NextRequest) {
   const combinedScores = allUsers
     .map(user => {
       const quiz = quizMap.get(user.id) ?? { bestScore: 0, attempts: 0 };
-      const combinedBestScore = quiz.bestScore + user.panoramaBestScore;
-      const totalGames = quiz.attempts + user.panoramaCount;
+      const combinedBestScore = quiz.bestScore + user.panoramaBestScore + user.duelBestScore;
+      const totalGames = quiz.attempts + user.panoramaCount + user.duelCount;
       const totalScore = calculateTotalScore(combinedBestScore, totalGames);
       
       return {
@@ -125,6 +128,9 @@ export async function GET(req: NextRequest) {
         quizAttempts: quiz.attempts,
         panoramaBestScore: user.panoramaBestScore,
         panoramaCount: user.panoramaCount,
+        duelBestScore: user.duelBestScore,
+        duelCount: user.duelCount,
+        duelWins: user.duelWins,
         combinedBestScore,
         totalGames,
         totalScore,
@@ -146,6 +152,7 @@ export async function GET(req: NextRequest) {
     bestScore: entry.combinedBestScore,
     quizzes: entry.quizAttempts,
     panoramas: entry.panoramaCount,
+    duels: entry.duelCount,
   }));
 
   return NextResponse.json(result, {
