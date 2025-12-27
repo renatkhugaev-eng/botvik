@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { notifyDuelResult } from "@/lib/notifications";
+import { getWeekStart } from "@/lib/week";
 
 export const runtime = "nodejs";
 
@@ -123,14 +124,53 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { odId: loserId, xpDelta: FORFEIT_XP_PENALTY },    // Сдавшийся не получает XP
       ];
 
-      // Применяем XP
+      // Применяем XP и обновляем дуэльные статы для лидерборда
+      const weekStart = getWeekStart();
+      
       for (const { odId, xpDelta } of xpUpdates) {
-        if (xpDelta > 0) {
-          await tx.user.update({
-            where: { id: odId },
-            data: { xp: { increment: xpDelta } },
-          });
-        }
+        const isWinner = odId === winnerId;
+        const playerScore = isWinner ? winnerScore : loserScore;
+        
+        // Получаем текущие статы пользователя
+        const currentUser = await tx.user.findUnique({
+          where: { id: odId },
+          select: { duelBestScore: true },
+        });
+        const shouldUpdateUserBest = playerScore > (currentUser?.duelBestScore ?? 0);
+        
+        // Обновляем User: XP + дуэльные статы
+        await tx.user.update({
+          where: { id: odId },
+          data: { 
+            ...(xpDelta > 0 && { xp: { increment: xpDelta } }),
+            duelCount: { increment: 1 },
+            ...(isWinner && { duelWins: { increment: 1 } }),
+            ...(shouldUpdateUserBest && { duelBestScore: playerScore }),
+          },
+        });
+        
+        // Обновляем WeeklyScore для лидерборда
+        const currentWeekly = await tx.weeklyScore.findUnique({
+          where: { userId_weekStart: { userId: odId, weekStart } },
+          select: { duelBestScore: true },
+        });
+        const shouldUpdateWeeklyBest = playerScore > (currentWeekly?.duelBestScore ?? 0);
+        
+        await tx.weeklyScore.upsert({
+          where: { userId_weekStart: { userId: odId, weekStart } },
+          create: {
+            userId: odId,
+            weekStart,
+            duelBestScore: playerScore,
+            duelCount: 1,
+            duelWins: isWinner ? 1 : 0,
+          },
+          update: {
+            duelCount: { increment: 1 },
+            ...(isWinner && { duelWins: { increment: 1 } }),
+            ...(shouldUpdateWeeklyBest && { duelBestScore: playerScore }),
+          },
+        });
       }
 
       // Создаём активности
