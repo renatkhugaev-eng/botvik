@@ -55,6 +55,10 @@ model User {
   xp              Int       @default(0)      // Total experience points
   lastQuizAt      DateTime?                  // Last quiz completion (for daily bonus tracking)
   
+  // Panorama Stats (for all-time leaderboard)
+  panoramaBestScore Int     @default(0)      // Лучший результат панорамы за всё время
+  panoramaCount     Int     @default(0)      // Всего пройденных панорам
+  
   // Daily Rewards System
   dailyRewardStreak   Int       @default(0)      // Текущая серия дней (1-7, для UI цикла наград)
   totalDailyStreak    Int       @default(0)      // Общая непрерывная серия дней (для достижений, не сбрасывается на 7)
@@ -263,8 +267,13 @@ model WeeklyScore {
   id        Int      @id @default(autoincrement())
   userId    Int
   weekStart DateTime // Monday 00:00 of the week
-  bestScore Int      @default(0)  // Лучший результат за одну игру на неделе
-  quizzes   Int      @default(0)  // Количество игр за неделю
+  bestScore Int      @default(0)  // Лучший результат за одну игру на неделе (квизы)
+  quizzes   Int      @default(0)  // Количество квизов за неделю
+  
+  // Panorama scores (панорамные миссии)
+  panoramaBestScore Int @default(0)  // Лучший результат панорамы на неделе
+  panoramaCount     Int @default(0)  // Количество пройденных панорам за неделю
+  
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])
 

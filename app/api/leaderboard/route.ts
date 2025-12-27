@@ -78,65 +78,75 @@ export async function GET(req: NextRequest) {
   }
 
   // ═══ GLOBAL LEADERBOARD ═══
-  // Sum of all quiz scores per user (using unified formula)
-  // OPTIMIZATION: Use Prisma groupBy for aggregation instead of fetching all records
-  // This prevents memory issues with large datasets
+  // Combined: Quiz scores + Panorama scores
+  // Formula: (QuizBestSum + PanoramaBest) + ActivityBonus(quizAttempts + panoramaCount)
   
-  const aggregatedFromDb = await prisma.leaderboardEntry.groupBy({
+  // Step 1: Get quiz aggregated scores
+  const quizAggregated = await prisma.leaderboardEntry.groupBy({
     by: ["userId"],
     where: { periodType: "ALL_TIME" },
     _sum: {
       bestScore: true,
       attempts: true,
     },
-    orderBy: {
-      _sum: {
-        bestScore: "desc",
-      },
-    },
-    take: 200, // Limit to top 200 to process, then slice to 50
   });
-
-  // Calculate total scores from aggregated data
-  const aggregatedScores = aggregatedFromDb
-    .map((entry) => ({
-      userId: entry.userId,
-      bestScore: entry._sum.bestScore ?? 0,
-      attempts: entry._sum.attempts ?? 0,
-      totalScore: calculateTotalScore(entry._sum.bestScore ?? 0, entry._sum.attempts ?? 0),
-    }))
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .slice(0, 50);
-
-  // Get user details
-  const userIds = aggregatedScores.map(e => e.userId);
-  const users = await prisma.user.findMany({
-    where: { id: { in: userIds } },
+  
+  const quizMap = new Map(quizAggregated.map(e => [
+    e.userId,
+    { bestScore: e._sum.bestScore ?? 0, attempts: e._sum.attempts ?? 0 }
+  ]));
+  
+  // Step 2: Get all users with panorama stats
+  const allUsers = await prisma.user.findMany({
     select: {
       id: true,
       username: true,
       firstName: true,
       photoUrl: true,
+      panoramaBestScore: true,
+      panoramaCount: true,
     },
   });
+  
+  // Step 3: Calculate combined scores
+  const combinedScores = allUsers
+    .map(user => {
+      const quiz = quizMap.get(user.id) ?? { bestScore: 0, attempts: 0 };
+      const combinedBestScore = quiz.bestScore + user.panoramaBestScore;
+      const totalGames = quiz.attempts + user.panoramaCount;
+      const totalScore = calculateTotalScore(combinedBestScore, totalGames);
+      
+      return {
+        userId: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        photoUrl: user.photoUrl,
+        quizBestScore: quiz.bestScore,
+        quizAttempts: quiz.attempts,
+        panoramaBestScore: user.panoramaBestScore,
+        panoramaCount: user.panoramaCount,
+        combinedBestScore,
+        totalGames,
+        totalScore,
+      };
+    })
+    .filter(u => u.totalScore > 0) // Only users with some score
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, 50);
 
-  const userMap = new Map(users.map(u => [u.id, u]));
-
-  const result = aggregatedScores.map((entry, idx) => {
-    const user = userMap.get(entry.userId);
-    return {
-      place: idx + 1,
-      user: {
-        id: entry.userId,
-        username: user?.username ?? null,
-        firstName: user?.firstName ?? null,
-        photoUrl: user?.photoUrl ?? null,
-      },
-      score: entry.totalScore,
-      bestScore: entry.bestScore,
-      attempts: entry.attempts,
-    };
-  });
+  const result = combinedScores.map((entry, idx) => ({
+    place: idx + 1,
+    user: {
+      id: entry.userId,
+      username: entry.username ?? null,
+      firstName: entry.firstName ?? null,
+      photoUrl: entry.photoUrl ?? null,
+    },
+    score: entry.totalScore,
+    bestScore: entry.combinedBestScore,
+    quizzes: entry.quizAttempts,
+    panoramas: entry.panoramaCount,
+  }));
 
   return NextResponse.json(result, {
     headers: {

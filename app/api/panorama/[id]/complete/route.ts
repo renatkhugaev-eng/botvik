@@ -3,6 +3,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { getMissionById } from "@/lib/panorama-missions";
 import { prisma } from "@/lib/prisma";
 import { getLevelProgress } from "@/lib/xp";
+import { getWeekStart } from "@/lib/week";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -72,18 +73,42 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Округляем итоговый XP
     earnedXp = Math.max(0, Math.round(earnedXp));
     
-    // Получаем старый уровень
+    // Получаем старого пользователя
     const oldUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { xp: true },
+      select: { xp: true, panoramaBestScore: true, panoramaCount: true },
     });
     const oldLevelInfo = getLevelProgress(oldUser?.xp ?? 0);
     
-    // Начисляем XP пользователю
+    // Начисляем XP и обновляем panorama stats в User
+    const shouldUpdateBest = earnedXp > (oldUser?.panoramaBestScore ?? 0);
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { xp: { increment: earnedXp } },
-      select: { xp: true },
+      data: { 
+        xp: { increment: earnedXp },
+        panoramaCount: { increment: 1 },
+        ...(shouldUpdateBest && { panoramaBestScore: earnedXp }),
+      },
+      select: { xp: true, panoramaBestScore: true, panoramaCount: true },
+    });
+    
+    // Обновляем WeeklyScore для панорам
+    const weekStart = getWeekStart();
+    await prisma.weeklyScore.upsert({
+      where: {
+        userId_weekStart: { userId, weekStart },
+      },
+      create: {
+        userId,
+        weekStart,
+        panoramaBestScore: earnedXp,
+        panoramaCount: 1,
+      },
+      update: {
+        panoramaCount: { increment: 1 },
+        // Обновляем лучший результат только если новый лучше
+        ...(shouldUpdateBest && { panoramaBestScore: earnedXp }),
+      },
     });
     
     // Проверяем level up

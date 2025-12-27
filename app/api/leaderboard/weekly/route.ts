@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
     select: {
       bestScore: true,
       quizzes: true,
+      panoramaBestScore: true,
+      panoramaCount: true,
       user: {
         select: {
           id: true,
@@ -53,13 +55,23 @@ export async function GET(req: NextRequest) {
   });
 
   // Calculate total scores and sort
+  // Combined formula: (QuizBest + PanoramaBest) + ActivityBonus(quizzes + panoramas)
   const scoredEntries = weeklyScores
-    .map(entry => ({
-      user: entry.user,
-      bestScore: entry.bestScore,
-      quizzes: entry.quizzes,
-      totalScore: calculateTotalScore(entry.bestScore, entry.quizzes),
-    }))
+    .map(entry => {
+      const combinedBestScore = entry.bestScore + entry.panoramaBestScore;
+      const totalGames = entry.quizzes + entry.panoramaCount;
+      const totalScore = calculateTotalScore(combinedBestScore, totalGames);
+      return {
+        user: entry.user,
+        bestScore: entry.bestScore,
+        quizzes: entry.quizzes,
+        panoramaBestScore: entry.panoramaBestScore,
+        panoramaCount: entry.panoramaCount,
+        combinedBestScore,
+        totalGames,
+        totalScore,
+      };
+    })
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, 50);
 
@@ -67,8 +79,9 @@ export async function GET(req: NextRequest) {
     place: idx + 1,
     user: entry.user,
     score: entry.totalScore,
-    bestScore: entry.bestScore,
+    bestScore: entry.combinedBestScore,
     quizzes: entry.quizzes,
+    panoramas: entry.panoramaCount,
   }));
 
   // Get user's position if userId provided
@@ -76,12 +89,14 @@ export async function GET(req: NextRequest) {
   if (userId) {
     const myScore = await prisma.weeklyScore.findUnique({
       where: { userId_weekStart: { userId, weekStart } },
-      select: { bestScore: true, quizzes: true },
+      select: { bestScore: true, quizzes: true, panoramaBestScore: true, panoramaCount: true },
     });
 
     if (myScore) {
-      const myTotalScore = calculateTotalScore(myScore.bestScore, myScore.quizzes);
-      const breakdown = getScoreBreakdown(myScore.bestScore, myScore.quizzes);
+      const myCombinedBest = myScore.bestScore + myScore.panoramaBestScore;
+      const myTotalGames = myScore.quizzes + myScore.panoramaCount;
+      const myTotalScore = calculateTotalScore(myCombinedBest, myTotalGames);
+      const breakdown = getScoreBreakdown(myCombinedBest, myTotalGames);
       
       // Count how many have higher total score
       const higherCount = scoredEntries.filter(e => e.totalScore > myTotalScore).length;
@@ -89,8 +104,9 @@ export async function GET(req: NextRequest) {
       myPosition = {
         place: higherCount + 1,
         score: myTotalScore,
-        bestScore: myScore.bestScore,
+        bestScore: myCombinedBest,
         quizzes: myScore.quizzes,
+        panoramas: myScore.panoramaCount,
         activityBonus: breakdown.activityBonus,
         gamesUntilMaxBonus: breakdown.gamesUntilMaxBonus,
       };
@@ -140,7 +156,8 @@ export async function GET(req: NextRequest) {
     })),
     // Scoring system info
     scoringInfo: {
-      formula: "TotalScore = BestScore + ActivityBonus",
+      formula: "TotalScore = (QuizBest + PanoramaBest) + ActivityBonus",
+      description: "Квизы и панорамы суммируются",
       activityBonusPerGame: 50,
       maxActivityBonus: 500,
       maxGamesForBonus: MAX_GAMES_FOR_BONUS,
