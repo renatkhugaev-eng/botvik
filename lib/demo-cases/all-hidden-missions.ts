@@ -102,7 +102,7 @@ export const TOKYO_MISSION: HiddenClueMission = {
 • Найдите улики, которые "не заметила" полиция
 
 ⚠️ ОСТОРОЖНО: Якудза следит за местом.`,
-  startCoordinates: [35.6595, 139.7004], // Сибуя
+  startCoordinates: [35.6594, 139.7006], // Сибуя - улица с навигацией
   startPanoId: "START",
   startHeading: 0,
   allowNavigation: true,
@@ -320,7 +320,7 @@ export const VEGAS_MISSION: HiddenClueMission = {
 • У вас меньше часа до начала операции
 
 💰 Vegas baby. Ставки высоки как никогда.`,
-  startCoordinates: [36.1126, -115.1767], // Vegas Strip
+  startCoordinates: [36.1147, -115.1728], // Vegas - Las Vegas Blvd (Strip с навигацией)
   startPanoId: "START",
   startHeading: 180,
   allowNavigation: true,
@@ -429,7 +429,7 @@ export const ROME_MISSION: HiddenClueMission = {
 • Найдите связь с Opus Dei
 
 ✝️ Вера и предательство идут рука об руку.`,
-  startCoordinates: [41.9022, 12.4539], // Ватикан
+  startCoordinates: [41.9029, 12.4534], // Рим - Via della Conciliazione (улица к Ватикану)
   startPanoId: "START",
   startHeading: 90,
   allowNavigation: true,
@@ -540,7 +540,7 @@ $50 миллионов. 200 кг чистоты 94%.
 • Время до рассвета — когда придут за грузом
 
 🐍 Кобра не ждёт.`,
-  startCoordinates: [-33.8568, 151.2153], // Sydney Harbour
+  startCoordinates: [-33.8599, 151.2090], // Sydney - George Street (главная улица)
   startPanoId: "START",
   startHeading: 0,
   allowNavigation: true,
@@ -651,7 +651,7 @@ export const AMSTERDAM_MISSION: HiddenClueMission = {
 • Успейте до рассвета — или картина исчезнет навсегда
 
 🎨 Искусство не знает границ. И преступники тоже.`,
-  startCoordinates: [52.3600, 4.8852], // Amsterdam canals
+  startCoordinates: [52.3676, 4.9041], // Amsterdam - Damrak (главная улица)
   startPanoId: "START",
   startHeading: 180,
   allowNavigation: true,
