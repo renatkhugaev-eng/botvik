@@ -112,105 +112,262 @@ export const DIFFICULTY_NAMES: Record<AIBotDifficulty, string> = {
 /**
  * Фейковые игроки с реалистичными профилями
  * Используем DiceBear API для генерации аватаров
+ * 
+ * ВАЖНО: Мужские имена = мужские аватары, женские имена = женские аватары
+ * Параметры DiceBear для мужчин: top=ShortHairShortFlat, facialHairType=BeardLight
+ * Параметры DiceBear для женщин: top=LongHairStraight, facialHairType=Blank
  */
-export const AI_PLAYERS_POOL: Omit<AIBotPlayer, "id">[] = [
+
+// Мужские боты — реалистичные имена и username'ы
+const MALE_BOTS: Omit<AIBotPlayer, "id">[] = [
   {
     telegramId: "AI_BOT_001",
-    username: "artem_quiz",
+    username: "artem_2001",
     firstName: "Артём",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=artem&backgroundColor=b6e3f4",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=artem_m&top=ShortHairShortFlat&facialHairType=BeardLight&backgroundColor=b6e3f4",
     level: 12,
     xp: 4200,
   },
   {
-    telegramId: "AI_BOT_002",
-    username: "masha_detective",
-    firstName: "Мария",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=maria&backgroundColor=ffd5dc",
-    level: 8,
-    xp: 2100,
-  },
-  {
     telegramId: "AI_BOT_003",
-    username: "dima_pro",
-    firstName: "Дмитрий",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=dmitry&backgroundColor=c0aede",
+    username: "dimon_nsk",
+    firstName: "Дима",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=dmitry_m&top=ShortHairShortWaved&facialHairType=Blank&backgroundColor=c0aede",
     level: 15,
     xp: 6800,
   },
   {
-    telegramId: "AI_BOT_004",
-    username: "kate_sherlock",
-    firstName: "Екатерина",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=kate&backgroundColor=d1f4e0",
-    level: 10,
-    xp: 3500,
-  },
-  {
     telegramId: "AI_BOT_005",
-    username: "alex_crime",
-    firstName: "Александр",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex&backgroundColor=ffdfbf",
+    username: "sashka95",
+    firstName: "Саша",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex_m&top=ShortHairTheCaesar&facialHairType=MoustacheFancy&backgroundColor=ffdfbf",
     level: 18,
     xp: 9200,
   },
   {
-    telegramId: "AI_BOT_006",
-    username: "anya_true",
-    firstName: "Анна",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=anna&backgroundColor=e8d5b7",
-    level: 6,
-    xp: 1400,
-  },
-  {
     telegramId: "AI_BOT_007",
-    username: "max_detective",
-    firstName: "Максим",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=maxim&backgroundColor=c9e4de",
+    username: "maks_msk",
+    firstName: "Макс",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=maxim_m&top=ShortHairDreads01&facialHairType=Blank&backgroundColor=c9e4de",
     level: 22,
     xp: 12500,
   },
   {
-    telegramId: "AI_BOT_008",
-    username: "olga_quiz",
-    firstName: "Ольга",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=olga&backgroundColor=f9c0c0",
-    level: 9,
-    xp: 2800,
-  },
-  {
     telegramId: "AI_BOT_009",
-    username: "ivan_crime",
-    firstName: "Иван",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=ivan&backgroundColor=b5d8eb",
+    username: "vanya_98",
+    firstName: "Ваня",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=ivan_m&top=ShortHairShortCurly&facialHairType=BeardMedium&backgroundColor=b5d8eb",
     level: 14,
     xp: 5600,
   },
   {
-    telegramId: "AI_BOT_010",
-    username: "lisa_sherlock",
-    firstName: "Елизавета",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=lisa&backgroundColor=f0e6ef",
-    level: 11,
-    xp: 3900,
-  },
-  {
     telegramId: "AI_BOT_011",
-    username: "sergey_pro",
-    firstName: "Сергей",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=sergey&backgroundColor=d4e5f7",
+    username: "serega_spb",
+    firstName: "Серёга",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=sergey_m&top=ShortHairShortRound&facialHairType=Blank&backgroundColor=d4e5f7",
     level: 20,
     xp: 10800,
   },
   {
+    telegramId: "AI_BOT_013",
+    username: "nikitos_03",
+    firstName: "Никита",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=nikita_m&top=ShortHairTheCaesarSidePart&facialHairType=Blank&backgroundColor=e8d5b7",
+    level: 5,
+    xp: 1100,
+  },
+  {
+    telegramId: "AI_BOT_015",
+    username: "andrey_kzn",
+    firstName: "Андрей",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=andrey_m&top=ShortHairSides&facialHairType=BeardMajestic&backgroundColor=ffd5dc",
+    level: 25,
+    xp: 15000,
+  },
+  {
+    telegramId: "AI_BOT_017",
+    username: "pasha_2000",
+    firstName: "Паша",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=pavel_m&top=ShortHairFrizzle&facialHairType=Blank&backgroundColor=d1f4e0",
+    level: 8,
+    xp: 2300,
+  },
+  {
+    telegramId: "AI_BOT_019",
+    username: "kiryuha_99",
+    firstName: "Кирилл",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=kirill_m&top=ShortHairShortFlat&facialHairType=MoustacheMagnum&backgroundColor=f0e6ef",
+    level: 17,
+    xp: 7800,
+  },
+  {
+    telegramId: "AI_BOT_021",
+    username: "vladik_ekb",
+    firstName: "Влад",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=vlad_m&top=ShortHairDreads02&facialHairType=Blank&backgroundColor=b6e3f4",
+    level: 3,
+    xp: 600,
+  },
+  {
+    telegramId: "AI_BOT_023",
+    username: "roma_97",
+    firstName: "Рома",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=roman_m&top=ShortHairShortWaved&facialHairType=BeardLight&backgroundColor=c0aede",
+    level: 13,
+    xp: 4800,
+  },
+  {
+    telegramId: "AI_BOT_025",
+    username: "lexa_nn",
+    firstName: "Лёха",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alexey_m&top=ShortHairShortFlat&facialHairType=Blank&backgroundColor=ffdfbf",
+    level: 10,
+    xp: 3300,
+  },
+  {
+    telegramId: "AI_BOT_027",
+    username: "deniska_02",
+    firstName: "Денис",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=denis_m&top=ShortHairTheCaesar&facialHairType=BeardLight&backgroundColor=c9e4de",
+    level: 7,
+    xp: 1900,
+  },
+  {
+    telegramId: "AI_BOT_029",
+    username: "egor_vrn",
+    firstName: "Егор",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=egor_m&top=ShortHairShortCurly&facialHairType=Blank&backgroundColor=b5d8eb",
+    level: 21,
+    xp: 11500,
+  },
+];
+
+// Женские боты — реалистичные имена и username'ы
+const FEMALE_BOTS: Omit<AIBotPlayer, "id">[] = [
+  {
+    telegramId: "AI_BOT_002",
+    username: "masha_99",
+    firstName: "Маша",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=maria_f&top=LongHairStraight&facialHairType=Blank&backgroundColor=ffd5dc",
+    level: 8,
+    xp: 2100,
+  },
+  {
+    telegramId: "AI_BOT_004",
+    username: "katya_msk",
+    firstName: "Катя",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=kate_f&top=LongHairCurly&facialHairType=Blank&backgroundColor=d1f4e0",
+    level: 10,
+    xp: 3500,
+  },
+  {
+    telegramId: "AI_BOT_006",
+    username: "anyuta_01",
+    firstName: "Аня",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=anna_f&top=LongHairBob&facialHairType=Blank&backgroundColor=e8d5b7",
+    level: 6,
+    xp: 1400,
+  },
+  {
+    telegramId: "AI_BOT_008",
+    username: "olya_spb",
+    firstName: "Оля",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=olga_f&top=LongHairStraight2&facialHairType=Blank&backgroundColor=f9c0c0",
+    level: 9,
+    xp: 2800,
+  },
+  {
+    telegramId: "AI_BOT_010",
+    username: "liza_2000",
+    firstName: "Лиза",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=lisa_f&top=LongHairMiaWallace&facialHairType=Blank&backgroundColor=f0e6ef",
+    level: 11,
+    xp: 3900,
+  },
+  {
     telegramId: "AI_BOT_012",
-    username: "natasha_quiz",
+    username: "natasha_nsk",
     firstName: "Наташа",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=natasha&backgroundColor=fce4d8",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=natasha_f&top=LongHairCurvy&facialHairType=Blank&backgroundColor=fce4d8",
     level: 7,
     xp: 1800,
   },
+  {
+    telegramId: "AI_BOT_014",
+    username: "dasha_98",
+    firstName: "Даша",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=daria_f&top=LongHairBigHair&facialHairType=Blank&backgroundColor=c9e4de",
+    level: 16,
+    xp: 7200,
+  },
+  {
+    telegramId: "AI_BOT_016",
+    username: "polina_kzn",
+    firstName: "Полина",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=polina_f&top=LongHairFrida&facialHairType=Blank&backgroundColor=b5d8eb",
+    level: 4,
+    xp: 900,
+  },
+  {
+    telegramId: "AI_BOT_018",
+    username: "alinka_03",
+    firstName: "Алина",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alina_f&top=LongHairNotTooLong&facialHairType=Blank&backgroundColor=d4e5f7",
+    level: 19,
+    xp: 9800,
+  },
+  {
+    telegramId: "AI_BOT_020",
+    username: "vika_ekb",
+    firstName: "Вика",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=vika_f&top=LongHairStraightStrand&facialHairType=Blank&backgroundColor=ffdfbf",
+    level: 23,
+    xp: 13500,
+  },
+  {
+    telegramId: "AI_BOT_022",
+    username: "sonechka_02",
+    firstName: "Соня",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=sofia_f&top=LongHairDreads&facialHairType=Blank&backgroundColor=c0aede",
+    level: 2,
+    xp: 350,
+  },
+  {
+    telegramId: "AI_BOT_024",
+    username: "ksusha_nn",
+    firstName: "Ксюша",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=ksenia_f&top=LongHairFro&facialHairType=Blank&backgroundColor=b6e3f4",
+    level: 12,
+    xp: 4500,
+  },
+  {
+    telegramId: "AI_BOT_026",
+    username: "nastya_vrn",
+    firstName: "Настя",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=nastya_f&top=LongHairStraight&facialHairType=Blank&backgroundColor=ffd5dc",
+    level: 9,
+    xp: 2600,
+  },
+  {
+    telegramId: "AI_BOT_028",
+    username: "yulia_97",
+    firstName: "Юля",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=yulia_f&top=LongHairCurly&facialHairType=Blank&backgroundColor=d1f4e0",
+    level: 15,
+    xp: 6400,
+  },
+  {
+    telegramId: "AI_BOT_030",
+    username: "kristina_msk",
+    firstName: "Кристина",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=kristina_f&top=LongHairBob&facialHairType=Blank&backgroundColor=e8d5b7",
+    level: 24,
+    xp: 14200,
+  },
 ];
+
+// Объединённый пул ботов
+export const AI_PLAYERS_POOL: Omit<AIBotPlayer, "id">[] = [...MALE_BOTS, ...FEMALE_BOTS];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // УТИЛИТЫ
@@ -370,37 +527,42 @@ export async function recordAIAnswer(
   isCorrect: boolean,
   timeSpentMs: number
 ): Promise<void> {
-  // Проверяем не ответили ли уже
-  const existing = await prisma.duelAnswer.findUnique({
-    where: {
-      duelId_userId_questionIndex: {
+  try {
+    // Проверяем не ответили ли уже
+    const existing = await prisma.duelAnswer.findUnique({
+      where: {
+        duelId_userId_questionIndex: {
+          duelId,
+          userId: botUserId,
+          questionIndex,
+        },
+      },
+    });
+
+    if (existing) {
+      console.log(`[AI Bot] Answer for Q${questionIndex} already exists, skipping`);
+      return;
+    }
+
+    await prisma.duelAnswer.create({
+      data: {
         duelId,
         userId: botUserId,
         questionIndex,
+        optionId,
+        isCorrect,
+        timeSpentMs,
       },
-    },
-  });
+    });
 
-  if (existing) {
-    console.log(`[AI Bot] Answer for Q${questionIndex} already exists, skipping`);
-    return;
+    console.log(
+      `[AI Bot] Recorded answer: Q${questionIndex}, optionId=${optionId}, ` +
+      `correct=${isCorrect}, time=${timeSpentMs}ms`
+    );
+  } catch (error) {
+    console.error(`[AI Bot] Failed to record answer for Q${questionIndex}:`, error);
+    // Не бросаем ошибку — воркер должен продолжить работу
   }
-
-  await prisma.duelAnswer.create({
-    data: {
-      duelId,
-      userId: botUserId,
-      questionIndex,
-      optionId,
-      isCorrect,
-      timeSpentMs,
-    },
-  });
-
-  console.log(
-    `[AI Bot] Recorded answer: Q${questionIndex}, optionId=${optionId}, ` +
-    `correct=${isCorrect}, time=${timeSpentMs}ms`
-  );
 }
 
 /**
