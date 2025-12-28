@@ -184,21 +184,21 @@ export default function QuickDuelPage() {
   if (session.status !== "ready") return null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
-      {/* Background */}
+    <div className="min-h-screen bg-[#0a0a0a] relative">
+      {/* Background - использум absolute вместо fixed для Android */}
       <div 
-        className="pointer-events-none fixed inset-0 opacity-[0.03]"
+        className="pointer-events-none absolute inset-0 opacity-[0.03] z-0"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }}
       />
       
-      <div className="pointer-events-none fixed inset-0">
+      <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-900/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-950/15 rounded-full blur-[120px]" />
       </div>
 
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.5)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.5)_100%)] z-0" />
 
       {/* Content */}
       <div className="relative z-10 px-4 py-6 pb-28">
@@ -443,27 +443,30 @@ export default function QuickDuelPage() {
         </AnimatePresence>
       </div>
 
-      {/* Start Button */}
+      {/* Start Button - z-50 чтобы быть выше всех overlay'ев */}
       {searchState === "selecting" && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent safe-area-bottom">
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileTap={{ scale: 0.95 }}
-            onTouchStart={() => console.log("[QuickDuel] Button touched")}
+        <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent z-50">
+          <button
+            type="button"
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              console.log("[QuickDuel] Button touch end");
+              startSearch();
+            }}
             onClick={() => {
               console.log("[QuickDuel] Button clicked!");
               startSearch();
             }}
             disabled={!selectedQuiz || loading}
-            className={`w-full py-4 rounded-xl font-bold text-center shadow-xl transition-all active:scale-95 ${
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+            className={`w-full py-4 rounded-xl font-bold text-center shadow-xl transition-transform active:scale-95 touch-manipulation ${
               selectedQuiz && !loading
-                ? "bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-red-900/30 active:from-red-800 active:to-red-700"
-                : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                ? "bg-gradient-to-r from-red-700 to-red-600 text-white shadow-red-900/30"
+                : "bg-zinc-800 text-zinc-500"
             }`}
           >
             {loading ? "Загрузка..." : "🔍 Найти соперника"}
-          </motion.button>
+          </button>
         </div>
       )}
     </div>
