@@ -13,8 +13,8 @@ let prisma: PrismaClient | null = null;
 interface QuizData {
   title: string;
   description: string;
-  prizeTitle: string | null;
-  prizeDescription: string | null;
+  prizeTitle: string;
+  prizeDescription?: string;
   questions: {
     text: string;
     options: { text: string; isCorrect: boolean }[];
@@ -28,8 +28,8 @@ const QUIZZES: QuizData[] = [
   {
     title: "Громкие дела 20 века",
     description: "Знаменитые преступления и расследования, которые потрясли мир.",
-    prizeTitle: null,
-    prizeDescription: null,
+    prizeTitle: "",
+    prizeDescription: undefined,
     questions: [
       {
         text: "Какое прозвище получил убийца, терроризировавший Лондон в 1888 году?",
@@ -85,8 +85,8 @@ const QUIZZES: QuizData[] = [
   {
     title: "Криминалистика: наука раскрытия",
     description: "Методы и технологии, которые помогают ловить преступников.",
-    prizeTitle: null,
-    prizeDescription: null,
+    prizeTitle: "",
+    prizeDescription: undefined,
     questions: [
       {
         text: "Какой орган человека оставляет самые уникальные отпечатки?",
@@ -199,8 +199,8 @@ const QUIZZES: QuizData[] = [
   {
     title: "Мафия: история и структура",
     description: "Всё о крупнейших криминальных синдикатах мира.",
-    prizeTitle: null,
-    prizeDescription: null,
+    prizeTitle: "",
+    prizeDescription: undefined,
     questions: [
       {
         text: "Как называется обет молчания в итальянской мафии?",
@@ -270,7 +270,7 @@ async function seedQuizzes(prisma: PrismaClient) {
       data: {
         title: quizData.title,
         description: quizData.description,
-        prizeTitle: quizData.prizeTitle,
+        prizeTitle: quizData.prizeTitle || "",
         prizeDescription: quizData.prizeDescription,
         isActive: true,
       },
