@@ -22,8 +22,10 @@ import { getOrCreateAIPlayer, getDifficultyForPlayer } from "@/lib/ai-duel-bot";
 
 export const runtime = "nodejs";
 
-// Время ожидания реального игрока (мс)
-const MATCHMAKING_TIMEOUT_MS = 4000; // 4 секунды для реалистичности
+// Настройки matchmaking
+const MATCHMAKING_TIMEOUT_MS = 5000; // Общее время ожидания
+const CHECK_INTERVAL_MS = 1000; // Проверяем очередь каждую секунду
+const MAX_CHECKS = 5; // 5 проверок по 1 сек = 5 сек
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/duels/matchmaking — Найти соперника
@@ -167,54 +169,143 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Ждём MATCHMAKING_TIMEOUT_MS
-    await new Promise(resolve => setTimeout(resolve, MATCHMAKING_TIMEOUT_MS));
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Ждём с периодическими проверками — даём шанс реальным игрокам найти нас
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    for (let check = 0; check < MAX_CHECKS; check++) {
+      await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL_MS));
 
-    // Проверяем не matched ли нас кто-то
-    const updatedEntry = await prisma.matchmakingQueue.findUnique({
-      where: { id: myEntry.id },
-      select: { status: true, matchedWith: true },
+      // Проверяем не matched ли нас кто-то
+      const updatedEntry = await prisma.matchmakingQueue.findUnique({
+        where: { id: myEntry.id },
+        select: { status: true, matchedWith: true },
+      });
+
+      if (updatedEntry?.status === "MATCHED" && updatedEntry.matchedWith) {
+        // Нас нашёл другой игрок — ищем созданную дуэль
+        const existingDuel = await prisma.duel.findFirst({
+          where: {
+            OR: [
+              { challengerId: userId, opponentId: updatedEntry.matchedWith },
+              { challengerId: updatedEntry.matchedWith, opponentId: userId },
+            ],
+            status: { in: ["ACCEPTED", "IN_PROGRESS"] },
+          },
+          include: {
+            challenger: { select: { firstName: true, username: true, photoUrl: true } },
+            opponent: { select: { firstName: true, username: true, photoUrl: true } },
+          },
+        });
+
+        if (existingDuel) {
+          const opponent = existingDuel.challengerId === userId 
+            ? existingDuel.opponent 
+            : existingDuel.challenger;
+
+          // Удаляем из очереди
+          await prisma.matchmakingQueue.delete({ where: { id: myEntry.id } });
+
+          return NextResponse.json({
+            ok: true,
+            status: "found",
+            duel: { id: existingDuel.id },
+            roomId: existingDuel.roomId,
+            opponent: {
+              firstName: opponent.firstName || opponent.username || "Игрок",
+              photoUrl: opponent.photoUrl,
+            },
+          });
+        }
+      }
+    } // конец цикла проверок
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ШАГ 3: Последняя проверка — может кто-то появился в очереди?
+    // Это решает edge case когда два игрока пришли почти одновременно
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const lastChanceMatch = await prisma.matchmakingQueue.findFirst({
+      where: {
+        quizId,
+        status: "WAITING",
+        userId: { not: userId },
+        level: {
+          gte: playerLevel - 5,
+          lte: playerLevel + 5,
+        },
+        createdAt: {
+          gte: new Date(Date.now() - 30000),
+        },
+        user: {
+          isBot: false,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            photoUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
     });
 
-    if (updatedEntry?.status === "MATCHED" && updatedEntry.matchedWith) {
-      // Нас нашёл другой игрок — ищем созданную дуэль
-      const existingDuel = await prisma.duel.findFirst({
+    if (lastChanceMatch) {
+      console.log(`[Matchmaking] Last chance! Found real player: ${lastChanceMatch.user.firstName}`);
+
+      // Атомарно обновляем статус
+      const updated = await prisma.matchmakingQueue.updateMany({
         where: {
-          OR: [
-            { challengerId: userId, opponentId: updatedEntry.matchedWith },
-            { challengerId: updatedEntry.matchedWith, opponentId: userId },
-          ],
-          status: { in: ["ACCEPTED", "IN_PROGRESS"] },
+          id: lastChanceMatch.id,
+          status: "WAITING",
         },
-        include: {
-          challenger: { select: { firstName: true, username: true, photoUrl: true } },
-          opponent: { select: { firstName: true, username: true, photoUrl: true } },
+        data: {
+          status: "MATCHED",
+          matchedWith: userId,
         },
       });
 
-      if (existingDuel) {
-        const opponent = existingDuel.challengerId === userId 
-          ? existingDuel.opponent 
-          : existingDuel.challenger;
+      if (updated.count > 0) {
+        // Удаляем себя из очереди
+        await prisma.matchmakingQueue.deleteMany({ where: { userId } });
 
-        // Удаляем из очереди
-        await prisma.matchmakingQueue.delete({ where: { id: myEntry.id } });
+        // Создаём дуэль
+        const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000);
+        const roomId = `duel:${Date.now()}`;
+
+        const duel = await prisma.duel.create({
+          data: {
+            challengerId: userId,
+            opponentId: lastChanceMatch.userId,
+            quizId,
+            expiresAt,
+            xpReward: 50,
+            xpLoser: 10,
+            status: "ACCEPTED",
+            acceptedAt: new Date(),
+            roomId,
+          },
+        });
 
         return NextResponse.json({
           ok: true,
           status: "found",
-          duel: { id: existingDuel.id },
-          roomId: existingDuel.roomId,
+          duel: { id: duel.id },
+          roomId,
           opponent: {
-            firstName: opponent.firstName || opponent.username || "Игрок",
-            photoUrl: opponent.photoUrl,
+            firstName: lastChanceMatch.user.firstName || lastChanceMatch.user.username || "Игрок",
+            photoUrl: lastChanceMatch.user.photoUrl,
           },
         });
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ШАГ 3: Таймаут — подключаем AI (незаметно!)
+    // ШАГ 4: Таймаут — подключаем AI (незаметно!)
     // ═══════════════════════════════════════════════════════════════════════════
 
     console.log(`[Matchmaking] Timeout for user ${userId}, connecting AI opponent`);

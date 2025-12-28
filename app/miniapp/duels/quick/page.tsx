@@ -52,6 +52,7 @@ export default function QuickDuelPage() {
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   
   const [searchState, setSearchState] = useState<SearchState>("idle");
@@ -64,14 +65,26 @@ export default function QuickDuelPage() {
   // Загрузка квизов
   const loadQuizzes = useCallback(async () => {
     try {
+      setError(null);
+      console.log("[QuickDuel] Loading quizzes...");
+      
       const data = await api.get<{ quizzes: Quiz[] }>("/api/quiz");
+      console.log("[QuickDuel] Response:", data);
+      
       if (data.quizzes && data.quizzes.length > 0) {
         setQuizzes(data.quizzes);
         setSelectedQuiz(data.quizzes[0]);
         setSearchState("selecting");
+        console.log("[QuickDuel] Loaded", data.quizzes.length, "quizzes");
+      } else {
+        console.warn("[QuickDuel] No quizzes available");
+        setError("Нет доступных квизов");
+        setSearchState("selecting"); // Всё равно переключаем, чтобы показать сообщение
       }
-    } catch (error) {
-      console.error("[QuickDuel] Failed to load quizzes:", error);
+    } catch (err) {
+      console.error("[QuickDuel] Failed to load quizzes:", err);
+      setError("Ошибка загрузки квизов");
+      setSearchState("selecting"); // Показываем ошибку вместо бесконечной загрузки
     } finally {
       setLoading(false);
     }
@@ -211,6 +224,20 @@ export default function QuickDuelPage() {
                 {loading ? (
                   <div className="flex justify-center py-8">
                     <div className="w-8 h-8 rounded-full border-2 border-zinc-800 border-t-red-500 animate-spin" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-400 mb-4">{error}</p>
+                    <button
+                      onClick={loadQuizzes}
+                      className="px-4 py-2 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700"
+                    >
+                      Повторить
+                    </button>
+                  </div>
+                ) : quizzes.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-zinc-500">Нет доступных квизов</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
