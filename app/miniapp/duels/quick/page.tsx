@@ -104,9 +104,25 @@ export default function QuickDuelPage() {
 
   // Старт поиска соперника
   const startSearch = async () => {
-    if (!selectedQuiz || searchState === "searching") return;
+    console.log("[QuickDuel] startSearch called, selectedQuiz:", selectedQuiz?.id, "searchState:", searchState);
     
-    haptic.medium();
+    if (!selectedQuiz) {
+      console.warn("[QuickDuel] No quiz selected!");
+      return;
+    }
+    
+    if (searchState === "searching") {
+      console.warn("[QuickDuel] Already searching!");
+      return;
+    }
+    
+    try {
+      haptic.medium();
+    } catch (e) {
+      console.warn("[QuickDuel] Haptic failed:", e);
+    }
+    
+    console.log("[QuickDuel] Setting searchState to 'searching'");
     setSearchState("searching");
     setSearchTime(0);
 
@@ -190,7 +206,7 @@ export default function QuickDuelPage() {
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => {
-              haptic.light();
+              try { haptic.light(); } catch (e) { /* ignore */ }
               if (searchState === "searching") {
                 cancelSearch();
               } else {
@@ -205,7 +221,9 @@ export default function QuickDuelPage() {
           </button>
           <div>
             <h1 className="text-xl font-bold text-white">Быстрая игра</h1>
-            <p className="text-sm text-zinc-500">Найди соперника за секунды</p>
+            <p className="text-sm text-zinc-500">
+              {loading ? "Загрузка..." : `${quizzes.length} квизов • ${searchState}`}
+            </p>
           </div>
         </div>
 
@@ -427,19 +445,24 @@ export default function QuickDuelPage() {
 
       {/* Start Button */}
       {searchState === "selecting" && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent safe-area-bottom">
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            onClick={startSearch}
-            disabled={!selectedQuiz}
-            className={`w-full py-4 rounded-xl font-bold text-center shadow-xl transition-all ${
-              selectedQuiz
-                ? "bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-red-900/30"
+            whileTap={{ scale: 0.95 }}
+            onTouchStart={() => console.log("[QuickDuel] Button touched")}
+            onClick={() => {
+              console.log("[QuickDuel] Button clicked!");
+              startSearch();
+            }}
+            disabled={!selectedQuiz || loading}
+            className={`w-full py-4 rounded-xl font-bold text-center shadow-xl transition-all active:scale-95 ${
+              selectedQuiz && !loading
+                ? "bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-red-900/30 active:from-red-800 active:to-red-700"
                 : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
             }`}
           >
-            🔍 Найти соперника
+            {loading ? "Загрузка..." : "🔍 Найти соперника"}
           </motion.button>
         </div>
       )}
