@@ -795,6 +795,16 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAIMode, gameState.currentQuestionIndex]);
 
+  // AI mode: проверяем когда оппонент ответил (для reveal)
+  // Это нужно потому что в AI режиме нет Liveblocks события PLAYER_ANSWERED
+  useEffect(() => {
+    if (!isAIMode || !isOpponentAnswered) return;
+    if (gameState.status !== "playing") return;
+    
+    // Вызываем checkBothAnswered когда AI ответил
+    checkBothAnswered();
+  }, [isAIMode, isOpponentAnswered, gameState.status, checkBothAnswered]);
+
   // AI mode: запускаем countdown когда оба готовы
   useEffect(() => {
     if (!isAIMode || !devModeOpponent || realOpponent) return;
