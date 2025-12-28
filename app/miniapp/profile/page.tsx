@@ -657,7 +657,7 @@ export default function ProfilePage() {
                     fallbackLetter={avatarLetter}
                   />
                 ) : (
-                  <div className="relative h-[88px] w-[88px] rounded-2xl overflow-hidden ring-2 ring-white/30">
+                  <div className="relative h-[88px] w-[88px] rounded-full overflow-hidden ring-2 ring-white/30">
                     {photoUrl ? (
                       <img 
                         src={photoUrl} 
