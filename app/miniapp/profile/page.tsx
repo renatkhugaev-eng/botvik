@@ -26,6 +26,7 @@ import {
   ProfileBio,
   LastSeen 
 } from "@/components/ProfileShowcase";
+import { RecentOpponents } from "@/components/RecentOpponents";
 
 // shadcn/ui components
 import { Button } from "@/components/ui/button";
@@ -1140,6 +1141,9 @@ export default function ProfilePage() {
 
           {/* Friends Tab */}
           <TabsContent value="friends" className="mt-4 space-y-4">
+            {/* Recent Opponents Section */}
+            <RecentOpponents className="mb-4" />
+
             {/* Add Friend Button */}
             <Button
               className="w-full h-14"

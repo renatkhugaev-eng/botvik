@@ -14,6 +14,7 @@ import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
 import { useIsIOS } from "@/components/hooks/usePlatform";
+import { PlayerMiniProfile } from "@/components/PlayerMiniProfile";
 
 // Platform detection moved to @/components/hooks/usePlatform
 
@@ -77,8 +78,31 @@ export default function LeaderboardPage() {
   const [weeklyInfo, setWeeklyInfo] = useState<{ label: string; timeRemaining: number; isEnding: boolean } | null>(null);
   const [weeklyMyPosition, setWeeklyMyPosition] = useState<{ place: number; score: number } | null>(null);
 
+  // Selected player for mini profile modal
+  const [selectedPlayer, setSelectedPlayer] = useState<{
+    id: number;
+    username: string | null;
+    firstName: string | null;
+    photoUrl: string | null;
+    score: number;
+    place: number;
+  } | null>(null);
+
   // Current user ID
   const currentUserId = session.status === "ready" ? session.user.id : null;
+
+  // Handle player click
+  const handlePlayerClick = useCallback((entry: LeaderboardEntry) => {
+    haptic.light();
+    setSelectedPlayer({
+      id: entry.user.id,
+      username: entry.user.username,
+      firstName: entry.user.firstName,
+      photoUrl: entry.user.photoUrl,
+      score: entry.score,
+      place: entry.place,
+    });
+  }, []);
 
   useEffect(() => {
     const initial = searchParams.get("quizId");
@@ -197,6 +221,7 @@ export default function LeaderboardPage() {
   };
 
   return (
+    <>
     <PullToRefresh 
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
@@ -560,7 +585,8 @@ export default function LeaderboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className={`flex flex-col items-center w-[80px] ${top3[1].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
+                        onClick={() => handlePlayerClick(top3[1])}
+                        className={`flex flex-col items-center w-[80px] cursor-pointer hover:scale-105 transition-transform ${top3[1].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
                       >
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-slate-400 to-slate-300 opacity-30" />
@@ -594,7 +620,8 @@ export default function LeaderboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className={`flex flex-col items-center w-[90px] -mt-4 ${top3[0].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
+                        onClick={() => handlePlayerClick(top3[0])}
+                        className={`flex flex-col items-center w-[90px] -mt-4 cursor-pointer hover:scale-105 transition-transform ${top3[0].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
                       >
                         <div className="relative mb-2">
                           <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 opacity-40 animate-pulse gpu-accelerated" />
@@ -631,7 +658,8 @@ export default function LeaderboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
-                        className={`flex flex-col items-center w-[75px] ${top3[2].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
+                        onClick={() => handlePlayerClick(top3[2])}
+                        className={`flex flex-col items-center w-[75px] cursor-pointer hover:scale-105 transition-transform ${top3[2].user.id === currentUserId ? "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl p-1" : ""}`}
                       >
                         <div className="relative mb-2">
                           <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 opacity-30" />
@@ -695,7 +723,8 @@ export default function LeaderboardPage() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: Math.min(0.35 + i * 0.02, 0.8), ...spring }}
-                      className={`flex items-center justify-between px-4 py-3 ${isMe ? "bg-violet-50" : ""}`}
+                      onClick={() => handlePlayerClick(entry)}
+                      className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition-colors ${isMe ? "bg-violet-50 hover:bg-violet-100" : ""}`}
                     >
                       <div className="flex items-center gap-3">
                         {/* Position */}
@@ -795,5 +824,15 @@ export default function LeaderboardPage() {
       )}
     </div>
     </PullToRefresh>
+
+      {/* Player Mini Profile Modal */}
+      {selectedPlayer && (
+        <PlayerMiniProfile
+          player={selectedPlayer}
+          currentUserId={currentUserId}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      )}
+    </>
   );
 }

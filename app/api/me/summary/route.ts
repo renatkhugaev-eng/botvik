@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
     const fakeLevelProgress = getLevelProgress(user.xp);
     
     return NextResponse.json({
+      ok: true,
       id: user.id,
       username: user.username,
       firstName: user.firstName,
@@ -85,6 +86,9 @@ export async function GET(req: NextRequest) {
         winRate: 0.6 + Math.random() * 0.2,
       },
       recentActivity: [],
+      // Дружба с ботами невозможна
+      isFriend: false,
+      friendshipStatus: null,
     });
   }
 
@@ -270,8 +274,33 @@ export async function GET(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════════════
 
   if (!isOwnProfile) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK FRIENDSHIP STATUS — для кнопки "Добавить в друзья"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { userId: auth.user.id, friendId: targetUserId },
+          { userId: targetUserId, friendId: auth.user.id },
+        ],
+      },
+      select: {
+        userId: true,
+        status: true,
+      },
+    });
+
+    let isFriend = false;
+    let friendshipStatus: string | null = null;
+    
+    if (friendship) {
+      isFriend = friendship.status === "ACCEPTED";
+      friendshipStatus = friendship.status;
+    }
+
     // PUBLIC PROFILE — публичные данные (без приватной информации)
     return NextResponse.json({
+      ok: true,
       user: {
         id: user.id,
         // SECURITY: telegramId НЕ отправляем — приватная информация
@@ -307,12 +336,16 @@ export async function GET(req: NextRequest) {
         // Лучшие результаты
         bestScoreByQuiz,
       },
+      // Статус дружбы
+      isFriend,
+      friendshipStatus,
       isPublicProfile: true,
     });
   }
 
   // OWN PROFILE — полные данные
   return NextResponse.json({
+    ok: true,
     user: {
       id: user.id,
       telegramId: user.telegramId,

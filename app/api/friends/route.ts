@@ -164,6 +164,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/friends — Send a friend request
+// Supports either friendUsername (string) or friendId (number)
 export async function POST(req: NextRequest) {
   // ═══ AUTHENTICATION ═══
   const auth = await authenticateRequest(req);
@@ -173,21 +174,31 @@ export async function POST(req: NextRequest) {
   const userId = auth.user.id;
 
   try {
-    const { friendUsername } = await req.json();
+    const body = await req.json();
+    const { friendUsername, friendId } = body;
 
-    if (!friendUsername) {
+    if (!friendUsername && !friendId) {
       return NextResponse.json({ error: "missing_params" }, { status: 400 });
     }
 
-    // Find friend by username
-    const friend = await prisma.user.findFirst({
-      where: {
-        username: {
-          equals: friendUsername.replace("@", ""),
-          mode: "insensitive",
+    // Find friend by username OR by ID
+    let friend;
+    if (friendId) {
+      // Search by ID (for RecentOpponents, FinishScreen)
+      friend = await prisma.user.findUnique({
+        where: { id: Number(friendId) },
+      });
+    } else {
+      // Search by username (for manual add friend form)
+      friend = await prisma.user.findFirst({
+        where: {
+          username: {
+            equals: friendUsername.replace("@", ""),
+            mode: "insensitive",
+          },
         },
-      },
-    });
+      });
+    }
 
     if (!friend) {
       return NextResponse.json({ error: "user_not_found" }, { status: 404 });

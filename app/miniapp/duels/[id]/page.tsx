@@ -19,6 +19,7 @@ import { useMiniAppSession } from "@/app/miniapp/layout";
 import { RoomProvider, initialPresence } from "@/liveblocks.config";
 import { useDuelRoom, DuelStatus } from "@/lib/useDuelRoom";
 import { haptic } from "@/lib/haptic";
+import { api } from "@/lib/api";
 
 export default function DuelPage() {
   const params = useParams();
@@ -65,6 +66,9 @@ export default function DuelPage() {
           // Используем replace чтобы нельзя было вернуться назад в завершённую дуэль
           router.replace("/miniapp/duels");
         }}
+        onRematch={() => {
+          router.push("/miniapp/duels/quick");
+        }}
       />
     </RoomProvider>
   );
@@ -80,12 +84,14 @@ function DuelGameContent({
   userName,
   userPhoto,
   onExit,
+  onRematch,
 }: {
   duelId: string;
   userId: number;
   userName: string;
   userPhoto: string | null;
   onExit: () => void;
+  onRematch: () => void;
 }) {
   const {
     gameState,
@@ -199,7 +205,12 @@ function DuelGameContent({
               oppScore={gameState.opponentScore}
               myPlayer={myPlayer}
               oppPlayer={opponentPlayer}
+              duelId={duelId}
               onExit={onExit}
+              onRematch={() => {
+                haptic.medium();
+                onRematch();
+              }}
             />
           )}
           {gameState.status === "opponent_left" && (
@@ -830,7 +841,9 @@ function FinishScreen({
   oppScore,
   myPlayer,
   oppPlayer,
+  duelId,
   onExit,
+  onRematch,
 }: {
   isWinner: boolean;
   isDraw: boolean;
@@ -838,9 +851,69 @@ function FinishScreen({
   oppScore: number;
   myPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
   oppPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
+  duelId: string;
   onExit: () => void;
+  onRematch: () => void;
 }) {
   const xp = isWinner ? 50 : isDraw ? 30 : 10;
+  const [friendStatus, setFriendStatus] = useState<"none" | "pending" | "friend" | "loading">("loading");
+  const [addingFriend, setAddingFriend] = useState(false);
+
+  // Проверяем статус дружбы при загрузке
+  useEffect(() => {
+    if (!oppPlayer?.odId) {
+      setFriendStatus("none");
+      return;
+    }
+
+    const checkFriendship = async () => {
+      try {
+        const response = await api.get<{
+          ok: boolean;
+          isFriend: boolean;
+          friendshipStatus: string | null;
+        }>(`/api/me/summary?userId=${oppPlayer.odId}`);
+        
+        if (response.ok) {
+          if (response.isFriend) {
+            setFriendStatus("friend");
+          } else if (response.friendshipStatus === "PENDING") {
+            setFriendStatus("pending");
+          } else {
+            setFriendStatus("none");
+          }
+        } else {
+          setFriendStatus("none");
+        }
+      } catch {
+        setFriendStatus("none");
+      }
+    };
+
+    checkFriendship();
+  }, [oppPlayer?.odId]);
+
+  const handleAddFriend = async () => {
+    if (!oppPlayer?.odId || addingFriend) return;
+    
+    setAddingFriend(true);
+    haptic.medium();
+    
+    try {
+      const response = await api.post<{ ok: boolean }>("/api/friends", {
+        friendId: oppPlayer.odId,
+      });
+      
+      if (response.ok) {
+        setFriendStatus("pending");
+        haptic.success();
+      }
+    } catch {
+      haptic.error();
+    } finally {
+      setAddingFriend(false);
+    }
+  };
 
   return (
     <motion.div
@@ -935,7 +1008,7 @@ function FinishScreen({
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="flex justify-center mb-6"
+          className="flex justify-center mb-4"
         >
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-950/50 border border-emerald-800/50">
             <span className="text-lg">⭐</span>
@@ -943,16 +1016,72 @@ function FinishScreen({
           </div>
         </motion.div>
 
-        {/* Button */}
-        <button
-          onClick={() => {
-            haptic.medium();
-            onExit();
-          }}
-          className="w-full py-4 rounded-xl bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-medium shadow-lg shadow-red-900/30 transition-all active:scale-95"
+        {/* Add Friend Button */}
+        {oppPlayer && friendStatus !== "loading" && (
+          <motion.div
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.7 }}
+            className="mb-4"
+          >
+            {friendStatus === "none" && (
+              <button
+                onClick={handleAddFriend}
+                disabled={addingFriend}
+                className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {addingFriend ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                    <span>Отправка...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>👥</span>
+                    <span>Добавить {oppPlayer.odName} в друзья</span>
+                  </>
+                )}
+              </button>
+            )}
+            {friendStatus === "pending" && (
+              <div className="w-full py-3 rounded-xl bg-zinc-800/50 border border-zinc-700 text-zinc-400 font-medium text-center">
+                ✓ Заявка отправлена
+              </div>
+            )}
+            {friendStatus === "friend" && (
+              <div className="w-full py-3 rounded-xl bg-emerald-950/30 border border-emerald-800/30 text-emerald-400 font-medium text-center">
+                ✓ Уже в друзьях
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Buttons */}
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="flex gap-3"
         >
-          📁 Закрыть дело
-        </button>
+          <button
+            onClick={() => {
+              haptic.medium();
+              onRematch();
+            }}
+            className="flex-1 py-4 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 font-medium transition-all active:scale-95"
+          >
+            🔄 Реванш
+          </button>
+          <button
+            onClick={() => {
+              haptic.medium();
+              onExit();
+            }}
+            className="flex-1 py-4 rounded-xl bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-medium shadow-lg shadow-red-900/30 transition-all active:scale-95"
+          >
+            📁 Выйти
+          </button>
+        </motion.div>
       </div>
     </motion.div>
   );
