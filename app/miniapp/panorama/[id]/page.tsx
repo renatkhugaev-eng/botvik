@@ -13,6 +13,7 @@ import { HiddenClueMission } from "@/components/panorama";
 import { getMissionById } from "@/lib/panorama-missions";
 import type { HiddenClueMission as MissionType } from "@/types/hidden-clue";
 import { haptic } from "@/lib/haptic";
+import { fetchWithAuth } from "@/lib/api";
 
 export default function PanoramaMissionPage() {
   const router = useRouter();
@@ -57,9 +58,8 @@ export default function PanoramaMissionPage() {
   }) => {
     try {
       // Вызываем API для начисления XP
-      const response = await fetch(`/api/panorama/${missionId}/complete`, {
+      const response = await fetchWithAuth(`/api/panorama/${missionId}/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cluesFound: result.cluesCollected,
           cluesTotal: result.cluesTotal,
