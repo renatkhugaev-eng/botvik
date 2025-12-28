@@ -197,6 +197,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cannot_add_self" }, { status: 400 });
     }
 
+    // Нельзя добавить AI-бота в друзья (возвращаем generic ошибку)
+    if (friend.isBot) {
+      return NextResponse.json({ error: "user_not_found" }, { status: 404 });
+    }
+
     // Check if any friendship/request already exists
     const existing = await prisma.friendship.findFirst({
       where: {

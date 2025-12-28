@@ -99,10 +99,9 @@ export default function ChallengePage() {
     
     async function loadQuizzes() {
       try {
-        const data = await api.get<Quiz[]>(`/api/quiz?userId=${userId}`);
-        // API возвращает массив напрямую
-        if (Array.isArray(data)) {
-          setQuizzes(data);
+        const data = await api.get<{ quizzes: Quiz[] }>("/api/quiz");
+        if (data.quizzes && Array.isArray(data.quizzes)) {
+          setQuizzes(data.quizzes);
         }
       } catch (err) {
         console.error("[Challenge] Failed to load quizzes:", err);

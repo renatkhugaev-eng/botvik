@@ -96,8 +96,11 @@ export async function GET(req: NextRequest) {
     { bestScore: e._sum.bestScore ?? 0, attempts: e._sum.attempts ?? 0 }
   ]));
   
-  // Step 2: Get all users with panorama and duel stats
+  // Step 2: Get all users with panorama and duel stats (excluding AI bots)
   const allUsers = await prisma.user.findMany({
+    where: {
+      isBot: false, // Исключаем AI-ботов из лидерборда
+    },
     select: {
       id: true,
       username: true,

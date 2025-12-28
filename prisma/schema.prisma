@@ -26,6 +26,11 @@ model User {
   updatedAt  DateTime      @updatedAt
   
   // ═══════════════════════════════════════════════════════════════════════════
+  // AI BOT FLAG — для stealth AI-противников в дуэлях
+  // ═══════════════════════════════════════════════════════════════════════════
+  isBot      Boolean       @default(false)   // true = AI-игрок, скрыт из лидербордов
+  
+  // ═══════════════════════════════════════════════════════════════════════════
   // PROFILE 2.0 - Enhanced Social Profile
   // ═══════════════════════════════════════════════════════════════════════════
   bio                 String?         @db.VarChar(100)  // Короткое описание (до 100 символов)
@@ -133,6 +138,9 @@ model User {
   // Duels (1v1 battles)
   duelsAsChallenger      Duel[] @relation("DuelChallenger")
   duelsAsOpponent        Duel[] @relation("DuelOpponent")
+  
+  // Matchmaking queue (for quick games)
+  matchmakingQueue       MatchmakingQueue[]
 }
 
 model Friendship {
@@ -176,6 +184,9 @@ model Quiz {
   
   // Duels using this quiz
   duels            Duel[]
+  
+  // Matchmaking queue entries
+  matchmakingQueue MatchmakingQueue[]
   
   // Users currently playing this quiz (Profile 2.0)
   usersCurrentlyPlaying User[] @relation("CurrentlyPlaying")
@@ -977,6 +988,33 @@ model DuelAnswer {
   @@unique([duelId, userId, questionIndex])   // Один ответ на вопрос на пользователя
   @@index([duelId])
   @@index([duelId, userId])
+}
+
+// ═══ ОЧЕРЕДЬ MATCHMAKING (для быстрой игры) ═══
+model MatchmakingQueue {
+  id              Int                  @id @default(autoincrement())
+  
+  userId          Int
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  quizId          Int
+  quiz            Quiz                 @relation(fields: [quizId], references: [id])
+  
+  level           Int                  // Уровень игрока для подбора
+  status          MatchmakingStatus    @default(WAITING)
+  matchedWith     Int?                 // ID игрока с которым сматчились
+  
+  createdAt       DateTime             @default(now())
+  
+  @@index([quizId, status, level])
+  @@index([userId])
+}
+
+enum MatchmakingStatus {
+  WAITING        // Ищет соперника
+  MATCHED        // Нашёл соперника
+  CANCELLED      // Отменил поиск
+  TIMEOUT        // Таймаут (подключили AI)
 }
 
 enum DuelStatus {

@@ -109,7 +109,7 @@ export default function LeaderboardPage() {
       // 🚀 PARALLEL REQUESTS - Quizzes and leaderboard load simultaneously
       const [quizzesRes, leaderboardData] = await Promise.all([
         // 1. Quizzes list (for dropdown)
-        fetch("/api/quiz").then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch("/api/quiz").then(r => r.ok ? r.json() : { quizzes: [] }).then(d => d.quizzes || []).catch(() => []),
         // 2. Leaderboard data
         tabMode === "weekly" && quizId === null
           ? api.get<WeeklyLeaderboardResponse>(leaderboardUrl)

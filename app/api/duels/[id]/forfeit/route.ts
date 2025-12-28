@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { notifyDuelResult } from "@/lib/notifications";
 import { getWeekStart } from "@/lib/week";
+import type { ActivityType, Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     const userId = auth.user.id;
 
-    // Получаем дуэль
+    // Получаем дуэль с информацией о ботах
     const duel = await prisma.duel.findUnique({
       where: { id },
       include: {
@@ -49,8 +50,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             _count: { select: { questions: true } },
           },
         },
-        challenger: { select: { firstName: true, username: true } },
-        opponent: { select: { firstName: true, username: true } },
+        challenger: { select: { firstName: true, username: true, isBot: true } },
+        opponent: { select: { firstName: true, username: true, isBot: true } },
       },
     });
 
@@ -125,9 +126,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ];
 
       // Применяем XP и обновляем дуэльные статы для лидерборда
+      // ВАЖНО: НЕ обновляем статистику для AI-ботов
       const weekStart = getWeekStart();
       
       for (const { odId, xpDelta } of xpUpdates) {
+        // Проверяем является ли игрок ботом
+        const isBot = odId === duel.challengerId 
+          ? duel.challenger.isBot 
+          : duel.opponent.isBot;
+        
+        // Пропускаем обновление статистики для ботов
+        if (isBot) {
+          console.log(`[Duel Forfeit] Skipping stats update for AI bot (id=${odId})`);
+          continue;
+        }
+        
         const isWinner = odId === winnerId;
         const playerScore = isWinner ? winnerScore : loserScore;
         
@@ -173,37 +186,57 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
       }
 
-      // Создаём активности
-      await tx.userActivity.createMany({
-        data: [
-          {
-            userId: winnerId,
-            type: "DUEL_WON",
-            title: "Соперник сдался!",
-            icon: "🏆",
-            data: {
-              duelId: id,
-              score: winnerScore,
-              opponentScore: loserScore,
-              xpEarned: duel.xpReward,
-              forfeit: true,
-            },
+      // Создаём активности (только для реальных игроков)
+      const isWinnerBot = winnerId === duel.challengerId 
+        ? duel.challenger.isBot 
+        : duel.opponent.isBot;
+      const isLoserBot = loserId === duel.challengerId 
+        ? duel.challenger.isBot 
+        : duel.opponent.isBot;
+      
+      const activityData: {
+        userId: number;
+        type: ActivityType;
+        title: string;
+        icon: string;
+        data: Prisma.InputJsonValue;
+      }[] = [];
+      
+      if (!isWinnerBot) {
+        activityData.push({
+          userId: winnerId,
+          type: "DUEL_WON" as ActivityType,
+          title: "Соперник сдался!",
+          icon: "🏆",
+          data: {
+            duelId: id,
+            score: winnerScore,
+            opponentScore: loserScore,
+            xpEarned: duel.xpReward,
+            forfeit: true,
           },
-          {
-            userId: loserId,
-            type: "DUEL_LOST",
-            title: "Сдался в дуэли",
-            icon: "🏳️",
-            data: {
-              duelId: id,
-              score: loserScore,
-              opponentScore: winnerScore,
-              xpEarned: FORFEIT_XP_PENALTY,
-              forfeit: true,
-            },
+        });
+      }
+      
+      if (!isLoserBot) {
+        activityData.push({
+          userId: loserId,
+          type: "DUEL_LOST" as ActivityType,
+          title: "Сдался в дуэли",
+          icon: "🏳️",
+          data: {
+            duelId: id,
+            score: loserScore,
+            opponentScore: winnerScore,
+            xpEarned: FORFEIT_XP_PENALTY,
+            forfeit: true,
           },
-        ],
-      });
+        });
+      }
+      
+      if (activityData.length > 0) {
+        await tx.userActivity.createMany({ data: activityData });
+      }
 
       return { xpUpdates, winnerId, challengerScore, opponentScore };
     });

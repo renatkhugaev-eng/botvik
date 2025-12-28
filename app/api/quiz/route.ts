@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   // PUBLIC: Только список квизов (кэшируется)
   // ═══════════════════════════════════════════════════════════════════════════
   if (!withLimits) {
-    return NextResponse.json(quizzes, {
+    return NextResponse.json({ quizzes }, {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
       },

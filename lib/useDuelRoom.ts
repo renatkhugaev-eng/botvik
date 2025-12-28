@@ -129,9 +129,13 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   
-  // ═══ Dev-mode симуляция оппонента ═══
+  // ═══ Dev-mode / AI симуляция оппонента ═══
   const [devModeOpponent, setDevModeOpponent] = useState<DuelPresence | null>(null);
   const devModeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ═══ AI Mode — когда оппонент AI-бот ═══
+  const [isAIMode, setIsAIMode] = useState(false);
+  const aiPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // ═══ Refs для таймеров ═══
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -599,6 +603,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
           players: DuelPlayer[];
           questions: DuelQuestion[];
           totalQuestions: number;
+          _internal?: { aiMode?: boolean }; // Внутренний флаг
         }>(`/api/duels/${duelId}/start`, {});
 
         console.log("[Duel] Start API response:", data);
@@ -618,6 +623,11 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
         setQuestions(data.questions);
         setPlayers(data.players);
         setDataLoaded(true);
+        
+        // Проверяем внутренний флаг режима
+        if (data._internal?.aiMode) {
+          setIsAIMode(true);
+        }
 
         updateMyPresence({
           odId: userId,
@@ -687,12 +697,124 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
   }, [isOpponentConnected, gameState.status, dataLoaded]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DEV-MODE: СИМУЛЯЦИЯ ОППОНЕНТА
+  // AI MODE: СИМУЛЯЦИЯ AI-ОППОНЕНТА В ПРОДАКШЕНЕ
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // AI mode: создаём симулированного оппонента когда ждём
+  useEffect(() => {
+    if (!isAIMode || realOpponent || !dataLoaded) return;
+
+    // Если ждём оппонента — AI "подключается" мгновенно
+    if (gameState.status === "waiting_opponent" && !devModeOpponent) {
+      console.log("[Duel] Waiting for opponent...");
+      
+      const timer = setTimeout(() => {
+        const opponentData = players.find(p => p.odId !== userId);
+        
+        const simulated: DuelPresence = {
+          odId: opponentData?.odId ?? -1,
+          odName: opponentData?.odName ?? "Соперник",
+          odPhotoUrl: opponentData?.odPhotoUrl ?? null,
+          isReady: false,
+          currentQuestion: 0,
+          hasAnswered: false,
+        };
+        
+        // Логи без упоминания AI (на случай если логи видны)
+        console.log("[Duel] Opponent connected:", simulated.odName);
+        setDevModeOpponent(simulated);
+      }, 500); // Подключается быстро
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAIMode, gameState.status, realOpponent, devModeOpponent, dataLoaded, players, userId]);
+
+  // AI mode: AI становится готовым после игрока
+  useEffect(() => {
+    if (!isAIMode || !devModeOpponent || realOpponent) return;
+    
+    if (gameState.status === "waiting_ready" && myPresence.isReady && !devModeOpponent.isReady) {
+      const timer = setTimeout(() => {
+        console.log("[Duel] Opponent is ready");
+        setDevModeOpponent(prev => prev ? { ...prev, isReady: true } : null);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isAIMode, gameState.status, myPresence.isReady, devModeOpponent, realOpponent]);
+
+  // AI mode: проверяем ответы AI с сервера
+  useEffect(() => {
+    if (!isAIMode || !devModeOpponent || realOpponent) return;
+    if (gameState.status !== "playing") return;
+    
+    // Поллим сервер на наличие ответа AI
+    const checkAIAnswer = async () => {
+      try {
+        const opponentId = devModeOpponent.odId;
+        const questionIndex = gameState.currentQuestionIndex;
+        
+        // Запрашиваем ответы AI с сервера
+        const response = await api.get<{
+          ok: boolean;
+          answers: Array<{ questionIndex: number; isCorrect: boolean }>;
+        }>(`/api/duels/${duelId}/answer?checkOpponent=${opponentId}`);
+        
+        if (response.ok && response.answers) {
+          const aiAnswer = response.answers.find(a => a.questionIndex === questionIndex);
+          if (aiAnswer && !devModeOpponent.hasAnswered) {
+            console.log(`[Duel] Opponent answered Q${questionIndex}`);
+            setDevModeOpponent(prev => prev ? { ...prev, hasAnswered: true } : null);
+          }
+        }
+      } catch (error) {
+        // Игнорируем ошибки поллинга
+      }
+    };
+    
+    // Поллим каждые 500ms
+    aiPollIntervalRef.current = setInterval(checkAIAnswer, 500);
+    
+    return () => {
+      if (aiPollIntervalRef.current) {
+        clearInterval(aiPollIntervalRef.current);
+      }
+    };
+  }, [isAIMode, devModeOpponent, realOpponent, gameState.status, gameState.currentQuestionIndex, duelId]);
+
+  // AI mode: сбрасываем hasAnswered при новом вопросе
+  // ВАЖНО: НЕ включаем devModeOpponent в зависимости — иначе бесконечный цикл!
+  useEffect(() => {
+    if (!isAIMode) return;
+    
+    setDevModeOpponent(prev => {
+      if (!prev) return null;
+      // Только если вопрос реально сменился
+      if (prev.currentQuestion === gameState.currentQuestionIndex) return prev;
+      return { ...prev, hasAnswered: false, currentQuestion: gameState.currentQuestionIndex };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAIMode, gameState.currentQuestionIndex]);
+
+  // AI mode: запускаем countdown когда оба готовы
+  useEffect(() => {
+    if (!isAIMode || !devModeOpponent || realOpponent) return;
+    
+    if (gameState.status === "waiting_ready" && myPresence.isReady && devModeOpponent.isReady) {
+      console.log("[Duel] Both ready, starting countdown...");
+      const timer = setTimeout(() => {
+        startCountdown();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isAIMode, gameState.status, myPresence.isReady, devModeOpponent, realOpponent, startCountdown]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEV-MODE: СИМУЛЯЦИЯ ОППОНЕНТА (для локальной разработки)
   // ═══════════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
-    // Только в dev-режиме, если нет реального оппонента
-    if (!isDevMode() || realOpponent || !dataLoaded) return;
+    // Только в dev-режиме, если нет реального оппонента и не AI-режим
+    if (!isDevMode() || realOpponent || !dataLoaded || isAIMode) return;
 
     // Если ждём оппонента — симулируем его через 2 секунды
     if (gameState.status === "waiting_opponent" && !devModeOpponent) {
@@ -723,7 +845,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
 
   // Dev-mode: автоматически делаем оппонента готовым после того как мы готовы
   useEffect(() => {
-    if (!isDevMode() || !devModeOpponent || realOpponent) return;
+    if (!isDevMode() || !devModeOpponent || realOpponent || isAIMode) return;
     
     // Если мы готовы, а симулированный оппонент нет — делаем его готовым через 1с
     if (gameState.status === "waiting_ready" && myPresence.isReady && !devModeOpponent.isReady) {
@@ -733,11 +855,11 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [gameState.status, myPresence.isReady, devModeOpponent, realOpponent]);
+  }, [gameState.status, myPresence.isReady, devModeOpponent, realOpponent, isAIMode]);
 
   // Dev-mode: симулируем ответ оппонента после нашего ответа
   useEffect(() => {
-    if (!isDevMode() || !devModeOpponent || realOpponent) return;
+    if (!isDevMode() || !devModeOpponent || realOpponent || isAIMode) return;
     
     // Если мы ответили, а симулированный оппонент нет — он отвечает через 0.5-2с
     if (gameState.status === "playing" && myAnswers[gameState.currentQuestionIndex] !== undefined && !devModeOpponent.hasAnswered) {
@@ -748,18 +870,18 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [gameState.status, gameState.currentQuestionIndex, myAnswers, devModeOpponent, realOpponent]);
+  }, [gameState.status, gameState.currentQuestionIndex, myAnswers, devModeOpponent, realOpponent, isAIMode]);
 
   // Dev-mode: сбрасываем hasAnswered при переходе к новому вопросу
   useEffect(() => {
-    if (!isDevMode() || !devModeOpponent) return;
+    if (!isDevMode() || !devModeOpponent || isAIMode) return;
     
     setDevModeOpponent(prev => prev ? { ...prev, hasAnswered: false, currentQuestion: gameState.currentQuestionIndex } : null);
-  }, [gameState.currentQuestionIndex]);
+  }, [gameState.currentQuestionIndex, devModeOpponent, isAIMode]);
 
   // Dev-mode: запускаем countdown когда оба готовы
   useEffect(() => {
-    if (!isDevMode() || !devModeOpponent || realOpponent) return;
+    if (!isDevMode() || !devModeOpponent || realOpponent || isAIMode) return;
     
     // Если оба готовы и мы в статусе waiting_ready — запускаем countdown
     if (gameState.status === "waiting_ready" && myPresence.isReady && devModeOpponent.isReady) {
@@ -770,7 +892,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [gameState.status, myPresence.isReady, devModeOpponent, realOpponent, startCountdown]);
+  }, [gameState.status, myPresence.isReady, devModeOpponent, realOpponent, startCountdown, isAIMode]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ОБРАБОТКА СОБЫТИЙ LIVEBLOCKS
@@ -863,6 +985,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (opponentTimeoutRef.current) clearTimeout(opponentTimeoutRef.current);
       if (reconnectGraceRef.current) clearTimeout(reconnectGraceRef.current);
+      if (aiPollIntervalRef.current) clearInterval(aiPollIntervalRef.current);
     };
   }, []);
 

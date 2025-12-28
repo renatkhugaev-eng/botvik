@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { notifyDuelResult } from "@/lib/notifications";
 import { getWeekStart } from "@/lib/week";
+import type { ActivityType, Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     const userId = auth.user.id;
 
-    // Получаем дуэль с информацией о квизе
+    // Получаем дуэль с информацией о квизе и ботах
     const duel = await prisma.duel.findUnique({
       where: { id },
       include: {
@@ -58,6 +59,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           select: {
             _count: { select: { questions: true } },
           },
+        },
+        challenger: {
+          select: { isBot: true },
+        },
+        opponent: {
+          select: { isBot: true },
         },
       },
     });
@@ -200,9 +207,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       // Применяем XP и обновляем дуэльные статы для лидерборда
+      // ВАЖНО: НЕ обновляем статистику для AI-ботов (они не участвуют в лидербордах)
       const weekStart = getWeekStart();
       
       for (const { odId, xpDelta } of xpUpdates) {
+        // Проверяем является ли игрок ботом
+        const isBot = odId === duel.challengerId 
+          ? duel.challenger.isBot 
+          : duel.opponent.isBot;
+        
+        // Пропускаем обновление статистики для ботов
+        if (isBot) {
+          console.log(`[Duel Finish] Skipping stats update for AI bot (id=${odId})`);
+          continue;
+        }
+        
         const isWinner = odId === winnerId;
         const playerScore = odId === duel.challengerId ? challengerScore : opponentScore;
         
@@ -248,35 +267,48 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
       }
 
-      // Создаём активности для ленты друзей
-      await tx.userActivity.createMany({
-        data: [
-          {
-            userId: duel.challengerId,
-            type: winnerId === duel.challengerId ? "DUEL_WON" : winnerId === null ? "DUEL_DRAW" : "DUEL_LOST",
-            title: winnerId === duel.challengerId ? "Победил в дуэли!" : winnerId === null ? "Ничья в дуэли" : "Проиграл дуэль",
-            icon: winnerId === duel.challengerId ? "🏆" : winnerId === null ? "🤝" : "😔",
-            data: {
-              duelId: duel.id,
-              score: challengerScore,
-              opponentScore,
-              xpEarned: xpUpdates.find(u => u.odId === duel.challengerId)?.xpDelta || 0,
-            },
+      // Создаём активности для ленты друзей (только для реальных игроков)
+      const activityData: {
+        userId: number;
+        type: ActivityType;
+        title: string;
+        icon: string;
+        data: Prisma.InputJsonValue;
+      }[] = [];
+      
+      if (!duel.challenger.isBot) {
+        activityData.push({
+          userId: duel.challengerId,
+          type: (winnerId === duel.challengerId ? "DUEL_WON" : winnerId === null ? "DUEL_DRAW" : "DUEL_LOST") as ActivityType,
+          title: winnerId === duel.challengerId ? "Победил в дуэли!" : winnerId === null ? "Ничья в дуэли" : "Проиграл дуэль",
+          icon: winnerId === duel.challengerId ? "🏆" : winnerId === null ? "🤝" : "😔",
+          data: {
+            duelId: duel.id,
+            score: challengerScore,
+            opponentScore,
+            xpEarned: xpUpdates.find(u => u.odId === duel.challengerId)?.xpDelta || 0,
           },
-          {
-            userId: duel.opponentId,
-            type: winnerId === duel.opponentId ? "DUEL_WON" : winnerId === null ? "DUEL_DRAW" : "DUEL_LOST",
-            title: winnerId === duel.opponentId ? "Победил в дуэли!" : winnerId === null ? "Ничья в дуэли" : "Проиграл дуэль",
-            icon: winnerId === duel.opponentId ? "🏆" : winnerId === null ? "🤝" : "😔",
-            data: {
-              duelId: duel.id,
-              score: opponentScore,
-              opponentScore: challengerScore,
-              xpEarned: xpUpdates.find(u => u.odId === duel.opponentId)?.xpDelta || 0,
-            },
+        });
+      }
+      
+      if (!duel.opponent.isBot) {
+        activityData.push({
+          userId: duel.opponentId,
+          type: (winnerId === duel.opponentId ? "DUEL_WON" : winnerId === null ? "DUEL_DRAW" : "DUEL_LOST") as ActivityType,
+          title: winnerId === duel.opponentId ? "Победил в дуэли!" : winnerId === null ? "Ничья в дуэли" : "Проиграл дуэль",
+          icon: winnerId === duel.opponentId ? "🏆" : winnerId === null ? "🤝" : "😔",
+          data: {
+            duelId: duel.id,
+            score: opponentScore,
+            opponentScore: challengerScore,
+            xpEarned: xpUpdates.find(u => u.odId === duel.opponentId)?.xpDelta || 0,
           },
-        ],
-      });
+        });
+      }
+      
+      if (activityData.length > 0) {
+        await tx.userActivity.createMany({ data: activityData });
+      }
 
       return { xpUpdates, winnerId, challengerScore, opponentScore };
     });

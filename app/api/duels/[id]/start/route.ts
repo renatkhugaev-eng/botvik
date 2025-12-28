@@ -2,11 +2,21 @@
  * ══════════════════════════════════════════════════════════════════════════════
  * DUEL START API — Начало дуэли (загрузка вопросов)
  * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * Поддерживает дуэли с AI:
+ * - Автоматически определяет если оппонент — AI-бот
+ * - Запускает AI-воркер для асинхронных ответов
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { levelFromXp } from "@/lib/xp";
+import {
+  runAIWorker,
+  getDifficultyForPlayer,
+  type QuestionWithAnswers,
+} from "@/lib/ai-duel-bot";
 
 export const runtime = "nodejs";
 
@@ -37,6 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             username: true,
             firstName: true,
             photoUrl: true,
+            xp: true,
           },
         },
         opponent: {
@@ -45,6 +56,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             username: true,
             firstName: true,
             photoUrl: true,
+            xp: true,
+            isBot: true, // Для определения AI-противника
           },
         },
         quiz: {
@@ -56,7 +69,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                   select: {
                     id: true,
                     text: true,
-                    // SECURITY: isCorrect НЕ запрашиваем — проверка на сервере
+                    isCorrect: true, // Нужно для AI-воркера
                   },
                 },
               },
@@ -99,6 +112,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Для дуэлей используем фиксированные 15 секунд на вопрос
     const DUEL_TIME_LIMIT_SECONDS = 15;
     
+    // SECURITY: Убираем isCorrect из ответа клиенту
     const questions = duel.quiz.questions.map((q) => ({
       id: q.id,
       text: q.text,
@@ -106,6 +120,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       options: q.answers.map((a) => ({
         id: a.id,
         text: a.text,
+        // isCorrect НЕ отправляется клиенту!
       })),
     }));
 
@@ -144,6 +159,46 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI OPPONENT — Запускаем AI-воркер если оппонент бот
+    // ═══════════════════════════════════════════════════════════════════════════
+    const isOpponentAI = duel.opponent.isBot === true;
+    
+    if (isOpponentAI) {
+      console.log(`[Duel Start] Opponent is AI bot (id=${duel.opponent.id}), starting AI worker`);
+      
+      // Получаем сложность на основе уровня игрока
+      const playerXp = duel.challenger.id === userId 
+        ? duel.challenger.xp 
+        : duel.opponent.xp;
+      const playerLevel = levelFromXp(playerXp ?? 0);
+      const aiDifficulty = getDifficultyForPlayer(playerLevel);
+      
+      // Подготавливаем вопросы с правильными ответами для AI
+      const questionsForAI: QuestionWithAnswers[] = duel.quiz.questions.map((q) => ({
+        id: q.id,
+        text: q.text,
+        order: q.order,
+        timeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
+        answers: q.answers.map((a) => ({
+          id: a.id,
+          text: a.text,
+          isCorrect: a.isCorrect,
+        })),
+      }));
+      
+      // Запускаем AI-воркер асинхронно (не блокируем ответ)
+      runAIWorker({
+        duelId: id,
+        botUserId: duel.opponent.id,
+        difficulty: aiDifficulty,
+        questions: questionsForAI,
+        questionTimeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
+      }).catch((err) => {
+        console.error(`[Duel Start] AI Worker error for duel ${id}:`, err);
+      });
+    }
+
     // SECURITY: НЕ отправляем correctAnswers на клиент!
     // Правильные ответы проверяются на сервере в /api/duels/[id]/answer
     return NextResponse.json({
@@ -155,6 +210,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       players,
       questions,
       totalQuestions: questions.length,
+      // Флаг для внутреннего использования (не показывается пользователю)
+      _internal: isOpponentAI ? { aiMode: true } : undefined,
     });
   } catch (error) {
     console.error("[Duel Start] Error:", error);

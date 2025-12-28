@@ -254,20 +254,37 @@ export default function DuelsPage() {
         )}
       </div>
 
-      {/* CTA Button */}
+      {/* CTA Buttons */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent">
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          onClick={() => {
-            haptic.medium();
-            router.push("/miniapp/duels/challenge");
-          }}
-          className="w-full py-4 rounded-xl bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-bold text-center shadow-xl shadow-red-900/30 transition-all"
-        >
-          🎯 Вызвать на допрос
-        </motion.button>
+        <div className="flex gap-3">
+          {/* Quick Game - поиск любого соперника */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            onClick={() => {
+              haptic.medium();
+              router.push("/miniapp/duels/quick");
+            }}
+            className="flex-1 py-4 rounded-xl bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-bold text-center shadow-xl shadow-red-900/30 transition-all"
+          >
+            ⚡ Быстрая игра
+          </motion.button>
+          
+          {/* Challenge Friend */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            onClick={() => {
+              haptic.medium();
+              router.push("/miniapp/duels/challenge");
+            }}
+            className="flex-1 py-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-center shadow-xl shadow-zinc-900/30 transition-all border border-zinc-700"
+          >
+            👥 Вызов друга
+          </motion.button>
+        </div>
       </div>
     </div>
   );

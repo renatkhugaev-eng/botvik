@@ -34,9 +34,14 @@ export async function GET(req: NextRequest) {
   const timeRemaining = getTimeUntilWeekEnd(now);
   const weekLabel = getWeekLabel(now);
 
-  // Get current week's scores
+  // Get current week's scores (excluding AI bots)
   const weeklyScores = await prisma.weeklyScore.findMany({
-    where: { weekStart },
+    where: { 
+      weekStart,
+      user: {
+        isBot: false, // Исключаем AI-ботов из лидерборда
+      },
+    },
     select: {
       bestScore: true,
       quizzes: true,

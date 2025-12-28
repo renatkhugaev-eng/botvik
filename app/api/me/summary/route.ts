@@ -43,6 +43,51 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AI BOT PROFILE — Возвращаем реалистичные фейковые данные
+  // Чтобы пользователь не заподозрил что играет с ботом
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (user.isBot && !isOwnProfile) {
+    const fakeLevel = Math.floor(user.xp / 350) + 1;
+    const fakeLevelProgress = getLevelProgress(user.xp);
+    
+    return NextResponse.json({
+      id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      photoUrl: user.photoUrl,
+      bio: user.bio ?? "Люблю детективные истории 🔍",
+      status: user.status ?? "Играю в квизы",
+      equippedFrame: null,
+      gamesPlayed: Math.floor(Math.random() * 50) + 20,
+      correctAnswers: Math.floor(Math.random() * 200) + 80,
+      xp: {
+        total: user.xp,
+        level: fakeLevel,
+        title: getLevelTitle(fakeLevel),
+        progress: fakeLevelProgress.progress,
+        toNextLevel: fakeLevelProgress.xpNeededForNext,
+        currentLevelXp: fakeLevelProgress.currentLevelXp,
+      },
+      leaderboardScore: Math.floor(user.xp * 0.8),
+      quizzesPlayed: [],
+      isOwnProfile: false,
+      profilePublic: false,
+      showActivity: false,
+      showOnlineStatus: false,
+      achievements: [],
+      showcaseAchievements: [],
+      friends: { count: Math.floor(Math.random() * 10) + 3, list: [] },
+      duelStats: {
+        wins: Math.floor(Math.random() * 15) + 5,
+        losses: Math.floor(Math.random() * 10) + 2,
+        winRate: 0.6 + Math.random() * 0.2,
+      },
+      recentActivity: [],
+    });
+  }
+
   // Получаем equipped frame отдельно (если есть)
   const equippedFrame = user.equippedFrameId
     ? await prisma.cosmeticItem.findUnique({

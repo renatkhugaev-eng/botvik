@@ -244,6 +244,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { id: duelId } = await context.params;
     const userId = auth.user.id;
+    
+    // Проверяем параметр checkOpponent для AI-режима
+    const { searchParams } = new URL(request.url);
+    const checkOpponentId = searchParams.get("checkOpponent");
 
     // Получаем дуэль для проверки участия
     const duel = await prisma.duel.findUnique({
@@ -263,7 +267,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "NOT_PARTICIPANT" }, { status: 403 });
     }
 
-    // Получаем ответы пользователя
+    // Если запрашиваем ответы оппонента (для AI-режима)
+    if (checkOpponentId) {
+      const opponentId = parseInt(checkOpponentId, 10);
+      
+      // Проверяем что запрашиваемый ID — действительно оппонент в этой дуэли
+      if (opponentId !== duel.challengerId && opponentId !== duel.opponentId) {
+        return NextResponse.json({ ok: false, error: "INVALID_OPPONENT_ID" }, { status: 400 });
+      }
+      
+      // Получаем ответы оппонента (минимум данных для проверки)
+      const opponentAnswers = await prisma.duelAnswer.findMany({
+        where: {
+          duelId,
+          userId: opponentId,
+        },
+        orderBy: { questionIndex: "asc" },
+        select: {
+          questionIndex: true,
+          isCorrect: true,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        answers: opponentAnswers,
+      });
+    }
+
+    // Получаем ответы текущего пользователя
     const answers = await prisma.duelAnswer.findMany({
       where: {
         duelId,
