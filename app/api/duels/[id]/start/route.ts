@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { levelFromXp } from "@/lib/xp";
@@ -19,6 +20,8 @@ import {
 } from "@/lib/ai-duel-bot";
 
 export const runtime = "nodejs";
+// Увеличиваем timeout для AI worker (60 секунд)
+export const maxDuration = 60;
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -164,7 +167,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // ═══════════════════════════════════════════════════════════════════════════
     const isOpponentAI = duel.opponent.isBot === true;
     
+    // Проверяем не запущен ли уже AI worker (есть ответы от бота)
+    let aiAlreadyStarted = false;
     if (isOpponentAI) {
+      const existingAIAnswers = await prisma.duelAnswer.findFirst({
+        where: {
+          duelId: id,
+          userId: duel.opponent.id,
+        },
+        select: { id: true },
+      });
+      aiAlreadyStarted = !!existingAIAnswers;
+    }
+    
+    if (isOpponentAI && !aiAlreadyStarted) {
       console.log(`[Duel Start] Opponent is AI bot (id=${duel.opponent.id}), starting AI worker`);
       
       // Получаем сложность на основе уровня игрока
@@ -187,16 +203,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })),
       }));
       
-      // Запускаем AI-воркер асинхронно (не блокируем ответ)
-      runAIWorker({
-        duelId: id,
-        botUserId: duel.opponent.id,
-        difficulty: aiDifficulty,
-        questions: questionsForAI,
-        questionTimeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
-      }).catch((err) => {
-        console.error(`[Duel Start] AI Worker error for duel ${id}:`, err);
+      // Запускаем AI-воркер в background через after()
+      // after() гарантирует что код выполнится после отправки ответа клиенту
+      // и функция не "умрёт" до завершения AI worker
+      after(async () => {
+        try {
+          console.log(`[Duel Start] AI Worker starting in background for duel ${id}`);
+          await runAIWorker({
+            duelId: id,
+            botUserId: duel.opponent.id,
+            difficulty: aiDifficulty,
+            questions: questionsForAI,
+            questionTimeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
+          });
+          console.log(`[Duel Start] AI Worker completed for duel ${id}`);
+        } catch (err) {
+          console.error(`[Duel Start] AI Worker error for duel ${id}:`, err);
+        }
       });
+    } else if (isOpponentAI && aiAlreadyStarted) {
+      console.log(`[Duel Start] AI Worker already started for duel ${id}, skipping`);
     }
 
     // SECURITY: НЕ отправляем correctAnswers на клиент!
