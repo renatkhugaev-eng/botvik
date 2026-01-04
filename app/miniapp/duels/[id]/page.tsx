@@ -961,9 +961,27 @@ function FinishScreen({
           setRematchSent(true);
           setRematchLoading(false);
         } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
-          // Уже есть активная дуэль — переходим к ней
-          haptic.medium();
-          router.replace(`/miniapp/duels/${response.duelId}`);
+          // Уже есть активная дуэль — пробуем принять (если мы оппонент и статус PENDING)
+          try {
+            const acceptResponse = await api.patch<{
+              ok: boolean;
+              duel?: { status: string };
+              error?: string;
+            }>(`/api/duels/${response.duelId}`, { action: "accept" });
+            
+            if (acceptResponse.ok) {
+              // Дуэль принята — переходим к игре
+              haptic.success();
+              router.replace(`/miniapp/duels/${response.duelId}`);
+            } else {
+              // Не удалось принять (уже принята или мы не оппонент) — просто переходим
+              haptic.medium();
+              router.replace(`/miniapp/duels/${response.duelId}`);
+            }
+          } catch {
+            // Ошибка принятия — просто переходим к дуэли
+            router.replace(`/miniapp/duels/${response.duelId}`);
+          }
         } else {
           console.error("[Rematch] Friend duel failed:", response.error);
           haptic.error();

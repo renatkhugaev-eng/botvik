@@ -137,9 +137,26 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
         haptic.success();
         setRematchSentIds(prev => new Set(prev).add(opponent.id));
       } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
-        // Уже есть активная дуэль — переходим к ней
-        haptic.medium();
-        router.push(`/miniapp/duels/${response.duelId}`);
+        // Уже есть активная дуэль — пробуем принять (если мы оппонент и статус PENDING)
+        try {
+          const acceptResponse = await api.patch<{
+            ok: boolean;
+            duel?: { status: string };
+            error?: string;
+          }>(`/api/duels/${response.duelId}`, { action: "accept" });
+          
+          if (acceptResponse.ok) {
+            // Дуэль принята — переходим к игре
+            haptic.success();
+            router.push(`/miniapp/duels/${response.duelId}`);
+          } else {
+            // Не удалось принять — просто переходим
+            haptic.medium();
+            router.push(`/miniapp/duels/${response.duelId}`);
+          }
+        } catch {
+          router.push(`/miniapp/duels/${response.duelId}`);
+        }
       } else {
         console.error("[Rematch] Failed:", response.error);
         haptic.error();
