@@ -923,7 +923,7 @@ function FinishScreen({
     
     try {
       if (isAIMode) {
-        // Для AI-бота создаём новую дуэль в режиме AI
+        // Для AI-бота создаём новую дуэль с тем же ботом
         const response = await api.post<{
           ok: boolean;
           duel?: { id: string };
@@ -931,6 +931,7 @@ function FinishScreen({
         }>("/api/duels", {
           mode: "ai",
           quizId,
+          opponentId: oppPlayer?.odId, // Тот же бот для реванша
         });
         
         if (response.ok && response.duel) {

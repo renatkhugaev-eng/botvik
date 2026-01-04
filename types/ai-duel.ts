@@ -13,6 +13,8 @@ export interface CreateAIDuelRequest {
   quizId: number;
   /** Сложность AI (опционально, автоматически подбирается по уровню) */
   difficulty?: AIBotDifficulty;
+  /** ID конкретного AI-бота для реванша (опционально) */
+  opponentId?: number;
 }
 
 export interface CreateDuelWithFriendRequest {

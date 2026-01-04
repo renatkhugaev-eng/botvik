@@ -42,7 +42,7 @@ export interface AIBotPlayer {
   telegramId: string;
   username: string;
   firstName: string;
-  photoUrl: string;
+  photoUrl: string | null;
   level: number;
   xp: number;
 }

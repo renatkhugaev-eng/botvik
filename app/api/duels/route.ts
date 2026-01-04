@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
     // РЕЖИМ AI — быстрая игра с ботом
     // ═══════════════════════════════════════════════════════════════════════════
     if (isAIDuelRequest(body)) {
-      const { quizId, difficulty: requestedDifficulty } = body;
+      const { quizId, difficulty: requestedDifficulty, opponentId: requestedOpponentId } = body;
 
       if (!quizId) {
         return NextResponse.json(
@@ -169,8 +169,35 @@ export async function POST(request: NextRequest) {
       // Подбираем сложность AI
       const difficulty: AIBotDifficulty = requestedDifficulty ?? getDifficultyForPlayer(playerLevel);
 
-      // Получаем или создаём AI-противника
-      const aiPlayer = await getOrCreateAIPlayer(playerLevel);
+      // Получаем AI-противника: используем переданного бота (реванш) или создаём нового
+      let aiPlayer: Awaited<ReturnType<typeof getOrCreateAIPlayer>>;
+      
+      if (requestedOpponentId) {
+        // Реванш — проверяем что это действительно AI-бот
+        const existingBot = await prisma.user.findUnique({
+          where: { id: requestedOpponentId },
+          select: { id: true, telegramId: true, username: true, firstName: true, photoUrl: true, xp: true, isBot: true },
+        });
+        
+        if (existingBot?.isBot) {
+          aiPlayer = {
+            id: existingBot.id,
+            telegramId: existingBot.telegramId,
+            username: existingBot.username ?? "bot",
+            firstName: existingBot.firstName ?? "Бот",
+            photoUrl: existingBot.photoUrl ?? null,
+            level: levelFromXp(existingBot.xp),
+            xp: existingBot.xp,
+          };
+          console.log(`[Duels AI] Rematch with same bot: ${aiPlayer.firstName} (id=${aiPlayer.id})`);
+        } else {
+          // Если переданный ID не бот — создаём нового
+          aiPlayer = await getOrCreateAIPlayer(playerLevel);
+        }
+      } else {
+        // Новая игра — выбираем случайного бота
+        aiPlayer = await getOrCreateAIPlayer(playerLevel);
+      }
 
       console.log(
         `[Duels AI] Creating AI duel: player=${userId} (lvl ${playerLevel}), ` +
