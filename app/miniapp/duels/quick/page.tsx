@@ -80,10 +80,15 @@ export default function QuickDuelPage() {
         
         // Если есть preselectedQuizId, выбираем его
         if (preselectedQuizId) {
-          const targetQuiz = data.quizzes.find(q => q.id === parseInt(preselectedQuizId, 10));
-          if (targetQuiz) {
-            setSelectedQuiz(targetQuiz);
-            console.log("[QuickDuel] Preselected quiz:", targetQuiz.title);
+          const parsedId = parseInt(preselectedQuizId, 10);
+          if (!isNaN(parsedId)) {
+            const targetQuiz = data.quizzes.find(q => q.id === parsedId);
+            if (targetQuiz) {
+              setSelectedQuiz(targetQuiz);
+              console.log("[QuickDuel] Preselected quiz:", targetQuiz.title);
+            } else {
+              setSelectedQuiz(data.quizzes[0]);
+            }
           } else {
             setSelectedQuiz(data.quizzes[0]);
           }

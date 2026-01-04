@@ -946,6 +946,7 @@ function FinishScreen({
         const response = await api.post<{
           ok: boolean;
           duel?: { id: string };
+          duelId?: string; // При DUEL_ALREADY_EXISTS
           error?: string;
         }>("/api/duels", {
           opponentId: oppPlayer.odId,
@@ -955,10 +956,10 @@ function FinishScreen({
         if (response.ok && response.duel) {
           haptic.success();
           router.replace(`/miniapp/duels/${response.duel.id}`);
-        } else if (response.error === "DUEL_ALREADY_EXISTS") {
-          // Уже есть активная дуэль
-          haptic.warning();
-          setRematchLoading(false);
+        } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
+          // Уже есть активная дуэль — переходим к ней
+          haptic.medium();
+          router.replace(`/miniapp/duels/${response.duelId}`);
         } else {
           console.error("[Rematch] Friend duel failed:", response.error);
           haptic.error();

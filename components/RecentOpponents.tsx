@@ -115,6 +115,7 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
       // Проверяем что оппонент друг (иначе API не разрешит создать дуэль)
       if (opponent.friendshipStatus !== "accepted") {
         // Если не друг — переходим в быстрый поиск с этим квизом
+        setRematchingId(null);
         router.push(`/miniapp/duels/quick?quizId=${opponent.lastDuelQuizId}`);
         return;
       }
@@ -123,6 +124,7 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
       const response = await api.post<{
         ok: boolean;
         duel?: { id: string };
+        duelId?: string; // При DUEL_ALREADY_EXISTS
         error?: string;
       }>("/api/duels", {
         opponentId: opponent.id,
@@ -132,9 +134,10 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
       if (response.ok && response.duel) {
         haptic.success();
         router.push(`/miniapp/duels/${response.duel.id}`);
-      } else if (response.error === "DUEL_ALREADY_EXISTS") {
-        // Уже есть активная дуэль
-        haptic.warning();
+      } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
+        // Уже есть активная дуэль — переходим к ней
+        haptic.medium();
+        router.push(`/miniapp/duels/${response.duelId}`);
       } else {
         console.error("[Rematch] Failed:", response.error);
         haptic.error();
