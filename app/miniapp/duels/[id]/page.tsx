@@ -857,6 +857,7 @@ function FinishScreen({
   const [friendStatus, setFriendStatus] = useState<"none" | "pending" | "friend" | "loading">("loading");
   const [addingFriend, setAddingFriend] = useState(false);
   const [rematchLoading, setRematchLoading] = useState(false);
+  const [rematchSent, setRematchSent] = useState(false);
 
   // Проверяем статус дружбы при загрузке
   useEffect(() => {
@@ -943,7 +944,7 @@ function FinishScreen({
           setRematchLoading(false);
         }
       } else if (oppPlayer?.odId && friendStatus === "friend") {
-        // Для друга создаём дуэль напрямую
+        // Для друга создаём вызов на дуэль (статус PENDING)
         const response = await api.post<{
           ok: boolean;
           duel?: { id: string };
@@ -955,8 +956,10 @@ function FinishScreen({
         });
         
         if (response.ok && response.duel) {
+          // Вызов отправлен — показываем сообщение
           haptic.success();
-          router.replace(`/miniapp/duels/${response.duel.id}`);
+          setRematchSent(true);
+          setRematchLoading(false);
         } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
           // Уже есть активная дуэль — переходим к ней
           haptic.medium();
@@ -1127,10 +1130,10 @@ function FinishScreen({
         >
           <button
             onClick={handleRematch}
-            disabled={rematchLoading || !quizId}
+            disabled={rematchLoading || !quizId || rematchSent}
             className="flex-1 py-4 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {rematchLoading ? "⏳ Создаём..." : "🔄 Реванш"}
+            {rematchSent ? "✅ Вызов отправлен" : rematchLoading ? "⏳ Создаём..." : "🔄 Реванш"}
           </button>
           <button
             onClick={() => {

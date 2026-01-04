@@ -48,6 +48,7 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
   const [error, setError] = useState<string | null>(null);
   const [addingFriend, setAddingFriend] = useState<number | null>(null);
   const [rematchingId, setRematchingId] = useState<number | null>(null);
+  const [rematchSentIds, setRematchSentIds] = useState<Set<number>>(new Set());
 
   // Загрузка соперников
   useEffect(() => {
@@ -132,8 +133,9 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
       });
       
       if (response.ok && response.duel) {
+        // Вызов отправлен — показываем статус
         haptic.success();
-        router.push(`/miniapp/duels/${response.duel.id}`);
+        setRematchSentIds(prev => new Set(prev).add(opponent.id));
       } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
         // Уже есть активная дуэль — переходим к ней
         haptic.medium();
@@ -348,10 +350,10 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
                   {/* Реванш */}
                   <button
                     onClick={() => handleRematch(opponent)}
-                    disabled={rematchingId === opponent.id}
+                    disabled={rematchingId === opponent.id || rematchSentIds.has(opponent.id)}
                     className="w-full py-1.5 text-xs bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {rematchingId === opponent.id ? "⏳..." : "🔄 Реванш"}
+                    {rematchSentIds.has(opponent.id) ? "✅ Отправлен" : rematchingId === opponent.id ? "⏳..." : "🔄 Реванш"}
                   </button>
                 </div>
               </div>
