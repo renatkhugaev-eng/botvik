@@ -10,7 +10,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMiniAppSession } from "@/app/miniapp/layout";
 import { api } from "@/lib/api";
@@ -49,6 +49,10 @@ type SearchState = "idle" | "selecting" | "searching" | "found" | "starting";
 export default function QuickDuelPage() {
   const session = useMiniAppSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Если передан quizId в URL (например, при реванше с не-другом)
+  const preselectedQuizId = searchParams.get("quizId");
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +77,20 @@ export default function QuickDuelPage() {
       
       if (data.quizzes && data.quizzes.length > 0) {
         setQuizzes(data.quizzes);
-        setSelectedQuiz(data.quizzes[0]);
+        
+        // Если есть preselectedQuizId, выбираем его
+        if (preselectedQuizId) {
+          const targetQuiz = data.quizzes.find(q => q.id === parseInt(preselectedQuizId, 10));
+          if (targetQuiz) {
+            setSelectedQuiz(targetQuiz);
+            console.log("[QuickDuel] Preselected quiz:", targetQuiz.title);
+          } else {
+            setSelectedQuiz(data.quizzes[0]);
+          }
+        } else {
+          setSelectedQuiz(data.quizzes[0]);
+        }
+        
         setSearchState("selecting");
         console.log("[QuickDuel] Loaded", data.quizzes.length, "quizzes");
       } else {
@@ -88,7 +105,7 @@ export default function QuickDuelPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [preselectedQuizId]);
 
   useEffect(() => {
     loadQuizzes();

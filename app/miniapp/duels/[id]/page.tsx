@@ -965,8 +965,8 @@ function FinishScreen({
           setRematchLoading(false);
         }
       } else {
-        // Не друг и не AI — переходим в быстрый поиск
-        router.push("/miniapp/duels/quick");
+        // Не друг и не AI — переходим в быстрый поиск с предустановленным квизом
+        router.push(`/miniapp/duels/quick?quizId=${quizId}`);
       }
     } catch (error) {
       console.error("[Rematch] Error:", error);
