@@ -973,13 +973,22 @@ function FinishScreen({
               // Дуэль принята — переходим к игре
               haptic.success();
               router.replace(`/miniapp/duels/${response.duelId}`);
+            } else if (acceptResponse.error === "NOT_OPPONENT") {
+              // Мы challenger — вызов уже отправлен, показываем сообщение
+              haptic.medium();
+              setRematchSent(true);
+              setRematchLoading(false);
+            } else if (acceptResponse.error === "INVALID_STATUS") {
+              // Дуэль уже ACCEPTED/IN_PROGRESS — переходим к игре
+              haptic.success();
+              router.replace(`/miniapp/duels/${response.duelId}`);
             } else {
-              // Не удалось принять (уже принята или мы не оппонент) — просто переходим
+              // Другая ошибка — переходим к дуэли
               haptic.medium();
               router.replace(`/miniapp/duels/${response.duelId}`);
             }
           } catch {
-            // Ошибка принятия — просто переходим к дуэли
+            // Ошибка сети — переходим к дуэли
             router.replace(`/miniapp/duels/${response.duelId}`);
           }
         } else {

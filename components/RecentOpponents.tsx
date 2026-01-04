@@ -149,8 +149,16 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
             // Дуэль принята — переходим к игре
             haptic.success();
             router.push(`/miniapp/duels/${response.duelId}`);
+          } else if (acceptResponse.error === "NOT_OPPONENT") {
+            // Мы challenger — вызов уже отправлен
+            haptic.medium();
+            setRematchSentIds(prev => new Set(prev).add(opponent.id));
+          } else if (acceptResponse.error === "INVALID_STATUS") {
+            // Дуэль уже ACCEPTED/IN_PROGRESS — переходим к игре
+            haptic.success();
+            router.push(`/miniapp/duels/${response.duelId}`);
           } else {
-            // Не удалось принять — просто переходим
+            // Другая ошибка — переходим к дуэли
             haptic.medium();
             router.push(`/miniapp/duels/${response.duelId}`);
           }
