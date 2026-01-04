@@ -14,6 +14,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import { haptic } from "@/lib/haptic";
 
@@ -223,10 +224,13 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
                     className="w-16 h-16 mx-auto rounded-full overflow-hidden border-2 border-zinc-700 hover:border-zinc-500 transition-colors"
                   >
                     {opponent.photoUrl ? (
-                      <img
+                      <Image
                         src={opponent.photoUrl}
                         alt=""
+                        width={64}
+                        height={64}
                         className="w-full h-full object-cover"
+                        unoptimized // Внешние URL (Telegram/DiceBear)
                       />
                     ) : (
                       <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-500 font-bold text-xl">

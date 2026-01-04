@@ -14,7 +14,7 @@ import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
 import { useIsIOS } from "@/components/hooks/usePlatform";
-import { PlayerMiniProfile } from "@/components/PlayerMiniProfile";
+import { LazyPlayerMiniProfile } from "@/components/lazy";
 
 // Platform detection moved to @/components/hooks/usePlatform
 
@@ -827,7 +827,7 @@ export default function LeaderboardPage() {
 
       {/* Player Mini Profile Modal */}
       {selectedPlayer && (
-        <PlayerMiniProfile
+        <LazyPlayerMiniProfile
           player={selectedPlayer}
           currentUserId={currentUserId}
           onClose={() => setSelectedPlayer(null)}

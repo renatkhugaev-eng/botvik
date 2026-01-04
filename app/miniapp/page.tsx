@@ -16,9 +16,9 @@ import { useIsIOS, useIsAndroid } from "@/components/hooks/usePlatform";
 import { HeroShell, HERO_HEIGHT } from "@/components/miniapp/HeroShell";
 import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
-import { DailyRewardModal, DailyRewardButton } from "@/components/DailyRewardModal";
+import { DailyRewardButton } from "@/components/DailyRewardModal";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
-import { FriendsFeed } from "@/components/FriendsFeed";
+import { LazyDailyRewardModal, LazyFriendsFeed } from "@/components/lazy";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
 
 // Platform detection moved to @/components/hooks/usePlatform
@@ -966,7 +966,7 @@ export default function MiniAppPage() {
         transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
         className="rounded-2xl bg-gradient-to-br from-[#0f0f1a]/95 to-[#1a1a2e]/95 p-4 shadow-lg"
       >
-        <FriendsFeed 
+        <LazyFriendsFeed 
           userId={session.user.id} 
           limit={10}
           maxVisible={3}
@@ -1130,7 +1130,7 @@ export default function MiniAppPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           DAILY REWARD MODAL
       ═══════════════════════════════════════════════════════════════════ */}
-      <DailyRewardModal
+      <LazyDailyRewardModal
         isOpen={showDailyRewardModal}
         onClose={() => setShowDailyRewardModal(false)}
         onClaim={handleDailyRewardClaim}

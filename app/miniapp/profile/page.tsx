@@ -12,13 +12,16 @@ import { useScrollPerfMode } from "@/components/hooks/useScrollPerfMode";
 import { useDeviceTier } from "@/components/hooks/useDeviceTier";
 import { usePerfMode } from "@/components/context/PerfModeContext";
 import { useIsIOS } from "@/components/hooks/usePlatform";
-import { AchievementsSection } from "@/components/AchievementsSection";
 import { ReferralSection } from "@/components/ReferralSection";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import { InventorySection } from "@/components/InventorySection";
+import { 
+  LazyAchievementsSection, 
+  LazyRecentOpponents, 
+  LazyProfileEditor 
+} from "@/components/lazy";
 
 // Profile 2.0 Components
-import { ProfileEditor } from "@/components/ProfileEditor";
 import { 
   StatusBadge, 
   CurrentlyPlaying, 
@@ -26,7 +29,6 @@ import {
   ProfileBio,
   LastSeen 
 } from "@/components/ProfileShowcase";
-import { RecentOpponents } from "@/components/RecentOpponents";
 
 // shadcn/ui components
 import { Button } from "@/components/ui/button";
@@ -1048,7 +1050,7 @@ export default function ProfilePage() {
           {/* Achievements Tab */}
           <TabsContent value="achievements" className="mt-4 space-y-4">
             <ReferralSection />
-            <AchievementsSection onXpEarned={() => loadAllData()} />
+            <LazyAchievementsSection onXpEarned={() => loadAllData()} />
           </TabsContent>
 
           {/* History Tab */}
@@ -1142,7 +1144,7 @@ export default function ProfilePage() {
           {/* Friends Tab */}
           <TabsContent value="friends" className="mt-4 space-y-4">
             {/* Recent Opponents Section */}
-            <RecentOpponents className="mb-4" />
+            <LazyRecentOpponents className="mb-4" />
 
             {/* Add Friend Button */}
             <Button
@@ -1422,7 +1424,7 @@ export default function ProfilePage() {
 
       {/* Profile 2.0 Editor Dialog */}
       {profile2Data && !isViewingOther && (
-        <ProfileEditor
+        <LazyProfileEditor
           open={showProfileEditor}
           onOpenChange={setShowProfileEditor}
           initialData={{

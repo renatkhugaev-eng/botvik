@@ -1,6 +1,60 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
+import Image from "next/image";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AvatarImage — Оптимизированное изображение аватара
+// ═══════════════════════════════════════════════════════════════════════════
+
+function AvatarImage({ src, size }: { src: string; size: number }) {
+  const [error, setError] = useState(false);
+  
+  // Если ошибка загрузки — fallback на обычный img
+  if (error) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt="Avatar"
+        className="h-full w-full rounded-full object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  
+  // Для внешних URL с поддержкой в remotePatterns
+  const isSupportedExternal = 
+    src.includes("telegram.org") ||
+    src.includes("telegram-cdn.org") ||
+    src.includes("dicebear.com") ||
+    src.includes("t.me");
+  
+  if (isSupportedExternal || src.startsWith("/")) {
+    return (
+      <Image
+        src={src}
+        alt="Avatar"
+        width={size}
+        height={size}
+        className="h-full w-full rounded-full object-cover"
+        onError={() => setError(true)}
+        unoptimized={isSupportedExternal} // Внешние уже оптимизированы
+      />
+    );
+  }
+  
+  // Fallback для неизвестных внешних URL
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Avatar"
+      className="h-full w-full rounded-full object-cover"
+      loading="lazy"
+    />
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AvatarWithFrame — Аватарка с косметической рамкой
@@ -89,11 +143,7 @@ function AvatarWithFrameComponent({
           <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`} />
         )}
         {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt="Avatar"
-            className="h-full w-full rounded-full object-cover"
-          />
+          <AvatarImage src={photoUrl} size={size} />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]">
             <span className="font-bold text-white" style={{ fontSize: size * 0.4 }}>
@@ -126,11 +176,7 @@ function AvatarWithFrameComponent({
           <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${ringColor} opacity-60`} />
         )}
         {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt="Avatar"
-            className="h-full w-full rounded-full object-cover"
-          />
+          <AvatarImage src={photoUrl} size={size} />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#2d1f3d]">
             <span className="font-bold text-white" style={{ fontSize: size * 0.4 }}>
@@ -141,6 +187,7 @@ function AvatarWithFrameComponent({
       </div>
       
       {/* Рамка — двигается для выравнивания отверстия с аватаром */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={frameUrl}
         alt="Frame"
