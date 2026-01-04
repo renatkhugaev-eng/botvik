@@ -123,6 +123,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
   // ═══ Данные игры ═══
   const [questions, setQuestions] = useState<DuelQuestion[]>([]);
   const [players, setPlayers] = useState<DuelPlayer[]>([]);
+  const [quizId, setQuizId] = useState<number | null>(null);
   const [revealedAnswers, setRevealedAnswers] = useState<Record<number, number>>({});
   const [myAnswers, setMyAnswers] = useState<Record<number, number | null>>({});
   const [pendingCorrectAnswers, setPendingCorrectAnswers] = useState<Record<number, number>>({});
@@ -599,11 +600,12 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
           ok: boolean;
           error?: string;
           duelId: string;
+          quizId: number;
           quizTitle: string;
           players: DuelPlayer[];
           questions: DuelQuestion[];
           totalQuestions: number;
-          _internal?: { aiMode?: boolean }; // Внутренний флаг
+          _internal?: { aiMode?: boolean; opponentId?: number }; // Внутренний флаг
         }>(`/api/duels/${duelId}/start`, {});
 
         console.log("[Duel] Start API response:", data);
@@ -618,10 +620,11 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
           return;
         }
 
-        console.log(`[Duel] Loaded ${data.questions.length} questions, ${data.players.length} players`);
+        console.log(`[Duel] Loaded ${data.questions.length} questions, ${data.players.length} players, quizId=${data.quizId}`);
         
         setQuestions(data.questions);
         setPlayers(data.players);
+        setQuizId(data.quizId);
         setDataLoaded(true);
         
         // Проверяем внутренний флаг режима
@@ -1023,6 +1026,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
     // Данные
     questions,
     currentQuestion,
+    quizId,
     myPlayer,
     opponentPlayer,
     myAnswers,
@@ -1033,6 +1037,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
     isOpponentConnected,
     isOpponentReady,
     isOpponentAnswered,
+    isAIMode,
 
     // Статусы
     isMyTurn,

@@ -28,6 +28,7 @@ interface RecentOpponent {
   level: number;
   xp: number;
   lastDuelId: string;
+  lastDuelQuizId: number;
   lastDuelDate: string;
   result: DuelResult;
   myScore: number;
@@ -46,6 +47,7 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingFriend, setAddingFriend] = useState<number | null>(null);
+  const [rematchingId, setRematchingId] = useState<number | null>(null);
 
   // Загрузка соперников
   useEffect(() => {
@@ -102,10 +104,47 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
     }
   };
 
-  // Реванш
-  const handleRematch = () => {
+  // Реванш — создаём новую дуэль с тем же оппонентом и квизом
+  const handleRematch = async (opponent: RecentOpponent) => {
+    if (rematchingId === opponent.id) return;
+    
+    setRematchingId(opponent.id);
     haptic.medium();
-    router.push("/miniapp/duels/quick");
+    
+    try {
+      // Проверяем что оппонент друг (иначе API не разрешит создать дуэль)
+      if (opponent.friendshipStatus !== "accepted") {
+        // Если не друг — переходим в быстрый поиск с этим квизом
+        router.push(`/miniapp/duels/quick?quizId=${opponent.lastDuelQuizId}`);
+        return;
+      }
+      
+      // Создаём дуэль с другом
+      const response = await api.post<{
+        ok: boolean;
+        duel?: { id: string };
+        error?: string;
+      }>("/api/duels", {
+        opponentId: opponent.id,
+        quizId: opponent.lastDuelQuizId,
+      });
+      
+      if (response.ok && response.duel) {
+        haptic.success();
+        router.push(`/miniapp/duels/${response.duel.id}`);
+      } else if (response.error === "DUEL_ALREADY_EXISTS") {
+        // Уже есть активная дуэль
+        haptic.warning();
+      } else {
+        console.error("[Rematch] Failed:", response.error);
+        haptic.error();
+      }
+    } catch (error) {
+      console.error("[Rematch] Error:", error);
+      haptic.error();
+    } finally {
+      setRematchingId(null);
+    }
   };
 
   // Переход в профиль
@@ -305,10 +344,11 @@ export function RecentOpponents({ className = "" }: RecentOpponentsProps) {
 
                   {/* Реванш */}
                   <button
-                    onClick={handleRematch}
-                    className="w-full py-1.5 text-xs bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 rounded-lg transition-all"
+                    onClick={() => handleRematch(opponent)}
+                    disabled={rematchingId === opponent.id}
+                    className="w-full py-1.5 text-xs bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    🔄 Реванш
+                    {rematchingId === opponent.id ? "⏳..." : "🔄 Реванш"}
                   </button>
                 </div>
               </div>

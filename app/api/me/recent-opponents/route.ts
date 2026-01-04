@@ -27,6 +27,7 @@ interface RecentOpponent {
   level: number;
   xp: number;
   lastDuelId: string;
+  lastDuelQuizId: number;
   lastDuelDate: string;
   result: DuelResult;
   myScore: number;
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
         id: true,
         challengerId: true,
         opponentId: true,
+        quizId: true,
         challengerScore: true,
         opponentScore: true,
         winnerId: true,
@@ -166,6 +168,7 @@ export async function GET(request: NextRequest) {
         level: levelFromXp(opponent.xp),
         xp: opponent.xp,
         lastDuelId: duel.id,
+        lastDuelQuizId: duel.quizId,
         lastDuelDate: duel.finishedAt?.toISOString() ?? new Date().toISOString(),
         result,
         myScore,

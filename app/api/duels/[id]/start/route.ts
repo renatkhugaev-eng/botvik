@@ -237,7 +237,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       questions,
       totalQuestions: questions.length,
       // Флаг для внутреннего использования (не показывается пользователю)
-      _internal: isOpponentAI ? { aiMode: true } : undefined,
+      _internal: isOpponentAI ? { aiMode: true, opponentId: duel.opponent.id } : undefined,
     });
   } catch (error) {
     console.error("[Duel Start] Error:", error);

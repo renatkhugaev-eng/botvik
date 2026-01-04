@@ -66,9 +66,6 @@ export default function DuelPage() {
           // Используем replace чтобы нельзя было вернуться назад в завершённую дуэль
           router.replace("/miniapp/duels");
         }}
-        onRematch={() => {
-          router.push("/miniapp/duels/quick");
-        }}
       />
     </RoomProvider>
   );
@@ -84,26 +81,26 @@ function DuelGameContent({
   userName,
   userPhoto,
   onExit,
-  onRematch,
 }: {
   duelId: string;
   userId: number;
   userName: string;
   userPhoto: string | null;
   onExit: () => void;
-  onRematch: () => void;
 }) {
   const {
     gameState,
     isConnected,
     questions,
     currentQuestion,
+    quizId,
     myPlayer,
     opponentPlayer,
     revealedAnswers,
     isOpponentConnected,
     isOpponentReady,
     isOpponentAnswered,
+    isAIMode,
     isMyTurn,
     hasAnswered,
     isSubmitting,
@@ -206,11 +203,9 @@ function DuelGameContent({
               myPlayer={myPlayer}
               oppPlayer={opponentPlayer}
               duelId={duelId}
+              quizId={quizId}
+              isAIMode={isAIMode}
               onExit={onExit}
-              onRematch={() => {
-                haptic.medium();
-                onRematch();
-              }}
             />
           )}
           {gameState.status === "opponent_left" && (
@@ -842,8 +837,9 @@ function FinishScreen({
   myPlayer,
   oppPlayer,
   duelId,
+  quizId,
+  isAIMode,
   onExit,
-  onRematch,
 }: {
   isWinner: boolean;
   isDraw: boolean;
@@ -852,12 +848,15 @@ function FinishScreen({
   myPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
   oppPlayer?: { odId: number; odName: string; odPhotoUrl: string | null };
   duelId: string;
+  quizId: number | null;
+  isAIMode: boolean;
   onExit: () => void;
-  onRematch: () => void;
 }) {
+  const router = useRouter();
   const xp = isWinner ? 50 : isDraw ? 30 : 10;
   const [friendStatus, setFriendStatus] = useState<"none" | "pending" | "friend" | "loading">("loading");
   const [addingFriend, setAddingFriend] = useState(false);
+  const [rematchLoading, setRematchLoading] = useState(false);
 
   // Проверяем статус дружбы при загрузке
   useEffect(() => {
@@ -912,6 +911,67 @@ function FinishScreen({
       haptic.error();
     } finally {
       setAddingFriend(false);
+    }
+  };
+
+  // Реванш — создаём новую дуэль с тем же квизом
+  const handleRematch = async () => {
+    if (!quizId || rematchLoading) return;
+    
+    setRematchLoading(true);
+    haptic.medium();
+    
+    try {
+      if (isAIMode) {
+        // Для AI-бота создаём новую дуэль в режиме AI
+        const response = await api.post<{
+          ok: boolean;
+          duel?: { id: string };
+          error?: string;
+        }>("/api/duels", {
+          mode: "ai",
+          quizId,
+        });
+        
+        if (response.ok && response.duel) {
+          haptic.success();
+          router.replace(`/miniapp/duels/${response.duel.id}`);
+        } else {
+          console.error("[Rematch] AI duel failed:", response.error);
+          haptic.error();
+          setRematchLoading(false);
+        }
+      } else if (oppPlayer?.odId && friendStatus === "friend") {
+        // Для друга создаём дуэль напрямую
+        const response = await api.post<{
+          ok: boolean;
+          duel?: { id: string };
+          error?: string;
+        }>("/api/duels", {
+          opponentId: oppPlayer.odId,
+          quizId,
+        });
+        
+        if (response.ok && response.duel) {
+          haptic.success();
+          router.replace(`/miniapp/duels/${response.duel.id}`);
+        } else if (response.error === "DUEL_ALREADY_EXISTS") {
+          // Уже есть активная дуэль
+          haptic.warning();
+          setRematchLoading(false);
+        } else {
+          console.error("[Rematch] Friend duel failed:", response.error);
+          haptic.error();
+          setRematchLoading(false);
+        }
+      } else {
+        // Не друг и не AI — переходим в быстрый поиск
+        router.push("/miniapp/duels/quick");
+      }
+    } catch (error) {
+      console.error("[Rematch] Error:", error);
+      haptic.error();
+      setRematchLoading(false);
     }
   };
 
@@ -1064,13 +1124,11 @@ function FinishScreen({
           className="flex gap-3"
         >
           <button
-            onClick={() => {
-              haptic.medium();
-              onRematch();
-            }}
-            className="flex-1 py-4 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 font-medium transition-all active:scale-95"
+            onClick={handleRematch}
+            disabled={rematchLoading || !quizId}
+            className="flex-1 py-4 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            🔄 Реванш
+            {rematchLoading ? "⏳ Создаём..." : "🔄 Реванш"}
           </button>
           <button
             onClick={() => {
