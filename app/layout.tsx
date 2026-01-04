@@ -92,6 +92,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${playfair.variable} ${manrope.variable} antialiased`}
+        suppressHydrationWarning
       >
         {/* ═══════════════════════════════════════════════════════════════
             STATIC LOADING — Shows IMMEDIATELY before JS loads

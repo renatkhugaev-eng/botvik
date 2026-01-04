@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Skeleton } from "@/components/Skeleton";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LAZY LOADING COMPONENTS
