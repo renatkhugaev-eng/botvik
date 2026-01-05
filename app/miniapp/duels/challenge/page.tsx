@@ -155,7 +155,7 @@ export default function ChallengePage() {
   if (session.status !== "ready") return null;
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] px-4 py-6">
+    <div className="relative min-h-screen bg-[#0a0a0f] px-4 py-6 pb-28">
       {/* Background texture */}
       <div 
         className="pointer-events-none absolute inset-0 opacity-[0.02]"

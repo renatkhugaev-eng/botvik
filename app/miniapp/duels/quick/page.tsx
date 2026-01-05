@@ -223,7 +223,7 @@ export default function QuickDuelPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.5)_100%)] z-0" />
 
       {/* Content */}
-      <div className="relative z-10 px-4 py-6 pb-28">
+      <div className="relative z-10 px-4 py-6 pb-36">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <button
