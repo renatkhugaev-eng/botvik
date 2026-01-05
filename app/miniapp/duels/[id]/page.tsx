@@ -862,7 +862,8 @@ function FinishScreen({
 
   // Polling: проверяем есть ли входящий реванш от противника
   useEffect(() => {
-    if (!oppPlayer?.odId || isAIMode) return;
+    // Не polling если: нет противника, AI режим, или уже отправили свой вызов
+    if (!oppPlayer?.odId || isAIMode || rematchSent || !quizId) return;
     
     let cancelled = false;
     
@@ -876,16 +877,19 @@ function FinishScreen({
             challengerId: number;
             quizId: number;
             challenger: { id: number };
+            quiz?: { id: number };
           }>;
         }>("/api/duels");
         
         if (cancelled) return;
         
         if (response.ok && response.incoming) {
-          // Ищем входящий вызов от этого противника
-          const rematchDuel = response.incoming.find(
-            d => d.challengerId === oppPlayer.odId || d.challenger?.id === oppPlayer.odId
-          );
+          // Ищем входящий вызов от этого противника С ТЕМ ЖЕ КВИЗОМ
+          const rematchDuel = response.incoming.find(d => {
+            const isFromOpponent = d.challengerId === oppPlayer.odId || d.challenger?.id === oppPlayer.odId;
+            const isSameQuiz = d.quizId === quizId || d.quiz?.id === quizId;
+            return isFromOpponent && isSameQuiz;
+          });
           
           if (rematchDuel) {
             setIncomingRematch({ duelId: rematchDuel.id });
@@ -894,7 +898,7 @@ function FinishScreen({
           }
         }
       } catch {
-        // Ignore errors
+        // Ignore errors — silent fail
       }
     };
     
@@ -906,7 +910,7 @@ function FinishScreen({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [oppPlayer?.odId, quizId, isAIMode]);
+  }, [oppPlayer?.odId, quizId, isAIMode, rematchSent]);
 
   // Проверяем статус дружбы при загрузке
   useEffect(() => {
