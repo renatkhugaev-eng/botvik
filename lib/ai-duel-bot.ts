@@ -592,6 +592,7 @@ export function isAITelegramId(telegramId: string): boolean {
 export interface AIWorkerParams {
   duelId: string;
   botUserId: number;
+  humanUserId: number; // ID реального игрока для синхронизации
   difficulty: AIBotDifficulty;
   questions: QuestionWithAnswers[];
   questionTimeLimitSeconds: number;
@@ -601,24 +602,72 @@ export interface AIWorkerParams {
 const AI_READY_DELAY_MS = 1500;      // Время пока AI "подключится" и нажмёт "Готов"
 const COUNTDOWN_DURATION_MS = 3500;   // 3 секунды countdown + буфер
 const REVEAL_DURATION_MS = 2500;      // Время показа правильного ответа
+const POLL_INTERVAL_MS = 300;         // Интервал проверки ответа игрока
+const MAX_WAIT_FOR_PLAYER_MS = 60000; // Максимальное ожидание ответа игрока (60с)
+
+/**
+ * Ждать пока реальный игрок ответит на вопрос
+ * Возвращает true если игрок ответил, false если timeout или дуэль завершена
+ */
+async function waitForPlayerAnswer(
+  duelId: string,
+  humanUserId: number,
+  questionIndex: number,
+  maxWaitMs: number = MAX_WAIT_FOR_PLAYER_MS
+): Promise<boolean> {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < maxWaitMs) {
+    // Проверяем не завершена ли дуэль
+    const duel = await prisma.duel.findUnique({
+      where: { id: duelId },
+      select: { status: true },
+    });
+    
+    if (!duel || duel.status === "FINISHED" || duel.status === "CANCELLED") {
+      console.log(`[AI Worker] Duel ${duelId} ended while waiting for player`);
+      return false;
+    }
+    
+    // Проверяем есть ли ответ игрока на этот вопрос
+    const playerAnswer = await prisma.duelAnswer.findUnique({
+      where: {
+        duelId_userId_questionIndex: {
+          duelId,
+          userId: humanUserId,
+          questionIndex,
+        },
+      },
+    });
+    
+    if (playerAnswer) {
+      console.log(`[AI Worker] Player answered Q${questionIndex}, now AI will respond`);
+      return true;
+    }
+    
+    await sleep(POLL_INTERVAL_MS);
+  }
+  
+  console.log(`[AI Worker] Timeout waiting for player on Q${questionIndex}`);
+  return false;
+}
 
 /**
  * Запустить AI-воркер для игры в дуэль
  * 
- * ВАЖНО: Эта функция НЕ блокирует запрос — она запускается асинхронно
- * и отвечает на вопросы с задержками, имитируя реального игрока.
+ * РЕАЛИСТИЧНОЕ ПОВЕДЕНИЕ:
+ * - С вероятностью 40% AI ждёт пока игрок ответит, потом отвечает (медленнее игрока)
+ * - С вероятностью 60% AI отвечает по своему таймеру (может быть быстрее игрока)
+ * - Задержки варьируются от 2 до 12 секунд в зависимости от сложности
  * 
- * TIMING:
- * - Ждём пока игрок нажмёт "Готов" (~2с после start)
- * - Ждём countdown (3с)
- * - Начинаем отвечать на вопросы
+ * Это создаёт непредсказуемое поведение, похожее на реального человека.
  */
 export async function runAIWorker(params: AIWorkerParams): Promise<void> {
-  const { duelId, botUserId, difficulty, questions, questionTimeLimitSeconds } = params;
+  const { duelId, botUserId, humanUserId, difficulty, questions, questionTimeLimitSeconds } = params;
   const config = DIFFICULTY_PRESETS[difficulty];
 
   console.log(
-    `[AI Worker] Starting for duel ${duelId}, bot ${botUserId}, ` +
+    `[AI Worker] Starting for duel ${duelId}, bot ${botUserId}, human ${humanUserId}, ` +
     `difficulty ${difficulty}, ${questions.length} questions`
   );
 
@@ -630,6 +679,7 @@ export async function runAIWorker(params: AIWorkerParams): Promise<void> {
 
   for (let i = 0; i < questions.length; i++) {
     const question = questions[i];
+    const questionStartTime = Date.now();
 
     // Проверяем не завершена ли уже дуэль
     const duel = await prisma.duel.findUnique({
@@ -642,22 +692,81 @@ export async function runAIWorker(params: AIWorkerParams): Promise<void> {
       break;
     }
 
-    // Симулируем задержку
-    const timeSpent = await simulateHumanDelay(config);
-
-    // Проверяем не превысили ли лимит времени
-    const effectiveTimeSpent = Math.min(timeSpent, questionTimeLimitSeconds * 1000);
-
-    // Если время вышло — отправляем timeout (null optionId)
-    if (timeSpent > questionTimeLimitSeconds * 1000) {
-      await recordAIAnswer(duelId, botUserId, i, 0, false, effectiveTimeSpent);
-      console.log(`[AI Worker] Q${i} timeout (took ${timeSpent}ms > ${questionTimeLimitSeconds * 1000}ms)`);
+    // ═══ СТРАТЕГИЯ ОТВЕТА ═══
+    // С вероятностью 40% ждём пока игрок ответит (AI медленнее)
+    // С вероятностью 60% отвечаем по своему таймеру (AI может быть быстрее)
+    const waitForPlayer = Math.random() < 0.4;
+    
+    // Время "раздумий" AI для этого вопроса
+    let thinkTimeMs = randomBetween(config.minResponseMs, config.maxResponseMs);
+    
+    // Добавляем шанс AFK (залипание)
+    if (Math.random() < config.afkProbability) {
+      const afkTime = randomBetween(config.afkDurationMs[0], config.afkDurationMs[1]);
+      thinkTimeMs += afkTime;
+      console.log(`[AI Worker] Q${i} AFK pause: +${afkTime}ms`);
+    }
+    
+    if (waitForPlayer) {
+      // Стратегия: ждём игрока, потом быстро отвечаем
+      console.log(`[AI Worker] Q${i} waiting for player first...`);
+      
+      const playerAnswered = await waitForPlayerAnswer(
+        duelId, 
+        humanUserId, 
+        i, 
+        questionTimeLimitSeconds * 1000
+      );
+      
+      if (!playerAnswered) {
+        // Дуэль завершена или таймаут — выходим
+        break;
+      }
+      
+      // Игрок ответил — добавляем короткую задержку и отвечаем
+      const reactionTime = randomBetween(800, 2500);
+      console.log(`[AI Worker] Q${i} player answered, AI responding in ${reactionTime}ms`);
+      await sleep(reactionTime);
+      thinkTimeMs = reactionTime; // Для записи в БД
+      
+    } else {
+      // Стратегия: отвечаем по своему таймеру
+      console.log(`[AI Worker] Q${i} thinking for ${thinkTimeMs}ms...`);
+      await sleep(thinkTimeMs);
+    }
+    
+    // Проверяем лимит времени на вопрос
+    const elapsedMs = Date.now() - questionStartTime;
+    const questionTimeoutMs = questionTimeLimitSeconds * 1000;
+    
+    if (elapsedMs >= questionTimeoutMs) {
+      // Время вышло — AI не успел ответить
+      console.log(`[AI Worker] Q${i} timeout (${elapsedMs}ms >= ${questionTimeoutMs}ms)`);
+      // Ждём reveal и переход к следующему вопросу
+      await sleep(REVEAL_DURATION_MS + randomBetween(200, 500));
       continue;
     }
-
+    
+    // Проверяем не завершена ли дуэль после ожидания
+    const duelCheck = await prisma.duel.findUnique({
+      where: { id: duelId },
+      select: { status: true },
+    });
+    
+    if (!duelCheck || duelCheck.status === "FINISHED" || duelCheck.status === "CANCELLED") {
+      console.log(`[AI Worker] Duel ${duelId} ended, stopping`);
+      break;
+    }
+    
     // Выбираем и записываем ответ
     const { optionId, isCorrect } = selectAIAnswer(question, config);
-    await recordAIAnswer(duelId, botUserId, i, optionId, isCorrect, effectiveTimeSpent);
+    await recordAIAnswer(duelId, botUserId, i, optionId, isCorrect, Math.round(thinkTimeMs));
+    
+    console.log(`[AI Worker] Q${i} answered: optionId=${optionId}, correct=${isCorrect}`);
+
+    // ═══ ЖДЁМ ПОКА ИГРОК ТОЖЕ ОТВЕТИТ (если ещё не ответил) ═══
+    // Это нужно для синхронизации с reveal периодом
+    await waitForPlayerAnswer(duelId, humanUserId, i, 30000);
 
     // Пауза между вопросами (reveal time на клиенте = 2.5с)
     await sleep(REVEAL_DURATION_MS + randomBetween(200, 500));

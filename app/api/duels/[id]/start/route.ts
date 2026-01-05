@@ -203,6 +203,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })),
       }));
       
+      // Определяем ID реального игрока (не бота)
+      const humanUserId = duel.challenger.id;
+      
       // Запускаем AI-воркер в background через after()
       // after() гарантирует что код выполнится после отправки ответа клиенту
       // и функция не "умрёт" до завершения AI worker
@@ -212,6 +215,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           await runAIWorker({
             duelId: id,
             botUserId: duel.opponent.id,
+            humanUserId: humanUserId,
             difficulty: aiDifficulty,
             questions: questionsForAI,
             questionTimeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
