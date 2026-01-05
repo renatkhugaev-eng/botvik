@@ -38,6 +38,9 @@ interface UseDetectiveInstinctProps {
   /** Текущее направление камеры */
   currentHeading: number;
   
+  /** Текущий panoId панорамы (для реальных миссий) */
+  currentPanoId: string | null;
+  
   /** Текущий шаг (для виртуальных panoId) */
   stepCount: number;
   
@@ -133,34 +136,73 @@ function distanceToLevel(distance: number, maxRadius: number): InstinctLevel {
 }
 
 /**
- * Проверяет соответствует ли виртуальный panoId текущему шагу
- * Поддерживает: START, STEP_N, STEP_N+, STEP_N-M, ANY
+ * Проверяет, является ли panoId виртуальным (STEP_N, START и т.д.)
+ */
+function isVirtualPanoId(panoId: string): boolean {
+  return (
+    panoId === "START" ||
+    panoId === "ANY" ||
+    panoId.startsWith("STEP_")
+  );
+}
+
+/**
+ * Проверяет соответствует ли panoId улики текущей панораме
+ * 
+ * Поддерживаемые форматы:
+ * 
+ * ВИРТУАЛЬНЫЕ (для демо-миссий):
+ * - "START" → шаг 0
+ * - "STEP_N" → точно шаг N
+ * - "STEP_N+" → шаг N и выше
+ * - "STEP_N-M" → диапазон шагов
+ * - "ANY" → любой шаг
+ * 
+ * РЕАЛЬНЫЕ (для сгенерированных миссий):
+ * - Любой другой ID — точное совпадение с currentPanoId
+ */
+function matchesPanoId(
+  cluePanoId: string,
+  currentPanoId: string | null,
+  stepCount: number
+): boolean {
+  // Виртуальные panoId (демо-миссии)
+  if (isVirtualPanoId(cluePanoId)) {
+    if (cluePanoId === "START") return stepCount === 0;
+    if (cluePanoId === "ANY") return true;
+    
+    // STEP_N-M (диапазон)
+    const rangeMatch = cluePanoId.match(/^STEP_(\d+)-(\d+)$/);
+    if (rangeMatch) {
+      const min = parseInt(rangeMatch[1], 10);
+      const max = parseInt(rangeMatch[2], 10);
+      return stepCount >= min && stepCount <= max;
+    }
+    
+    // STEP_N+ (N и выше)
+    const plusMatch = cluePanoId.match(/^STEP_(\d+)\+$/);
+    if (plusMatch) {
+      return stepCount >= parseInt(plusMatch[1], 10);
+    }
+    
+    // STEP_N (точный шаг)
+    const exactMatch = cluePanoId.match(/^STEP_(\d+)$/);
+    if (exactMatch) {
+      return stepCount === parseInt(exactMatch[1], 10);
+    }
+    
+    return false;
+  }
+  
+  // Реальные panoId (сгенерированные миссии) — точное совпадение
+  return cluePanoId === currentPanoId;
+}
+
+/**
+ * Проверяет соответствует ли виртуальный panoId текущему шагу (для обратной совместимости)
  */
 function matchesVirtualPanoId(cluePanoId: string, stepCount: number): boolean {
-  if (cluePanoId === "START") return stepCount === 0;
-  if (cluePanoId === "ANY") return true;
-  
-  // STEP_N-M (диапазон)
-  const rangeMatch = cluePanoId.match(/^STEP_(\d+)-(\d+)$/);
-  if (rangeMatch) {
-    const min = parseInt(rangeMatch[1], 10);
-    const max = parseInt(rangeMatch[2], 10);
-    return stepCount >= min && stepCount <= max;
-  }
-  
-  // STEP_N+ (N и выше)
-  const plusMatch = cluePanoId.match(/^STEP_(\d+)\+$/);
-  if (plusMatch) {
-    return stepCount >= parseInt(plusMatch[1], 10);
-  }
-  
-  // STEP_N (точный шаг)
-  const exactMatch = cluePanoId.match(/^STEP_(\d+)$/);
-  if (exactMatch) {
-    return stepCount === parseInt(exactMatch[1], 10);
-  }
-  
-  return false;
+  return matchesPanoId(cluePanoId, null, stepCount);
 }
 
 /**
@@ -216,6 +258,7 @@ export function useDetectiveInstinct({
   clues,
   clueStates,
   currentHeading,
+  currentPanoId,
   stepCount,
   enabled = true,
   config: userConfig,
@@ -262,9 +305,10 @@ export function useDetectiveInstinct({
       if (!state || state.state === "collected" || state.state === "revealed" || state.state === "revealing") {
         return false;
       }
-      return matchesVirtualPanoId(clue.panoId, stepCount);
+      // Используем matchesPanoId для поддержки реальных panoId
+      return matchesPanoId(clue.panoId, currentPanoId, stepCount);
     });
-  }, [clues, clueStates, stepCount]);
+  }, [clues, clueStates, currentPanoId, stepCount]);
   
   // ─── Upcoming clues (будут доступны в ближайших 5 шагах) ───
   const upcomingClues = useMemo(() => {

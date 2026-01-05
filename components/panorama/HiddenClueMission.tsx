@@ -152,6 +152,7 @@ export function HiddenClueMission({
     clues: mission.clues,
     clueStates,
     currentHeading,
+    currentPanoId, // <-- Добавлено для поддержки реальных panoId
     stepCount,
     enabled: phase === "playing",
     onInstinctEvent: useCallback((event: InstinctEvent) => {
