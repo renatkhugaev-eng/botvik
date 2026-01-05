@@ -98,11 +98,25 @@ function ChatContent({ user }: ChatContentProps) {
     scrollToBottom(messagesContainerRef.current);
   }, [messages, scrollToBottom]);
   
-  // Закрытие picker при скролле (throttled)
+  // Закрытие picker при значительном скролле (не от клика)
+  const lastScrollTop = useRef(0);
+  const pickerOpenedAt = useRef<number>(0);
+  
   const handleScroll = useCallback(() => {
-    // Throttle: закрываем только раз за 100ms
-    if (scrollTimeoutRef.current) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
     
+    // Игнорируем если picker только что открылся (300ms защита от микро-скролла при клике)
+    if (Date.now() - pickerOpenedAt.current < 300) return;
+    
+    // Игнорируем микро-скроллы (меньше 10px)
+    const scrollDelta = Math.abs(container.scrollTop - lastScrollTop.current);
+    lastScrollTop.current = container.scrollTop;
+    
+    if (scrollDelta < 10) return;
+    
+    // Throttle
+    if (scrollTimeoutRef.current) return;
     scrollTimeoutRef.current = setTimeout(() => {
       scrollTimeoutRef.current = null;
     }, 100);
@@ -273,9 +287,15 @@ function ChatContent({ user }: ChatContentProps) {
                     {/* Message bubble with reactions */}
                     <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation(); // Предотвращаем всплытие
                           haptic.light();
-                          setReactionPickerFor(reactionPickerFor === msg.id ? null : msg.id);
+                          if (reactionPickerFor === msg.id) {
+                            setReactionPickerFor(null);
+                          } else {
+                            pickerOpenedAt.current = Date.now();
+                            setReactionPickerFor(msg.id);
+                          }
                         }}
                         className={`rounded-2xl px-4 py-2.5 text-left transition-all ${
                           isOwn
