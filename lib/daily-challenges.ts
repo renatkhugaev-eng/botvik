@@ -401,88 +401,94 @@ interface UpdateProgressParams {
 
 /**
  * Обновить прогресс по заданию
+ * ВАЖНО: Обёрнуто в try-catch чтобы ошибки не влияли на основную логику
  */
 export async function updateChallengeProgress(params: UpdateProgressParams): Promise<void> {
-  const { userId, type, increment = 1, setValue, checkPerfect, checkStreak } = params;
-  
-  // Проверяем что это не бот (боты не участвуют в Daily Challenges)
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { isBot: true },
-  });
-  
-  if (user?.isBot) {
-    return; // Боты не получают прогресс по заданиям
-  }
-  
-  const today = getTodayUTC();
-  
-  // Находим задание этого типа на сегодня
-  const challenge = await prisma.dailyChallenge.findFirst({
-    where: {
-      date: today,
-      definition: { type },
-    },
-    include: { definition: true },
-  });
-  
-  if (!challenge) {
-    // Нет задания этого типа сегодня
-    return;
-  }
-  
-  // Получаем или создаём прогресс пользователя (FIX: race condition)
-  const userProgress = await prisma.userDailyChallenge.upsert({
-    where: {
-      userId_challengeId: {
+  try {
+    const { userId, type, increment = 1, setValue, checkPerfect, checkStreak } = params;
+    
+    // Проверяем что это не бот (боты не участвуют в Daily Challenges)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isBot: true },
+    });
+    
+    if (user?.isBot) {
+      return; // Боты не получают прогресс по заданиям
+    }
+    
+    const today = getTodayUTC();
+    
+    // Находим задание этого типа на сегодня
+    const challenge = await prisma.dailyChallenge.findFirst({
+      where: {
+        date: today,
+        definition: { type },
+      },
+      include: { definition: true },
+    });
+    
+    if (!challenge) {
+      // Нет задания этого типа сегодня — это нормально
+      return;
+    }
+    
+    // Получаем или создаём прогресс пользователя (FIX: race condition)
+    const userProgress = await prisma.userDailyChallenge.upsert({
+      where: {
+        userId_challengeId: {
+          userId,
+          challengeId: challenge.id,
+        },
+      },
+      create: {
         userId,
         challengeId: challenge.id,
+        currentValue: 0,
       },
-    },
-    create: {
-      userId,
-      challengeId: challenge.id,
-      currentValue: 0,
-    },
-    update: {},
-  });
-  
-  if (userProgress.isCompleted) {
-    // Уже выполнено
-    return;
+      update: {},
+    });
+    
+    if (userProgress.isCompleted) {
+      // Уже выполнено
+      return;
+    }
+    
+    // Вычисляем новое значение
+    let newValue: number;
+    
+    if (setValue !== undefined) {
+      newValue = setValue;
+    } else if (type === DailyChallengeType.PERFECT_DUEL && checkPerfect) {
+      // Для идеальной победы: если checkPerfect=true, засчитываем
+      newValue = userProgress.currentValue + 1;
+    } else if (type === DailyChallengeType.ANSWER_STREAK && checkStreak !== undefined) {
+      // Для серии: сохраняем лучший результат
+      newValue = Math.max(userProgress.currentValue, checkStreak);
+    } else {
+      newValue = userProgress.currentValue + increment;
+    }
+    
+    // Проверяем выполнение
+    const isCompleted = newValue >= challenge.definition.targetValue;
+    
+    // Обновляем
+    await prisma.userDailyChallenge.update({
+      where: { id: userProgress.id },
+      data: {
+        currentValue: newValue,
+        isCompleted,
+        completedAt: isCompleted && !userProgress.isCompleted ? new Date() : undefined,
+      },
+    });
+    
+    console.log(
+      `[DailyChallenges] Updated progress for user ${userId}: ${type} ${newValue}/${challenge.definition.targetValue} (completed: ${isCompleted})`
+    );
+  } catch (error) {
+    // Логируем ошибку, но не бросаем — не влияем на основную логику дуэли/квиза
+    console.error(`[DailyChallenges] Error updating progress:`, error);
   }
-  
-  // Вычисляем новое значение
-  let newValue: number;
-  
-  if (setValue !== undefined) {
-    newValue = setValue;
-  } else if (type === DailyChallengeType.PERFECT_DUEL && checkPerfect) {
-    // Для идеальной победы: если checkPerfect=true, засчитываем
-    newValue = userProgress.currentValue + 1;
-  } else if (type === DailyChallengeType.ANSWER_STREAK && checkStreak !== undefined) {
-    // Для серии: обновляем если текущая серия >= target
-    newValue = Math.max(userProgress.currentValue, checkStreak);
-  } else {
-    newValue = userProgress.currentValue + increment;
-  }
-  
-  // Проверяем выполнение
-  const isCompleted = newValue >= challenge.definition.targetValue;
-  
-  // Обновляем
-  await prisma.userDailyChallenge.update({
-    where: { id: userProgress.id },
-    data: {
-      currentValue: newValue,
-      isCompleted,
-      completedAt: isCompleted && !userProgress.isCompleted ? new Date() : undefined,
-    },
-  });
-  
-  console.log(
-    `[DailyChallenges] Updated progress for user ${userId}: ${type} ${newValue}/${challenge.definition.targetValue} (completed: ${isCompleted})`
-  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
