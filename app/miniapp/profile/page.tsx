@@ -594,80 +594,101 @@ export default function ProfilePage() {
       onRefresh={handleRefresh} 
       scrollRef={scrollRef}
     >
-    <div className={`relative flex flex-col gap-6 min-h-screen bg-gradient-to-b from-violet-50/50 via-background to-background dark:from-violet-950/20 px-4 pt-3 pb-24 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
-      {/* Header */}
+    <div className={`relative flex flex-col gap-6 min-h-screen bg-gradient-to-b from-[#f5f5f7] to-[#e8e8ec] px-4 pt-3 pb-24 w-full overflow-x-hidden ${isScrolling && !isIOS ? "perf" : ""}`}>
+      {/* Header — стиль как на главной */}
       <motion.header 
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={spring}
-        className="relative z-20 flex items-center justify-between py-3"
+        className="relative z-20 flex h-14 items-center justify-between"
       >
-        <Button
-          variant="outline"
-          size="icon"
+        {/* Back button — белая с тенью как на главной */}
+        <motion.button
+          whileTap={{ scale: 0.92 }}
           onClick={() => {
             haptic.light();
             router.back();
           }}
-          className="h-11 w-11 rounded-2xl border-2 shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-all duration-200 bg-white/80 backdrop-blur-sm"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
-        </Button>
+        </motion.button>
         
-        <Badge className="rounded-full px-5 py-2.5 text-sm font-bold bg-white/90 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.1)] border-0 text-foreground">
-          <div className={`h-2.5 w-2.5 rounded-full ${isViewingOther ? "bg-blue-500" : "bg-gradient-to-r from-violet-500 to-purple-500"} animate-pulse mr-2`} />
-          {isViewingOther ? `👤 ${displayName}` : "Профиль"}
-        </Badge>
+        {/* Center badge — тёмный стиль как счётчик игроков */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-4 py-2"
+        >
+          <div className={`h-2 w-2 rounded-full ${isViewingOther ? "bg-blue-500" : "bg-gradient-to-r from-cyan-400 to-violet-500"} animate-pulse`} />
+          <span className="text-sm font-bold text-white">
+            {isViewingOther ? displayName : "Профиль"}
+          </span>
+        </motion.div>
         
+        {/* Right buttons */}
         <div className="flex items-center gap-2">
           {!isViewingOther && (
-            <Button
-              variant="default"
-              size="icon"
+            <motion.button
+              whileTap={{ scale: 0.92 }}
               onClick={() => {
                 haptic.medium();
                 router.push("/miniapp/shop");
               }}
-              className="h-11 w-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 shadow-[0_8px_20px_-4px_rgba(251,146,60,0.5)] hover:shadow-[0_12px_28px_-4px_rgba(251,146,60,0.6)] border-0 transition-all duration-200"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/25"
             >
               <span className="text-lg">🛒</span>
-            </Button>
+            </motion.button>
           )}
           
           {!isViewingOther && data.user.telegramId === "5731136459" && (
-            <Button
-              variant="default"
-              size="icon"
+            <motion.button
+              whileTap={{ scale: 0.92 }}
               onClick={() => {
                 haptic.medium();
                 window.open("/admin", "_blank");
               }}
-              className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-[0_8px_20px_-4px_rgba(139,92,246,0.5)] hover:shadow-[0_12px_28px_-4px_rgba(139,92,246,0.6)] border-0 transition-all duration-200"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25"
             >
               <span className="text-lg">⚙️</span>
-            </Button>
+            </motion.button>
           )}
         </div>
       </motion.header>
 
-      {/* Hero Section - Gradient Background */}
+      {/* Hero Section - Purple Gradient Glassmorphism */}
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...smoothSpring, delay: 0.1 }}
         className="relative"
       >
-        {/* Animated gradient background */}
-        <div className="absolute -inset-4 -top-20 bg-gradient-to-br from-violet-600/30 via-purple-500/20 to-fuchsia-500/30 blur-3xl opacity-60 pointer-events-none" />
+        {/* Strong purple glow effect */}
+        <div 
+          className="absolute -inset-4 rounded-3xl pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(139, 92, 246, 0.35) 0%, rgba(124, 58, 237, 0.15) 50%, transparent 70%)',
+          }}
+        />
         
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 shadow-[0_20px_70px_-15px_rgba(139,92,246,0.5)] dark:shadow-[0_20px_70px_-15px_rgba(139,92,246,0.3)]">
-          {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div 
+          className="relative overflow-hidden rounded-[20px] p-1"
+          style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(124, 58, 237, 0.3) 50%, rgba(99, 102, 241, 0.4) 100%)',
+            boxShadow: '0 8px 32px rgba(139, 92, 246, 0.4), 0 0 80px rgba(139, 92, 246, 0.2)',
+          }}
+        >
+          {/* Animated gradient border */}
+          <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/40 via-purple-500/30 to-indigo-500/40 opacity-80 animate-pulse pointer-events-none" />
           
-          <CardContent className="relative p-6 text-white">
+          {/* Decorative elements - stronger glow */}
+          <div className="absolute top-0 right-0 w-48 h-48 bg-violet-500/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500/25 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+          
+          <div className="relative rounded-[16px] bg-gradient-to-br from-[#1a1030] via-[#1e1040] to-[#15102a] p-6 text-white">
             {/* Top section: Avatar + Info */}
             <div className="flex items-start gap-5">
               {/* Avatar — Clean Minimal */}
@@ -800,87 +821,74 @@ export default function ProfilePage() {
                 </span>
                 <span className="font-mono tabular-nums font-bold">{xp.xpInCurrentLevel} / {xp.xpNeededForNext} XP</span>
               </div>
-              {/* Custom progress bar */}
-              <div className="h-4 rounded-full bg-white/20 backdrop-blur-sm overflow-hidden shadow-inner">
+              {/* Custom progress bar - Clean */}
+              <div className="h-3 rounded-full bg-white/10 overflow-hidden">
                 <motion.div 
-                  className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 rounded-full shadow-lg relative"
+                  className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ delay: 0.8, duration: 1, ease: "easeOut" }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent" />
-                  <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-r from-transparent to-white/50 animate-pulse" />
-                </motion.div>
+                />
               </div>
               <p className="text-xs text-white/60 mt-1.5 text-center font-medium">
                 Всего: {(xp.total ?? 0).toLocaleString()} XP
               </p>
             </motion.div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </motion.div>
 
-      {/* Score Card - Glass morphism */}
+      {/* Quick Stats Pills - Oval & Harmonious */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.5, type: "spring" }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="flex justify-center gap-2.5 -mt-2"
       >
-        <Card className="overflow-hidden border-0 bg-card/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <motion.span 
-                    className="text-3xl"
-                    animate={{ rotate: [0, -10, 10, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                  >
-                    💎
-                  </motion.span>
-                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Всего очков</p>
-                </div>
-                <p className="text-5xl font-black tracking-tighter tabular-nums bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
-                  {animatedScore.toLocaleString()}
-                </p>
-              </div>
-              
-              {/* Mini stats */}
-              <div className="flex gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold tabular-nums text-violet-600">{animatedGames}</p>
-                  <p className="text-xs text-muted-foreground font-medium">игр</p>
-                </div>
-                <div className="h-10 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
-                <div className="text-center">
-                  <p className="text-2xl font-bold tabular-nums text-emerald-600">{animatedCorrect}</p>
-                  <p className="text-xs text-muted-foreground font-medium">верных</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Global Rank */}
-            {globalRankText && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
-                className="mt-4 flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30"
-              >
-                <span className="text-xl">🏆</span>
-                <span className="text-sm text-muted-foreground font-medium">
-                  Место в рейтинге:
-                </span>
-                <Badge className={`${data.stats.globalRank && data.stats.globalRank <= 3 
-                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0" 
-                  : ""}`}
-                >
-                  {globalRankText}
-                </Badge>
-              </motion.div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Score */}
+        <div 
+          className="flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5"
+          style={{
+            background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+            boxShadow: '0 3px 12px rgba(124, 58, 237, 0.3)',
+          }}
+        >
+          <span className="text-lg">💎</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-[15px] font-bold text-white tabular-nums">{animatedScore.toLocaleString()}</span>
+            <span className="text-[10px] text-white/70 font-medium">очк.</span>
+          </div>
+        </div>
+        
+        {/* Games */}
+        <div 
+          className="flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5"
+          style={{
+            background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)',
+            boxShadow: '0 3px 12px rgba(16, 185, 129, 0.3)',
+          }}
+        >
+          <span className="text-lg">🎮</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-[15px] font-bold text-white tabular-nums">{animatedGames}</span>
+            <span className="text-[10px] text-white/70 font-medium">игр</span>
+          </div>
+        </div>
+        
+        {/* Rank */}
+        <div 
+          className="flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5"
+          style={{
+            background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
+            boxShadow: '0 3px 12px rgba(245, 158, 11, 0.3)',
+          }}
+        >
+          <span className="text-lg">🏆</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-[15px] font-bold text-white tabular-nums">{data.stats.globalRank ?? "—"}</span>
+            <span className="text-[10px] text-white/70 font-medium">место</span>
+          </div>
+        </div>
       </motion.div>
       
       {/* Profile 2.0: Currently Playing */}
@@ -905,283 +913,299 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <Card className="overflow-hidden border-0 bg-card/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
-            <CardContent className="p-4">
-              <AchievementShowcase achievementIds={profile2Data.showcaseAchievements} size="md" />
-            </CardContent>
-          </Card>
+          <div 
+            className="overflow-hidden rounded-2xl bg-white p-4"
+            style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+          >
+            <AchievementShowcase achievementIds={profile2Data.showcaseAchievements} size="md" />
+          </div>
         </motion.div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs — тёмный стиль как на главной */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
         <Tabs value={activeTab} onValueChange={(v) => { haptic.selection(); setActiveTab(v); }} className="w-full">
-          <TabsList className="w-full h-auto p-1.5 grid grid-cols-3 lg:grid-cols-5 gap-1 bg-muted/60 backdrop-blur-sm rounded-2xl shadow-[inset_0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.2)]">
-            <TabsTrigger 
-              value="stats" 
-              className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-violet-600 font-semibold transition-all duration-200"
-            >
-              <span className="mr-1">📊</span> Стата
-            </TabsTrigger>
-            <TabsTrigger 
-              value="achievements" 
-              className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-amber-600 font-semibold transition-all duration-200"
-            >
-              <span className="mr-1">🏆</span> Ачивки
-            </TabsTrigger>
-            <TabsTrigger 
-              value="history" 
-              className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-emerald-600 font-semibold transition-all duration-200"
-            >
-              <span className="mr-1">🏅</span> Рекорды
-            </TabsTrigger>
-            {!isViewingOther && (
-              <>
-                <TabsTrigger 
-                  value="inventory" 
-                  className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-rose-600 font-semibold transition-all duration-200"
-                >
-                  <span className="mr-1">🎒</span> Инвент.
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="friends" 
-                  className="text-xs py-2.5 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_12px_rgba(0,0,0,0.1)] data-[state=active]:text-blue-600 font-semibold transition-all duration-200 relative"
-                >
-                  <span className="mr-1">👥</span> Друзья
-                  {incomingRequests.length > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-1.5 text-[10px] font-bold text-white shadow-[0_4px_12px_rgba(244,63,94,0.4)] animate-bounce">
-                      {incomingRequests.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </>
-            )}
-          </TabsList>
+          <div 
+            className="overflow-hidden rounded-2xl bg-[#1a1a2e]/95 p-1.5"
+            style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
+          >
+            <TabsList className="w-full h-auto p-0 grid grid-cols-3 lg:grid-cols-5 gap-1 bg-transparent">
+              <TabsTrigger 
+                value="stats" 
+                className="text-xs py-2.5 rounded-xl text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30 font-semibold transition-all duration-200"
+              >
+                <span className="mr-1">📊</span> Стата
+              </TabsTrigger>
+              <TabsTrigger 
+                value="achievements" 
+                className="text-xs py-2.5 rounded-xl text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 font-semibold transition-all duration-200"
+              >
+                <span className="mr-1">🏆</span> Ачивки
+              </TabsTrigger>
+              <TabsTrigger 
+                value="history" 
+                className="text-xs py-2.5 rounded-xl text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 font-semibold transition-all duration-200"
+              >
+                <span className="mr-1">🏅</span> Рекорды
+              </TabsTrigger>
+              {!isViewingOther && (
+                <>
+                  <TabsTrigger 
+                    value="inventory" 
+                    className="text-xs py-2.5 rounded-xl text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-rose-500/30 font-semibold transition-all duration-200"
+                  >
+                    <span className="mr-1">🎒</span> Инвент.
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="friends" 
+                    className="text-xs py-2.5 rounded-xl text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 font-semibold transition-all duration-200 relative"
+                  >
+                    <span className="mr-1">👥</span> Друзья
+                    {incomingRequests.length > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-1.5 text-[10px] font-bold text-white shadow-lg animate-bounce">
+                        {incomingRequests.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </div>
 
           {/* Stats Tab */}
           <TabsContent value="stats" className="mt-4 space-y-4">
-            {/* Stats Grid - Colorful (only for own profile) */}
+            {/* Stats Grid - Dark Glassmorphism (only for own profile) */}
             {!isViewingOther && (
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: "🎮", label: "Игры", value: data.stats.totalQuizzesPlayed ?? 0, gradient: "from-violet-500 to-purple-600", bg: "bg-violet-500/10" },
-                { icon: "🎯", label: "Попытки", value: data.stats.totalSessions ?? 0, gradient: "from-rose-500 to-pink-600", bg: "bg-rose-500/10" },
-                { icon: "✅", label: "Верные", value: data.stats.totalCorrectAnswers ?? 0, gradient: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10" },
-                { icon: "📊", label: "Точность", value: accuracy, suffix: "%", gradient: "from-amber-500 to-orange-600", bg: "bg-amber-500/10" },
-              ].map((stat, i) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ delay: 0.1 * i, ...spring }}
-                  whileHover={{ scale: 1.03, y: -4 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Card className="overflow-hidden border-0 shadow-[0_4px_20px_rgb(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.15)] dark:shadow-[0_4px_20px_rgb(0,0,0,0.2)] dark:hover:shadow-[0_12px_40px_rgb(0,0,0,0.4)] transition-all duration-300 cursor-default">
-                    {/* Gradient accent top */}
-                    <div className={`h-1.5 bg-gradient-to-r ${stat.gradient}`} />
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg} text-2xl shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)]`}>
-                          {stat.icon}
-                        </div>
-                        <div>
-                          <p className={`text-2xl font-black tabular-nums bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent drop-shadow-sm`}>
-                            {stat.value}{stat.suffix}
-                          </p>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                            {stat.label}
-                          </p>
-                        </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+              style={{ boxShadow: '0 8px 32px rgba(139, 92, 246, 0.15)' }}
+            >
+              <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/20 via-pink-500/15 to-amber-500/20 opacity-70" />
+              <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: "🎮", label: "Игры", value: data.stats.totalQuizzesPlayed ?? 0, color: "from-violet-400 to-purple-500" },
+                    { icon: "🎯", label: "Попытки", value: data.stats.totalSessions ?? 0, color: "from-rose-400 to-pink-500" },
+                    { icon: "✅", label: "Верные", value: data.stats.totalCorrectAnswers ?? 0, color: "from-emerald-400 to-teal-500" },
+                    { icon: "📊", label: "Точность", value: accuracy, suffix: "%", color: "from-amber-400 to-orange-500" },
+                  ].map((stat, i) => (
+                    <motion.div
+                      key={stat.label}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.1 * i }}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-xl">
+                        {stat.icon}
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+                      <div>
+                        <p className={`text-xl font-black tabular-nums bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
+                          {stat.value}{stat.suffix}
+                        </p>
+                        <p className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">
+                          {stat.label}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
             )}
 
-            {/* Duel Stats - NEW */}
+            {/* Duel Stats - Dark Glassmorphism */}
             {data.stats.duelStats && data.stats.duelStats.total > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45 }}
+                transition={{ delay: 0.2 }}
+                className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                style={{ boxShadow: '0 8px 32px rgba(239, 68, 68, 0.15)' }}
               >
-                <Card className="overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
-                  <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500" />
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-600 text-white shadow-lg">
-                        <span className="text-sm">⚔️</span>
-                      </div>
-                      <span className="font-bold">Статистика дуэлей</span>
-                      <Badge variant="secondary" className="ml-auto">
-                        {data.stats.duelStats.total} игр
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 pb-4">
-                    {/* Main stats row */}
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      <div className="text-center p-3 rounded-xl bg-emerald-500/10">
-                        <p className="text-2xl font-black tabular-nums text-emerald-600">{data.stats.duelStats.wins}</p>
-                        <p className="text-xs text-muted-foreground font-medium">Побед</p>
-                      </div>
-                      <div className="text-center p-3 rounded-xl bg-rose-500/10">
-                        <p className="text-2xl font-black tabular-nums text-rose-600">{data.stats.duelStats.losses}</p>
-                        <p className="text-xs text-muted-foreground font-medium">Поражений</p>
-                      </div>
-                      <div className="text-center p-3 rounded-xl bg-slate-500/10">
-                        <p className="text-2xl font-black tabular-nums text-slate-600">{data.stats.duelStats.draws}</p>
-                        <p className="text-xs text-muted-foreground font-medium">Ничьих</p>
+                <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-red-500/20 via-orange-500/15 to-yellow-500/20 opacity-70" />
+                <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-orange-600 shadow-lg shadow-red-500/25">
+                      <span className="text-lg">⚔️</span>
+                    </div>
+                    <span className="font-bold text-white">Статистика дуэлей</span>
+                    <span className="ml-auto px-2.5 py-1 rounded-full text-xs font-bold bg-white/10 text-white/70">
+                      {data.stats.duelStats.total} игр
+                    </span>
+                  </div>
+                  
+                  {/* Main stats row */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="text-center p-3 rounded-xl bg-emerald-500/10">
+                      <p className="text-2xl font-black tabular-nums text-emerald-400">{data.stats.duelStats.wins}</p>
+                      <p className="text-[10px] text-white/50 font-medium uppercase">Побед</p>
+                    </div>
+                    <div className="text-center p-3 rounded-xl bg-rose-500/10">
+                      <p className="text-2xl font-black tabular-nums text-rose-400">{data.stats.duelStats.losses}</p>
+                      <p className="text-[10px] text-white/50 font-medium uppercase">Поражений</p>
+                    </div>
+                    <div className="text-center p-3 rounded-xl bg-white/5">
+                      <p className="text-2xl font-black tabular-nums text-white/70">{data.stats.duelStats.draws}</p>
+                      <p className="text-[10px] text-white/50 font-medium uppercase">Ничьих</p>
+                    </div>
+                  </div>
+                  
+                  {/* Win rate bar */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-white/50 font-medium">Винрейт</span>
+                      <span className="font-bold tabular-nums text-white">{data.stats.duelStats.winRate}%</span>
+                    </div>
+                    <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                      <motion.div 
+                        className={`h-full rounded-full ${
+                          data.stats.duelStats.winRate >= 60 
+                            ? "bg-gradient-to-r from-emerald-500 to-green-500" 
+                            : data.stats.duelStats.winRate >= 40 
+                              ? "bg-gradient-to-r from-amber-500 to-yellow-500"
+                              : "bg-gradient-to-r from-rose-500 to-red-500"
+                        }`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${data.stats.duelStats.winRate}%` }}
+                        transition={{ delay: 0.6, duration: 0.8, ease: "easeOut" }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Streaks */}
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🔥</span>
+                      <div>
+                        <p className="text-[10px] text-white/50 uppercase">Текущая серия</p>
+                        <p className="font-bold tabular-nums text-amber-400">{data.stats.duelStats.currentStreak} {pluralize(data.stats.duelStats.currentStreak, ["победа", "победы", "побед"])}</p>
                       </div>
                     </div>
-                    
-                    {/* Win rate bar */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-muted-foreground font-medium">Винрейт</span>
-                        <span className="font-bold tabular-nums">{data.stats.duelStats.winRate}%</span>
-                      </div>
-                      <div className="h-3 rounded-full bg-muted overflow-hidden">
-                        <motion.div 
-                          className={`h-full rounded-full ${
-                            data.stats.duelStats.winRate >= 60 
-                              ? "bg-gradient-to-r from-emerald-500 to-green-500" 
-                              : data.stats.duelStats.winRate >= 40 
-                                ? "bg-gradient-to-r from-amber-500 to-yellow-500"
-                                : "bg-gradient-to-r from-rose-500 to-red-500"
-                          }`}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${data.stats.duelStats.winRate}%` }}
-                          transition={{ delay: 0.6, duration: 0.8, ease: "easeOut" }}
-                        />
+                    <div className="h-8 w-px bg-white/10" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">👑</span>
+                      <div>
+                        <p className="text-[10px] text-white/50 uppercase">Лучшая серия</p>
+                        <p className="font-bold tabular-nums text-orange-400">{data.stats.duelStats.bestStreak} {pluralize(data.stats.duelStats.bestStreak, ["победа", "победы", "побед"])}</p>
                       </div>
                     </div>
-                    
-                    {/* Streaks */}
-                    <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🔥</span>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Текущая серия</p>
-                          <p className="font-bold tabular-nums">{data.stats.duelStats.currentStreak} {pluralize(data.stats.duelStats.currentStreak, ["победа", "победы", "побед"])}</p>
-                        </div>
-                      </div>
-                      <div className="h-8 w-px bg-border" />
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">👑</span>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Лучшая серия</p>
-                          <p className="font-bold tabular-nums">{data.stats.duelStats.bestStreak} {pluralize(data.stats.duelStats.bestStreak, ["победа", "победы", "побед"])}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </motion.div>
             )}
 
-            {/* Last Game - Enhanced (only for own profile) */}
+            {/* Last Game - Dark Glassmorphism (only for own profile) */}
             {!isViewingOther && data.stats.lastSession && (
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.3 }}
+                className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                style={{ boxShadow: '0 8px 32px rgba(34, 211, 238, 0.15)' }}
               >
-                <Card className="overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
-                  <div className="h-1.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500" />
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg">
-                        <span className="text-sm">🎯</span>
-                      </div>
-                      <span className="font-bold">Последняя игра</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-muted/50">
-                      <div>
-                        <p className="font-bold">{data.stats.lastSession.quizTitle}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(data.stats.lastSession.finishedAt)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-3xl font-black tabular-nums bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">{data.stats.lastSession.score}</p>
-                        <p className="text-xs text-muted-foreground font-medium">очков</p>
-                      </div>
+                <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-violet-500/20 opacity-70" />
+                <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25">
+                      <span className="text-lg">🎯</span>
                     </div>
-                    <Button
-                      className="w-full h-12 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-[0_8px_25px_-5px_rgba(139,92,246,0.5)] hover:shadow-[0_12px_35px_-5px_rgba(139,92,246,0.6)] font-bold transition-all duration-300"
-                      onClick={() => router.push(`/miniapp/quiz/${data.stats.lastSession?.quizId}`)}
-                    >
-                      <span className="mr-2">▶</span> Играть снова
-                    </Button>
-                  </CardContent>
-                </Card>
+                    <span className="font-bold text-white">Последняя игра</span>
+                  </div>
+                  <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-white/5">
+                    <div>
+                      <p className="font-bold text-white">{data.stats.lastSession.quizTitle}</p>
+                      <p className="text-xs text-white/50">{formatDate(data.stats.lastSession.finishedAt)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-black tabular-nums bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">{data.stats.lastSession.score}</p>
+                      <p className="text-[10px] text-white/50 uppercase font-medium">очков</p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold shadow-lg shadow-violet-500/30 flex items-center justify-center gap-2"
+                    onClick={() => router.push(`/miniapp/quiz/${data.stats.lastSession?.quizId}`)}
+                  >
+                    <span>▶</span> Играть снова
+                  </motion.button>
+                </div>
               </motion.div>
             )}
             
-            {/* Public Profile Stats Summary */}
+            {/* Public Profile Stats Summary - Dark Glassmorphism */}
             {isViewingOther && (
               <div className="space-y-4">
-                <Card className="overflow-hidden border-0 shadow-lg">
-                  <div className="h-1.5 bg-gradient-to-r from-violet-500 to-purple-600" />
-                  <CardContent className="p-6 text-center">
-                    <div className="flex items-center justify-center gap-6">
-                      <div>
-                        <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                  style={{ boxShadow: '0 8px 32px rgba(139, 92, 246, 0.15)' }}
+                >
+                  <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/20 via-purple-500/15 to-pink-500/20 opacity-70" />
+                  <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-6">
+                    <div className="flex items-center justify-center gap-8">
+                      <div className="text-center">
+                        <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
                           {data.stats.totalScore}
                         </p>
-                        <p className="text-sm text-muted-foreground font-medium mt-1">Общий счёт</p>
+                        <p className="text-sm text-white/50 font-medium mt-1">Общий счёт</p>
                       </div>
                       {data.stats.globalRank && (
-                        <div className="border-l pl-6">
-                          <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                        <div className="text-center border-l border-white/10 pl-8">
+                          <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
                             #{data.stats.globalRank}
                           </p>
-                          <p className="text-sm text-muted-foreground font-medium mt-1">
+                          <p className="text-sm text-white/50 font-medium mt-1">
                             из {data.stats.totalPlayers}
                           </p>
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </motion.div>
                 
                 {/* Public Profile Duel Stats */}
                 {data.stats.duelStats && data.stats.duelStats.total > 0 && (
-                  <Card className="overflow-hidden border-0 shadow-lg">
-                    <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500" />
-                    <CardContent className="p-4">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                    style={{ boxShadow: '0 8px 32px rgba(239, 68, 68, 0.15)' }}
+                  >
+                    <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-red-500/20 via-orange-500/15 to-yellow-500/20 opacity-70" />
+                    <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-xl">⚔️</span>
-                        <span className="font-bold">Дуэли</span>
+                        <span className="font-bold text-white">Дуэли</span>
                       </div>
                       <div className="grid grid-cols-4 gap-2 text-center">
-                        <div>
-                          <p className="text-lg font-bold tabular-nums text-emerald-600">{data.stats.duelStats.wins}</p>
-                          <p className="text-[10px] text-muted-foreground">Побед</p>
+                        <div className="p-2 rounded-xl bg-emerald-500/10">
+                          <p className="text-lg font-bold tabular-nums text-emerald-400">{data.stats.duelStats.wins}</p>
+                          <p className="text-[10px] text-white/50">Побед</p>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold tabular-nums text-rose-600">{data.stats.duelStats.losses}</p>
-                          <p className="text-[10px] text-muted-foreground">Поражений</p>
+                        <div className="p-2 rounded-xl bg-rose-500/10">
+                          <p className="text-lg font-bold tabular-nums text-rose-400">{data.stats.duelStats.losses}</p>
+                          <p className="text-[10px] text-white/50">Поражений</p>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold tabular-nums">{data.stats.duelStats.winRate}%</p>
-                          <p className="text-[10px] text-muted-foreground">Винрейт</p>
+                        <div className="p-2 rounded-xl bg-white/5">
+                          <p className="text-lg font-bold tabular-nums text-white">{data.stats.duelStats.winRate}%</p>
+                          <p className="text-[10px] text-white/50">Винрейт</p>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold tabular-nums text-amber-600">{data.stats.duelStats.bestStreak}</p>
-                          <p className="text-[10px] text-muted-foreground">🔥 Макс</p>
+                        <div className="p-2 rounded-xl bg-amber-500/10">
+                          <p className="text-lg font-bold tabular-nums text-amber-400">{data.stats.duelStats.bestStreak}</p>
+                          <p className="text-[10px] text-white/50">🔥 Макс</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </motion.div>
                 )}
               </div>
             )}
@@ -1196,89 +1220,104 @@ export default function ProfilePage() {
           {/* History Tab */}
           <TabsContent value="history" className="mt-4">
             {isViewingOther ? (
-              <Card>
-                <CardContent className="py-12 text-center">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+              >
+                <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] py-12 text-center">
                   <span className="text-5xl">🔒</span>
-                  <p className="mt-4 text-muted-foreground">История недоступна для просмотра</p>
-                </CardContent>
-              </Card>
-            ) : (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <span className="text-2xl">🏆</span>
-                    Лучшие результаты
-                  </CardTitle>
-                  <Badge variant="secondary">
-                    {(data.stats.bestScoreByQuiz ?? []).length} игр
-                  </Badge>
+                  <p className="mt-4 text-white/50">История недоступна для просмотра</p>
                 </div>
-              </CardHeader>
-              <CardContent>
+              </motion.div>
+            ) : (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+              style={{ boxShadow: '0 8px 32px rgba(139, 92, 246, 0.15)' }}
+            >
+              <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-pink-500/20 opacity-70" />
+              <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
+                      <span className="text-lg">🏆</span>
+                    </div>
+                    <span className="font-bold text-white">Лучшие результаты</span>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/10 text-white/70">
+                    {(data.stats.bestScoreByQuiz ?? []).length} игр
+                  </span>
+                </div>
+                
                 {(data.stats.bestScoreByQuiz ?? []).length === 0 ? (
-                  <div className="flex flex-col items-center py-12">
-                    <span className="text-6xl animate-bounce">📊</span>
-                    <p className="mt-6 font-semibold">Пока нет рекордов</p>
-                    <p className="mt-2 text-sm text-muted-foreground">Пройди свою первую викторину!</p>
-                    <Button
+                  <div className="flex flex-col items-center py-8">
+                    <span className="text-5xl animate-bounce">📊</span>
+                    <p className="mt-4 font-semibold text-white">Пока нет рекордов</p>
+                    <p className="mt-2 text-sm text-white/50">Пройди свою первую викторину!</p>
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => router.push("/miniapp")}
-                      className="mt-6"
+                      className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold shadow-lg shadow-violet-500/30"
                     >
                       К викторинам →
-                    </Button>
+                    </motion.button>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {(data.stats.bestScoreByQuiz ?? []).map((item, i) => (
-                      <motion.div
+                      <motion.button
                         key={item.quizId}
-                        initial={{ opacity: 0, x: -30 }}
+                        initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.08, ...spring }}
+                        transition={{ delay: i * 0.05 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                        onClick={() => router.push(`/miniapp/quiz/${item.quizId}`)}
                       >
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-4 hover:bg-muted"
-                          onClick={() => router.push(`/miniapp/quiz/${item.quizId}`)}
-                        >
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg mr-3 ${
-                            i === 0 ? "bg-gradient-to-br from-amber-400 to-orange-500" :
-                            i === 1 ? "bg-gradient-to-br from-slate-300 to-slate-400" :
-                            i === 2 ? "bg-gradient-to-br from-orange-400 to-amber-600" :
-                            "bg-muted"
-                          }`}>
-                            {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-sm font-bold">{i + 1}</span>}
-                          </div>
-                          <div className="flex-1 text-left min-w-0">
-                            <p className="truncate font-semibold">{item.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.attempts} {item.attempts === 1 ? "попытка" : item.attempts < 5 ? "попытки" : "попыток"}
-                            </p>
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className="text-xl font-black tabular-nums">{item.leaderboardScore}</p>
-                            {item.bestSessionScore !== item.leaderboardScore && (
-                              <p className="text-[10px] text-muted-foreground">рекорд: {item.bestSessionScore}</p>
-                            )}
-                          </div>
-                        </Button>
-                      </motion.div>
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg ${
+                          i === 0 ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/25" :
+                          i === 1 ? "bg-gradient-to-br from-slate-300 to-slate-400 shadow-lg" :
+                          i === 2 ? "bg-gradient-to-br from-orange-400 to-amber-600 shadow-lg shadow-orange-500/25" :
+                          "bg-white/10"
+                        }`}>
+                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-sm font-bold text-white">{i + 1}</span>}
+                        </div>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="truncate font-semibold text-white">{item.title}</p>
+                          <p className="text-xs text-white/50">
+                            {item.attempts} {item.attempts === 1 ? "попытка" : item.attempts < 5 ? "попытки" : "попыток"}
+                          </p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <p className="text-xl font-black tabular-nums text-white">{item.leaderboardScore}</p>
+                          {item.bestSessionScore !== item.leaderboardScore && (
+                            <p className="text-[10px] text-white/50">рекорд: {item.bestSessionScore}</p>
+                          )}
+                        </div>
+                      </motion.button>
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
             )}
           </TabsContent>
 
           {/* Inventory Tab */}
           <TabsContent value="inventory" className="mt-4">
-            <Card>
-              <CardContent className="p-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+              style={{ boxShadow: '0 8px 32px rgba(139, 92, 246, 0.15)' }}
+            >
+              <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/20 via-pink-500/15 to-cyan-500/20 opacity-70" />
+              <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
                 <InventorySection photoUrl={photoUrl} firstName={data.user.firstName} />
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
           </TabsContent>
 
           {/* Friends Tab */}
@@ -1286,9 +1325,10 @@ export default function ProfilePage() {
             {/* Recent Opponents Section */}
             <LazyRecentOpponents className="mb-4" />
 
-            {/* Add Friend Button */}
-            <Button
-              className="w-full h-14"
+            {/* Add Friend Button - Dark Glassmorphism */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              className="w-full h-14 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold shadow-lg shadow-violet-500/30 flex items-center justify-center gap-2"
               onClick={() => {
                 haptic.medium();
                 setShowAddFriend(true);
@@ -1298,131 +1338,165 @@ export default function ProfilePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Добавить друга
-            </Button>
+            </motion.button>
 
             {friendsLoading ? (
-              <Card>
-                <CardContent className="divide-y">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-4"
+              >
+                <div className="space-y-3">
                   {[0, 1, 2].map((i) => (
-                    <SkeletonFriendCard key={i} index={i} />
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 animate-pulse">
+                      <div className="h-10 w-10 rounded-full bg-white/10" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-24 rounded bg-white/10" />
+                        <div className="h-3 w-16 rounded bg-white/5" />
+                      </div>
+                    </div>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </motion.div>
             ) : (
               <>
-                {/* Incoming Requests */}
+                {/* Incoming Requests - Dark Glassmorphism */}
                 {incomingRequests.length > 0 && (
-                  <Card className="bg-gradient-to-br from-primary to-purple-600 text-white border-0">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2 text-white">
-                        <span className="text-xl">👥</span>
-                        Заявки в друзья
-                        <Badge variant="secondary" className="ml-auto">{incomingRequests.length}</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {incomingRequests.map((req) => {
-                        const reqName = req.firstName ?? req.username ?? "Пользователь";
-                        return (
-                          <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={req.photoUrl ?? undefined} />
-                              <AvatarFallback className="bg-white/20 text-white">{reqName[0].toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold truncate">{reqName}</p>
-                              {req.username && <p className="text-xs opacity-60">@{req.username}</p>}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                    style={{ boxShadow: '0 8px 32px rgba(139, 92, 246, 0.2)' }}
+                  >
+                    <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-violet-500/30 via-purple-500/20 to-pink-500/30 opacity-70 animate-pulse" />
+                    <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+                          <span className="text-lg">👥</span>
+                        </div>
+                        <span className="font-bold text-white">Заявки в друзья</span>
+                        <span className="ml-auto px-2.5 py-1 rounded-full text-xs font-bold bg-white/10 text-white">{incomingRequests.length}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {incomingRequests.map((req) => {
+                          const reqName = req.firstName ?? req.username ?? "Пользователь";
+                          return (
+                            <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={req.photoUrl ?? undefined} />
+                                <AvatarFallback className="bg-white/20 text-white">{reqName[0].toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold truncate text-white">{reqName}</p>
+                                {req.username && <p className="text-xs text-white/50">@{req.username}</p>}
+                              </div>
+                              <div className="flex gap-2">
+                                <motion.button
+                                  whileTap={{ scale: 0.9 }}
+                                  className="h-8 w-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center"
+                                  onClick={() => {
+                                    haptic.success();
+                                    handleRespondRequest(req.requestId, "accept");
+                                  }}
+                                >
+                                  ✓
+                                </motion.button>
+                                <motion.button
+                                  whileTap={{ scale: 0.9 }}
+                                  className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
+                                  onClick={() => {
+                                    haptic.light();
+                                    handleRespondRequest(req.requestId, "decline");
+                                  }}
+                                >
+                                  ✕
+                                </motion.button>
+                              </div>
                             </div>
-                            <div className="flex gap-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 bg-emerald-500 hover:bg-emerald-600 text-white"
-                                onClick={() => {
-                                  haptic.success();
-                                  handleRespondRequest(req.requestId, "accept");
-                                }}
-                              >
-                                ✓
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 bg-white/20 hover:bg-white/30 text-white"
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Outgoing Requests - Dark Glassmorphism */}
+                {outgoingRequests.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                  >
+                    <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
+                          <span className="text-lg">📤</span>
+                        </div>
+                        <span className="font-bold text-white">Отправленные заявки</span>
+                      </div>
+                      <div className="space-y-2">
+                        {outgoingRequests.map((req) => {
+                          const reqName = req.firstName ?? req.username ?? "Пользователь";
+                          return (
+                            <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={req.photoUrl ?? undefined} />
+                                <AvatarFallback className="bg-white/20 text-white">{reqName[0].toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold truncate text-white">{reqName}</p>
+                                <p className="text-xs text-white/50">Ожидает подтверждения...</p>
+                              </div>
+                              <motion.button
+                                whileTap={{ scale: 0.95 }}
+                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
                                 onClick={() => {
                                   haptic.light();
-                                  handleRespondRequest(req.requestId, "decline");
+                                  handleCancelRequest(req.requestId);
                                 }}
                               >
-                                ✕
-                              </Button>
+                                Отменить
+                              </motion.button>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
 
-                {/* Outgoing Requests */}
-                {outgoingRequests.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <span className="text-lg">📤</span>
-                        Отправленные заявки
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {outgoingRequests.map((req) => {
-                        const reqName = req.firstName ?? req.username ?? "Пользователь";
-                        return (
-                          <div key={req.requestId} className="flex items-center gap-3 rounded-xl bg-muted p-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={req.photoUrl ?? undefined} />
-                              <AvatarFallback>{reqName[0].toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold truncate">{reqName}</p>
-                              <p className="text-xs text-muted-foreground">Ожидает подтверждения...</p>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                haptic.light();
-                                handleCancelRequest(req.requestId);
-                              }}
-                            >
-                              Отменить
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Friends List */}
+                {/* Friends List - Dark Glassmorphism */}
                 {friends.length === 0 && incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-12 text-center">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                  >
+                    <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] py-12 text-center">
                       <span className="text-5xl block mx-auto mb-4">👥</span>
-                      <p className="font-semibold">Пока нет друзей</p>
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <p className="font-semibold text-white">Пока нет друзей</p>
+                      <p className="text-sm text-white/50 mt-2">
                         Отправь заявку по username,<br />друг получит уведомление
                       </p>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </motion.div>
                 ) : friends.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <span className="text-xl">👥</span>
-                        Мои друзья ({friends.length})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f0f1a]/98 to-[#1a1a2e]/98 p-1"
+                    style={{ boxShadow: '0 8px 32px rgba(34, 211, 238, 0.15)' }}
+                  >
+                    <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-violet-500/20 opacity-70" />
+                    <div className="relative rounded-[16px] bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25">
+                          <span className="text-lg">👥</span>
+                        </div>
+                        <span className="font-bold text-white">Мои друзья</span>
+                        <span className="ml-auto px-2.5 py-1 rounded-full text-xs font-bold bg-white/10 text-white">{friends.length}</span>
+                      </div>
+                      <div className="space-y-3">
                       {friends.map((friend, i) => {
                         const friendName = friend.firstName ?? friend.username ?? "Друг";
                         const friendRank = getRank(friend.stats.totalScore);
@@ -1432,67 +1506,67 @@ export default function ProfilePage() {
                             key={friend.id}
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05, ...spring }}
-                            className="space-y-3"
+                            transition={{ delay: i * 0.05 }}
+                            className="rounded-xl bg-white/5 p-3 space-y-3"
                           >
                             <div className="flex items-center gap-3">
                               <div className="relative">
                                 <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${friendRank.color} opacity-60`} />
                                 <Avatar className="relative h-12 w-12">
                                   <AvatarImage src={friend.photoUrl ?? undefined} />
-                                  <AvatarFallback>{friendName[0].toUpperCase()}</AvatarFallback>
+                                  <AvatarFallback className="bg-white/20 text-white">{friendName[0].toUpperCase()}</AvatarFallback>
                                 </Avatar>
                               </div>
                               
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold truncate">{friendName}</p>
+                                <p className="font-semibold truncate text-white">{friendName}</p>
                                 {friend.username && (
-                                  <p className="text-xs text-muted-foreground">@{friend.username}</p>
+                                  <p className="text-xs text-white/50">@{friend.username}</p>
                                 )}
                               </div>
                               
-                              <Badge className={`bg-gradient-to-r ${friendRank.color} text-white border-0`}>
+                              <div className={`px-2 py-1 rounded-lg bg-gradient-to-r ${friendRank.color} text-white text-xs font-bold`}>
                                 <span className="mr-1">{friendRank.icon}</span>
                                 {friendRank.level}
-                              </Badge>
+                              </div>
                             </div>
                             
-                            <div className="flex items-center justify-between rounded-xl bg-muted p-3">
+                            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
                               <div className="text-center flex-1">
                                 <div className="flex items-center justify-center gap-1">
-                                  <span className="text-xl">💎</span>
-                                  <p className="font-bold tabular-nums">{friend.stats.totalScore}</p>
+                                  <span className="text-lg">💎</span>
+                                  <p className="font-bold tabular-nums text-white">{friend.stats.totalScore}</p>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground">очков</p>
+                                <p className="text-[10px] text-white/50">очков</p>
                               </div>
-                              <div className="h-8 w-px bg-border" />
+                              <div className="h-8 w-px bg-white/10" />
                               <div className="text-center flex-1">
-                                <p className="font-bold tabular-nums">{friend.stats.gamesPlayed}</p>
-                                <p className="text-[10px] text-muted-foreground">игр</p>
+                                <p className="font-bold tabular-nums text-white">{friend.stats.gamesPlayed}</p>
+                                <p className="text-[10px] text-white/50">игр</p>
                               </div>
-                              <div className="h-8 w-px bg-border" />
+                              <div className="h-8 w-px bg-white/10" />
                               <div className="text-center flex-1">
-                                <p className="font-bold tabular-nums">{friend.stats.bestScore}</p>
-                                <p className="text-[10px] text-muted-foreground">рекорд</p>
+                                <p className="font-bold tabular-nums text-white">{friend.stats.bestScore}</p>
+                                <p className="text-[10px] text-white/50">рекорд</p>
                               </div>
                             </div>
                             
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="w-full"
+                            <motion.button
+                              whileTap={{ scale: 0.98 }}
+                              className="w-full py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-sm font-medium transition-colors"
                               onClick={() => {
                                 haptic.warning();
                                 handleRemoveFriend(friend.friendshipId);
                               }}
                             >
                               Удалить из друзей
-                            </Button>
+                            </motion.button>
                           </motion.div>
                         );
                       })}
-                    </CardContent>
-                  </Card>
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
               </>
             )}
@@ -1500,15 +1574,15 @@ export default function ProfilePage() {
         </Tabs>
       </motion.div>
 
-      {/* Add Friend Dialog */}
+      {/* Add Friend Dialog - Dark Glassmorphism */}
       <Dialog open={showAddFriend} onOpenChange={setShowAddFriend}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm border-0 bg-gradient-to-br from-[#0f0f1a] to-[#1a1a2e] text-white">
           <DialogHeader>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30">
               <span className="text-3xl">👥</span>
             </div>
-            <DialogTitle className="text-center">Добавить друга</DialogTitle>
-            <DialogDescription className="text-center">
+            <DialogTitle className="text-center text-white">Добавить друга</DialogTitle>
+            <DialogDescription className="text-center text-white/60">
               Введи username друга в Telegram
             </DialogDescription>
           </DialogHeader>
@@ -1523,20 +1597,20 @@ export default function ProfilePage() {
                   setAddFriendError(null);
                 }}
                 placeholder="@username"
-                className="text-center"
+                className="text-center bg-white/10 border-white/20 text-white placeholder:text-white/40"
               />
               {addFriendError && (
-                <p className="mt-2 text-sm text-destructive text-center">{addFriendError}</p>
+                <p className="mt-2 text-sm text-rose-400 text-center">{addFriendError}</p>
               )}
               {addFriendSuccess && (
-                <p className="mt-2 text-sm text-emerald-500 font-semibold text-center">{addFriendSuccess}</p>
+                <p className="mt-2 text-sm text-emerald-400 font-semibold text-center">{addFriendSuccess}</p>
               )}
             </div>
             
             <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
                 onClick={() => {
                   haptic.light();
                   setShowAddFriend(false);
@@ -1546,9 +1620,10 @@ export default function ProfilePage() {
                 }}
               >
                 Отмена
-              </Button>
-              <Button
-                className="flex-1"
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold shadow-lg shadow-violet-500/30 disabled:opacity-50"
                 onClick={() => {
                   haptic.medium();
                   handleAddFriend();
@@ -1556,7 +1631,7 @@ export default function ProfilePage() {
                 disabled={addingFriend || !friendUsername.trim()}
               >
                 {addingFriend ? "Добавляем..." : "Добавить"}
-              </Button>
+              </motion.button>
             </div>
           </div>
         </DialogContent>

@@ -104,6 +104,7 @@ export default function RootLayout({
         ═══════════════════════════════════════════════════════════════ */}
         <div
           id="static-loader"
+          suppressHydrationWarning
           style={{
             position: 'fixed',
             inset: 0,
