@@ -26,6 +26,8 @@ import {
   logLevelUp,
   logTournamentStage,
 } from "@/lib/activity";
+import { updateChallengeProgress } from "@/lib/daily-challenges";
+import { DailyChallengeType } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -920,6 +922,46 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   } catch {
     // Non-critical, don't fail the request
     console.warn(`[finish] Failed to clear playing status for user ${session.userId}`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DAILY CHALLENGES — Обновляем прогресс (не блокируем ответ)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (!alreadyFinished) {
+    const challengeUpdates: Promise<void>[] = [];
+    
+    // QUIZ_COMPLETE — завершил квиз
+    challengeUpdates.push(
+      updateChallengeProgress({ userId: session.userId, type: DailyChallengeType.QUIZ_COMPLETE })
+    );
+    
+    // CORRECT_ANSWERS — правильные ответы
+    const correctCount = session.answers.filter(a => a.isCorrect).length;
+    if (correctCount > 0) {
+      challengeUpdates.push(
+        updateChallengeProgress({ 
+          userId: session.userId, 
+          type: DailyChallengeType.CORRECT_ANSWERS, 
+          increment: correctCount 
+        })
+      );
+    }
+    
+    // ANSWER_STREAK — серия правильных ответов
+    if (sessionMaxStreak > 0) {
+      challengeUpdates.push(
+        updateChallengeProgress({ 
+          userId: session.userId, 
+          type: DailyChallengeType.ANSWER_STREAK, 
+          checkStreak: sessionMaxStreak 
+        })
+      );
+    }
+    
+    Promise.all(challengeUpdates).catch(err => 
+      console.error("[Quiz Finish] Challenge progress error:", err)
+    );
   }
 
   return NextResponse.json({ 

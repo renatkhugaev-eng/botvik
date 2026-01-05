@@ -370,21 +370,41 @@ export async function POST(request: NextRequest, context: RouteContext) {
     
     const challengeUpdates: Promise<void>[] = [];
     
-    // Получаем количество правильных ответов для каждого игрока
+    // Получаем ответы для каждого игрока (включая индекс для streak)
     const [challengerAnswers, opponentAnswers] = await Promise.all([
       prisma.duelAnswer.findMany({
         where: { duelId: id, userId: duel.challengerId },
-        select: { isCorrect: true },
+        select: { isCorrect: true, questionIndex: true },
       }),
       prisma.duelAnswer.findMany({
         where: { duelId: id, userId: duel.opponentId },
-        select: { isCorrect: true },
+        select: { isCorrect: true, questionIndex: true },
       }),
     ]);
     
     const challengerCorrect = challengerAnswers.filter(a => a.isCorrect).length;
     const opponentCorrect = opponentAnswers.filter(a => a.isCorrect).length;
     const quizTotalQuestions = duel.quiz._count.questions;
+    
+    // Вычисляем максимальную серию правильных ответов для каждого игрока
+    const calculateMaxStreak = (answers: typeof challengerAnswers): number => {
+      // Сортируем по индексу вопроса
+      const sorted = [...answers].sort((a, b) => a.questionIndex - b.questionIndex);
+      let maxStreak = 0;
+      let currentStreak = 0;
+      for (const ans of sorted) {
+        if (ans.isCorrect) {
+          currentStreak++;
+          maxStreak = Math.max(maxStreak, currentStreak);
+        } else {
+          currentStreak = 0;
+        }
+      }
+      return maxStreak;
+    };
+    
+    const challengerStreak = calculateMaxStreak(challengerAnswers);
+    const opponentStreak = calculateMaxStreak(opponentAnswers);
     
     // Challenger challenges (если не бот)
     if (!duel.challenger.isBot) {
@@ -420,6 +440,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
             })
           );
         }
+      }
+      
+      // ANSWER_STREAK — серия правильных ответов
+      if (challengerStreak > 0) {
+        challengeUpdates.push(
+          updateChallengeProgress({ 
+            userId: duel.challengerId, 
+            type: DailyChallengeType.ANSWER_STREAK,
+            checkStreak: challengerStreak 
+          })
+        );
       }
     }
     
@@ -457,6 +488,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
             })
           );
         }
+      }
+      
+      // ANSWER_STREAK — серия правильных ответов
+      if (opponentStreak > 0) {
+        challengeUpdates.push(
+          updateChallengeProgress({ 
+            userId: duel.opponentId, 
+            type: DailyChallengeType.ANSWER_STREAK,
+            checkStreak: opponentStreak 
+          })
+        );
       }
     }
     

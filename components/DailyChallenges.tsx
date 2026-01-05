@@ -131,16 +131,17 @@ export function DailyChallenges({ className = "", onXpEarned }: DailyChallengesP
     loadChallenges();
   }, [loadChallenges]);
   
-  // Таймер обновления
+  // Таймер обновления — обновляем сразу при получении данных
   useEffect(() => {
     if (!data?.expiresAt) return;
     
-    const updateTimer = () => {
-      setTimeRemaining(formatTimeRemaining(data.expiresAt));
-    };
+    // Устанавливаем начальное значение сразу
+    setTimeRemaining(formatTimeRemaining(data.expiresAt));
     
-    updateTimer();
-    const interval = setInterval(updateTimer, 60000); // Каждую минуту
+    // Обновляем каждую минуту
+    const interval = setInterval(() => {
+      setTimeRemaining(formatTimeRemaining(data.expiresAt));
+    }, 60000);
     
     return () => clearInterval(interval);
   }, [data?.expiresAt]);

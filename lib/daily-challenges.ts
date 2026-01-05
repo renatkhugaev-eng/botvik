@@ -92,7 +92,7 @@ export function formatTimeRemaining(ms: number): string {
 /**
  * Получить или создать задания на сегодня
  */
-export async function getOrCreateTodayChallenges() {
+export async function getOrCreateTodayChallenges(retryCount = 0): Promise<ReturnType<typeof prisma.dailyChallenge.findMany>> {
   const today = getTodayUTC();
   
   // Проверяем есть ли уже задания на сегодня
@@ -119,10 +119,15 @@ export async function getOrCreateTodayChallenges() {
   });
   
   if (definitions.length < 3) {
-    console.error("[DailyChallenges] Not enough definitions! Need at least 3.");
-    // Создаём дефолтные определения
+    // Защита от бесконечной рекурсии
+    if (retryCount >= 1) {
+      console.error("[DailyChallenges] Failed to seed definitions after retry!");
+      throw new Error("Failed to create daily challenge definitions");
+    }
+    
+    console.log("[DailyChallenges] Not enough definitions, seeding defaults...");
     await seedDefaultDefinitions();
-    return getOrCreateTodayChallenges(); // Рекурсивно вызываем
+    return getOrCreateTodayChallenges(retryCount + 1);
   }
   
   // Выбираем 3 задания разной сложности
@@ -269,17 +274,21 @@ async function seedDefaultDefinitions() {
   
   console.log("[DailyChallenges] Seeding default definitions...");
   
+  // Проверяем существующие определения
+  const existing = await prisma.dailyChallengeDefinition.findMany({
+    select: { type: true, targetValue: true },
+  });
+  const existingKeys = new Set(existing.map(e => `${e.type}_${e.targetValue}`));
+  
+  // Создаём только отсутствующие
   for (const def of defaults) {
-    await prisma.dailyChallengeDefinition.upsert({
-      where: {
-        id: defaults.indexOf(def) + 1, // Используем индекс как ID
-      },
-      create: def,
-      update: def,
-    });
+    const key = `${def.type}_${def.targetValue}`;
+    if (!existingKeys.has(key)) {
+      await prisma.dailyChallengeDefinition.create({ data: def });
+    }
   }
   
-  console.log("[DailyChallenges] Seeded", defaults.length, "definitions");
+  console.log("[DailyChallenges] Seeded definitions");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -410,18 +419,24 @@ export async function updateChallengeProgress(params: UpdateProgressParams): Pro
     return;
   }
   
-  // Получаем прогресс пользователя
-  const userProgress = await prisma.userDailyChallenge.findUnique({
+  // Получаем или создаём прогресс пользователя (FIX: race condition)
+  const userProgress = await prisma.userDailyChallenge.upsert({
     where: {
       userId_challengeId: {
         userId,
         challengeId: challenge.id,
       },
     },
+    create: {
+      userId,
+      challengeId: challenge.id,
+      currentValue: 0,
+    },
+    update: {},
   });
   
-  if (!userProgress || userProgress.isCompleted) {
-    // Уже выполнено или нет прогресса (не должно быть)
+  if (userProgress.isCompleted) {
+    // Уже выполнено
     return;
   }
   
