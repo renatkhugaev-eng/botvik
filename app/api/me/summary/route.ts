@@ -261,6 +261,100 @@ export async function GET(req: NextRequest) {
   const totalPlayers = allUsersScores.length;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DUEL STATISTICS — Wins, Losses, Win Rate, Streaks
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const [duelWins, duelLosses, duelDraws, duelsTotal] = await Promise.all([
+    // Победы (winnerId === userId)
+    prisma.duel.count({
+      where: {
+        winnerId: user.id,
+        status: "FINISHED",
+      },
+    }),
+    // Поражения (участвовал, но не победил и не ничья)
+    prisma.duel.count({
+      where: {
+        status: "FINISHED",
+        winnerId: { not: null },         // Не ничья
+        NOT: { winnerId: user.id },      // Не победитель
+        OR: [
+          { challengerId: user.id },
+          { opponentId: user.id },
+        ],
+      },
+    }),
+    // Ничьи (winnerId === null и статус FINISHED)
+    prisma.duel.count({
+      where: {
+        status: "FINISHED",
+        winnerId: null,
+        OR: [
+          { challengerId: user.id },
+          { opponentId: user.id },
+        ],
+      },
+    }),
+    // Всего завершённых дуэлей
+    prisma.duel.count({
+      where: {
+        status: "FINISHED",
+        OR: [
+          { challengerId: user.id },
+          { opponentId: user.id },
+        ],
+      },
+    }),
+  ]);
+
+  // Win Rate (исключая ничьи из расчёта)
+  const gamesWithResult = duelWins + duelLosses;
+  const winRate = gamesWithResult > 0 ? duelWins / gamesWithResult : 0;
+
+  // Current Win Streak — количество побед подряд (последние дуэли)
+  const recentDuels = await prisma.duel.findMany({
+    where: {
+      status: "FINISHED",
+      OR: [
+        { challengerId: user.id },
+        { opponentId: user.id },
+      ],
+    },
+    orderBy: { finishedAt: "desc" },
+    take: 20, // Смотрим последние 20 дуэлей
+    select: { winnerId: true },
+  });
+
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let tempStreak = 0;
+  let isCountingCurrentStreak = true; // Флаг: считаем ли ещё текущую серию
+  
+  for (const duel of recentDuels) {
+    if (duel.winnerId === user.id) {
+      tempStreak++;
+      // Обновляем лучшую серию
+      if (tempStreak > bestStreak) bestStreak = tempStreak;
+      // Обновляем текущую серию только если ещё не было поражения
+      if (isCountingCurrentStreak) currentStreak = tempStreak;
+    } else {
+      // Поражение или ничья — текущая серия прервана
+      if (isCountingCurrentStreak) isCountingCurrentStreak = false;
+      tempStreak = 0;
+    }
+  }
+
+  const duelStats = {
+    wins: duelWins,
+    losses: duelLosses,
+    draws: duelDraws,
+    total: duelsTotal,
+    winRate: Math.round(winRate * 100), // В процентах
+    currentStreak,
+    bestStreak,
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // XP & LEVEL SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
   
@@ -336,6 +430,9 @@ export async function GET(req: NextRequest) {
         // Лучшие результаты
         bestScoreByQuiz,
       },
+      // Статистика дуэлей
+      duelStats,
+      
       // Статус дружбы
       isFriend,
       friendshipStatus,
@@ -402,6 +499,9 @@ export async function GET(req: NextRequest) {
         hoursPerAttempt: HOURS_PER_ATTEMPT,
         bonus: bonusEnergy, // Бонусная энергия из Daily Rewards
       },
+      
+      // Статистика дуэлей
+      duelStats,
     },
     isPublicProfile: false,
   });

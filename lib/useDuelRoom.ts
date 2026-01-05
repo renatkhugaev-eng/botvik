@@ -42,6 +42,7 @@ import { api } from "@/lib/api";
 
 export type DuelStatus =
   | "connecting"      // Подключение к комнате
+  | "waiting_accept"  // Ожидание принятия дуэли (PENDING)
   | "waiting_opponent" // Ожидание подключения оппонента
   | "waiting_ready"   // Оба в комнате, ждём нажатия "Готов"
   | "countdown"       // Обратный отсчёт перед стартом
@@ -614,6 +615,18 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
 
         if (!data.ok) {
           console.error("[Duel] Start API returned error:", data.error);
+          
+          // Специальная обработка PENDING дуэли — ожидаем принятия
+          if (data.error === "DUEL_NOT_READY") {
+            console.log("[Duel] Duel is PENDING, waiting for opponent to accept...");
+            setGameState((prev) => ({
+              ...prev,
+              status: "waiting_accept",
+              error: undefined,
+            }));
+            return;
+          }
+          
           setGameState((prev) => ({
             ...prev,
             status: "error",
@@ -663,6 +676,117 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
 
     loadDuelData();
   }, [connectionStatus, dataLoaded, duelId, userId, userName, userPhoto, updateMyPresence, isOpponentConnected]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POLLING ДЛЯ PENDING ДУЭЛИ — ждём когда друг примет
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  useEffect(() => {
+    if (gameState.status !== "waiting_accept") return;
+    
+    let cancelled = false;
+    let retryCount = 0;
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    const MAX_RETRIES = 60; // 3 минуты (каждые 3 секунды)
+    
+    const checkDuelStatus = async () => {
+      if (cancelled) return;
+      
+      try {
+        // Пробуем снова запустить дуэль
+        const data = await api.post<{
+          ok: boolean;
+          error?: string;
+          status?: string; // Статус дуэли для проверки DECLINED
+          duelId: string;
+          quizId: number;
+          quizTitle: string;
+          players: DuelPlayer[];
+          questions: DuelQuestion[];
+          totalQuestions: number;
+          _internal?: { aiMode?: boolean; opponentId?: number };
+        }>(`/api/duels/${duelId}/start`, {});
+        
+        if (cancelled) return;
+        
+        if (data.ok) {
+          // Дуэль принята! Загружаем данные
+          console.log("[Duel] Opponent accepted! Loading game...");
+          setQuestions(data.questions);
+          setPlayers(data.players);
+          setQuizId(data.quizId);
+          setDataLoaded(true);
+          
+          if (data._internal?.aiMode) {
+            setIsAIMode(true);
+          }
+          
+          updateMyPresence({
+            odId: userId,
+            odName: userName,
+            odPhotoUrl: userPhoto,
+            isReady: false,
+            currentQuestion: 0,
+            hasAnswered: false,
+          });
+          
+          setGameState((prev) => ({
+            ...prev,
+            status: "waiting_ready",
+          }));
+          return; // Прекращаем polling
+        }
+        
+        // Проверяем если дуэль отклонена или истекла
+        if (data.status === "DECLINED" || data.status === "EXPIRED" || data.status === "CANCELLED") {
+          setGameState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.status === "DECLINED" ? "Друг отклонил вызов" : "Вызов истёк",
+          }));
+          return;
+        }
+        
+        // Если всё ещё PENDING — продолжаем polling
+        if (data.error === "DUEL_NOT_READY") {
+          retryCount++;
+          if (retryCount < MAX_RETRIES && !cancelled) {
+            pendingTimer = setTimeout(checkDuelStatus, 3000);
+          } else if (!cancelled) {
+            // Таймаут — слишком долго ждём
+            setGameState((prev) => ({
+              ...prev,
+              status: "error",
+              error: "Друг не принял вызов вовремя",
+            }));
+          }
+          return;
+        }
+        
+        // Другая ошибка
+        setGameState((prev) => ({
+          ...prev,
+          status: "error",
+          error: data.error || "Ошибка загрузки дуэли",
+        }));
+        
+      } catch (error) {
+        console.error("[Duel] Polling error:", error);
+        retryCount++;
+        if (retryCount < MAX_RETRIES && !cancelled) {
+          pendingTimer = setTimeout(checkDuelStatus, 3000);
+        }
+      }
+    };
+    
+    // Начинаем polling через 3 секунды
+    pendingTimer = setTimeout(checkDuelStatus, 3000);
+    
+    return () => {
+      cancelled = true;
+      if (pendingTimer) clearTimeout(pendingTimer);
+    };
+  }, [gameState.status, duelId, userId, userName, userPhoto, updateMyPresence]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ОТСЛЕЖИВАНИЕ ОППОНЕНТА

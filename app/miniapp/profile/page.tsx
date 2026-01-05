@@ -94,6 +94,15 @@ type SummaryResponse = {
       hoursPerAttempt: number;
       bonus: number;
     };
+    duelStats?: {
+      wins: number;
+      losses: number;
+      draws: number;
+      total: number;
+      winRate: number; // В процентах (0-100)
+      currentStreak: number;
+      bestStreak: number;
+    };
   };
   isPublicProfile?: boolean;
 };
@@ -163,6 +172,22 @@ function formatDate(value: string | Date | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Правильное склонение русских числительных
+ * @param n - число
+ * @param forms - [одна, две-четыре, пять+] например ["победа", "победы", "побед"]
+ */
+function pluralize(n: number, forms: [string, string, string]): string {
+  const abs = Math.abs(n);
+  const lastTwo = abs % 100;
+  const lastOne = abs % 10;
+  
+  if (lastTwo >= 11 && lastTwo <= 14) return forms[2]; // 11-14 → "побед"
+  if (lastOne === 1) return forms[0]; // 1, 21, 31 → "победа"
+  if (lastOne >= 2 && lastOne <= 4) return forms[1]; // 2-4, 22-24 → "победы"
+  return forms[2]; // 0, 5-9, 10 → "побед"
 }
 
 const ranks = [
@@ -980,6 +1005,88 @@ export default function ProfilePage() {
             </div>
             )}
 
+            {/* Duel Stats - NEW */}
+            {data.stats.duelStats && data.stats.duelStats.total > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45 }}
+              >
+                <Card className="overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+                  <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-orange-600 text-white shadow-lg">
+                        <span className="text-sm">⚔️</span>
+                      </div>
+                      <span className="font-bold">Статистика дуэлей</span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {data.stats.duelStats.total} игр
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 pb-4">
+                    {/* Main stats row */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="text-center p-3 rounded-xl bg-emerald-500/10">
+                        <p className="text-2xl font-black tabular-nums text-emerald-600">{data.stats.duelStats.wins}</p>
+                        <p className="text-xs text-muted-foreground font-medium">Побед</p>
+                      </div>
+                      <div className="text-center p-3 rounded-xl bg-rose-500/10">
+                        <p className="text-2xl font-black tabular-nums text-rose-600">{data.stats.duelStats.losses}</p>
+                        <p className="text-xs text-muted-foreground font-medium">Поражений</p>
+                      </div>
+                      <div className="text-center p-3 rounded-xl bg-slate-500/10">
+                        <p className="text-2xl font-black tabular-nums text-slate-600">{data.stats.duelStats.draws}</p>
+                        <p className="text-xs text-muted-foreground font-medium">Ничьих</p>
+                      </div>
+                    </div>
+                    
+                    {/* Win rate bar */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-muted-foreground font-medium">Винрейт</span>
+                        <span className="font-bold tabular-nums">{data.stats.duelStats.winRate}%</span>
+                      </div>
+                      <div className="h-3 rounded-full bg-muted overflow-hidden">
+                        <motion.div 
+                          className={`h-full rounded-full ${
+                            data.stats.duelStats.winRate >= 60 
+                              ? "bg-gradient-to-r from-emerald-500 to-green-500" 
+                              : data.stats.duelStats.winRate >= 40 
+                                ? "bg-gradient-to-r from-amber-500 to-yellow-500"
+                                : "bg-gradient-to-r from-rose-500 to-red-500"
+                          }`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${data.stats.duelStats.winRate}%` }}
+                          transition={{ delay: 0.6, duration: 0.8, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Streaks */}
+                    <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🔥</span>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Текущая серия</p>
+                          <p className="font-bold tabular-nums">{data.stats.duelStats.currentStreak} {pluralize(data.stats.duelStats.currentStreak, ["победа", "победы", "побед"])}</p>
+                        </div>
+                      </div>
+                      <div className="h-8 w-px bg-border" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">👑</span>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Лучшая серия</p>
+                          <p className="font-bold tabular-nums">{data.stats.duelStats.bestStreak} {pluralize(data.stats.duelStats.bestStreak, ["победа", "победы", "побед"])}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {/* Last Game - Enhanced (only for own profile) */}
             {!isViewingOther && data.stats.lastSession && (
               <motion.div
@@ -1021,29 +1128,62 @@ export default function ProfilePage() {
             
             {/* Public Profile Stats Summary */}
             {isViewingOther && (
-              <Card className="overflow-hidden border-0 shadow-lg">
-                <div className="h-1.5 bg-gradient-to-r from-violet-500 to-purple-600" />
-                <CardContent className="p-6 text-center">
-                  <div className="flex items-center justify-center gap-6">
-                    <div>
-                      <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                        {data.stats.totalScore}
-                      </p>
-                      <p className="text-sm text-muted-foreground font-medium mt-1">Общий счёт</p>
-                    </div>
-                    {data.stats.globalRank && (
-                      <div className="border-l pl-6">
-                        <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-                          #{data.stats.globalRank}
+              <div className="space-y-4">
+                <Card className="overflow-hidden border-0 shadow-lg">
+                  <div className="h-1.5 bg-gradient-to-r from-violet-500 to-purple-600" />
+                  <CardContent className="p-6 text-center">
+                    <div className="flex items-center justify-center gap-6">
+                      <div>
+                        <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                          {data.stats.totalScore}
                         </p>
-                        <p className="text-sm text-muted-foreground font-medium mt-1">
-                          из {data.stats.totalPlayers}
-                        </p>
+                        <p className="text-sm text-muted-foreground font-medium mt-1">Общий счёт</p>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      {data.stats.globalRank && (
+                        <div className="border-l pl-6">
+                          <p className="text-4xl font-black tabular-nums bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                            #{data.stats.globalRank}
+                          </p>
+                          <p className="text-sm text-muted-foreground font-medium mt-1">
+                            из {data.stats.totalPlayers}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Public Profile Duel Stats */}
+                {data.stats.duelStats && data.stats.duelStats.total > 0 && (
+                  <Card className="overflow-hidden border-0 shadow-lg">
+                    <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500" />
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-xl">⚔️</span>
+                        <span className="font-bold">Дуэли</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <p className="text-lg font-bold tabular-nums text-emerald-600">{data.stats.duelStats.wins}</p>
+                          <p className="text-[10px] text-muted-foreground">Побед</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold tabular-nums text-rose-600">{data.stats.duelStats.losses}</p>
+                          <p className="text-[10px] text-muted-foreground">Поражений</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold tabular-nums">{data.stats.duelStats.winRate}%</p>
+                          <p className="text-[10px] text-muted-foreground">Винрейт</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold tabular-nums text-amber-600">{data.stats.duelStats.bestStreak}</p>
+                          <p className="text-[10px] text-muted-foreground">🔥 Макс</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
           </TabsContent>
 

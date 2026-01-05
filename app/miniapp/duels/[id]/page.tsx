@@ -162,6 +162,21 @@ function DuelGameContent({
           {gameState.status === "connecting" && (
             <StatusScreen key="c" type="loading" text="Подключение к делу..." />
           )}
+          {gameState.status === "waiting_accept" && (
+            <StatusScreen 
+              key="wa" 
+              type="waiting_accept" 
+              text="Ожидаем ответа друга" 
+              subtext="Друг получил вызов на дуэль"
+              action={{ 
+                label: "Вернуться", 
+                fn: () => {
+                  haptic.light();
+                  onExit();
+                }
+              }}
+            />
+          )}
           {gameState.status === "waiting_opponent" && (
             <StatusScreen key="w" type="waiting" text="Ожидание подозреваемого" />
           )}
@@ -456,17 +471,22 @@ function LoadingScreen() {
 function StatusScreen({
   type,
   text,
+  subtext,
   action,
 }: {
-  type: "loading" | "waiting" | "error";
+  type: "loading" | "waiting" | "waiting_accept" | "error";
   text: string;
+  subtext?: string;
   action?: { label: string; fn: () => void };
 }) {
   const icons = {
     loading: "🔍",
     waiting: "👤",
+    waiting_accept: "📩",
     error: "⚠️",
   };
+  
+  const isWaitingType = type === "waiting" || type === "waiting_accept";
 
   return (
     <motion.div
@@ -483,29 +503,35 @@ function StatusScreen({
           </div>
         )}
         
-        {/* Pulse for waiting */}
-        {type === "waiting" && (
+        {/* Pulse for waiting types */}
+        {isWaitingType && (
           <motion.div
             animate={{ scale: [1, 1.3], opacity: [0.5, 0] }}
             transition={{ repeat: Infinity, duration: 1.5 }}
-            className="absolute -inset-2 rounded-full bg-red-500/30"
+            className={`absolute -inset-2 rounded-full ${type === "waiting_accept" ? "bg-amber-500/30" : "bg-red-500/30"}`}
           />
         )}
         
         {/* Icon box */}
         <motion.div 
-          animate={type === "waiting" ? { scale: [1, 1.02, 1] } : {}}
+          animate={isWaitingType ? { scale: [1, 1.02, 1] } : {}}
           transition={{ repeat: Infinity, duration: 2 }}
-          className="relative w-20 h-20 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center shadow-xl"
+          className={`relative w-20 h-20 rounded-full bg-gradient-to-br ${type === "waiting_accept" ? "from-amber-800 to-amber-900 border-amber-700" : "from-zinc-800 to-zinc-900 border-zinc-700"} border flex items-center justify-center shadow-xl`}
         >
           <span className="text-3xl">{icons[type]}</span>
         </motion.div>
       </div>
-      <p className="text-zinc-400 mb-6">{text}</p>
+      <p className={`mb-2 font-medium ${type === "waiting_accept" ? "text-amber-400" : "text-zinc-400"}`}>{text}</p>
+      {subtext && (
+        <p className="text-zinc-500 text-sm mb-4">{subtext}</p>
+      )}
+      {type === "waiting_accept" && (
+        <p className="text-zinc-600 text-xs animate-pulse">Проверяем каждые 3 секунды...</p>
+      )}
       {action && (
         <button
           onClick={action.fn}
-          className="px-8 py-3 bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all"
+          className="px-8 py-3 bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white rounded-xl font-medium shadow-lg shadow-red-900/30 transition-all mt-4"
         >
           {action.label}
         </button>
@@ -1028,10 +1054,10 @@ function FinishScreen({
         });
         
         if (response.ok && response.duel) {
-          // Вызов отправлен — показываем сообщение
+          // Вызов создан — СРАЗУ переходим на новую дуэль (там экран ожидания)
           haptic.success();
-          setRematchSent(true);
-          setRematchLoading(false);
+          router.replace(`/miniapp/duels/${response.duel.id}`);
+          return;
         } else if (response.error === "DUEL_ALREADY_EXISTS" && response.duelId) {
           // Уже есть активная дуэль — пробуем принять (если мы оппонент и статус PENDING)
           try {
@@ -1071,6 +1097,8 @@ function FinishScreen({
       } else {
         // Не друг и не AI — переходим в быстрый поиск с предустановленным квизом
         router.push(`/miniapp/duels/quick?quizId=${quizId}`);
+        // Сбрасываем loading после редиректа
+        setRematchLoading(false);
       }
     } catch (error) {
       console.error("[Rematch] Error:", error);
