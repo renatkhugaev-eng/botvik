@@ -111,79 +111,98 @@ export default function RootLayout({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(to bottom, #0a0a0f, #0f0f1a)',
+            background: '#0a0a0f',
             zIndex: 9999,
-            transition: 'opacity 0.3s ease-out',
           }}
         >
-          {/* Animated spinner */}
+          {/* Simple spinner - minimal CSS */}
           <div
+            id="loader-spinner"
             style={{
-              width: 48,
-              height: 48,
-              border: '3px solid rgba(139, 92, 246, 0.2)',
+              width: 40,
+              height: 40,
+              border: '3px solid #333',
               borderTopColor: '#8B5CF6',
               borderRadius: '50%',
-              animation: 'static-spin 0.8s linear infinite',
             }}
           />
-          {/* Loading text */}
+          {/* Loading status - will be updated by inline script */}
           <p
+            id="loader-status"
             style={{
-              marginTop: 16,
-              fontSize: 14,
-              color: 'rgba(255, 255, 255, 0.5)',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
+              marginTop: 12,
+              fontSize: 12,
+              color: '#666',
+              fontFamily: 'system-ui, sans-serif',
             }}
           >
             Загрузка...
           </p>
         </div>
-        {/* Inline CSS for spinner animation - no external CSS needed */}
+        {/* Critical inline styles and scripts - execute IMMEDIATELY */}
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              @keyframes static-spin {
-                to { transform: rotate(360deg); }
-              }
-              /* Hide static loader once React hydrates */
-              .hydrated #static-loader {
-                opacity: 0;
-                pointer-events: none;
-              }
+              @keyframes spin { to { transform: rotate(360deg); } }
+              #loader-spinner { animation: spin 0.8s linear infinite; }
+              .hydrated #static-loader { display: none; }
             `,
           }}
         />
-        {/* Script to hide loader after hydration */}
+        {/* Diagnostic script - shows loading progress */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Add hydrated class after a short delay to ensure React is ready
-              // This hides the static loader smoothly
-              if (typeof window !== 'undefined') {
+              (function() {
+                var status = document.getElementById('loader-status');
+                var start = Date.now();
+                
+                // Update status with timing
+                function updateStatus(msg) {
+                  if (status) {
+                    var elapsed = ((Date.now() - start) / 1000).toFixed(1);
+                    status.textContent = msg + ' (' + elapsed + 's)';
+                  }
+                }
+                
+                // Stage 1: HTML loaded
+                updateStatus('HTML загружен');
+                
+                // Stage 2: DOM ready
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', function() {
+                    updateStatus('DOM готов');
+                  });
+                } else {
+                  updateStatus('DOM готов');
+                }
+                
+                // Stage 3: All resources loaded
+                window.addEventListener('load', function() {
+                  updateStatus('Ресурсы загружены');
+                });
+                
+                // Hide loader when React hydrates
                 var checkHydration = function() {
-                  if (document.querySelector('[data-nextjs-scroll-focus-boundary]') || 
-                      document.querySelector('#__next') ||
-                      document.querySelector('main') ||
-                      document.body.children.length > 3) {
-                    document.body.classList.add('hydrated');
-                    // Also directly hide after 100ms for safety
+                  if (document.body.children.length > 4) {
+                    updateStatus('React готов');
                     setTimeout(function() {
-                      var loader = document.getElementById('static-loader');
-                      if (loader) loader.style.display = 'none';
-                    }, 300);
+                      document.body.classList.add('hydrated');
+                    }, 100);
                   } else {
                     requestAnimationFrame(checkHydration);
                   }
                 };
-                // Start checking, but also set a max timeout
                 requestAnimationFrame(checkHydration);
-                // Fallback: hide loader after 10 seconds max (in case of error)
+                
+                // Timeout fallback - show error after 30 seconds
                 setTimeout(function() {
-                  var loader = document.getElementById('static-loader');
-                  if (loader) loader.style.display = 'none';
-                }, 10000);
-              }
+                  if (!document.body.classList.contains('hydrated')) {
+                    updateStatus('Таймаут загрузки');
+                    if (status) status.style.color = '#f87171';
+                  }
+                }, 30000);
+              })();
             `,
           }}
         />
