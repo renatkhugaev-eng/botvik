@@ -29,6 +29,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Override global styles that block scrolling (set for Telegram Mini App)
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    
+    // Save original styles
+    const originalHtmlStyle = html.style.cssText;
+    const originalBodyStyle = body.style.cssText;
+    
+    // Override for admin
+    html.style.cssText = "height: auto; overflow: auto; position: static;";
+    body.style.cssText = "height: auto; overflow: auto; position: static; min-height: 100vh;";
+    
+    return () => {
+      // Restore on unmount (when leaving admin)
+      html.style.cssText = originalHtmlStyle;
+      body.style.cssText = originalBodyStyle;
+    };
+  }, []);
+
   // Check auth status via API (cookies handled by browser)
   const checkAuth = useCallback(async () => {
     try {
