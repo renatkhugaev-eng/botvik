@@ -99,6 +99,13 @@ export default function AdminDashboard() {
       description: "Просмотр и модерация",
       color: "bg-blue-600",
     },
+    {
+      href: "/admin/panorama",
+      icon: HiCollection,
+      title: "🗺️ Генератор миссий",
+      description: "Автоматически создавать панорамные миссии",
+      color: "bg-cyan-600",
+    },
   ];
 
   return (

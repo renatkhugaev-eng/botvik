@@ -847,47 +847,41 @@ export default function ProfilePage() {
       >
         {/* Score */}
         <div 
-          className="flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5"
+          className="flex items-center justify-center gap-1.5 rounded-full px-4 py-2 min-w-[100px]"
           style={{
             background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
             boxShadow: '0 3px 12px rgba(124, 58, 237, 0.3)',
           }}
         >
-          <span className="text-lg">💎</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-[15px] font-bold text-white tabular-nums">{animatedScore.toLocaleString()}</span>
-            <span className="text-[10px] text-white/70 font-medium">очк.</span>
-          </div>
+          <span className="text-base leading-none">💎</span>
+          <span className="text-sm font-bold text-white tabular-nums leading-none">{animatedScore.toLocaleString()}</span>
+          <span className="text-[10px] text-white/70 font-medium leading-none">очк.</span>
         </div>
         
         {/* Games */}
         <div 
-          className="flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5"
+          className="flex items-center justify-center gap-1.5 rounded-full px-4 py-2 min-w-[85px]"
           style={{
             background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)',
             boxShadow: '0 3px 12px rgba(16, 185, 129, 0.3)',
           }}
         >
-          <span className="text-lg">🎮</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-[15px] font-bold text-white tabular-nums">{animatedGames}</span>
-            <span className="text-[10px] text-white/70 font-medium">игр</span>
-          </div>
+          <span className="text-base leading-none">🎮</span>
+          <span className="text-sm font-bold text-white tabular-nums leading-none">{animatedGames}</span>
+          <span className="text-[10px] text-white/70 font-medium leading-none">игр</span>
         </div>
         
         {/* Rank */}
         <div 
-          className="flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5"
+          className="flex items-center justify-center gap-1.5 rounded-full px-4 py-2 min-w-[90px]"
           style={{
             background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
             boxShadow: '0 3px 12px rgba(245, 158, 11, 0.3)',
           }}
         >
-          <span className="text-lg">🏆</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-[15px] font-bold text-white tabular-nums">{data.stats.globalRank ?? "—"}</span>
-            <span className="text-[10px] text-white/70 font-medium">место</span>
-          </div>
+          <span className="text-base leading-none">🏆</span>
+          <span className="text-sm font-bold text-white tabular-nums leading-none">{data.stats.globalRank ?? "—"}</span>
+          <span className="text-[10px] text-white/70 font-medium leading-none">место</span>
         </div>
       </motion.div>
       
