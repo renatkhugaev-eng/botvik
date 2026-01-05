@@ -208,6 +208,8 @@ export interface GeneratedMission {
   /** Метаданные генерации */
   generatedAt: string;
   generatorVersion: string;
+  /** Seed для воспроизводимости */
+  seed?: string;
 }
 
 /** Сгенерированная улика */

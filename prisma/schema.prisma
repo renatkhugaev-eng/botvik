@@ -1197,6 +1197,10 @@ model PanoramaMission {
   // Полный JSON миссии (HiddenClueMission)
   missionJson     Json
   
+  // Воспроизводимость генерации
+  generatorVersion String?                           // "3.0.0"
+  seed            String?                            // Seed для воспроизведения
+  
   // Статистика
   clueCount       Int
   requiredClues   Int

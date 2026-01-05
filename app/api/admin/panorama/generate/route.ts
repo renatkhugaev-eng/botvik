@@ -1,22 +1,28 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * PANORAMA MISSION GENERATOR API
+ * PANORAMA MISSION GENERATOR API v3.0.0
  * POST /api/admin/panorama/generate
  * 
  * Генерирует панорамную миссию на основе координат и темы
  * 
- * v2.0.0 - Добавлены:
- * - Валидация темы
- * - Rate limiting
+ * Улучшения v3.0.0:
+ * - Zod валидация входных данных
+ * - Сохранение в БД (Prisma)
+ * - Seed для воспроизводимости
  * - Улучшенное логирование
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdmin } from "@/lib/auth";
-import { generateMission, toHiddenClueMission, getAllThemes } from "@/lib/mission-generator";
+import { generateMission, toHiddenClueMission, getAllThemes, GENERATOR_VERSION } from "@/lib/mission-generator";
 import { graphFromSerializable } from "@/lib/panorama-graph-builder";
-import type { MissionGenerationRequest, MissionThemeType, PanoNode, GraphStats } from "@/types/panorama-graph";
+import { 
+  safeValidateGenerateRequest, 
+  MissionThemeTypeSchema,
+  DifficultySchema,
+} from "@/lib/schemas/panorama-mission";
+import { prisma } from "@/lib/prisma";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RATE LIMITING (простой in-memory для админки)
@@ -44,36 +50,6 @@ function checkRateLimit(adminId: string): { allowed: boolean; remaining: number 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VALIDATION
-// ═══════════════════════════════════════════════════════════════════════════
-
-const VALID_THEMES = new Set<MissionThemeType>([
-  "yakuza", "spy", "heist", "murder", "smuggling", 
-  "art_theft", "kidnapping", "corruption", "custom"
-]);
-
-const VALID_DIFFICULTIES = new Set(["easy", "medium", "hard", "extreme"]);
-
-function validateCoordinates(coords: unknown): coords is [number, number] {
-  return (
-    Array.isArray(coords) &&
-    coords.length === 2 &&
-    typeof coords[0] === "number" &&
-    typeof coords[1] === "number" &&
-    coords[0] >= -90 && coords[0] <= 90 &&
-    coords[1] >= -180 && coords[1] <= 180
-  );
-}
-
-function validateTheme(theme: unknown): theme is MissionThemeType {
-  return typeof theme === "string" && VALID_THEMES.has(theme as MissionThemeType);
-}
-
-function validateDifficulty(diff: unknown): diff is "easy" | "medium" | "hard" | "extreme" {
-  return typeof diff === "string" && VALID_DIFFICULTIES.has(diff);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // GET - Получить список доступных тем
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -94,10 +70,26 @@ export async function GET(req: NextRequest) {
       clueCount: theme.clueTemplates.length,
     }));
     
+    // Получаем статистику сохранённых миссий
+    const missionStats = await prisma.panoramaMission.groupBy({
+      by: ["theme"],
+      _count: { id: true },
+      where: { isPublished: true },
+    });
+    
+    const statsMap = Object.fromEntries(
+      missionStats.map(s => [s.theme, s._count.id])
+    );
+    
     return NextResponse.json({
       ok: true,
-      themes,
-      validDifficulties: Array.from(VALID_DIFFICULTIES),
+      themes: themes.map(t => ({
+        ...t,
+        publishedMissions: statsMap[t.type] || 0,
+      })),
+      validDifficulties: DifficultySchema.options,
+      validThemes: MissionThemeTypeSchema.options,
+      generatorVersion: GENERATOR_VERSION,
     });
   } catch (error) {
     console.error("[Admin Panorama] Error fetching themes:", error);
@@ -112,29 +104,6 @@ export async function GET(req: NextRequest) {
 // POST - Сгенерировать миссию
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface GenerateRequestBody {
-  /** Координаты [lat, lng] */
-  coordinates: [number, number];
-  /** Тема миссии */
-  theme: string;
-  /** Количество улик */
-  clueCount: number;
-  /** Название локации */
-  locationName?: string;
-  /** Сложность */
-  difficulty?: "easy" | "medium" | "hard" | "extreme";
-  /** Граф панорам (сериализованный) — от клиента */
-  graph: {
-    nodes: [string, PanoNode][];
-    startPanoId: string;
-    startCoordinates: [number, number];
-    maxDepth: number;
-    stats: GraphStats;
-  };
-  /** Сохранить в БД? */
-  save?: boolean;
-}
-
 export async function POST(req: NextRequest) {
   const auth = await authenticateAdmin(req);
   
@@ -143,7 +112,7 @@ export async function POST(req: NextRequest) {
   }
   
   // Rate limiting (используем telegramId админа)
-  const adminId = auth.ok ? auth.user.telegramId : "default";
+  const adminId = auth.user.telegramId;
   const rateLimit = checkRateLimit(adminId);
   
   if (!rateLimit.allowed) {
@@ -162,73 +131,54 @@ export async function POST(req: NextRequest) {
   }
   
   try {
-    const body: GenerateRequestBody = await req.json();
+    const rawBody = await req.json();
     
     // ═══════════════════════════════════════════════════════════════════════
-    // ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ
+    // ZOD ВАЛИДАЦИЯ
     // ═══════════════════════════════════════════════════════════════════════
     
-    // Координаты
-    if (!validateCoordinates(body.coordinates)) {
+    const validation = safeValidateGenerateRequest(rawBody);
+    
+    if (!validation.success) {
+      console.warn(`[Admin Panorama] Validation failed: ${validation.error}`);
       return NextResponse.json(
-        { ok: false, error: "Некорректные координаты. Ожидается [lat, lng] где lat: -90..90, lng: -180..180" },
+        { 
+          ok: false, 
+          error: `Ошибка валидации: ${validation.error}`,
+          validationError: true,
+        },
         { status: 400 }
       );
     }
     
-    // Тема
-    if (!validateTheme(body.theme)) {
-      return NextResponse.json(
-        { ok: false, error: `Некорректная тема: "${body.theme}". Доступные: ${Array.from(VALID_THEMES).join(", ")}` },
-        { status: 400 }
-      );
-    }
+    const body = validation.data;
     
-    // Сложность (опционально)
-    if (body.difficulty && !validateDifficulty(body.difficulty)) {
-      return NextResponse.json(
-        { ok: false, error: `Некорректная сложность: "${body.difficulty}". Доступные: ${Array.from(VALID_DIFFICULTIES).join(", ")}` },
-        { status: 400 }
-      );
-    }
-    
-    // Количество улик
-    const clueCount = Number(body.clueCount);
-    if (isNaN(clueCount) || clueCount < 3 || clueCount > 7) {
-      return NextResponse.json(
-        { ok: false, error: "Количество улик должно быть от 3 до 7" },
-        { status: 400 }
-      );
-    }
-    
-    // Граф
-    if (!body.graph || !body.graph.nodes || body.graph.nodes.length === 0) {
-      return NextResponse.json(
-        { ok: false, error: "Граф панорам не передан или пуст. Сначала выполните сканирование." },
-        { status: 400 }
-      );
-    }
+    console.log(
+      `[Admin Panorama] Generating mission: ` +
+      `theme=${body.theme}, clues=${body.clueCount}, ` +
+      `location=${body.locationName || "unknown"}, ` +
+      `seed=${body.seed || "auto"}`
+    );
     
     // ═══════════════════════════════════════════════════════════════════════
     // ГЕНЕРАЦИЯ
     // ═══════════════════════════════════════════════════════════════════════
     
-    console.log(`[Admin Panorama] Generating mission: theme=${body.theme}, clues=${clueCount}, location=${body.locationName || "unknown"}`);
-    
     // Восстанавливаем граф из сериализованного формата
     const graph = graphFromSerializable(body.graph);
     
-    // Формируем запрос
-    const request: MissionGenerationRequest = {
-      coordinates: body.coordinates,
-      theme: body.theme as MissionThemeType,
-      clueCount,
-      locationName: body.locationName,
-      difficulty: body.difficulty || "hard",
-    };
-    
-    // Генерируем миссию
-    const result = generateMission(graph, request);
+    // Генерируем миссию с опциональным seed
+    const result = generateMission(
+      graph,
+      {
+        coordinates: body.coordinates,
+        theme: body.theme,
+        clueCount: body.clueCount,
+        locationName: body.locationName,
+        difficulty: body.difficulty,
+      },
+      body.seed // Передаём seed для воспроизводимости
+    );
     
     if (!result.success || !result.mission) {
       console.warn(`[Admin Panorama] Generation failed: ${result.error}`);
@@ -242,23 +192,48 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    console.log(`[Admin Panorama] Mission generated: id=${result.mission.id}, clues=${result.mission.clues.length}, time=${result.generationTimeMs}ms`);
+    console.log(
+      `[Admin Panorama] Mission generated: ` +
+      `id=${result.mission.id}, clues=${result.mission.clues.length}, ` +
+      `time=${result.generationTimeMs}ms`
+    );
     
-    // Если нужно сохранить в БД
+    // ═══════════════════════════════════════════════════════════════════════
+    // СОХРАНЕНИЕ В БД
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    let savedMission = null;
+    
     if (body.save) {
-      // TODO: Сохраняем в таблицу PanoramaMission
-      // После добавления модели в Prisma:
-      // await prisma.panoramaMission.create({
-      //   data: {
-      //     id: result.mission.id,
-      //     title: result.mission.title,
-      //     location: result.mission.location,
-      //     difficulty: result.mission.difficulty,
-      //     missionJson: result.mission,
-      //     isPublished: false,
-      //   }
-      // });
-      console.log(`[Admin Panorama] Saving mission to database: ${result.mission.id} (TODO: implement)`);
+      try {
+        savedMission = await prisma.panoramaMission.create({
+          data: {
+            id: result.mission.id,
+            title: result.mission.title,
+            description: result.mission.description,
+            location: result.mission.location,
+            difficulty: result.mission.difficulty,
+            theme: body.theme,
+            startLat: result.mission.startCoordinates[0],
+            startLng: result.mission.startCoordinates[1],
+            startPanoId: result.mission.startPanoId,
+            missionJson: JSON.parse(JSON.stringify(result.mission)),
+            clueCount: result.mission.clues.length,
+            requiredClues: result.mission.requiredClues,
+            timeLimit: result.mission.timeLimit,
+            xpReward: result.mission.xpReward,
+            generatorVersion: GENERATOR_VERSION,
+            seed: result.mission.seed,
+            isPublished: false, // По умолчанию не опубликована
+            createdById: auth.user.id,
+          },
+        });
+        
+        console.log(`[Admin Panorama] Mission saved to DB: ${savedMission.id}`);
+      } catch (dbError) {
+        console.error("[Admin Panorama] Failed to save mission:", dbError);
+        // Не прерываем — миссия сгенерирована, просто не сохранена
+      }
     }
     
     // Конвертируем в формат HiddenClueMission для совместимости
@@ -275,10 +250,13 @@ export async function POST(req: NextRequest) {
         cluesGenerated: result.mission.clues.length,
         generationTimeMs: result.generationTimeMs,
       },
+      saved: savedMission !== null,
+      savedId: savedMission?.id,
       rateLimit: {
         remaining: rateLimit.remaining,
         resetIn: RATE_LIMIT_WINDOW_MS / 1000,
       },
+      generatorVersion: GENERATOR_VERSION,
     });
     
   } catch (error) {
