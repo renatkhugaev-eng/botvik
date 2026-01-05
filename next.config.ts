@@ -110,11 +110,9 @@ const nextConfig: NextConfig = {
               process.env.NODE_ENV === 'production' ? "upgrade-insecure-requests" : "",
             ].filter(Boolean).join('; '),
           },
-          // Prevent clickjacking (allow Telegram iframe)
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOW-FROM https://web.telegram.org',
-          },
+          // X-Frame-Options removed - using frame-ancestors in CSP instead
+          // ALLOW-FROM is deprecated and not supported by modern browsers
+          // frame-ancestors in CSP above handles this correctly
           // XSS Protection
           {
             key: 'X-Content-Type-Options',
@@ -129,6 +127,16 @@ const nextConfig: NextConfig = {
           {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=()',
+          },
+          // Network optimization for mobile
+          {
+            key: 'Connection',
+            value: 'keep-alive',
+          },
+          // Vary header for proper caching with different Accept-Encoding
+          {
+            key: 'Vary',
+            value: 'Accept-Encoding',
           },
         ],
       },
