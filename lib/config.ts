@@ -162,6 +162,9 @@ export const SECURITY_CONFIG = {
     .concat([
       "https://web.telegram.org",
       "https://telegram.org",
+      // Production domains
+      "https://botvik.app",
+      "https://www.botvik.app",
     ]),
   
   /** Включить strict mode для validation */
