@@ -38,6 +38,7 @@ import {
   ClipboardIcon,
   PathIcon,
   MedalIcon,
+  TreasureChestIcon,
 } from "@/components/icons/EmojiIcons";
 
 // Platform detection moved to @/components/hooks/usePlatform
@@ -1445,7 +1446,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     { step: 1, icon: "gamepad", label: "Играй", desc: "квизы", color: "from-violet-500 to-violet-600", glow: "violet", isImg: false },
                     { step: 2, icon: "diamond", label: "Набирай", desc: "очки", color: "from-fuchsia-500 to-pink-500", glow: "fuchsia", isImg: false },
                     { step: 3, icon: "trophy", label: "Расти", desc: "в топе", color: "from-cyan-500 to-blue-500", glow: "cyan", isImg: false },
-                    { step: 4, icon: "/icons/17.webp", label: "Получай", desc: "призы", color: "from-amber-500 to-orange-500", glow: "amber", isImg: true },
+                    { step: 4, icon: "chest", label: "Получай", desc: "призы", color: "from-amber-500 to-orange-500", glow: "amber", isImg: false },
                   ].map((item, i) => (
                     <motion.div
                       key={item.step}
@@ -1473,14 +1474,14 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                         whileTap={{ scale: 0.95 }}
                         className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg shadow-${item.glow}-500/30 ring-2 ring-white/20`}
                       >
-                        {item.isImg ? (
-                          <img src={item.icon} alt="" width={36} height={36} className="w-9 h-9 object-contain" style={{ aspectRatio: '1/1' }} />
-                        ) : item.icon === "gamepad" ? (
+                        {item.icon === "gamepad" ? (
                           <GamepadIcon size={30} />
                         ) : item.icon === "diamond" ? (
                           <DiamondIcon size={30} />
                         ) : item.icon === "trophy" ? (
                           <TrophyIcon size={30} />
+                        ) : item.icon === "chest" ? (
+                          <TreasureChestIcon size={30} />
                         ) : null}
                         
                         {/* Step number badge */}

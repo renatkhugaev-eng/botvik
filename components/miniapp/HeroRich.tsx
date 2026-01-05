@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { HERO_HEIGHT } from "./HeroShell";
+import { TreasureChestIcon } from "@/components/icons/EmojiIcons";
 
 /**
  * HeroRich — Full decorative hero block with effects
@@ -186,12 +186,9 @@ export function HeroRich({
                       background: 'radial-gradient(circle, rgba(251,191,36,0.4) 0%, rgba(251,191,36,0.2) 40%, transparent 70%)'
                     } : undefined}
                   />
-                  <Image 
-                    src="/icons/17.webp" 
-                    alt="" 
-                    width={64}
-                    height={64}
-                    className={`relative h-16 w-16 object-contain ${isAndroid ? 'drop-shadow-[0_0_12px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]'}`} 
+                  <TreasureChestIcon 
+                    size={64}
+                    className={`relative ${isAndroid ? 'drop-shadow-[0_0_12px_rgba(251,191,36,0.5)]' : 'drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]'}`} 
                   />
                 </motion.div>
               </div>

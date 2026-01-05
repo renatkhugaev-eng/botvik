@@ -822,3 +822,53 @@ export function MedalIcon({ className, size = 24 }: IconProps) {
   );
 }
 
+// 🎁 Сундук с призами (Treasure Chest)
+export function TreasureChestIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Основа сундука */}
+      <path d="M3 10V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V10H3Z" fill="url(#chest-body)"/>
+      {/* Крышка */}
+      <path d="M3 10C3 7.79 4.79 6 7 6H17C19.21 6 21 7.79 21 10H3Z" fill="url(#chest-lid)"/>
+      {/* Полоски */}
+      <rect x="3" y="9" width="18" height="2" fill="url(#chest-band)"/>
+      <rect x="10" y="6" width="4" height="6" rx="1" fill="url(#chest-lock-plate)"/>
+      {/* Замок */}
+      <circle cx="12" cy="11" r="1.5" fill="url(#chest-lock)"/>
+      <rect x="11.25" y="11" width="1.5" height="2" fill="#78350F"/>
+      {/* Блики */}
+      <path d="M5 8C5 8 6 7 8 7" stroke="#FEF3C7" strokeWidth="0.5" strokeLinecap="round" opacity="0.6"/>
+      {/* Монеты внутри (видны сверху) */}
+      <circle cx="7" cy="8" r="1" fill="#FCD34D" opacity="0.8"/>
+      <circle cx="9" cy="7.5" r="0.8" fill="#FDE68A" opacity="0.7"/>
+      <circle cx="15" cy="7.8" r="0.9" fill="#FCD34D" opacity="0.8"/>
+      <circle cx="17" cy="8" r="0.7" fill="#FDE68A" opacity="0.6"/>
+      <defs>
+        <linearGradient id="chest-body" x1="3" y1="10" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#92400E"/>
+          <stop offset="0.5" stopColor="#78350F"/>
+          <stop offset="1" stopColor="#451A03"/>
+        </linearGradient>
+        <linearGradient id="chest-lid" x1="3" y1="6" x2="21" y2="10" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#B45309"/>
+          <stop offset="0.5" stopColor="#92400E"/>
+          <stop offset="1" stopColor="#78350F"/>
+        </linearGradient>
+        <linearGradient id="chest-band" x1="3" y1="10" x2="21" y2="10" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FCD34D"/>
+          <stop offset="0.5" stopColor="#F59E0B"/>
+          <stop offset="1" stopColor="#D97706"/>
+        </linearGradient>
+        <linearGradient id="chest-lock-plate" x1="10" y1="6" x2="14" y2="12" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FDE68A"/>
+          <stop offset="1" stopColor="#F59E0B"/>
+        </linearGradient>
+        <linearGradient id="chest-lock" x1="10.5" y1="9.5" x2="13.5" y2="12.5" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#92400E"/>
+          <stop offset="1" stopColor="#78350F"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
