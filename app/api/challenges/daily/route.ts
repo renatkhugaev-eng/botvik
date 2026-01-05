@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { checkRateLimit, generalLimiter, getClientIdentifier } from "@/lib/ratelimit";
+import { csrfCheck } from "@/lib/csrf";
 import { 
   getUserDailyChallenges, 
   claimChallengeReward, 
@@ -56,6 +57,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF защита для POST запросов
+    const csrfError = csrfCheck(request);
+    if (csrfError) {
+      return NextResponse.json({ ok: false, error: csrfError }, { status: 403 });
+    }
+    
     const auth = await authenticateRequest(request);
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });

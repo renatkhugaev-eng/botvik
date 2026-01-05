@@ -11,6 +11,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { DailyChallengeType } from "@prisma/client";
+import { getLevelProgress, getLevelTitle } from "@/lib/xp";
+import { notifyLevelUp } from "@/lib/notifications";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ТИПЫ
@@ -403,6 +405,16 @@ interface UpdateProgressParams {
 export async function updateChallengeProgress(params: UpdateProgressParams): Promise<void> {
   const { userId, type, increment = 1, setValue, checkPerfect, checkStreak } = params;
   
+  // Проверяем что это не бот (боты не участвуют в Daily Challenges)
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isBot: true },
+  });
+  
+  if (user?.isBot) {
+    return; // Боты не получают прогресс по заданиям
+  }
+  
   const today = getTodayUTC();
   
   // Находим задание этого типа на сегодня
@@ -519,26 +531,44 @@ export async function claimChallengeReward(
   
   const def = progress.challenge.definition;
   
+  // Получаем текущий XP пользователя для проверки level up
+  const userBefore = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { xp: true, telegramId: true },
+  });
+  
+  const oldLevel = userBefore ? getLevelProgress(userBefore.xp).level : 1;
+  
   // Выдаём награды
-  await prisma.$transaction([
+  const updatedUser = await prisma.$transaction(async (tx) => {
     // Обновляем прогресс
-    prisma.userDailyChallenge.update({
+    await tx.userDailyChallenge.update({
       where: { id: progress.id },
       data: {
         isClaimed: true,
         claimedAt: new Date(),
       },
-    }),
-    // Выдаём XP
-    prisma.user.update({
+    });
+    
+    // Выдаём XP и энергию
+    return tx.user.update({
       where: { id: userId },
       data: {
         xp: { increment: def.xpReward },
         bonusEnergy: { increment: def.energyReward },
         bonusEnergyEarned: { increment: def.energyReward },
       },
-    }),
-  ]);
+    });
+  });
+  
+  // Проверяем level up
+  const newLevel = getLevelProgress(updatedUser.xp).level;
+  if (newLevel > oldLevel) {
+    // Отправляем уведомление о повышении уровня (не блокируем ответ)
+    const levelInfo = getLevelTitle(newLevel);
+    notifyLevelUp(userId, newLevel, levelInfo.title, def.xpReward)
+      .catch(err => console.error("[DailyChallenges] Level up notification error:", err));
+  }
   
   return {
     ok: true,
@@ -571,24 +601,41 @@ export async function claimDailyBonus(userId: number): Promise<ClaimResult> {
   // Выдаём бонус
   const bonusXP = 200;
   
-  await prisma.$transaction([
+  // Получаем текущий XP пользователя для проверки level up
+  const userBefore = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { xp: true },
+  });
+  
+  const oldLevel = userBefore ? getLevelProgress(userBefore.xp).level : 1;
+  
+  const updatedUser = await prisma.$transaction(async (tx) => {
     // Записываем клейм бонуса
-    prisma.dailyBonusClaim.create({
+    await tx.dailyBonusClaim.create({
       data: {
         userId,
         date: today,
         rewardType: "xp",
         rewardValue: String(bonusXP),
       },
-    }),
+    });
+    
     // Выдаём XP
-    prisma.user.update({
+    return tx.user.update({
       where: { id: userId },
       data: {
         xp: { increment: bonusXP },
       },
-    }),
-  ]);
+    });
+  });
+  
+  // Проверяем level up
+  const newLevel = getLevelProgress(updatedUser.xp).level;
+  if (newLevel > oldLevel) {
+    const levelInfo = getLevelTitle(newLevel);
+    notifyLevelUp(userId, newLevel, levelInfo.title, bonusXP)
+      .catch(err => console.error("[DailyChallenges] Bonus level up notification error:", err));
+  }
   
   return {
     ok: true,
