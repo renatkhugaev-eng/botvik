@@ -858,6 +858,55 @@ function FinishScreen({
   const [addingFriend, setAddingFriend] = useState(false);
   const [rematchLoading, setRematchLoading] = useState(false);
   const [rematchSent, setRematchSent] = useState(false);
+  const [incomingRematch, setIncomingRematch] = useState<{ duelId: string } | null>(null);
+
+  // Polling: проверяем есть ли входящий реванш от противника
+  useEffect(() => {
+    if (!oppPlayer?.odId || isAIMode) return;
+    
+    let cancelled = false;
+    
+    const checkIncomingRematch = async () => {
+      try {
+        // Получаем все активные дуэли (API возвращает incoming, outgoing, active)
+        const response = await api.get<{
+          ok: boolean;
+          incoming?: Array<{
+            id: string;
+            challengerId: number;
+            quizId: number;
+            challenger: { id: number };
+          }>;
+        }>("/api/duels");
+        
+        if (cancelled) return;
+        
+        if (response.ok && response.incoming) {
+          // Ищем входящий вызов от этого противника
+          const rematchDuel = response.incoming.find(
+            d => d.challengerId === oppPlayer.odId || d.challenger?.id === oppPlayer.odId
+          );
+          
+          if (rematchDuel) {
+            setIncomingRematch({ duelId: rematchDuel.id });
+          } else {
+            setIncomingRematch(null);
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+    
+    // Проверяем сразу и каждые 3 секунды
+    checkIncomingRematch();
+    const interval = setInterval(checkIncomingRematch, 3000);
+    
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [oppPlayer?.odId, quizId, isAIMode]);
 
   // Проверяем статус дружбы при загрузке
   useEffect(() => {
@@ -915,7 +964,7 @@ function FinishScreen({
     }
   };
 
-  // Реванш — создаём новую дуэль с тем же квизом
+  // Реванш — создаём новую дуэль с тем же квизом или принимаем входящий
   const handleRematch = async () => {
     if (!quizId || rematchLoading) return;
     
@@ -923,6 +972,25 @@ function FinishScreen({
     haptic.medium();
     
     try {
+      // Если есть входящий реванш — сразу принимаем его
+      if (incomingRematch) {
+        const acceptResponse = await api.patch<{
+          ok: boolean;
+          duel?: { status: string };
+          error?: string;
+        }>(`/api/duels/${incomingRematch.duelId}`, { action: "accept" });
+        
+        if (acceptResponse.ok) {
+          haptic.success();
+          router.replace(`/miniapp/duels/${incomingRematch.duelId}`);
+        } else {
+          console.error("[Rematch] Failed to accept:", acceptResponse.error);
+          haptic.error();
+          setRematchLoading(false);
+        }
+        return;
+      }
+      
       if (isAIMode) {
         // Для AI-бота создаём новую дуэль с тем же ботом
         const response = await api.post<{
@@ -1158,9 +1226,19 @@ function FinishScreen({
           <button
             onClick={handleRematch}
             disabled={rematchLoading || !quizId || rematchSent}
-            className="flex-1 py-4 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex-1 py-4 rounded-xl font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+              incomingRematch 
+                ? "bg-green-600/30 hover:bg-green-600/40 border border-green-500/50 text-green-400 animate-pulse" 
+                : "bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400"
+            }`}
           >
-            {rematchSent ? "✅ Вызов отправлен" : rematchLoading ? "⏳ Создаём..." : "🔄 Реванш"}
+            {rematchSent 
+              ? "✅ Вызов отправлен" 
+              : rematchLoading 
+                ? "⏳ Загрузка..." 
+                : incomingRematch 
+                  ? "🎯 Принять реванш!" 
+                  : "🔄 Реванш"}
           </button>
           <button
             onClick={() => {
