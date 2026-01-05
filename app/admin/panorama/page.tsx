@@ -116,7 +116,9 @@ export default function PanoramaGeneratorPage() {
     async function fetchThemes() {
       try {
         setThemesError(null);
-        const res = await fetch("/api/admin/panorama/generate");
+        const res = await fetch("/api/admin/panorama/generate", {
+          credentials: "include",
+        });
         
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -258,6 +260,7 @@ export default function PanoramaGeneratorPage() {
       const res = await fetch("/api/admin/panorama/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           coordinates,
           theme: selectedTheme,
