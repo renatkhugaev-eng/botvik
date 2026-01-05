@@ -639,6 +639,7 @@ export function HiddenClueMission({
           <GooglePanorama
             ref={panoramaRef}
             coordinates={mission.startCoordinates}
+            panoId={mission.startPanoId}
             direction={[mission.startHeading, 0]}
             allowNavigation={true}
             onDirectionChange={handleDirectionChange}

@@ -18,6 +18,9 @@ interface GooglePanoramaProps {
   /** Координаты панорамы [широта, долгота] */
   coordinates: GeoCoordinates;
   
+  /** Конкретный panoId для загрузки (приоритет над coordinates) */
+  panoId?: string;
+  
   /** Начальное направление камеры [heading (0-360), pitch (-90 to 90)] */
   direction?: CameraDirection;
   
@@ -136,6 +139,7 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
   function GooglePanorama(
     {
       coordinates,
+      panoId,
       direction,
       className = "",
       allowNavigation = true,
@@ -189,6 +193,62 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
     useEffect(() => {
       let mounted = true;
       
+      // Функция для создания панорамы с общими настройками
+      function createPanorama(options: { pano?: string; position?: any }) {
+        if (!containerRef.current || !window.google) return null;
+        
+        console.log("[GooglePanorama] Creating panorama with:", options);
+        
+        const panorama = new window.google.maps.StreetViewPanorama(
+          containerRef.current,
+          {
+            ...options,
+            pov: {
+              heading: direction?.[0] || 0,
+              pitch: direction?.[1] || 0,
+            },
+            zoom: 1,
+            // UI controls
+            addressControl: false,
+            showRoadLabels: false,
+            linksControl: allowNavigation,
+            panControl: false,
+            zoomControl: true,
+            fullscreenControl: false,
+            // Interaction
+            clickToGo: allowNavigation,
+            scrollwheel: true,
+            disableDefaultUI: false,
+            disableDoubleClickZoom: false,
+            // Motion
+            motionTracking: false,
+            motionTrackingControl: false,
+            enableCloseButton: false,
+          }
+        );
+        
+        return panorama;
+      }
+      
+      // Функция для настройки событий
+      function setupEventListeners(panorama: any) {
+        if (onDirectionChange) {
+          panorama.addListener("pov_changed", () => {
+            const pov = panorama.getPov();
+            onDirectionChange([pov.heading, pov.pitch]);
+          });
+        }
+        
+        if (onPositionChange) {
+          panorama.addListener("position_changed", () => {
+            const pos = panorama.getPosition();
+            if (pos) {
+              onPositionChange([pos.lat(), pos.lng()]);
+            }
+          });
+        }
+      }
+      
       async function init() {
         if (!containerRef.current) return;
         
@@ -204,79 +264,81 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
           
           const google = window.google;
           
-          // Проверяем доступность панорамы
-          console.log("[GooglePanorama] Checking panorama at:", coordinates);
-          const streetViewService = new google.maps.StreetViewService();
-          const location = new google.maps.LatLng(coordinates[0], coordinates[1]);
+          // Если передан реальный panoId (не "START" и не виртуальный STEP_X)
+          const hasRealPanoId = panoId && panoId !== "START" && !panoId.startsWith("STEP_");
           
-          streetViewService.getPanorama(
-            { location, radius: 50 },
-            (data: any, status: string) => {
-              if (!mounted) return;
-              
-              console.log("[GooglePanorama] Service status:", status);
-              
-              if (status !== google.maps.StreetViewStatus.OK) {
-                setNotAvailable(true);
-                setLoading(false);
-                return;
-              }
-              
-              // Создаём панораму
-              console.log("[GooglePanorama] Creating panorama...");
-              const panorama = new google.maps.StreetViewPanorama(
-                containerRef.current!,
-                {
-                  position: location,
-                  pov: {
-                    heading: direction?.[0] || 0,
-                    pitch: direction?.[1] || 0,
-                  },
-                  zoom: 1,
-                  // UI controls
-                  addressControl: false,
-                  showRoadLabels: false,
-                  linksControl: allowNavigation,
-                  panControl: false, // Убираем кнопки - используем touch/drag
-                  zoomControl: true,
-                  fullscreenControl: false,
-                  // Interaction
-                  clickToGo: allowNavigation,
-                  scrollwheel: true,
-                  disableDefaultUI: false,
-                  disableDoubleClickZoom: false,
-                  // Motion
-                  motionTracking: false,
-                  motionTrackingControl: false,
-                  // Enable all interaction
-                  enableCloseButton: false,
-                }
-              );
-              
-              panoramaRef.current = panorama;
-              
-              // События
-              if (onDirectionChange) {
-                panorama.addListener("pov_changed", () => {
-                  const pov = panorama.getPov();
-                  onDirectionChange([pov.heading, pov.pitch]);
-                });
-              }
-              
-              if (onPositionChange) {
-                panorama.addListener("position_changed", () => {
-                  const pos = panorama.getPosition();
-                  if (pos) {
-                    onPositionChange([pos.lat(), pos.lng()]);
-                  }
-                });
-              }
-              
+          if (hasRealPanoId) {
+            console.log("[GooglePanorama] Using specific panoId:", panoId);
+            
+            // Создаём панораму напрямую по panoId
+            const panorama = createPanorama({ pano: panoId });
+            
+            if (!panorama) {
+              setError("Failed to create panorama");
               setLoading(false);
-              console.log("[GooglePanorama] Ready!");
-              onReady?.();
+              return;
             }
-          );
+            
+            panoramaRef.current = panorama;
+            setupEventListeners(panorama);
+            
+            // Проверяем что панорама загрузилась
+            panorama.addListener("status_changed", () => {
+              const status = panorama.getStatus();
+              console.log("[GooglePanorama] Status changed:", status);
+              
+              if (status === google.maps.StreetViewStatus.OK) {
+                setLoading(false);
+                console.log("[GooglePanorama] Ready with panoId!");
+                onReady?.();
+              } else if (status === google.maps.StreetViewStatus.ZERO_RESULTS) {
+                console.warn("[GooglePanorama] PanoId not found, falling back to coordinates");
+                // Fallback to coordinates
+                initByCoordinates();
+              }
+            });
+            
+            return;
+          }
+          
+          // Fallback: ищем по координатам
+          initByCoordinates();
+          
+          function initByCoordinates() {
+            console.log("[GooglePanorama] Searching by coordinates:", coordinates);
+            const streetViewService = new google.maps.StreetViewService();
+            const location = new google.maps.LatLng(coordinates[0], coordinates[1]);
+            
+            streetViewService.getPanorama(
+              { location, radius: 50 },
+              (data: any, status: string) => {
+                if (!mounted) return;
+                
+                console.log("[GooglePanorama] Service status:", status);
+                
+                if (status !== google.maps.StreetViewStatus.OK) {
+                  setNotAvailable(true);
+                  setLoading(false);
+                  return;
+                }
+                
+                const panorama = createPanorama({ position: location });
+                
+                if (!panorama) {
+                  setError("Failed to create panorama");
+                  setLoading(false);
+                  return;
+                }
+                
+                panoramaRef.current = panorama;
+                setupEventListeners(panorama);
+                
+                setLoading(false);
+                console.log("[GooglePanorama] Ready!");
+                onReady?.();
+              }
+            );
+          }
           
         } catch (err) {
           if (!mounted) return;
@@ -295,7 +357,7 @@ export const GooglePanorama = forwardRef<GooglePanoramaRef, GooglePanoramaProps>
         mounted = false;
         panoramaRef.current = null;
       };
-    }, [coordinates[0], coordinates[1], allowNavigation]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [coordinates[0], coordinates[1], panoId, allowNavigation]); // eslint-disable-line react-hooks/exhaustive-deps
     
     // Direction is only set on initial load, not on prop changes
     // This prevents the panorama from resetting when user rotates it
