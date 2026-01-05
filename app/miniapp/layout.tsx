@@ -207,6 +207,10 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         // Получаем сохранённый реферальный код
         const savedRefCode = localStorage.getItem("referral_code");
         
+        // Auth request with timeout to prevent infinite loading
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 sec timeout
+        
         const res = await fetch("/api/auth/telegram", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -214,7 +218,10 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
             initData: initData ?? "",
             referralCode: savedRefCode || undefined, // Передаём реферальный код
           }),
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
 
         const data = (await res.json()) as { ok: boolean; user?: MiniAppUser; reason?: string };
         console.log("[MiniApp] auth response", data);
@@ -250,7 +257,14 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         }
       } catch (err) {
         console.error("Auth error", err);
-        if (!aborted) setSession({ status: "error", reason: "NETWORK_ERROR" });
+        if (!aborted) {
+          // Check if it's a timeout/abort error
+          if (err instanceof Error && err.name === 'AbortError') {
+            setSession({ status: "error", reason: "AUTH_TIMEOUT" });
+          } else {
+            setSession({ status: "error", reason: "NETWORK_ERROR" });
+          }
+        }
       }
     };
 
@@ -272,13 +286,30 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
     }
 
     if (session.status === "error") {
+      const isTimeout = session.reason === "AUTH_TIMEOUT";
+      const isNetwork = session.reason === "NETWORK_ERROR";
+      
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center px-6">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-xl">
-            <div className="text-5xl mb-4">😔</div>
-            <div className="text-lg font-semibold text-slate-900">Ошибка авторизации</div>
-            <div className="mt-2 text-sm text-slate-500">Откройте приложение из Telegram</div>
-            <div className="mt-4 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500 font-mono">{session.reason}</div>
+        <div className="flex min-h-screen flex-col items-center justify-center px-6 bg-[#0a0a0f]">
+          <div className="w-full max-w-sm rounded-3xl bg-[#1a1a2e] border border-white/10 p-8 text-center">
+            <div className="text-5xl mb-4">{isTimeout ? "⏱️" : isNetwork ? "📡" : "😔"}</div>
+            <div className="text-lg font-semibold text-white">
+              {isTimeout ? "Превышено время ожидания" : isNetwork ? "Проблема с сетью" : "Ошибка авторизации"}
+            </div>
+            <div className="mt-2 text-sm text-white/60">
+              {isTimeout || isNetwork 
+                ? "Проверьте интернет-соединение и попробуйте снова" 
+                : "Откройте приложение из Telegram"}
+            </div>
+            <div className="mt-4 rounded-xl bg-black/30 px-3 py-2 text-xs text-white/40 font-mono">{session.reason}</div>
+            {(isTimeout || isNetwork) && (
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 w-full py-3 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 transition-colors"
+              >
+                Попробовать снова
+              </button>
+            )}
           </div>
         </div>
       );
@@ -297,7 +328,12 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
       <PerfModeProvider>
         <NotificationProvider>
           <ErrorBoundary>
-            <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+            {/* Telegram SDK - afterInteractive to not block initial render */}
+            <Script 
+              src="https://telegram.org/js/telegram-web-app.js" 
+              strategy="afterInteractive"
+              onError={(e) => console.error("[TelegramSDK] Failed to load:", e)}
+            />
             <div className="app-container fixed inset-0 w-full h-full bg-[#0f0f1a] overflow-hidden touch-pan-y" style={{ overflowX: 'clip' }}>
               
               {/* ═══════════════════════════════════════════════════════════════
