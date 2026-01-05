@@ -20,6 +20,25 @@ import { DailyRewardButton } from "@/components/DailyRewardModal";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import { LazyDailyRewardModal, LazyFriendsFeed } from "@/components/lazy";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
+import {
+  LightningIcon,
+  DiamondIcon,
+  TrophyIcon,
+  GoldMedalIcon,
+  SilverMedalIcon,
+  BronzeMedalIcon,
+  GamepadIcon,
+  TargetIcon,
+  RefreshIcon,
+  CoinIcon,
+  UsersIcon,
+  SwordsIcon,
+  MapIcon,
+  CalendarIcon,
+  ClipboardIcon,
+  PathIcon,
+  MedalIcon,
+} from "@/components/icons/EmojiIcons";
 
 // Platform detection moved to @/components/hooks/usePlatform
 
@@ -841,7 +860,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 pl-1.5 pr-3 py-1 shadow-lg shadow-amber-500/25"
           >
-            <span className="text-2xl">⚡</span>
+            <LightningIcon size={24} />
             <span className="text-sm font-bold text-white tabular-nums">
               {userStats?.minEnergy ?? 5}
               {(userStats?.bonusEnergy ?? 0) > 0 && (
@@ -857,7 +876,7 @@ export default function MiniAppPage() {
             transition={{ delay: 0.3 }}
             className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 pl-1.5 pr-3 py-1 shadow-lg shadow-violet-500/25"
           >
-            <span className="text-2xl">💎</span>
+            <DiamondIcon size={24} />
             <span className="text-sm font-bold text-white tabular-nums">{(userStats?.totalScore ?? 0).toLocaleString()}</span>
           </motion.div>
         </div>
@@ -929,13 +948,13 @@ export default function MiniAppPage() {
                       : "bg-gradient-to-br from-violet-500 to-indigo-600"
                 }`}>
                   {!myPosition || myPosition.place === 0 ? (
-                    <span className="text-2xl">🏆</span>
+                    <TrophyIcon size={24} />
                   ) : myPosition.place === 1 ? (
-                    <span className="text-2xl">🥇</span>
+                    <GoldMedalIcon size={24} />
                   ) : myPosition.place === 2 ? (
-                    <span className="text-xl">🥈</span>
+                    <SilverMedalIcon size={20} />
                   ) : myPosition.place === 3 ? (
-                    <span className="text-xl">🥉</span>
+                    <BronzeMedalIcon size={20} />
                   ) : (
                     <span className="text-[14px] font-black text-white">{myPosition.place}</span>
                   )}
@@ -1404,7 +1423,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
 
                 {/* Title */}
                 <div className="relative flex items-center gap-2.5 mb-5">
-                  <span className="text-2xl">🛤️</span>
+                  <PathIcon size={24} />
                   <span className="text-[15px] font-bold text-white">Путь к победе</span>
                 </div>
 
@@ -1423,9 +1442,9 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
 
                   {/* Steps */}
                   {[
-                    { step: 1, icon: "🎮", label: "Играй", desc: "квизы", color: "from-violet-500 to-violet-600", glow: "violet", isImg: false },
-                    { step: 2, icon: "💎", label: "Набирай", desc: "очки", color: "from-fuchsia-500 to-pink-500", glow: "fuchsia", isImg: false },
-                    { step: 3, icon: "🏆", label: "Расти", desc: "в топе", color: "from-cyan-500 to-blue-500", glow: "cyan", isImg: false },
+                    { step: 1, icon: "gamepad", label: "Играй", desc: "квизы", color: "from-violet-500 to-violet-600", glow: "violet", isImg: false },
+                    { step: 2, icon: "diamond", label: "Набирай", desc: "очки", color: "from-fuchsia-500 to-pink-500", glow: "fuchsia", isImg: false },
+                    { step: 3, icon: "trophy", label: "Расти", desc: "в топе", color: "from-cyan-500 to-blue-500", glow: "cyan", isImg: false },
                     { step: 4, icon: "/icons/17.webp", label: "Получай", desc: "призы", color: "from-amber-500 to-orange-500", glow: "amber", isImg: true },
                   ].map((item, i) => (
                     <motion.div
@@ -1456,9 +1475,13 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                       >
                         {item.isImg ? (
                           <img src={item.icon} alt="" width={36} height={36} className="w-9 h-9 object-contain" style={{ aspectRatio: '1/1' }} />
-                        ) : (
-                          <span className="text-3xl">{item.icon}</span>
-                        )}
+                        ) : item.icon === "gamepad" ? (
+                          <GamepadIcon size={30} />
+                        ) : item.icon === "diamond" ? (
+                          <DiamondIcon size={30} />
+                        ) : item.icon === "trophy" ? (
+                          <TrophyIcon size={30} />
+                        ) : null}
                         
                         {/* Step number badge */}
                         <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-900 border-2 border-white/30 flex items-center justify-center">
@@ -1478,17 +1501,17 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 {/* Full Rules Section */}
                 <div className="relative mt-6 pt-4 border-t border-white/[0.08]">
                   <div className="flex items-center gap-2 mb-4 justify-center">
-                    <span className="text-lg">📋</span>
+                    <ClipboardIcon size={18} />
                     <span className="text-[13px] font-bold text-white/80">Правила участия</span>
                   </div>
                   
                   <div className="space-y-2.5 mb-4">
                     {[
-                      { icon: "📅", title: "Еженедельный турнир", desc: "Соревнование длится с понедельника по воскресенье" },
-                      { icon: "🔄", title: "Сброс рейтинга", desc: "Каждое воскресенье в 00:00 МСК очки обнуляются" },
-                      { icon: "🥇", title: "Топ-3 получают призы", desc: "1 место — 1000₽, 2 место — 500₽, 3 место — 250₽" },
-                      { icon: "💰", title: "Быстрая выплата", desc: "Призы переводятся на карту в течение 24 часов" },
-                      { icon: "👥", title: "Минимум участников", desc: "Для розыгрыша нужно минимум 3 игрока" },
+                      { icon: "calendar", title: "Еженедельный турнир", desc: "Соревнование длится с понедельника по воскресенье" },
+                      { icon: "refresh", title: "Сброс рейтинга", desc: "Каждое воскресенье в 00:00 МСК очки обнуляются" },
+                      { icon: "gold", title: "Топ-3 получают призы", desc: "1 место — 1000₽, 2 место — 500₽, 3 место — 250₽" },
+                      { icon: "coin", title: "Быстрая выплата", desc: "Призы переводятся на карту в течение 24 часов" },
+                      { icon: "users", title: "Минимум участников", desc: "Для розыгрыша нужно минимум 3 игрока" },
                     ].map((rule, i) => (
                       <motion.div
                         key={i}
@@ -1498,7 +1521,11 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]"
                       >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-lg">{rule.icon}</span>
+                          {rule.icon === "calendar" ? <CalendarIcon size={18} /> :
+                           rule.icon === "refresh" ? <RefreshIcon size={18} /> :
+                           rule.icon === "gold" ? <GoldMedalIcon size={18} /> :
+                           rule.icon === "coin" ? <CoinIcon size={18} /> :
+                           rule.icon === "users" ? <UsersIcon size={18} /> : null}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[12px] font-bold text-white/90">{rule.title}</p>
@@ -1581,7 +1608,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
               
               {/* Button content */}
               <div className="relative flex items-center justify-center gap-3 h-full">
-                <span className="text-xl">🏆</span>
+                <TrophyIcon size={20} />
                 <span className="text-[15px] font-bold text-white">Смотреть рейтинг</span>
                 <motion.span
                   animate={{ x: [0, 5, 0] }}
@@ -1607,10 +1634,10 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         }}
         className="cursor-pointer"
       >
-        <Card title="Дуэли" badge={<span className="text-2xl">⚔️</span>}>
+        <Card title="Дуэли" badge={<SwordsIcon size={24} />}>
           <div className="flex items-center gap-4 p-3 rounded-xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
-              <span className="text-3xl">🎮</span>
+              <GamepadIcon size={30} />
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-bold text-slate-700">1 vs 1 баттлы</p>
@@ -1643,7 +1670,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         <Card title="Панорамы" badge={<span className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/20 text-cyan-500 rounded-full">BETA</span>}>
           <div className="flex items-center gap-4 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg">
-              <span className="text-3xl">🗺️</span>
+              <MapIcon size={30} />
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-bold text-slate-700">Поиск улик на улицах</p>
@@ -1673,9 +1700,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
         }}
         className="cursor-pointer"
       >
-        <Card title="Турниры" badge={
-          <span className="text-2xl">⚔️</span>
-        }>
+        <Card title="Турниры" badge={<SwordsIcon size={24} />}>
           {/* Активные/Предстоящие турниры */}
           {hasActiveTournaments ? (
             <div className="flex flex-col gap-2">
@@ -1689,7 +1714,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                         background: `linear-gradient(to bottom right, ${t.gradient.from}, ${t.gradient.to})` 
                       }}
                     >
-                      <span className="text-2xl">{t.icon || "🏆"}</span>
+                      {t.icon ? <span className="text-2xl">{t.icon}</span> : <TrophyIcon size={24} />}
                     </div>
                   }
                   title={t.title}
@@ -1706,7 +1731,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-amber-600">
-                        <span className="text-xs">📅</span> 
+                        <CalendarIcon size={12} /> 
                         {t.timeRemaining ? `Через ${t.timeRemaining.label}` : "Скоро начнётся"}
                       </span>
                     )
@@ -1725,14 +1750,14 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                     background: `linear-gradient(to bottom right, ${lastFinishedTournament.gradient.from}, ${lastFinishedTournament.gradient.to})` 
                   }}
                 >
-                  <span className="text-2xl">{lastFinishedTournament.icon || "🏆"}</span>
+                  {lastFinishedTournament.icon ? <span className="text-2xl">{lastFinishedTournament.icon}</span> : <TrophyIcon size={24} />}
                 </div>
                 <div className="flex-1">
                   <p className="text-[13px] font-bold text-slate-700">{lastFinishedTournament.title}</p>
                   <p className="text-[12px] text-amber-600 font-medium">Завершён • {lastFinishedTournament.participantsCount} участников</p>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-xl">🏅</span>
+                  <MedalIcon size={20} />
                   <span className="text-[10px] text-slate-500">Итоги</span>
                 </div>
               </div>
@@ -1742,7 +1767,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
                 <div className="flex gap-2 justify-center">
                   {lastFinishedTournament.prizes.slice(0, 3).map((prize, idx) => (
                     <div key={prize.place} className="flex flex-col items-center px-3 py-2 rounded-lg bg-slate-50">
-                      <span className="text-lg">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}</span>
+                      {idx === 0 ? <GoldMedalIcon size={18} /> : idx === 1 ? <SilverMedalIcon size={18} /> : <BronzeMedalIcon size={18} />}
                       <span className="text-[11px] font-semibold text-slate-600">
                         {prize.type === "XP" ? `${prize.value} XP` : prize.title}
                       </span>
@@ -1754,7 +1779,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           ) : (
             /* Нет турниров вообще */
             <div className="flex flex-col items-center py-6 text-center">
-              <span className="text-4xl mb-2">🎮</span>
+              <div className="mb-2"><GamepadIcon size={40} /></div>
               <p className="text-[14px] font-semibold text-slate-600">Турниры скоро появятся</p>
               <p className="text-[12px] text-slate-400 mt-1">Следите за обновлениями!</p>
             </div>
@@ -1775,7 +1800,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           SPECIAL EVENTS — 2 columns
       ───────────────────────────────────────────────────────────────── */}
-      <Card title="Спецпроекты" badge={<span className="text-2xl">🎯</span>}>
+      <Card title="Спецпроекты" badge={<TargetIcon size={24} />}>
         <div className="grid grid-cols-2 gap-3">
           {events.map((e) => (
             <motion.div
