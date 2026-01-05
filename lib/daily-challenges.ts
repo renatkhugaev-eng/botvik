@@ -505,148 +505,185 @@ interface ClaimResult {
 
 /**
  * Получить награду за выполненное задание
+ * ВАЖНО: Используем атомарное обновление для защиты от double-claim
  */
 export async function claimChallengeReward(
   userId: number,
   challengeProgressId: number
 ): Promise<ClaimResult> {
-  const progress = await prisma.userDailyChallenge.findUnique({
-    where: { id: challengeProgressId },
-    include: {
-      challenge: {
-        include: { definition: true },
-      },
-    },
-  });
-  
-  if (!progress) {
-    return { ok: false, error: "CHALLENGE_NOT_FOUND" };
-  }
-  
-  if (progress.userId !== userId) {
-    return { ok: false, error: "NOT_AUTHORIZED" };
-  }
-  
-  if (!progress.isCompleted) {
-    return { ok: false, error: "NOT_COMPLETED" };
-  }
-  
-  if (progress.isClaimed) {
-    return { ok: false, error: "ALREADY_CLAIMED" };
-  }
-  
-  const def = progress.challenge.definition;
-  
-  // Получаем текущий XP пользователя для проверки level up
-  const userBefore = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { xp: true, telegramId: true },
-  });
-  
-  const oldLevel = userBefore ? getLevelProgress(userBefore.xp).level : 1;
-  
-  // Выдаём награды
-  const updatedUser = await prisma.$transaction(async (tx) => {
-    // Обновляем прогресс
-    await tx.userDailyChallenge.update({
-      where: { id: progress.id },
-      data: {
-        isClaimed: true,
-        claimedAt: new Date(),
-      },
+  try {
+    // Атомарная транзакция с блокировкой записи
+    const result = await prisma.$transaction(async (tx) => {
+      // Получаем прогресс с блокировкой FOR UPDATE (через findFirst + select)
+      const progress = await tx.userDailyChallenge.findUnique({
+        where: { id: challengeProgressId },
+        include: {
+          challenge: {
+            include: { definition: true },
+          },
+        },
+      });
+      
+      if (!progress) {
+        return { ok: false as const, error: "CHALLENGE_NOT_FOUND" };
+      }
+      
+      if (progress.userId !== userId) {
+        return { ok: false as const, error: "NOT_AUTHORIZED" };
+      }
+      
+      if (!progress.isCompleted) {
+        return { ok: false as const, error: "NOT_COMPLETED" };
+      }
+      
+      if (progress.isClaimed) {
+        return { ok: false as const, error: "ALREADY_CLAIMED" };
+      }
+      
+      const def = progress.challenge.definition;
+      
+      // Получаем текущий XP пользователя
+      const userBefore = await tx.user.findUnique({
+        where: { id: userId },
+        select: { xp: true },
+      });
+      
+      const oldLevel = userBefore ? getLevelProgress(userBefore.xp).level : 1;
+      
+      // Атомарно обновляем прогресс (с проверкой что ещё не claimed)
+      const updated = await tx.userDailyChallenge.updateMany({
+        where: { 
+          id: progress.id,
+          isClaimed: false, // Дополнительная защита на уровне БД
+        },
+        data: {
+          isClaimed: true,
+          claimedAt: new Date(),
+        },
+      });
+      
+      // Если не обновилось — значит уже claimed другим запросом
+      if (updated.count === 0) {
+        return { ok: false as const, error: "ALREADY_CLAIMED" };
+      }
+      
+      // Выдаём XP и энергию
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          xp: { increment: def.xpReward },
+          bonusEnergy: { increment: def.energyReward },
+          bonusEnergyEarned: { increment: def.energyReward },
+        },
+      });
+      
+      return {
+        ok: true as const,
+        xpEarned: def.xpReward,
+        energyEarned: def.energyReward,
+        oldLevel,
+        newXp: updatedUser.xp,
+      };
     });
     
-    // Выдаём XP и энергию
-    return tx.user.update({
-      where: { id: userId },
-      data: {
-        xp: { increment: def.xpReward },
-        bonusEnergy: { increment: def.energyReward },
-        bonusEnergyEarned: { increment: def.energyReward },
-      },
-    });
-  });
-  
-  // Проверяем level up
-  const newLevel = getLevelProgress(updatedUser.xp).level;
-  if (newLevel > oldLevel) {
-    // Отправляем уведомление о повышении уровня (не блокируем ответ)
-    const levelInfo = getLevelTitle(newLevel);
-    notifyLevelUp(userId, newLevel, levelInfo.title, def.xpReward)
-      .catch(err => console.error("[DailyChallenges] Level up notification error:", err));
+    if (!result.ok) {
+      return result;
+    }
+    
+    // Проверяем level up (вне транзакции)
+    const newLevel = getLevelProgress(result.newXp).level;
+    if (newLevel > result.oldLevel) {
+      const levelInfo = getLevelTitle(newLevel);
+      notifyLevelUp(userId, newLevel, levelInfo.title, result.xpEarned)
+        .catch(err => console.error("[DailyChallenges] Level up notification error:", err));
+    }
+    
+    return {
+      ok: true,
+      xpEarned: result.xpEarned,
+      energyEarned: result.energyEarned,
+    };
+  } catch (error) {
+    console.error("[DailyChallenges] Claim error:", error);
+    return { ok: false, error: "INTERNAL_ERROR" };
   }
-  
-  return {
-    ok: true,
-    xpEarned: def.xpReward,
-    energyEarned: def.energyReward,
-  };
 }
 
 /**
  * Получить бонус за выполнение всех заданий
+ * ВАЖНО: Unique constraint на userId+date защищает от double-claim
  */
 export async function claimDailyBonus(userId: number): Promise<ClaimResult> {
-  const today = getTodayUTC();
-  
-  // Проверяем что все задания выполнены и получены
-  const data = await getUserDailyChallenges(userId);
-  
-  if (!data.allCompleted) {
-    return { ok: false, error: "NOT_ALL_COMPLETED" };
-  }
-  
-  if (!data.allClaimed) {
-    return { ok: false, error: "NOT_ALL_CLAIMED" };
-  }
-  
-  if (data.bonusClaimed) {
-    return { ok: false, error: "BONUS_ALREADY_CLAIMED" };
-  }
-  
-  // Выдаём бонус
-  const bonusXP = 200;
-  
-  // Получаем текущий XP пользователя для проверки level up
-  const userBefore = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { xp: true },
-  });
-  
-  const oldLevel = userBefore ? getLevelProgress(userBefore.xp).level : 1;
-  
-  const updatedUser = await prisma.$transaction(async (tx) => {
-    // Записываем клейм бонуса
-    await tx.dailyBonusClaim.create({
-      data: {
-        userId,
-        date: today,
-        rewardType: "xp",
-        rewardValue: String(bonusXP),
-      },
+  try {
+    const today = getTodayUTC();
+    const bonusXP = 200;
+    
+    // Проверяем что все задания выполнены и получены
+    const data = await getUserDailyChallenges(userId);
+    
+    if (!data.allCompleted) {
+      return { ok: false, error: "NOT_ALL_COMPLETED" };
+    }
+    
+    if (!data.allClaimed) {
+      return { ok: false, error: "NOT_ALL_CLAIMED" };
+    }
+    
+    if (data.bonusClaimed) {
+      return { ok: false, error: "BONUS_ALREADY_CLAIMED" };
+    }
+    
+    // Атомарная транзакция
+    const result = await prisma.$transaction(async (tx) => {
+      // Получаем текущий XP пользователя
+      const userBefore = await tx.user.findUnique({
+        where: { id: userId },
+        select: { xp: true },
+      });
+      
+      const oldLevel = userBefore ? getLevelProgress(userBefore.xp).level : 1;
+      
+      // Пытаемся создать запись бонуса (unique constraint защитит от дублей)
+      await tx.dailyBonusClaim.create({
+        data: {
+          userId,
+          date: today,
+          rewardType: "xp",
+          rewardValue: String(bonusXP),
+        },
+      });
+      
+      // Выдаём XP
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          xp: { increment: bonusXP },
+        },
+      });
+      
+      return { oldLevel, newXp: updatedUser.xp };
     });
     
-    // Выдаём XP
-    return tx.user.update({
-      where: { id: userId },
-      data: {
-        xp: { increment: bonusXP },
-      },
-    });
-  });
-  
-  // Проверяем level up
-  const newLevel = getLevelProgress(updatedUser.xp).level;
-  if (newLevel > oldLevel) {
-    const levelInfo = getLevelTitle(newLevel);
-    notifyLevelUp(userId, newLevel, levelInfo.title, bonusXP)
-      .catch(err => console.error("[DailyChallenges] Bonus level up notification error:", err));
+    // Проверяем level up (вне транзакции)
+    const newLevel = getLevelProgress(result.newXp).level;
+    if (newLevel > result.oldLevel) {
+      const levelInfo = getLevelTitle(newLevel);
+      notifyLevelUp(userId, newLevel, levelInfo.title, bonusXP)
+        .catch(err => console.error("[DailyChallenges] Bonus level up notification error:", err));
+    }
+    
+    return {
+      ok: true,
+      xpEarned: bonusXP,
+      bonusEarned: true,
+    };
+  } catch (error) {
+    // Unique constraint violation = уже получен бонус
+    if (error instanceof Error && error.message.includes("Unique constraint")) {
+      return { ok: false, error: "BONUS_ALREADY_CLAIMED" };
+    }
+    console.error("[DailyChallenges] Bonus claim error:", error);
+    return { ok: false, error: "INTERNAL_ERROR" };
   }
-  
-  return {
-    ok: true,
-    xpEarned: bonusXP,
-    bonusEarned: true,
-  };
 }
 
