@@ -18,7 +18,7 @@ import { HeroRich } from "@/components/miniapp/HeroRich";
 import { useDeferredRender } from "@/components/hooks/useDeferredRender";
 import { DailyRewardButton } from "@/components/DailyRewardModal";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
-import { LazyDailyRewardModal, LazyFriendsFeed } from "@/components/lazy";
+import { LazyDailyRewardModal, LazyFriendsFeed, LazyDailyChallenges } from "@/components/lazy";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
 import {
   LightningIcon,
@@ -992,6 +992,17 @@ export default function MiniAppPage() {
           maxVisible={3}
           showHeader={true}
         />
+      </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          DAILY CHALLENGES
+      ═══════════════════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25, type: "spring", stiffness: 300 }}
+      >
+        <LazyDailyChallenges />
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════════════════

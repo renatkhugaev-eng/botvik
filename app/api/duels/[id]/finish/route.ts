@@ -12,6 +12,8 @@ import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { notifyDuelResult } from "@/lib/notifications";
 import { getWeekStart } from "@/lib/week";
+import { updateChallengeProgress } from "@/lib/daily-challenges";
+import { DailyChallengeType } from "@prisma/client";
 import type { ActivityType, Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -361,6 +363,107 @@ export async function POST(request: NextRequest, context: RouteContext) {
         xpEarned: opponentXp,
       }).catch(err => console.error("[Duel Finish] Notification error:", err));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DAILY CHALLENGES — Обновляем прогресс (только для реальных игроков)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const challengeUpdates: Promise<void>[] = [];
+    
+    // Получаем количество правильных ответов для каждого игрока
+    const [challengerAnswers, opponentAnswers] = await Promise.all([
+      prisma.duelAnswer.findMany({
+        where: { duelId: id, userId: duel.challengerId },
+        select: { isCorrect: true },
+      }),
+      prisma.duelAnswer.findMany({
+        where: { duelId: id, userId: duel.opponentId },
+        select: { isCorrect: true },
+      }),
+    ]);
+    
+    const challengerCorrect = challengerAnswers.filter(a => a.isCorrect).length;
+    const opponentCorrect = opponentAnswers.filter(a => a.isCorrect).length;
+    const quizTotalQuestions = duel.quiz._count.questions;
+    
+    // Challenger challenges (если не бот)
+    if (!duel.challenger.isBot) {
+      // DUEL_PLAY — сыграл дуэль
+      challengeUpdates.push(
+        updateChallengeProgress({ userId: duel.challengerId, type: DailyChallengeType.DUEL_PLAY })
+      );
+      
+      // CORRECT_ANSWERS — правильные ответы
+      if (challengerCorrect > 0) {
+        challengeUpdates.push(
+          updateChallengeProgress({ 
+            userId: duel.challengerId, 
+            type: DailyChallengeType.CORRECT_ANSWERS, 
+            increment: challengerCorrect 
+          })
+        );
+      }
+      
+      // DUEL_WIN — победа
+      if (result.winnerId === duel.challengerId) {
+        challengeUpdates.push(
+          updateChallengeProgress({ userId: duel.challengerId, type: DailyChallengeType.DUEL_WIN })
+        );
+        
+        // PERFECT_DUEL — победа с 0 ошибками
+        if (challengerCorrect === quizTotalQuestions) {
+          challengeUpdates.push(
+            updateChallengeProgress({ 
+              userId: duel.challengerId, 
+              type: DailyChallengeType.PERFECT_DUEL,
+              checkPerfect: true 
+            })
+          );
+        }
+      }
+    }
+    
+    // Opponent challenges (если не бот)
+    if (!duel.opponent.isBot) {
+      // DUEL_PLAY — сыграл дуэль
+      challengeUpdates.push(
+        updateChallengeProgress({ userId: duel.opponentId, type: DailyChallengeType.DUEL_PLAY })
+      );
+      
+      // CORRECT_ANSWERS — правильные ответы
+      if (opponentCorrect > 0) {
+        challengeUpdates.push(
+          updateChallengeProgress({ 
+            userId: duel.opponentId, 
+            type: DailyChallengeType.CORRECT_ANSWERS, 
+            increment: opponentCorrect 
+          })
+        );
+      }
+      
+      // DUEL_WIN — победа
+      if (result.winnerId === duel.opponentId) {
+        challengeUpdates.push(
+          updateChallengeProgress({ userId: duel.opponentId, type: DailyChallengeType.DUEL_WIN })
+        );
+        
+        // PERFECT_DUEL — победа с 0 ошибками
+        if (opponentCorrect === quizTotalQuestions) {
+          challengeUpdates.push(
+            updateChallengeProgress({ 
+              userId: duel.opponentId, 
+              type: DailyChallengeType.PERFECT_DUEL,
+              checkPerfect: true 
+            })
+          );
+        }
+      }
+    }
+    
+    // Выполняем все обновления параллельно (не блокируя ответ)
+    Promise.all(challengeUpdates).catch(err => 
+      console.error("[Duel Finish] Challenge progress error:", err)
+    );
 
     return NextResponse.json({
       ok: true,

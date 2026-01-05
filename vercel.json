@@ -2,6 +2,10 @@
   "regions": ["arn1", "lhr1", "fra1"],
   "crons": [
     {
+      "path": "/api/cron/daily-challenges",
+      "schedule": "5 0 * * *"
+    },
+    {
       "path": "/api/notifications/daily",
       "schedule": "0 18 * * *"
     },

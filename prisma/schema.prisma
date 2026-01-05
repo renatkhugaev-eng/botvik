@@ -106,6 +106,10 @@ model User {
   // Achievements
   achievements    UserAchievement[]
   
+  // Daily Challenges
+  dailyChallenges  UserDailyChallenge[]
+  dailyBonusClaims DailyBonusClaim[]
+  
   // Referral System
   referralCode    String?   @unique  // Уникальный код для приглашения (генерируется при первом запросе)
   referredById    Int?               // Кто пригласил этого пользователя
@@ -1055,4 +1059,113 @@ model AuditLog {
   @@index([adminTelegramId])
   @@index([targetType, targetId])
   @@index([createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DAILY CHALLENGES SYSTEM
+// Ежедневные задания с автоматическим сбросом в полночь UTC
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum DailyChallengeType {
+  DUEL_WIN           // Выиграть N дуэлей
+  DUEL_PLAY          // Сыграть N дуэлей
+  CORRECT_ANSWERS    // Ответить правильно N раз (в любом режиме)
+  PERFECT_DUEL       // Победить в дуэли с 0 ошибками
+  QUIZ_COMPLETE      // Завершить N квизов
+  ANSWER_STREAK      // Серия из N правильных ответов подряд
+}
+
+// Определение типов заданий (конфигурация)
+model DailyChallengeDefinition {
+  id          Int                  @id @default(autoincrement())
+  
+  type        DailyChallengeType   // Тип задания
+  targetValue Int                  // Целевое значение (напр. 3 для "выиграй 3 дуэли")
+  
+  title       String               // "Выиграй 1 дуэль"
+  description String?              // Подробное описание
+  icon        String               @default("🎯") // Emoji иконка
+  
+  // Награды
+  xpReward       Int               @default(50)   // XP за выполнение
+  energyReward   Int               @default(0)    // Бонусная энергия
+  
+  // Сложность (для балансировки)
+  difficulty     Int               @default(1)    // 1=легко, 2=средне, 3=сложно
+  
+  // Активность
+  isActive    Boolean              @default(true)
+  
+  createdAt   DateTime             @default(now())
+  
+  // Связи
+  dailyChallenges DailyChallenge[]
+  
+  @@index([isActive, difficulty])
+}
+
+// Конкретные задания на день (генерируются автоматически)
+model DailyChallenge {
+  id              Int                       @id @default(autoincrement())
+  
+  // Дата (без времени, для группировки)
+  date            DateTime                  @db.Date
+  slot            Int                       // 1, 2, 3 — позиция задания
+  
+  // Связь с определением
+  definitionId    Int
+  definition      DailyChallengeDefinition  @relation(fields: [definitionId], references: [id])
+  
+  createdAt       DateTime                  @default(now())
+  
+  // Прогресс пользователей
+  userProgress    UserDailyChallenge[]
+  
+  @@unique([date, slot])
+  @@index([date])
+}
+
+// Прогресс пользователя по заданию
+model UserDailyChallenge {
+  id              Int            @id @default(autoincrement())
+  
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  challengeId     Int
+  challenge       DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  // Прогресс
+  currentValue    Int            @default(0)    // Текущий прогресс
+  isCompleted     Boolean        @default(false)
+  isClaimed       Boolean        @default(false) // Получена ли награда
+  
+  completedAt     DateTime?                      // Когда выполнено
+  claimedAt       DateTime?                      // Когда получена награда
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  @@unique([userId, challengeId])
+  @@index([userId])
+  @@index([challengeId])
+}
+
+// Бонус за выполнение всех заданий дня
+model DailyBonusClaim {
+  id              Int            @id @default(autoincrement())
+  
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  date            DateTime       @db.Date         // За какой день
+  
+  // Награда
+  rewardType      String                          // "xp", "energy", "frame", etc.
+  rewardValue     String                          // Значение награды (JSON или строка)
+  
+  claimedAt       DateTime       @default(now())
+  
+  @@unique([userId, date])
+  @@index([userId])
 }
