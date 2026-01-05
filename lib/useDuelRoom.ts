@@ -622,7 +622,7 @@ export function useDuelRoom(duelId: string, userId: number, userName: string, us
             setGameState((prev) => ({
               ...prev,
               status: "waiting_accept",
-              error: undefined,
+              error: null,
             }));
             return;
           }
