@@ -748,7 +748,31 @@ $50 миллионов. Контейнер уже здесь.
 // GENERATOR VERSION
 // ═══════════════════════════════════════════════════════════════════════════
 
-const GENERATOR_VERSION = "1.0.0";
+const GENERATOR_VERSION = "2.0.0";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Лимит времени на миссию в зависимости от сложности (в секундах) */
+const TIME_LIMIT_BY_DIFFICULTY: Record<string, number> = {
+  easy: 900,      // 15 минут
+  medium: 720,    // 12 минут
+  hard: 600,      // 10 минут
+  extreme: 480,   // 8 минут
+};
+
+/** Процент обязательных улик от общего количества */
+const REQUIRED_CLUES_RATIO_BY_DIFFICULTY: Record<string, number> = {
+  easy: 0.6,      // 60% — нужно найти меньше
+  medium: 0.7,    // 70%
+  hard: 0.8,      // 80%
+  extreme: 0.9,   // 90% — почти все
+};
+
+/** Минимальное/максимальное количество улик */
+const MIN_CLUE_COUNT = 3;
+const MAX_CLUE_COUNT = 7;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -758,14 +782,27 @@ const GENERATOR_VERSION = "1.0.0";
  * Выбрать случайный элемент из массива
  */
 function randomChoice<T>(arr: T[]): T {
+  if (arr.length === 0) {
+    throw new Error("Cannot choose from empty array");
+  }
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 /**
  * Генерировать уникальный ID
+ * Формат: gen_[timestamp]_[random]
  */
 function generateId(): string {
-  return `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2, 11); // slice вместо deprecated substr
+  return `gen_${timestamp}_${random}`;
+}
+
+/**
+ * Проверить существование темы
+ */
+function isValidTheme(theme: string): theme is MissionThemeType {
+  return theme in THEME_CONFIGS;
 }
 
 /**
@@ -804,8 +841,11 @@ function generateClue(
 ): GeneratedClue {
   const { coneDegrees, dwellTime } = calculateClueParams(spot.difficulty);
   
+  // Безопасное получение префикса panoId (slice вместо substr)
+  const panoIdPrefix = spot.panoId.slice(0, 8);
+  
   return {
-    id: `${theme}_clue_${index}_${spot.panoId.substr(0, 8)}`,
+    id: `${theme}_clue_${index}_${panoIdPrefix}`,
     panoId: spot.panoId,
     revealHeading: spot.heading,
     coneDegrees,
@@ -855,12 +895,41 @@ export function generateMission(
   const startTime = Date.now();
   
   try {
+    // ═══════════════════════════════════════════════════════════════════════
+    // ВАЛИДАЦИЯ
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Проверяем тему
+    if (!isValidTheme(request.theme)) {
+      return {
+        success: false,
+        error: `Неизвестная тема миссии: "${request.theme}". Доступные: ${Object.keys(THEME_CONFIGS).join(", ")}`,
+        generationTimeMs: Date.now() - startTime,
+      };
+    }
+    
+    // Проверяем граф
+    if (!graph.nodes || graph.nodes.size === 0) {
+      return {
+        success: false,
+        error: "Граф панорам пуст. Сначала выполните сканирование.",
+        generationTimeMs: Date.now() - startTime,
+      };
+    }
+    
     const theme = getMissionTheme(request.theme);
+    const difficulty = request.difficulty || "hard";
+    
+    // Нормализуем количество улик
     const clueCount = Math.min(
-      Math.max(3, request.clueCount),
-      7,
+      Math.max(MIN_CLUE_COUNT, request.clueCount),
+      MAX_CLUE_COUNT,
       theme.clueTemplates.length
     );
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ГЕНЕРАЦИЯ
+    // ═══════════════════════════════════════════════════════════════════════
     
     // 1. Находим оптимальные точки для улик
     const spots = findOptimalClueSpots(graph, {
@@ -873,7 +942,7 @@ export function generateMission(
     if (spots.length < clueCount) {
       return {
         success: false,
-        error: `Недостаточно интересных точек: найдено ${spots.length}, нужно ${clueCount}`,
+        error: `Недостаточно интересных точек: найдено ${spots.length}, нужно ${clueCount}. Попробуйте увеличить глубину сканирования.`,
         generationTimeMs: Date.now() - startTime,
       };
     }
@@ -884,9 +953,14 @@ export function generateMission(
       return generateClue(spot, index, template, request.theme);
     });
     
-    // 3. Вычисляем награды
+    // 3. Вычисляем награды и параметры на основе сложности
     const totalXp = clues.reduce((sum, c) => sum + c.xpReward, 0);
-    const baseReward = Math.round(totalXp * 0.5); // Бонус за прохождение
+    const baseReward = Math.round(totalXp * 0.5);
+    
+    // Динамические параметры от сложности
+    const timeLimit = TIME_LIMIT_BY_DIFFICULTY[difficulty] || 600;
+    const requiredCluesRatio = REQUIRED_CLUES_RATIO_BY_DIFFICULTY[difficulty] || 0.8;
+    const requiredClues = Math.ceil(clueCount * requiredCluesRatio);
     
     // 4. Собираем миссию
     const mission: GeneratedMission = {
@@ -899,12 +973,12 @@ export function generateMission(
       startHeading: 0,
       allowNavigation: true,
       clues,
-      requiredClues: Math.ceil(clueCount * 0.8),
-      timeLimit: 600, // 10 минут
+      requiredClues,
+      timeLimit,
       xpReward: baseReward,
       speedBonusPerSecond: 0.5,
       location: request.locationName || "Неизвестная локация",
-      difficulty: request.difficulty || "hard",
+      difficulty,
       icon: theme.icon,
       color: theme.color,
       generatedAt: new Date().toISOString(),

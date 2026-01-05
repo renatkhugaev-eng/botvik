@@ -110,6 +110,10 @@ model User {
   dailyChallenges  UserDailyChallenge[]
   dailyBonusClaims DailyBonusClaim[]
   
+  // Panorama Missions
+  createdMissions      PanoramaMission[] @relation("CreatedMissions")
+  missionAttempts      PanoramaMissionAttempt[]
+  
   // Referral System
   referralCode    String?   @unique  // Уникальный код для приглашения (генерируется при первом запросе)
   referredById    Int?               // Кто пригласил этого пользователя
@@ -1168,4 +1172,88 @@ model DailyBonusClaim {
   
   @@unique([userId, date])
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PANORAMA MISSIONS
+// Сгенерированные панорамные миссии для режима поиска улик
+// ═══════════════════════════════════════════════════════════════════════════
+
+model PanoramaMission {
+  id              String         @id                // gen_timestamp_random
+  
+  // Метаданные
+  title           String                            // "Неоновые тени"
+  description     String         @db.Text           // Краткое описание
+  location        String                            // "Токио, Сибуя"
+  difficulty      String                            // "easy" | "medium" | "hard" | "extreme"
+  theme           String                            // "yakuza" | "spy" | etc.
+  
+  // Координаты старта
+  startLat        Float
+  startLng        Float
+  startPanoId     String
+  
+  // Полный JSON миссии (HiddenClueMission)
+  missionJson     Json
+  
+  // Статистика
+  clueCount       Int
+  requiredClues   Int
+  timeLimit       Int                               // Секунды
+  xpReward        Int
+  
+  // Статус публикации
+  isPublished     Boolean        @default(false)
+  isFeatured      Boolean        @default(false)   // Показывать в "рекомендуемых"
+  
+  // Связи
+  createdById     Int?
+  createdBy       User?          @relation("CreatedMissions", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  // Статистика прохождений
+  playCount       Int            @default(0)
+  avgCompletionTime Int?                            // Секунды
+  avgCluesFound   Float?
+  
+  // Timestamps
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  publishedAt     DateTime?
+  
+  // Прохождения
+  attempts        PanoramaMissionAttempt[]
+  
+  @@index([isPublished, isFeatured])
+  @@index([theme])
+  @@index([difficulty])
+  @@index([location])
+  @@index([createdById])
+}
+
+// Прохождения панорамных миссий
+model PanoramaMissionAttempt {
+  id              Int            @id @default(autoincrement())
+  
+  missionId       String
+  mission         PanoramaMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Результат
+  isCompleted     Boolean        @default(false)
+  cluesFound      Int            @default(0)
+  timeSpent       Int?                              // Секунды
+  xpEarned        Int            @default(0)
+  
+  // JSON с деталями (какие улики найдены, путь и т.д.)
+  detailsJson     Json?
+  
+  startedAt       DateTime       @default(now())
+  completedAt     DateTime?
+  
+  @@index([missionId])
+  @@index([userId])
+  @@index([missionId, userId])
 }

@@ -8,6 +8,11 @@
  * - Перекрёстки (можно пропустить если не смотреть)
  * - Углы (спрятать за поворотом)
  * - Дальние точки (максимальная глубина)
+ * 
+ * v2.0.0 - Исправлено:
+ * - prioritizeDeadEnds теперь используется
+ * - Защита от пустого графа
+ * - Улучшенная документация магических чисел
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -19,6 +24,46 @@ import type {
 } from "@/types/panorama-graph";
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTS (с обоснованием)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Минимальная глубина для первой улики (чтобы не спавнить у старта) */
+const DEFAULT_MIN_FIRST_CLUE_DEPTH = 2;
+
+/** Минимальное расстояние между уликами (в шагах), чтобы они не были рядом */
+const DEFAULT_MIN_DISTANCE_BETWEEN_CLUES = 3;
+
+/** 
+ * Множитель дистанции для расчёта сложности
+ * difficulty = ceil(distance / DIFFICULTY_DISTANCE_DIVISOR)
+ * При divisor=8: 8 шагов = сложность 1, 16 = 2, 24 = 3 и т.д.
+ */
+const DIFFICULTY_DISTANCE_DIVISOR = 8;
+
+/**
+ * Минимальная глубина для разных типов точек
+ * Тупики ценнее, можно ближе к старту
+ */
+const MIN_DEPTH_BY_TYPE: Record<SpotType, number> = {
+  dead_end: 3,      // Тупики на 3+ шагах
+  corner: 4,        // Углы на 4+ шагах
+  intersection: 5,  // Перекрёстки на 5+ шагах
+  hidden_alley: 10, // Переулки глубже
+  far_point: 0,     // Определяется динамически
+};
+
+/**
+ * Бонусы к скору за тип точки
+ */
+const SCORE_BONUS_BY_TYPE: Record<SpotType, number> = {
+  dead_end: 40,      // Тупики — лучшие места (нужно специально идти)
+  hidden_alley: 35,  // Переулки — тоже хорошо скрыты
+  far_point: 30,     // Дальние точки — награда за исследование
+  corner: 25,        // Углы — спрятаны за поворотом
+  intersection: 15,  // Перекрёстки — легко пропустить, но и найти
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -27,7 +72,7 @@ export interface PlacementOptions {
   clueCount: number;
   /** Минимальная дистанция между уликами (шаги) */
   minDistanceBetweenClues?: number;
-  /** Приоритизировать тупики */
+  /** Приоритизировать тупики (добавляет бонус к скору) */
   prioritizeDeadEnds?: boolean;
   /** Минимальная глубина для первой улики */
   minFirstClueDepth?: number;
@@ -44,28 +89,29 @@ interface ScoredSpot {
 
 /**
  * Вычислить базовую сложность на основе дистанции и типа
+ * Диапазон: 1-5
  */
 function calculateDifficulty(distance: number, type: SpotType): number {
   // Базовая сложность от дистанции (1-5)
-  let baseDifficulty = Math.min(5, Math.ceil(distance / 8));
+  let baseDifficulty = Math.min(5, Math.ceil(distance / DIFFICULTY_DISTANCE_DIVISOR));
   
   // Модификаторы типа
   switch (type) {
     case "dead_end":
-      baseDifficulty = Math.min(5, baseDifficulty + 1);
-      break;
     case "hidden_alley":
+      // Тупики и переулки сложнее — нужно специально искать
       baseDifficulty = Math.min(5, baseDifficulty + 1);
       break;
     case "intersection":
-      // Перекрёстки чуть легче — много путей
+      // Перекрёстки чуть легче — много путей, легче наткнуться
       baseDifficulty = Math.max(1, baseDifficulty - 1);
       break;
-    case "corner":
-      // Углы — средняя сложность
-      break;
     case "far_point":
+      // Дальние точки всегда максимальной сложности
       baseDifficulty = 5;
+      break;
+    case "corner":
+      // Углы — средняя сложность, без модификатора
       break;
   }
   
@@ -77,17 +123,16 @@ function calculateDifficulty(distance: number, type: SpotType): number {
  */
 function calculateOptimalHeading(node: PanoNode): number {
   // Для тупиков — смотреть в противоположную сторону от входа
+  // Игрок смотрит назад откуда пришёл, и там улика
   if (node.isDeadEnd && node.links.length === 1) {
     const entryHeading = node.links[0].heading;
     return (entryHeading + 180) % 360;
   }
   
   // Для перекрёстков — наименее очевидное направление
-  // (не по основному пути)
+  // Находим самый большой промежуток между направлениями
   if (node.isIntersection && node.links.length >= 3) {
-    const headings = node.links.map(l => l.heading);
-    // Найти направление между двумя самыми близкими
-    headings.sort((a, b) => a - b);
+    const headings = node.links.map(l => l.heading).sort((a, b) => a - b);
     
     let maxGap = 0;
     let gapMidpoint = 0;
@@ -106,12 +151,12 @@ function calculateOptimalHeading(node: PanoNode): number {
     return gapMidpoint;
   }
   
-  // Для углов — в сторону поворота
+  // Для углов — перпендикулярно основному пути
   if (node.isCorner && node.links.length === 2) {
-    // Среднее направление
     const h1 = node.links[0].heading;
     const h2 = node.links[1].heading;
-    return ((h1 + h2) / 2 + 90) % 360; // Перпендикулярно основному пути
+    // Среднее направление + 90 градусов
+    return ((h1 + h2) / 2 + 90) % 360;
   }
   
   // По умолчанию — случайное направление
@@ -144,7 +189,14 @@ function getSpotReason(type: SpotType, distance: number): string {
  * Найти все потенциальные точки для улик
  */
 export function findAllPotentialSpots(graph: PanoramaGraph): ClueSpot[] {
+  // Защита от пустого графа
+  if (!graph.nodes || graph.nodes.size === 0) {
+    console.warn("[CluePlacement] Empty graph provided");
+    return [];
+  }
+  
   const spots: ClueSpot[] = [];
+  const farPointThreshold = Math.max(1, graph.maxDepth * 0.8);
   
   graph.nodes.forEach(node => {
     // Пропускаем старт
@@ -152,24 +204,16 @@ export function findAllPotentialSpots(graph: PanoramaGraph): ClueSpot[] {
     
     let type: SpotType | null = null;
     
-    // Тупики — отличные места!
-    if (node.isDeadEnd && node.distanceFromStart >= 3) {
+    // Определяем тип точки по приоритету
+    if (node.isDeadEnd && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.dead_end) {
       type = "dead_end";
-    }
-    // Перекрёстки — можно пропустить
-    else if (node.isIntersection && node.distanceFromStart >= 5) {
-      type = "intersection";
-    }
-    // Углы — спрятать за поворотом
-    else if (node.isCorner && node.distanceFromStart >= 4) {
+    } else if (node.isCorner && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.corner) {
       type = "corner";
-    }
-    // Дальние точки
-    else if (node.distanceFromStart >= graph.maxDepth * 0.8) {
+    } else if (node.isIntersection && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.intersection) {
+      type = "intersection";
+    } else if (node.distanceFromStart >= farPointThreshold) {
       type = "far_point";
-    }
-    // Переулки — мало связей на глубине
-    else if (node.links.length <= 2 && node.distanceFromStart >= 10) {
+    } else if (node.links.length <= 2 && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.hidden_alley) {
       type = "hidden_alley";
     }
     
@@ -194,35 +238,31 @@ export function findAllPotentialSpots(graph: PanoramaGraph): ClueSpot[] {
 /**
  * Оценить точку для ранжирования
  */
-function scoreSpot(spot: ClueSpot, graph: PanoramaGraph): number {
+function scoreSpot(
+  spot: ClueSpot, 
+  graph: PanoramaGraph,
+  prioritizeDeadEnds: boolean = false
+): number {
   let score = 0;
   
-  // Базовый балл от дистанции (нормализованный)
-  score += (spot.distanceFromStart / graph.maxDepth) * 30;
+  // Базовый балл от дистанции (нормализованный 0-30)
+  const normalizedDistance = graph.maxDepth > 0 
+    ? (spot.distanceFromStart / graph.maxDepth) 
+    : 0;
+  score += normalizedDistance * 30;
   
   // Бонус за тип
-  switch (spot.type) {
-    case "dead_end":
-      score += 40; // Тупики — лучшие места
-      break;
-    case "hidden_alley":
-      score += 35;
-      break;
-    case "corner":
-      score += 25;
-      break;
-    case "far_point":
-      score += 30;
-      break;
-    case "intersection":
-      score += 15;
-      break;
+  score += SCORE_BONUS_BY_TYPE[spot.type] || 0;
+  
+  // Дополнительный бонус за тупики если включён приоритет
+  if (prioritizeDeadEnds && spot.type === "dead_end") {
+    score += 20;
   }
   
-  // Бонус за сложность
+  // Бонус за сложность (0-25)
   score += spot.difficulty * 5;
   
-  return score;
+  return Math.round(score * 10) / 10;
 }
 
 /**
@@ -235,79 +275,94 @@ export function selectDistributedSpots(
   options: PlacementOptions = { clueCount: count }
 ): ClueSpot[] {
   const {
-    minDistanceBetweenClues = 3,
+    minDistanceBetweenClues = DEFAULT_MIN_DISTANCE_BETWEEN_CLUES,
     prioritizeDeadEnds = true,
-    minFirstClueDepth = 2,
+    minFirstClueDepth = DEFAULT_MIN_FIRST_CLUE_DEPTH,
   } = options;
   
-  if (spots.length === 0) return [];
-  if (spots.length <= count) return spots;
+  // Защита от пустого массива
+  if (spots.length === 0) {
+    console.warn("[CluePlacement] No spots provided for selection");
+    return [];
+  }
   
-  // Оцениваем все точки
+  // Если точек меньше или равно нужному количеству — возвращаем все
+  if (spots.length <= count) {
+    return [...spots].sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+  }
+  
+  // Оцениваем все точки с учётом фильтра по минимальной глубине
   const scored: ScoredSpot[] = spots
     .filter(s => s.distanceFromStart >= minFirstClueDepth)
     .map(spot => ({
       spot,
-      score: scoreSpot(spot, graph),
+      score: scoreSpot(spot, graph, prioritizeDeadEnds),
     }));
   
-  // Сортируем по баллу
+  // Если после фильтрации ничего не осталось — берём всё без фильтра
+  if (scored.length === 0) {
+    console.warn("[CluePlacement] No spots after depth filter, using all");
+    return spots
+      .slice(0, count)
+      .sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+  }
+  
+  // Сортируем по баллу (лучшие первые)
   scored.sort((a, b) => b.score - a.score);
   
   // Группируем по "зонам дистанции" для равномерного распределения
   const maxDist = Math.max(...spots.map(s => s.distanceFromStart));
-  const zoneSize = Math.ceil(maxDist / count);
+  const zoneSize = Math.max(1, Math.ceil(maxDist / count));
   
   const selected: ClueSpot[] = [];
-  const zones: Set<number> = new Set();
+  const usedZones = new Set<number>();
+  const usedPanoIds = new Set<string>();
+  
+  // Вспомогательная функция проверки минимальной дистанции
+  const isTooClose = (spot: ClueSpot): boolean => {
+    return selected.some(
+      s => Math.abs(s.distanceFromStart - spot.distanceFromStart) < minDistanceBetweenClues
+    );
+  };
   
   // Первый проход — по одной улике из каждой зоны
   for (const { spot } of scored) {
+    if (selected.length >= count) break;
+    if (usedPanoIds.has(spot.panoId)) continue;
+    
     const zone = Math.floor(spot.distanceFromStart / zoneSize);
     
-    if (!zones.has(zone) && selected.length < count) {
-      // Проверяем минимальную дистанцию до уже выбранных
-      const tooClose = selected.some(
-        s => Math.abs(s.distanceFromStart - spot.distanceFromStart) < minDistanceBetweenClues
-      );
-      
-      if (!tooClose) {
-        selected.push(spot);
-        zones.add(zone);
-      }
+    if (!usedZones.has(zone) && !isTooClose(spot)) {
+      selected.push(spot);
+      usedZones.add(zone);
+      usedPanoIds.add(spot.panoId);
     }
   }
   
-  // Второй проход — добираем если нужно
-  if (selected.length < count) {
-    for (const { spot } of scored) {
-      if (selected.length >= count) break;
-      if (selected.some(s => s.panoId === spot.panoId)) continue;
-      
-      const tooClose = selected.some(
-        s => Math.abs(s.distanceFromStart - spot.distanceFromStart) < minDistanceBetweenClues
-      );
-      
-      if (!tooClose) {
-        selected.push(spot);
-      }
+  // Второй проход — добираем лучшие с проверкой дистанции
+  for (const { spot } of scored) {
+    if (selected.length >= count) break;
+    if (usedPanoIds.has(spot.panoId)) continue;
+    
+    if (!isTooClose(spot)) {
+      selected.push(spot);
+      usedPanoIds.add(spot.panoId);
     }
   }
   
-  // Если всё равно мало — добираем без проверки дистанции
+  // Третий проход — если всё равно мало, добираем без проверки дистанции
   if (selected.length < count) {
     for (const { spot } of scored) {
       if (selected.length >= count) break;
-      if (!selected.some(s => s.panoId === spot.panoId)) {
+      if (!usedPanoIds.has(spot.panoId)) {
         selected.push(spot);
+        usedPanoIds.add(spot.panoId);
       }
     }
   }
   
   // Сортируем по дистанции (от близких к дальним)
-  selected.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
-  
-  return selected;
+  return selected.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -321,13 +376,21 @@ export function findOptimalClueSpots(
   graph: PanoramaGraph,
   options: PlacementOptions
 ): ClueSpot[] {
+  // Защита от пустого графа
+  if (!graph.nodes || graph.nodes.size === 0) {
+    console.error("[CluePlacement] Cannot find clue spots in empty graph");
+    return [];
+  }
+  
   // 1. Находим все потенциальные точки
   const allSpots = findAllPotentialSpots(graph);
   
   console.log(`[CluePlacement] Найдено ${allSpots.length} потенциальных точек`);
   console.log(`[CluePlacement] Тупиков: ${allSpots.filter(s => s.type === "dead_end").length}`);
-  console.log(`[CluePlacement] Перекрёстков: ${allSpots.filter(s => s.type === "intersection").length}`);
   console.log(`[CluePlacement] Углов: ${allSpots.filter(s => s.type === "corner").length}`);
+  console.log(`[CluePlacement] Перекрёстков: ${allSpots.filter(s => s.type === "intersection").length}`);
+  console.log(`[CluePlacement] Дальних точек: ${allSpots.filter(s => s.type === "far_point").length}`);
+  console.log(`[CluePlacement] Переулков: ${allSpots.filter(s => s.type === "hidden_alley").length}`);
   
   // 2. Выбираем N лучших с равномерным распределением
   const selected = selectDistributedSpots(
@@ -337,7 +400,7 @@ export function findOptimalClueSpots(
     options
   );
   
-  console.log(`[CluePlacement] Выбрано ${selected.length} точек для улик`);
+  console.log(`[CluePlacement] Выбрано ${selected.length} точек для улик:`);
   selected.forEach((spot, i) => {
     console.log(`  ${i + 1}. ${spot.type} на глубине ${spot.distanceFromStart} (сложность ${spot.difficulty})`);
   });
@@ -376,8 +439,9 @@ export function getPlacementStats(graph: PanoramaGraph): {
   return {
     totalSpots: spots.length,
     byType,
-    avgDifficulty: spots.length > 0 ? totalDifficulty / spots.length : 0,
+    avgDifficulty: spots.length > 0 
+      ? Math.round((totalDifficulty / spots.length) * 10) / 10 
+      : 0,
     maxDistance,
   };
 }
-

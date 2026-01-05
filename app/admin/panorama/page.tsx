@@ -4,6 +4,12 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * PANORAMA MISSION GENERATOR - ADMIN PAGE
  * Генератор миссий с автоматическим сканированием Street View
+ * 
+ * v2.0.0 - Исправлено:
+ * - Корректная очистка маркеров
+ * - Кнопка отмены сканирования
+ * - Улучшенная обработка ошибок
+ * - Превью миссии
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -59,10 +65,10 @@ const LOCATION_PRESETS = [
 ];
 
 const DIFFICULTY_OPTIONS = [
-  { value: "easy" as const, label: "Лёгкая", icon: "🟢" },
-  { value: "medium" as const, label: "Средняя", icon: "🟡" },
-  { value: "hard" as const, label: "Сложная", icon: "🟠" },
-  { value: "extreme" as const, label: "Экстремальная", icon: "🔴" },
+  { value: "easy" as const, label: "Лёгкая", icon: "🟢", desc: "15 мин, 60% улик" },
+  { value: "medium" as const, label: "Средняя", icon: "🟡", desc: "12 мин, 70% улик" },
+  { value: "hard" as const, label: "Сложная", icon: "🟠", desc: "10 мин, 80% улик" },
+  { value: "extreme" as const, label: "Экстрим", icon: "🔴", desc: "8 мин, 90% улик" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,6 +82,7 @@ export default function PanoramaGeneratorPage() {
   const [step, setStep] = useState<GeneratorStep>("input");
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
+  const [themesError, setThemesError] = useState<string | null>(null);
   
   // Input state
   const [coordinates, setCoordinates] = useState<[number, number]>([35.6594, 139.7006]);
@@ -96,23 +103,35 @@ export default function PanoramaGeneratorPage() {
   const [generatedMission, setGeneratedMission] = useState<GeneratedMission | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
   
   // Refs
   const mapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const googleMapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // ─── Fetch themes ───
   useEffect(() => {
     async function fetchThemes() {
       try {
+        setThemesError(null);
         const res = await fetch("/api/admin/panorama/generate");
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        
         const data = await res.json();
+        
         if (data.ok && data.themes) {
           setThemes(data.themes);
+        } else {
+          throw new Error(data.error || "Unknown error");
         }
       } catch (e) {
         console.error("Failed to fetch themes:", e);
+        setThemesError("Не удалось загрузить темы. Проверьте авторизацию.");
       }
     }
     fetchThemes();
@@ -122,41 +141,61 @@ export default function PanoramaGeneratorPage() {
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current) return;
     
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: coordinates[0], lng: coordinates[1] },
-      zoom: 15,
-      mapTypeId: "roadmap",
-      streetViewControl: true,
-    });
+    // Создаём карту только один раз
+    if (!googleMapRef.current) {
+      googleMapRef.current = new google.maps.Map(mapRef.current, {
+        center: { lat: coordinates[0], lng: coordinates[1] },
+        zoom: 15,
+        mapTypeId: "roadmap",
+        streetViewControl: true,
+      });
+      
+      // Click to set coordinates
+      googleMapRef.current.addListener("click", (e: any) => {
+        if (e.latLng) {
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          setCoordinates([lat, lng]);
+          setLocationName(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        }
+      });
+    }
     
-    googleMapRef.current = map;
+    // Обновляем маркер
+    updateMarker(coordinates[0], coordinates[1]);
     
-    // Click to set coordinates
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    map.addListener("click", (e: any) => {
-      if (e.latLng) {
-        setCoordinates([e.latLng.lat(), e.latLng.lng()]);
-        setLocationName("Пользовательская точка");
-      }
-    });
+  }, [mapsLoaded]);
+  
+  // ─── Update marker when coordinates change ───
+  useEffect(() => {
+    if (googleMapRef.current) {
+      updateMarker(coordinates[0], coordinates[1]);
+      googleMapRef.current.setCenter({ lat: coordinates[0], lng: coordinates[1] });
+    }
+  }, [coordinates]);
+  
+  // ─── Helper: Update marker ───
+  const updateMarker = useCallback((lat: number, lng: number) => {
+    // Удаляем старый маркер
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+    }
     
-    // Update marker
-    new google.maps.Marker({
-      position: { lat: coordinates[0], lng: coordinates[1] },
-      map,
-      title: "Старт миссии",
-    });
-    
-  }, [mapsLoaded, coordinates[0], coordinates[1]]);
+    // Создаём новый
+    if (googleMapRef.current) {
+      markerRef.current = new google.maps.Marker({
+        position: { lat, lng },
+        map: googleMapRef.current,
+        title: "Старт миссии",
+        animation: google.maps.Animation.DROP,
+      });
+    }
+  }, []);
   
   // ─── Handle preset selection ───
   const handlePresetSelect = useCallback((preset: typeof LOCATION_PRESETS[0]) => {
     setCoordinates(preset.coords);
     setLocationName(preset.name);
-    
-    if (googleMapRef.current) {
-      googleMapRef.current.setCenter({ lat: preset.coords[0], lng: preset.coords[1] });
-    }
   }, []);
   
   // ─── Start scanning ───
@@ -166,15 +205,19 @@ export default function PanoramaGeneratorPage() {
     setScanProgress(0);
     setScanMessage("Инициализация...");
     
+    // Создаём AbortController для возможности отмены
+    abortControllerRef.current = new AbortController();
+    
     try {
       const options: BuildGraphOptions = {
         maxDepth,
         maxNodes,
-        requestDelay: 100,
+        requestDelay: 200, // Безопасная задержка для Google API
         onProgress: (current, total, message) => {
           setScanProgress(Math.round((current / total) * 100));
           setScanMessage(message);
         },
+        signal: abortControllerRef.current.signal,
       };
       
       const result = await buildPanoramaGraph(coordinates, options);
@@ -182,11 +225,27 @@ export default function PanoramaGeneratorPage() {
       setStep("preview");
       
     } catch (e) {
+      // Проверяем, была ли это отмена
+      if ((e as Error).name === "AbortError") {
+        console.log("[Panorama] Scan cancelled by user");
+        setStep("input");
+        return;
+      }
+      
       console.error("Scan error:", e);
       setError(e instanceof Error ? e.message : "Ошибка сканирования");
       setStep("input");
+    } finally {
+      abortControllerRef.current = null;
     }
   }, [coordinates, maxDepth, maxNodes]);
+  
+  // ─── Cancel scanning ───
+  const handleCancelScan = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
   
   // ─── Generate mission ───
   const handleGenerate = useCallback(async () => {
@@ -229,11 +288,26 @@ export default function PanoramaGeneratorPage() {
   }, [graph, coordinates, selectedTheme, clueCount, locationName, difficulty]);
   
   // ─── Copy mission JSON ───
-  const handleCopyMission = useCallback(() => {
+  const handleCopyMission = useCallback(async () => {
     if (!generatedMission) return;
     
-    navigator.clipboard.writeText(JSON.stringify(generatedMission, null, 2));
-    alert("Миссия скопирована в буфер обмена!");
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(generatedMission, null, 2));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (e) {
+      console.error("Copy failed:", e);
+      setError("Не удалось скопировать в буфер обмена");
+    }
+  }, [generatedMission]);
+  
+  // ─── Preview mission ───
+  const handlePreviewMission = useCallback(() => {
+    if (!generatedMission) return;
+    
+    // Сохраняем миссию во временное хранилище
+    sessionStorage.setItem("previewMission", JSON.stringify(generatedMission));
+    window.open("/miniapp/panorama/preview", "_blank");
   }, [generatedMission]);
   
   // ─── Reset ───
@@ -243,6 +317,7 @@ export default function PanoramaGeneratorPage() {
     setGeneratedMission(null);
     setSpots([]);
     setError(null);
+    setCopySuccess(false);
   }, []);
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -255,6 +330,7 @@ export default function PanoramaGeneratorPage() {
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&libraries=places`}
         onLoad={() => setMapsLoaded(true)}
+        onError={() => setError("Не удалось загрузить Google Maps API")}
       />
       
       <div className="max-w-6xl mx-auto">
@@ -278,34 +354,47 @@ export default function PanoramaGeneratorPage() {
           </Button>
         </div>
         
+        {/* Themes loading error */}
+        {themesError && (
+          <div className="mb-6 p-4 bg-amber-900/50 border border-amber-500 rounded-xl text-amber-200">
+            ⚠️ {themesError}
+          </div>
+        )}
+        
         {/* Error */}
         {error && (
-          <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-xl text-red-200">
-            ⚠️ {error}
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-xl text-red-200 flex items-center justify-between">
+            <span>⚠️ {error}</span>
+            <button 
+              onClick={() => setError(null)}
+              className="text-red-300 hover:text-white"
+            >
+              ✕
+            </button>
           </div>
         )}
         
         {/* Steps */}
         <div className="flex items-center gap-4 mb-8">
-          {["input", "scanning", "preview", "generated"].map((s, i) => (
+          {(["input", "scanning", "preview", "generated"] as const).map((s, i) => (
             <div 
               key={s}
               className={`flex items-center gap-2 ${
                 step === s ? "text-cyan-400" : 
-                ["input", "scanning", "preview", "generated"].indexOf(step) > i 
+                (["input", "scanning", "preview", "generated"] as const).indexOf(step) > i 
                   ? "text-green-400" 
                   : "text-slate-500"
               }`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 text-sm font-medium ${
                 step === s ? "border-cyan-400 bg-cyan-400/20" :
-                ["input", "scanning", "preview", "generated"].indexOf(step) > i 
+                (["input", "scanning", "preview", "generated"] as const).indexOf(step) > i 
                   ? "border-green-400 bg-green-400/20" 
                   : "border-slate-600"
               }`}>
-                {["input", "scanning", "preview", "generated"].indexOf(step) > i ? "✓" : i + 1}
+                {(["input", "scanning", "preview", "generated"] as const).indexOf(step) > i ? "✓" : i + 1}
               </div>
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium hidden sm:inline">
                 {s === "input" && "Настройка"}
                 {s === "scanning" && "Сканирование"}
                 {s === "preview" && "Предпросмотр"}
@@ -353,7 +442,7 @@ export default function PanoramaGeneratorPage() {
                       type="number"
                       step="0.0001"
                       value={coordinates[0]}
-                      onChange={e => setCoordinates([parseFloat(e.target.value), coordinates[1]])}
+                      onChange={e => setCoordinates([parseFloat(e.target.value) || 0, coordinates[1]])}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
@@ -363,7 +452,7 @@ export default function PanoramaGeneratorPage() {
                       type="number"
                       step="0.0001"
                       value={coordinates[1]}
-                      onChange={e => setCoordinates([coordinates[0], parseFloat(e.target.value)])}
+                      onChange={e => setCoordinates([coordinates[0], parseFloat(e.target.value) || 0])}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
@@ -389,28 +478,37 @@ export default function PanoramaGeneratorPage() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-slate-400 text-xs block mb-1">Глубина обхода (шаги)</label>
-                    <Input
-                      type="number"
+                    <label className="text-slate-400 text-xs block mb-1">
+                      Глубина обхода: {maxDepth} шагов
+                    </label>
+                    <input
+                      type="range"
                       min={10}
                       max={60}
                       value={maxDepth}
                       onChange={e => setMaxDepth(parseInt(e.target.value))}
-                      className="bg-slate-700 border-slate-600 text-white"
+                      className="w-full mt-1"
                     />
                   </div>
                   <div>
-                    <label className="text-slate-400 text-xs block mb-1">Макс. точек</label>
-                    <Input
-                      type="number"
+                    <label className="text-slate-400 text-xs block mb-1">
+                      Макс. точек: {maxNodes}
+                    </label>
+                    <input
+                      type="range"
                       min={50}
                       max={400}
+                      step={50}
                       value={maxNodes}
                       onChange={e => setMaxNodes(parseInt(e.target.value))}
-                      className="bg-slate-700 border-slate-600 text-white"
+                      className="w-full mt-1"
                     />
                   </div>
                 </div>
+                
+                <p className="text-slate-500 text-xs">
+                  💡 Время сканирования: ~{Math.ceil(maxNodes * 0.25)} сек
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -423,6 +521,12 @@ export default function PanoramaGeneratorPage() {
                 <CardTitle className="text-white text-lg">🎭 Тема миссии</CardTitle>
               </CardHeader>
               <CardContent>
+                {themes.length === 0 && !themesError && (
+                  <div className="text-center py-8 text-slate-400">
+                    Загрузка тем...
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-2 gap-3">
                   {themes.map(theme => (
                     <button
@@ -436,7 +540,7 @@ export default function PanoramaGeneratorPage() {
                     >
                       <div className="text-2xl mb-2">{theme.icon}</div>
                       <div className="text-white font-medium text-sm">{theme.title}</div>
-                      <div className="text-slate-400 text-xs mt-1">{theme.description}</div>
+                      <div className="text-slate-400 text-xs mt-1 line-clamp-2">{theme.description}</div>
                     </button>
                   ))}
                 </div>
@@ -460,25 +564,26 @@ export default function PanoramaGeneratorPage() {
                     className="w-full mt-2"
                   />
                   <div className="flex justify-between text-xs text-slate-500 mt-1">
-                    <span>3</span>
-                    <span>7</span>
+                    <span>3 (легко)</span>
+                    <span>7 (сложно)</span>
                   </div>
                 </div>
                 
                 <div>
                   <label className="text-slate-400 text-xs block mb-1">Сложность</label>
-                  <div className="flex gap-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2 mt-2">
                     {DIFFICULTY_OPTIONS.map(opt => (
                       <button
                         key={opt.value}
                         onClick={() => setDifficulty(opt.value)}
-                        className={`flex-1 py-2 rounded-lg text-sm transition-all ${
+                        className={`py-2 px-3 rounded-lg text-sm transition-all text-left ${
                           difficulty === opt.value
                             ? "bg-cyan-600 text-white"
                             : "bg-slate-700 text-slate-300 hover:bg-slate-600"
                         }`}
                       >
-                        {opt.icon} {opt.label}
+                        <div>{opt.icon} {opt.label}</div>
+                        <div className="text-xs opacity-70">{opt.desc}</div>
                       </button>
                     ))}
                   </div>
@@ -492,10 +597,10 @@ export default function PanoramaGeneratorPage() {
                 {step === "input" && (
                   <Button
                     onClick={handleStartScan}
-                    disabled={!mapsLoaded}
+                    disabled={!mapsLoaded || themes.length === 0}
                     className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white py-6 text-lg"
                   >
-                    🔍 Начать сканирование
+                    {!mapsLoaded ? "⏳ Загрузка карты..." : "🔍 Начать сканирование"}
                   </Button>
                 )}
                 
@@ -510,6 +615,14 @@ export default function PanoramaGeneratorPage() {
                     </div>
                     <p className="text-cyan-400 font-medium">{scanProgress}%</p>
                     <p className="text-slate-400 text-sm mt-2">{scanMessage}</p>
+                    
+                    <Button
+                      onClick={handleCancelScan}
+                      variant="outline"
+                      className="mt-4 border-red-600 text-red-400 hover:bg-red-600/20"
+                    >
+                      ✕ Отменить
+                    </Button>
                   </div>
                 )}
                 
@@ -527,6 +640,21 @@ export default function PanoramaGeneratorPage() {
                       <div className="bg-slate-700/50 rounded-lg p-3">
                         <div className="text-2xl font-bold text-purple-400">{graph.stats.intersections}</div>
                         <div className="text-xs text-slate-400">Перекрёстков</div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-sm text-slate-300">
+                      <div className="flex justify-between">
+                        <span>Углов:</span>
+                        <span className="text-amber-400">{graph.stats.corners}</span>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span>Макс. глубина:</span>
+                        <span className="text-green-400">{graph.stats.maxDepth} шагов</span>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span>Ср. связей:</span>
+                        <span className="text-blue-400">{graph.stats.avgLinks}</span>
                       </div>
                     </div>
                     
@@ -559,17 +687,21 @@ export default function PanoramaGeneratorPage() {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                      <div className="grid grid-cols-4 gap-2 text-center text-sm">
                         <div className="bg-slate-800/50 rounded-lg p-2">
                           <div className="text-emerald-400 font-bold">{generatedMission.clues.length}</div>
                           <div className="text-slate-400 text-xs">улик</div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded-lg p-2">
+                          <div className="text-cyan-400 font-bold">{generatedMission.requiredClues}</div>
+                          <div className="text-slate-400 text-xs">нужно</div>
                         </div>
                         <div className="bg-slate-800/50 rounded-lg p-2">
                           <div className="text-amber-400 font-bold">{generatedMission.xpReward}</div>
                           <div className="text-slate-400 text-xs">XP</div>
                         </div>
                         <div className="bg-slate-800/50 rounded-lg p-2">
-                          <div className="text-cyan-400 font-bold">{Math.floor(generatedMission.timeLimit / 60)}м</div>
+                          <div className="text-pink-400 font-bold">{Math.floor(generatedMission.timeLimit / 60)}м</div>
                           <div className="text-slate-400 text-xs">лимит</div>
                         </div>
                       </div>
@@ -585,28 +717,37 @@ export default function PanoramaGeneratorPage() {
                           <span className="text-xl">{clue.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-white text-sm font-medium truncate">{clue.name}</div>
-                            <div className="text-slate-400 text-xs">Шаг {clue.distanceFromStart} • {clue.spotType}</div>
+                            <div className="text-slate-400 text-xs">
+                              Шаг {clue.distanceFromStart} • {clue.spotType} • {clue.coneDegrees}° • {clue.dwellTime}с
+                            </div>
                           </div>
-                          <div className="text-amber-400 text-sm font-medium">+{clue.xpReward} XP</div>
+                          <div className="text-amber-400 text-sm font-medium">+{clue.xpReward}</div>
                         </div>
                       ))}
                     </div>
                     
-                    <div className="flex gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <Button
                         onClick={handleCopyMission}
-                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white"
+                        className={`${copySuccess ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"} text-white`}
                       >
-                        📋 Скопировать JSON
+                        {copySuccess ? "✓ Скопировано!" : "📋 Скопировать JSON"}
                       </Button>
                       <Button
-                        onClick={handleReset}
-                        variant="outline"
-                        className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+                        onClick={handlePreviewMission}
+                        className="bg-purple-600 hover:bg-purple-500 text-white"
                       >
-                        🔄 Создать ещё
+                        🎮 Тест
                       </Button>
                     </div>
+                    
+                    <Button
+                      onClick={handleReset}
+                      variant="outline"
+                      className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      🔄 Создать ещё
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -617,4 +758,3 @@ export default function PanoramaGeneratorPage() {
     </div>
   );
 }
-
