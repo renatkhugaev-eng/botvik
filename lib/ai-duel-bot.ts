@@ -598,12 +598,14 @@ export interface AIWorkerParams {
   questionTimeLimitSeconds: number;
 }
 
-// Константы для синхронизации с клиентом
-const AI_READY_DELAY_MS = 1500;      // Время пока AI "подключится" и нажмёт "Готов"
-const COUNTDOWN_DURATION_MS = 3500;   // 3 секунды countdown + буфер
-const REVEAL_DURATION_MS = 2500;      // Время показа правильного ответа
-const POLL_INTERVAL_MS = 300;         // Интервал проверки ответа игрока
-const MAX_WAIT_FOR_PLAYER_MS = 60000; // Максимальное ожидание ответа игрока (60с)
+import { AI_CONFIG, DUEL_CONFIG } from "@/lib/config";
+
+// Константы для синхронизации с клиентом (из централизованного конфига)
+const AI_READY_DELAY_MS = AI_CONFIG.READY_DELAY_MS;
+const COUNTDOWN_DURATION_MS = AI_CONFIG.COUNTDOWN_BUFFER_MS;
+const REVEAL_DURATION_MS = DUEL_CONFIG.REVEAL_DURATION_MS;
+const POLL_INTERVAL_MS = AI_CONFIG.POLL_INTERVAL_MS;
+const MAX_WAIT_FOR_PLAYER_MS = AI_CONFIG.MAX_WAIT_FOR_PLAYER_MS;
 
 /**
  * Ждать пока реальный игрок ответит на вопрос
@@ -693,9 +695,10 @@ export async function runAIWorker(params: AIWorkerParams): Promise<void> {
     }
 
     // ═══ СТРАТЕГИЯ ОТВЕТА ═══
-    // С вероятностью 40% ждём пока игрок ответит (AI медленнее)
-    // С вероятностью 60% отвечаем по своему таймеру (AI может быть быстрее)
-    const waitForPlayer = Math.random() < 0.4;
+    // Вероятность из конфига (по умолчанию 40%)
+    // С вероятностью X% ждём пока игрок ответит (AI медленнее)
+    // С вероятностью (100-X)% отвечаем по своему таймеру (AI может быть быстрее)
+    const waitForPlayer = Math.random() < (AI_CONFIG.WAIT_FOR_PLAYER_PROBABILITY / 100);
     
     // Время "раздумий" AI для этого вопроса
     let thinkTimeMs = randomBetween(config.minResponseMs, config.maxResponseMs);
@@ -724,7 +727,7 @@ export async function runAIWorker(params: AIWorkerParams): Promise<void> {
       }
       
       // Игрок ответил — добавляем короткую задержку и отвечаем
-      const reactionTime = randomBetween(800, 2500);
+      const reactionTime = randomBetween(AI_CONFIG.MIN_REACTION_MS, AI_CONFIG.MAX_REACTION_MS);
       console.log(`[AI Worker] Q${i} player answered, AI responding in ${reactionTime}ms`);
       await sleep(reactionTime);
       thinkTimeMs = reactionTime; // Для записи в БД

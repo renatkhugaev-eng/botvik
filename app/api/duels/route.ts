@@ -21,6 +21,8 @@ import {
   type AIBotDifficulty,
 } from "@/lib/ai-duel-bot";
 import { isAIDuelRequest, type CreateDuelRequest } from "@/types/ai-duel";
+import { DUEL_CONFIG } from "@/lib/config";
+import { errorResponse, successResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -205,7 +207,7 @@ export async function POST(request: NextRequest) {
       );
 
       // Создаём дуэль с AI — сразу в статусе ACCEPTED (не требует принятия)
-      const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 час для AI дуэлей
+      const expiresAt = new Date(Date.now() + DUEL_CONFIG.AI_DUEL_EXPIRY_HOURS * 60 * 60 * 1000);
       const roomId = `duel:ai:${Date.now()}`; // Уникальный room ID
 
       const duel = await prisma.duel.create({
@@ -214,8 +216,8 @@ export async function POST(request: NextRequest) {
           opponentId: aiPlayer.id,
           quizId: quizId,
           expiresAt,
-          xpReward: 50,
-          xpLoser: 10,
+          xpReward: DUEL_CONFIG.XP_REWARD_WIN,
+          xpLoser: DUEL_CONFIG.XP_REWARD_LOSE,
           status: "ACCEPTED", // AI сразу "принимает" дуэль
           acceptedAt: new Date(),
           roomId,
@@ -338,17 +340,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Создаём дуэль
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+    const expiresAt = new Date(Date.now() + DUEL_CONFIG.DUEL_EXPIRY_HOURS * 60 * 60 * 1000);
 
     const duel = await prisma.duel.create({
-      data: {
-        challengerId: userId,
-        opponentId: opponentId,
-        quizId: quizId,
-        expiresAt,
-        xpReward: 50,
-        xpLoser: 10,
-      },
+        data: {
+          challengerId: userId,
+          opponentId: opponentId,
+          quizId: quizId,
+          expiresAt,
+          xpReward: DUEL_CONFIG.XP_REWARD_WIN,
+          xpLoser: DUEL_CONFIG.XP_REWARD_LOSE,
+        },
       include: {
         challenger: {
           select: {

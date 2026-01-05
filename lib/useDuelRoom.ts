@@ -83,14 +83,16 @@ type AnswerResult = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// КОНСТАНТЫ
+// КОНСТАНТЫ (из централизованного конфига)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const COUNTDOWN_SECONDS = 3;
-const REVEAL_DURATION_MS = 2500;
-const LOBBY_OPPONENT_DELAY_MS = 2000;
-const RECONNECT_GRACE_PERIOD_MS = 10000;
-const DEV_MODE_OPPONENT_DELAY_MS = 2000; // Время до автоматической симуляции оппонента в dev
+import { DUEL_CONFIG } from "@/lib/config";
+
+const COUNTDOWN_SECONDS = DUEL_CONFIG.COUNTDOWN_SECONDS;
+const REVEAL_DURATION_MS = DUEL_CONFIG.REVEAL_DURATION_MS;
+const LOBBY_OPPONENT_DELAY_MS = DUEL_CONFIG.LOBBY_OPPONENT_DELAY_MS;
+const RECONNECT_GRACE_PERIOD_MS = DUEL_CONFIG.RECONNECT_GRACE_PERIOD_MS;
+const DEV_MODE_OPPONENT_DELAY_MS = DUEL_CONFIG.LOBBY_OPPONENT_DELAY_MS;
 
 // Проверяем dev-режим
 function isDevMode(): boolean {

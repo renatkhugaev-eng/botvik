@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData, parseInitData } from "@/lib/telegram";
 import { notifyFriendActivity } from "@/lib/notifications";
+import { validateCsrf } from "@/lib/csrf";
+import { AUTH_CONFIG } from "@/lib/config";
 
 export const runtime = "nodejs";
 
@@ -26,10 +28,10 @@ export type AuthResult =
 
 /**
  * In-memory user cache to avoid DB queries on every request
- * TTL: 5 minutes
+ * TTL from config (default: 5 minutes)
  */
 const userCache = new Map<string, { user: AuthUser; cachedAt: number }>();
-const USER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const USER_CACHE_TTL_MS = AUTH_CONFIG.USER_CACHE_TTL_MS;
 
 function getCachedUser(telegramId: string): AuthUser | null {
   const entry = userCache.get(telegramId);
@@ -44,8 +46,8 @@ function getCachedUser(telegramId: string): AuthUser | null {
 }
 
 function setCachedUser(telegramId: string, user: AuthUser): void {
-  // Limit cache size
-  if (userCache.size > 1000) {
+  // Limit cache size from config (default: 1000)
+  if (userCache.size > AUTH_CONFIG.USER_CACHE_MAX_SIZE) {
     const now = Date.now();
     for (const [key, value] of userCache) {
       if (now - value.cachedAt > USER_CACHE_TTL_MS) {
@@ -76,8 +78,20 @@ function getInitDataFromRequest(req: NextRequest): string | null {
 /**
  * Authenticate request using Telegram initData
  * OPTIMIZED: Uses cache to avoid DB queries on repeated requests
+ * SECURITY: Includes CSRF validation
  */
 export async function authenticateRequest(req: NextRequest): Promise<AuthResult> {
+  // ═══ CSRF VALIDATION ═══
+  const csrfResult = validateCsrf(req);
+  if (!csrfResult.valid) {
+    console.warn(`[auth] CSRF validation failed: ${csrfResult.reason}`);
+    return {
+      ok: false,
+      error: "CSRF_VALIDATION_FAILED",
+      status: 403,
+    };
+  }
+  
   const initData = getInitDataFromRequest(req);
   
   if (!initData) {

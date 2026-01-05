@@ -988,6 +988,8 @@ model DuelAnswer {
   @@unique([duelId, userId, questionIndex])   // Один ответ на вопрос на пользователя
   @@index([duelId])
   @@index([duelId, userId])
+  @@index([duelId, createdAt(sort: Desc)])    // Для сортировки ответов по времени
+  @@index([userId, createdAt(sort: Desc)])    // Для истории ответов пользователя
 }
 
 // ═══ ОЧЕРЕДЬ MATCHMAKING (для быстрой игры) ═══
