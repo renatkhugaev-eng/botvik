@@ -87,8 +87,12 @@ export default function RootLayout({
         {/* Preconnect to critical origins for faster resource loading */}
         <link rel="preconnect" href="https://telegram.org" />
         <link rel="dns-prefetch" href="https://telegram.org" />
-        {/* Preconnect to API (same origin, but helps with early connection) */}
-        <link rel="preconnect" href="/" />
+        {/* Preconnect to Vercel edge for faster API calls */}
+        <link rel="preconnect" href="https://www.botvik.app" />
+        <link rel="dns-prefetch" href="https://www.botvik.app" />
+        {/* Preconnect to CDN origins */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body
         className={`${playfair.variable} ${manrope.variable} antialiased`}
