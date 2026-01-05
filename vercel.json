@@ -1,5 +1,5 @@
 {
-  "regions": ["fra1"],
+  "regions": ["arn1", "lhr1", "fra1"],
   "crons": [
     {
       "path": "/api/notifications/daily",
