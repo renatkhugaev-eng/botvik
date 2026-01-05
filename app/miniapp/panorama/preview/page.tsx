@@ -97,21 +97,23 @@ export default function PanoramaPreviewPage() {
   
   // ─── Handle mission complete ───
   const handleComplete = (result: {
-    success: boolean;
-    cluesFound: number;
-    totalClues: number;
+    missionId: string;
+    cluesCollected: number;
+    cluesTotal: number;
     timeSpent: number;
-    xpEarned: number;
+    earnedXp: number;
   }) => {
     console.log("[Preview] Mission completed:", result);
+    
+    const success = result.cluesCollected >= (mission?.requiredClues || 0);
     
     // Показываем результат и возвращаем в генератор
     alert(
       `🎉 Миссия завершена!\n\n` +
-      `Успех: ${result.success ? "Да" : "Нет"}\n` +
-      `Улик найдено: ${result.cluesFound}/${result.totalClues}\n` +
+      `Успех: ${success ? "Да" : "Нет"}\n` +
+      `Улик найдено: ${result.cluesCollected}/${result.cluesTotal}\n` +
       `Время: ${Math.floor(result.timeSpent / 60)}:${(result.timeSpent % 60).toString().padStart(2, "0")}\n` +
-      `XP: ${result.xpEarned}`
+      `XP: ${result.earnedXp}`
     );
     
     window.close();
