@@ -203,67 +203,85 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         return;
       }
 
-      try {
-        // Получаем сохранённый реферальный код
-        const savedRefCode = localStorage.getItem("referral_code");
+      // Auth with retry logic for slow connections
+      const savedRefCode = localStorage.getItem("referral_code");
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (aborted) return;
         
-        // Auth request with timeout to prevent infinite loading
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 sec timeout
-        
-        const res = await fetch("/api/auth/telegram", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            initData: initData ?? "",
-            referralCode: savedRefCode || undefined, // Передаём реферальный код
-          }),
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-
-        const data = (await res.json()) as { ok: boolean; user?: MiniAppUser; reason?: string };
-        console.log("[MiniApp] auth response", data);
-
-        if (!res.ok || !data.ok || !data.user) {
-          if (!aborted) setSession({ status: "error", reason: data.reason ?? "AUTH_FAILED" });
-          return;
-        }
-
-        if (!aborted) {
-          setSession({ status: "ready", user: data.user });
+        try {
+          console.log(`[MiniApp] Auth attempt ${attempt}/${maxRetries}`);
           
-          // Очищаем реферальный код после использования
-          if (savedRefCode) {
-            localStorage.removeItem("referral_code");
-            console.log("[MiniApp] Referral code used and cleared");
-          }
+          // Timeout increases with each retry: 20s, 30s, 45s
+          const timeout = attempt === 1 ? 20000 : attempt === 2 ? 30000 : 45000;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
           
-          // Set user context for Sentry
-          setUser({
-            id: data.user.id,
-            telegramId: data.user.telegramId,
-            username: data.user.username,
+          const res = await fetch("/api/auth/telegram", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              initData: initData ?? "",
+              referralCode: savedRefCode || undefined,
+            }),
+            signal: controller.signal,
           });
-          addBreadcrumb("User authenticated", "auth", { userId: data.user.id });
-          // Identify user for Posthog analytics
-          identifyUser({
-            id: data.user.id,
-            telegramId: data.user.telegramId,
-            username: data.user.username,
-            firstName: data.user.firstName,
-          });
-        }
-      } catch (err) {
-        console.error("Auth error", err);
-        if (!aborted) {
-          // Check if it's a timeout/abort error
-          if (err instanceof Error && err.name === 'AbortError') {
-            setSession({ status: "error", reason: "AUTH_TIMEOUT" });
-          } else {
-            setSession({ status: "error", reason: "NETWORK_ERROR" });
+          
+          clearTimeout(timeoutId);
+
+          const data = (await res.json()) as { ok: boolean; user?: MiniAppUser; reason?: string };
+          console.log("[MiniApp] auth response", data);
+
+          if (!res.ok || !data.ok || !data.user) {
+            if (!aborted) setSession({ status: "error", reason: data.reason ?? "AUTH_FAILED" });
+            return;
           }
+
+          // Success!
+          if (!aborted) {
+            setSession({ status: "ready", user: data.user });
+            
+            if (savedRefCode) {
+              localStorage.removeItem("referral_code");
+              console.log("[MiniApp] Referral code used and cleared");
+            }
+            
+            setUser({
+              id: data.user.id,
+              telegramId: data.user.telegramId,
+              username: data.user.username,
+            });
+            addBreadcrumb("User authenticated", "auth", { userId: data.user.id });
+            identifyUser({
+              id: data.user.id,
+              telegramId: data.user.telegramId,
+              username: data.user.username,
+              firstName: data.user.firstName,
+            });
+          }
+          return; // Success - exit retry loop
+          
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          console.warn(`[MiniApp] Auth attempt ${attempt} failed:`, lastError.message);
+          
+          // If not last attempt and it's a network/timeout error, retry after delay
+          if (attempt < maxRetries && (lastError.name === 'AbortError' || lastError.message.includes('fetch'))) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+            continue;
+          }
+        }
+      }
+      
+      // All retries failed
+      console.error("Auth failed after all retries", lastError);
+      if (!aborted) {
+        if (lastError?.name === 'AbortError') {
+          setSession({ status: "error", reason: "AUTH_TIMEOUT" });
+        } else {
+          setSession({ status: "error", reason: "NETWORK_ERROR" });
         }
       }
     };
