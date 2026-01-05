@@ -113,6 +113,7 @@ export default function RootLayout({
             justifyContent: 'center',
             background: '#0a0a0f',
             zIndex: 9999,
+            transition: 'opacity 0.3s ease-out',
           }}
         >
           {/* Simple spinner - minimal CSS */}
@@ -149,59 +150,41 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Diagnostic script - shows loading progress */}
+        {/* Script to hide loader when app is ready */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                var loader = document.getElementById('static-loader');
                 var status = document.getElementById('loader-status');
-                var start = Date.now();
                 
-                // Update status with timing
-                function updateStatus(msg) {
-                  if (status) {
-                    var elapsed = ((Date.now() - start) / 1000).toFixed(1);
-                    status.textContent = msg + ' (' + elapsed + 's)';
-                  }
-                }
-                
-                // Stage 1: HTML loaded
-                updateStatus('HTML загружен');
-                
-                // Stage 2: DOM ready
-                if (document.readyState === 'loading') {
-                  document.addEventListener('DOMContentLoaded', function() {
-                    updateStatus('DOM готов');
-                  });
-                } else {
-                  updateStatus('DOM готов');
-                }
-                
-                // Stage 3: All resources loaded
-                window.addEventListener('load', function() {
-                  updateStatus('Ресурсы загружены');
-                });
-                
-                // Hide loader when React hydrates
-                var checkHydration = function() {
-                  if (document.body.children.length > 4) {
-                    updateStatus('React готов');
-                    setTimeout(function() {
-                      document.body.classList.add('hydrated');
-                    }, 100);
+                // Hide loader when React mounts (checks for app-container class)
+                function checkReady() {
+                  var appContainer = document.querySelector('.app-container');
+                  var mainContent = document.querySelector('main');
+                  var miniappContent = document.querySelector('[class*="min-h-screen"]');
+                  
+                  if (appContainer || mainContent || miniappContent) {
+                    // App is ready - hide loader
+                    if (loader) {
+                      loader.style.opacity = '0';
+                      setTimeout(function() { loader.style.display = 'none'; }, 300);
+                    }
                   } else {
-                    requestAnimationFrame(checkHydration);
+                    // Keep checking
+                    requestAnimationFrame(checkReady);
                   }
-                };
-                requestAnimationFrame(checkHydration);
+                }
                 
-                // Timeout fallback - show error after 30 seconds
+                // Start checking after a small delay
+                setTimeout(checkReady, 100);
+                
+                // Fallback: force hide after 15 seconds
                 setTimeout(function() {
-                  if (!document.body.classList.contains('hydrated')) {
-                    updateStatus('Таймаут загрузки');
-                    if (status) status.style.color = '#f87171';
+                  if (loader && loader.style.display !== 'none') {
+                    loader.style.display = 'none';
                   }
-                }, 30000);
+                }, 15000);
               })();
             `,
           }}
