@@ -70,16 +70,21 @@ export async function GET(req: NextRequest) {
       clueCount: theme.clueTemplates.length,
     }));
     
-    // Получаем статистику сохранённых миссий
-    const missionStats = await prisma.panoramaMission.groupBy({
-      by: ["theme"],
-      _count: { id: true },
-      where: { isPublished: true },
-    });
-    
-    const statsMap = Object.fromEntries(
-      missionStats.map(s => [s.theme, s._count.id])
-    );
+    // Получаем статистику сохранённых миссий (опционально)
+    let statsMap: Record<string, number> = {};
+    try {
+      const missionStats = await prisma.panoramaMission.groupBy({
+        by: ["theme"],
+        _count: { id: true },
+        where: { isPublished: true },
+      });
+      statsMap = Object.fromEntries(
+        missionStats.map(s => [s.theme, s._count.id])
+      );
+    } catch {
+      // Таблица может не существовать — игнорируем
+      console.warn("[Admin Panorama] Could not fetch mission stats (table may not exist)");
+    }
     
     return NextResponse.json({
       ok: true,
