@@ -69,26 +69,26 @@ type DirectionalFeedbackDirection = "left" | "right" | "center" | "behind";
 
 /** Пороги для уровней интенсивности (в градусах от цели) */
 const INTENSITY_THRESHOLDS = {
-  burning: 15,  // < 15° от улики
-  hot: 45,      // < 45° от улики
-  warm: 90,     // < 90° от улики
-  cold: 180,    // > 90° от улики
+  burning: 20,  // < 20° от улики — почти смотришь
+  hot: 60,      // < 60° от улики — близко
+  warm: 120,    // < 120° от улики — в нужном направлении
+  cold: 180,    // > 120° от улики — далеко/сзади
 } as const;
 
 /** BPM heartbeat для каждого уровня */
 const HEARTBEAT_BPM: Record<IntensityLevel, number> = {
-  cold: 0,       // Без heartbeat
-  warm: 75,      // Спокойный
-  hot: 110,      // Ускоренный
-  burning: 150,  // Быстрый
+  cold: 60,      // Медленный — улика есть, но далеко/сзади
+  warm: 80,      // Спокойный — в нужном направлении
+  hot: 120,      // Ускоренный — близко
+  burning: 160,  // Быстрый — почти нашёл
 };
 
 /** Static интенсивность для каждого уровня */
 const STATIC_INTENSITY: Record<IntensityLevel, number> = {
-  cold: 0,
-  warm: 0.1,
-  hot: 0.3,
-  burning: 0.6,
+  cold: 0.05,   // Лёгкие помехи — улика есть
+  warm: 0.15,   // Заметные помехи
+  hot: 0.35,    // Сильные помехи
+  burning: 0.6, // Очень сильные
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -255,47 +255,42 @@ export function useProximityAudio({
     
     // ════════════════════════════════════════════════════════════════════════
     // 1. HEARTBEAT — ускоряется при приближении
+    // Играется ВСЕГДА когда есть улика в панораме (даже если сзади)
     // ════════════════════════════════════════════════════════════════════════
     
     const targetBpm = HEARTBEAT_BPM[level];
-    
-    if (targetBpm > 0) {
-      // Плавная интерполяция BPM
-      const adjustedBpm = Math.round(targetBpm + (progressToClue * 30));
-      audio.startHeartbeat(Math.min(180, adjustedBpm));
-    } else {
-      audio.stopHeartbeat();
-    }
+    // Плавная интерполяция BPM на основе прогресса
+    const adjustedBpm = Math.round(targetBpm + (progressToClue * 20));
+    audio.startHeartbeat(Math.min(180, Math.max(60, adjustedBpm)));
     
     // ════════════════════════════════════════════════════════════════════════
     // 2. STATIC — помехи нарастают при близости
+    // Играются ВСЕГДА когда есть улика в панораме
     // ════════════════════════════════════════════════════════════════════════
     
     const staticIntensity = STATIC_INTENSITY[level];
-    
-    if (staticIntensity > 0) {
-      // Static усиливается если смотришь на улику
-      const adjustedStatic = isLookingAtClue 
-        ? staticIntensity * 1.5 
-        : staticIntensity;
-      audio.startStatic(Math.min(1, adjustedStatic));
-    } else {
-      audio.stopStatic();
-    }
+    // Static усиливается если смотришь на улику
+    const adjustedStatic = isLookingAtClue 
+      ? staticIntensity * 1.5 
+      : staticIntensity;
+    audio.startStatic(Math.min(1, adjustedStatic));
     
     // ════════════════════════════════════════════════════════════════════════
     // 3. НАПРАВЛЕННЫЕ ЗВУКИ — подсказка куда смотреть
+    // Играются ВСЕГДА когда есть улика в панораме, независимо от угла!
     // ════════════════════════════════════════════════════════════════════════
     
     const now = Date.now();
     const direction = getDirection(headingDelta);
     
-    // Играем направленный звук только при смене направления или каждые 3 сек
+    // Играем направленный звук:
+    // - При смене направления (лево↔право↔сзади↔центр)
+    // - Или каждые 2.5 сек как напоминание
+    // - НО не когда уже смотришь на улику (там свои звуки)
     if (
       closestClue && 
-      level !== "cold" && 
       !isLookingAtClue &&
-      (direction !== lastDirectionRef.current || now - lastDirectionalSoundRef.current > 3000)
+      (direction !== lastDirectionRef.current || now - lastDirectionalSoundRef.current > 2500)
     ) {
       lastDirectionRef.current = direction;
       lastDirectionalSoundRef.current = now;

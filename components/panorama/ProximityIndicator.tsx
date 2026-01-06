@@ -96,13 +96,18 @@ function DirectionArrow({ headingDelta }: { headingDelta: number }) {
 
 /**
  * Пульсирующий круг
+ * Пульсирует ВСЕГДА когда есть улика, но скорость зависит от температуры
  */
 function PulseCircle({ level }: { level: IntensityLevel }) {
   const color = TEMPERATURE_COLORS[level];
-  const shouldPulse = level !== "cold";
   
   // Скорость пульсации зависит от температуры
-  const pulseDuration = level === "burning" ? 0.3 : level === "hot" ? 0.5 : 0.8;
+  // cold: медленная, burning: быстрая
+  const pulseDuration = 
+    level === "burning" ? 0.3 : 
+    level === "hot" ? 0.5 : 
+    level === "warm" ? 0.8 :
+    1.2; // cold — очень медленная
   
   return (
     <motion.div
@@ -111,10 +116,10 @@ function PulseCircle({ level }: { level: IntensityLevel }) {
         backgroundColor: color,
         opacity: 0.3,
       }}
-      animate={shouldPulse ? {
+      animate={{
         scale: [1, 1.3, 1],
         opacity: [0.3, 0.1, 0.3],
-      } : {}}
+      }}
       transition={{
         duration: pulseDuration,
         repeat: Infinity,
@@ -126,10 +131,9 @@ function PulseCircle({ level }: { level: IntensityLevel }) {
 
 /**
  * Текстовая подсказка направления
+ * Показывается ВСЕГДА когда есть улика (включая cold)
  */
-function DirectionHint({ headingDelta, level }: { headingDelta: number; level: IntensityLevel }) {
-  if (level === "cold") return null;
-  
+function DirectionHint({ headingDelta }: { headingDelta: number }) {
   const absDelta = Math.abs(headingDelta);
   let hint = "";
   
@@ -165,8 +169,8 @@ export function ProximityIndicator({
 }: ProximityIndicatorProps) {
   const { level, headingDelta, isLookingAtClue, closestClue } = temperature;
   
-  // Не показываем если холодно или нет улик
-  if (!visible || !closestClue || level === "cold") {
+  // Не показываем только если нет улик
+  if (!visible || !closestClue) {
     return null;
   }
   
@@ -227,7 +231,7 @@ export function ProximityIndicator({
           {/* Подсказка направления */}
           <AnimatePresence>
             {!isLookingAtClue && (
-              <DirectionHint headingDelta={headingDelta} level={level} />
+              <DirectionHint headingDelta={headingDelta} />
             )}
           </AnimatePresence>
         </div>
@@ -248,7 +252,7 @@ interface EdgeGlowProps {
 }
 
 export function EdgeGlowIndicator({ headingDelta, level, visible = true }: EdgeGlowProps) {
-  if (!visible || level === "cold") return null;
+  if (!visible) return null;
   
   const color = TEMPERATURE_COLORS[level];
   const absDelta = Math.abs(headingDelta);
