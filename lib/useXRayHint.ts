@@ -51,8 +51,8 @@ interface UseXRayHintProps {
 interface XRayHintState {
   /** Показывается ли миникарта */
   isActive: boolean;
-  /** Была ли уже использована в этой миссии */
-  wasUsed: boolean;
+  /** Сколько раз уже использована в этой миссии */
+  usesCount: number;
   /** Идёт ли загрузка */
   isLoading: boolean;
   /** Текущая энергия пользователя */
@@ -76,6 +76,12 @@ interface UseXRayHintReturn extends XRayHintState {
   canUse: boolean;
   /** Стоимость */
   cost: number;
+  /** Осталось использований */
+  usesRemaining: number;
+  /** Максимум использований */
+  maxUses: number;
+  /** Была ли использована хотя бы раз (для XP penalty) */
+  wasUsed: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -84,6 +90,7 @@ interface UseXRayHintReturn extends XRayHintState {
 
 const XRAY_COST = 0; // БЕСПЛАТНО
 const XP_PENALTY = 0.2; // 20% штраф к XP (сохраняем баланс)
+const MAX_XRAY_USES = 7; // Максимум использований за миссию
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER: Get panorama coordinates by panoId
@@ -143,7 +150,7 @@ export function useXRayHint({
   // ─── State ───
   const [state, setState] = useState<XRayHintState>({
     isActive: false,
-    wasUsed: false,
+    usesCount: 0,
     isLoading: false,
     energy: 0,
     targetClue: null,
@@ -199,7 +206,7 @@ export function useXRayHint({
 
   // ─── Activate X-Ray ───
   const activateXRay = useCallback(async (): Promise<boolean> => {
-    if (state.wasUsed || state.isLoading) return false;
+    if (state.usesCount >= MAX_XRAY_USES || state.isLoading) return false;
 
     // Проверяем доступность Google Maps API ДО списания энергии
     if (!window.google?.maps) {
@@ -265,7 +272,7 @@ export function useXRayHint({
         setState(prev => ({
           ...prev,
           isActive: true,
-          wasUsed: true,
+          usesCount: prev.usesCount + 1,
           isLoading: false,
           energy: data.remainingEnergy,
           targetClue,
@@ -278,7 +285,7 @@ export function useXRayHint({
         setState(prev => ({
           ...prev,
           isActive: true,
-          wasUsed: true,
+          usesCount: prev.usesCount + 1,
           isLoading: false,
           targetClue,
           clueCoordinates: clueCoords,
@@ -298,7 +305,7 @@ export function useXRayHint({
       }));
       return false;
     }
-  }, [state.wasUsed, state.isLoading, findNearestClue]);
+  }, [state.usesCount, state.isLoading, findNearestClue, clues, clueStates]);
 
   // ─── Close X-Ray ───
   const closeXRay = useCallback(() => {
@@ -311,8 +318,9 @@ export function useXRayHint({
   // ─── Computed values ───
   const hasAvailableClues = !!findNearestClue();
   const canAfford = XRAY_COST === 0 || state.energy >= XRAY_COST;
+  const usesRemaining = MAX_XRAY_USES - state.usesCount;
   const canUse = enabled && 
-                 !state.wasUsed && 
+                 usesRemaining > 0 && 
                  canAfford && 
                  hasAvailableClues;
 
@@ -322,6 +330,9 @@ export function useXRayHint({
     closeXRay,
     canUse,
     cost: XRAY_COST,
+    usesRemaining,
+    maxUses: MAX_XRAY_USES,
+    wasUsed: state.usesCount > 0, // Для XP penalty
   };
 }
 

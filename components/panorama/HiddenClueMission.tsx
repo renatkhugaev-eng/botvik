@@ -743,7 +743,8 @@ export function HiddenClueMission({
             <XRayPurchaseButton
               energy={xray.energy}
               hasAvailableClues={xray.canUse}
-              alreadyUsed={xray.wasUsed}
+              usesRemaining={xray.usesRemaining}
+              maxUses={xray.maxUses}
               loading={xray.isLoading}
               onPurchase={async () => {
                 const success = await xray.activateXRay();

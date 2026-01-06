@@ -375,8 +375,10 @@ interface XRayPurchaseButtonProps {
   energy: number;
   /** Есть ли нераскрытые улики */
   hasAvailableClues: boolean;
-  /** Уже использован в этой миссии */
-  alreadyUsed?: boolean;
+  /** Осталось использований */
+  usesRemaining?: number;
+  /** Максимум использований */
+  maxUses?: number;
   /** Callback при покупке */
   onPurchase: () => void;
   /** Загрузка */
@@ -386,23 +388,25 @@ interface XRayPurchaseButtonProps {
 export function XRayPurchaseButton({
   energy,
   hasAvailableClues,
-  alreadyUsed = false,
+  usesRemaining = 7,
+  maxUses = 7,
   onPurchase,
   loading = false,
 }: XRayPurchaseButtonProps) {
   const canAfford = energy >= XRAY_COST;
-  const isDisabled = !canAfford || !hasAvailableClues || alreadyUsed || loading;
+  const noUsesLeft = usesRemaining <= 0;
+  const isDisabled = !canAfford || !hasAvailableClues || noUsesLeft || loading;
 
   const isFree = XRAY_COST === 0;
   
-  let buttonText = isFree ? "🔬 Рентген" : `🔬 ${XRAY_COST} 💎`;
+  let buttonText = isFree ? `🔬 ${usesRemaining}/${maxUses}` : `🔬 ${XRAY_COST} 💎`;
   let tooltipText = isFree 
-    ? "Показать карту с ближайшей уликой (XP -20%)" 
+    ? `Показать карту с ближайшей уликой (${usesRemaining} из ${maxUses}, XP -20%)` 
     : `Показать карту с уликой (${XRAY_COST} 💎, XP -20%)`;
   
-  if (alreadyUsed) {
-    buttonText = "🔬 Использован";
-    tooltipText = "Можно использовать 1 раз за миссию";
+  if (noUsesLeft) {
+    buttonText = "🔬 Лимит";
+    tooltipText = `Использовано ${maxUses} из ${maxUses} раз за миссию`;
   } else if (!hasAvailableClues) {
     buttonText = "🔬 Нет улик";
     tooltipText = "Все улики уже найдены";
@@ -435,10 +439,10 @@ export function XRayPurchaseButton({
       ) : (
         <span className="flex items-center gap-2">
           {buttonText}
-          {!alreadyUsed && hasAvailableClues && !isFree && canAfford && (
+          {!noUsesLeft && hasAvailableClues && !isFree && canAfford && (
             <span className="text-cyan-200 text-xs">(-20% XP)</span>
           )}
-          {!alreadyUsed && hasAvailableClues && isFree && (
+          {!noUsesLeft && hasAvailableClues && isFree && (
             <span className="text-amber-300 text-xs">-20% XP</span>
           )}
         </span>
