@@ -589,15 +589,17 @@ export function HiddenClueMission({
             
             {/* Timer */}
             {mission.timeLimit ? (
-              <div className={`px-4 py-2.5 rounded-2xl backdrop-blur-md border font-mono text-base font-bold pointer-events-auto
+              <div className={`h-11 px-4 rounded-2xl backdrop-blur-md border font-mono text-sm font-bold 
+                pointer-events-auto flex items-center gap-1.5
                 ${timeRemaining <= 30 
                   ? "bg-red-500/20 border-red-500/30 text-red-400 animate-pulse" 
                   : "bg-white/10 border-white/20 text-white"}`}>
-                ⏱️ {formatTime(timeRemaining)}
+                <span className="text-base">⏱️</span>
+                <span>{formatTime(timeRemaining)}</span>
               </div>
             ) : (
-              <div className="px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
-                              font-mono text-base text-white/90 pointer-events-auto">
+              <div className="h-11 px-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+                              font-mono text-sm text-white/90 pointer-events-auto flex items-center">
                 {formatTime(timeSpent)}
               </div>
             )}

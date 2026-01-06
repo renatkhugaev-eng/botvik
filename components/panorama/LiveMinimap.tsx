@@ -197,12 +197,12 @@ export function LiveMinimap({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => setIsCollapsed(false)}
-            className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+            className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 
                        flex items-center justify-center shadow-lg shadow-black/30
                        hover:bg-white/15 hover:border-white/30 transition-all active:scale-95"
             title="Показать миникарту"
           >
-            <span className="text-lg">🗺️</span>
+            <span className="text-base">🗺️</span>
           </motion.button>
         ) : (
           // ─── Развёрнутое состояние (карта) ───
@@ -216,28 +216,28 @@ export function LiveMinimap({
           >
             {/* ─── Header ─── */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between 
-                            px-2.5 py-2 bg-gradient-to-b from-black/60 to-transparent">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm">📍</span>
-                <span className="text-[11px] text-white/70 font-medium tracking-wide">GPS</span>
+                            px-1.5 py-1.5 bg-gradient-to-b from-black/70 to-transparent">
+              <div className="flex items-center gap-1">
+                <span className="text-xs">📍</span>
+                <span className="text-[9px] text-white/60 font-medium">GPS</span>
               </div>
               
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 {/* Zoom controls */}
                 <button
                   onClick={handleZoomOut}
-                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 
+                  className="w-5 h-5 rounded bg-white/15 hover:bg-white/25 
                              flex items-center justify-center text-white/70 hover:text-white 
-                             transition-all text-sm font-medium active:scale-90"
+                             transition-all text-[10px] font-medium active:scale-90"
                   title="Уменьшить"
                 >
                   −
                 </button>
                 <button
                   onClick={handleZoomIn}
-                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 
+                  className="w-5 h-5 rounded bg-white/15 hover:bg-white/25 
                              flex items-center justify-center text-white/70 hover:text-white 
-                             transition-all text-sm font-medium active:scale-90"
+                             transition-all text-[10px] font-medium active:scale-90"
                   title="Увеличить"
                 >
                   +
@@ -246,9 +246,9 @@ export function LiveMinimap({
                 {/* Collapse button */}
                 <button
                   onClick={() => setIsCollapsed(true)}
-                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 
+                  className="w-5 h-5 rounded bg-white/15 hover:bg-white/25 
                              flex items-center justify-center text-white/70 hover:text-white 
-                             transition-all text-xs active:scale-90"
+                             transition-all text-[9px] active:scale-90"
                   title="Свернуть"
                 >
                   ✕
@@ -264,10 +264,10 @@ export function LiveMinimap({
             />
 
             {/* ─── Compass ─── */}
-            <div className="absolute bottom-2 left-2 w-7 h-7 rounded-lg bg-black/50 backdrop-blur-sm
+            <div className="absolute bottom-1.5 left-1.5 w-5 h-5 rounded bg-black/60 
                             flex items-center justify-center border border-white/10">
               <span 
-                className="text-red-400 text-[10px] font-bold block transition-transform duration-200"
+                className="text-red-400 text-[8px] font-bold block transition-transform duration-200"
                 style={{ transform: `rotate(${-playerHeading}deg)` }}
               >
                 N
@@ -275,8 +275,8 @@ export function LiveMinimap({
             </div>
 
             {/* ─── Heading indicator ─── */}
-            <div className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/50 backdrop-blur-sm
-                            text-[10px] text-white/60 font-mono border border-white/10">
+            <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/60 
+                            text-[8px] text-white/50 font-mono border border-white/10">
               {Math.round(playerHeading)}°
             </div>
           </motion.div>
