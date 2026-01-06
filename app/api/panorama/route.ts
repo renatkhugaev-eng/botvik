@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   }
   
   const userId = auth.user.id;
-  
+    
   try {
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. Получаем миссии из БД

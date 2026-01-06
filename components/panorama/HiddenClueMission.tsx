@@ -680,7 +680,7 @@ export function HiddenClueMission({
             coordinates={mission.startCoordinates}
             panoId={mission.startPanoId}
             direction={[mission.startHeading, 0]}
-            allowNavigation={true}
+            allowNavigation={mission.allowNavigation ?? true}
             onDirectionChange={handleDirectionChange}
             onPositionChange={(coords) => {
               const panoId = panoramaRef.current?.getPanoId();

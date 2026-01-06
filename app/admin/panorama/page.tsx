@@ -372,7 +372,7 @@ export default function PanoramaGeneratorPage() {
       setPublishing(false);
     }
   }, [generatedMission, selectedTheme]);
-
+  
   // ─── Reset ───
   const handleReset = useCallback(() => {
     setStep("input");
@@ -423,13 +423,13 @@ export default function PanoramaGeneratorPage() {
             >
               📋 Список миссий
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => router.push("/admin")}
-              className="text-slate-300 border-slate-600 hover:bg-slate-700"
-            >
-              ← Назад
-            </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push("/admin")}
+            className="text-slate-300 border-slate-600 hover:bg-slate-700"
+          >
+            ← Назад
+          </Button>
           </div>
         </div>
         
@@ -850,13 +850,13 @@ export default function PanoramaGeneratorPage() {
                       >
                         🎮 Тест
                       </Button>
-                      <Button
-                        onClick={handleReset}
-                        variant="outline"
+                    <Button
+                      onClick={handleReset}
+                      variant="outline"
                         className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                      >
+                    >
                         🔄 Ещё
-                      </Button>
+                    </Button>
                     </div>
                   </div>
                 )}

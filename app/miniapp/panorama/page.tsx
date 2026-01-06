@@ -254,24 +254,24 @@ export default function PanoramaMissionsPage() {
         
         {/* Info card */}
         {missions.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl"
-          >
-            <div className="flex gap-3">
-              <span className="text-2xl">👁️</span>
-              <div>
-                <h4 className="font-medium text-cyan-400 mb-1">Как найти улики?</h4>
-                <p className="text-sm text-white/60">
-                  Улики скрыты! Вращай камеру, смотри по сторонам. 
-                  Когда смотришь в нужную сторону — улика появится. 
-                  Сворачивай в переулки для секретных находок!
-                </p>
-              </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl"
+        >
+          <div className="flex gap-3">
+            <span className="text-2xl">👁️</span>
+            <div>
+              <h4 className="font-medium text-cyan-400 mb-1">Как найти улики?</h4>
+              <p className="text-sm text-white/60">
+                Улики скрыты! Вращай камеру, смотри по сторонам. 
+                Когда смотришь в нужную сторону — улика появится. 
+                Сворачивай в переулки для секретных находок!
+              </p>
             </div>
-          </motion.div>
+          </div>
+        </motion.div>
         )}
       </div>
       
