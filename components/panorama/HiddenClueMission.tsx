@@ -29,7 +29,9 @@ import { useClueDiscovery } from "@/lib/useClueDiscovery";
 import { useAudioHints } from "@/lib/useAudioHints";
 import { useDetectiveInstinct } from "@/lib/useDetectiveInstinct";
 import { useProximityAudio, type ProximityTemperature } from "@/lib/useProximityAudio";
+import { useXRayHint } from "@/lib/useXRayHint";
 import { ProximityIndicator, EdgeGlowIndicator } from "./ProximityIndicator";
+import { XRayMinimap, XRayPurchaseButton } from "./XRayMinimap";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { HiddenClueMission as MissionType, HiddenClue, ClueDiscoveryEvent } from "@/types/hidden-clue";
 import type { InstinctEvent } from "@/types/detective-instinct";
@@ -103,6 +105,10 @@ export function HiddenClueMission({
   const [collectedClue, setCollectedClue] = useState<HiddenClue | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(!disableAudio);
   const [proximityTemp, setProximityTemp] = useState<ProximityTemperature | null>(null);
+  // Инициализируем playerPosition из startCoordinates миссии
+  const [playerPosition, setPlayerPosition] = useState<[number, number] | null>(
+    mission.startCoordinates || null
+  );
   
   // ─── Audio hints ───
   const audio = useAudioHints({
@@ -177,6 +183,14 @@ export function HiddenClueMission({
     onTemperatureChange: useCallback((temp: ProximityTemperature) => {
       setProximityTemp(temp);
     }, []),
+  });
+  
+  // ─── X-Ray Hint hook — платная подсказка с миникартой ───
+  const xray = useXRayHint({
+    clues: mission.clues,
+    clueStates,
+    playerPosition,
+    enabled: phase === "playing",
   });
   
   // Синхронизируем refs с актуальными значениями
@@ -357,11 +371,14 @@ export function HiddenClueMission({
   };
   
   // ─── Handle panorama position change ───
-  const handlePositionChange = useCallback((panoId: string) => {
+  const handlePositionChange = useCallback((panoId: string, coords?: [number, number]) => {
     if (panoId !== currentPanoId) {
       setCurrentPanoId(panoId);
       setStepCount(prev => prev + 1);
       haptic.light();
+    }
+    if (coords) {
+      setPlayerPosition(coords);
     }
   }, [currentPanoId]);
   
@@ -384,7 +401,7 @@ export function HiddenClueMission({
     audio.stopAll();
     
     const earnedXp = Math.round(
-      mission.xpReward * (collectedClues.length / mission.clues.length)
+      mission.xpReward * (collectedClues.length / mission.clues.length) * xray.xpMultiplier
     );
     
     const result: MissionResult = {
@@ -665,9 +682,9 @@ export function HiddenClueMission({
             direction={[mission.startHeading, 0]}
             allowNavigation={true}
             onDirectionChange={handleDirectionChange}
-            onPositionChange={() => {
+            onPositionChange={(coords) => {
               const panoId = panoramaRef.current?.getPanoId();
-              if (panoId) handlePositionChange(panoId);
+              if (panoId) handlePositionChange(panoId, coords);
             }}
             onReady={() => {
               const panoId = panoramaRef.current?.getPanoId();
@@ -721,6 +738,26 @@ export function HiddenClueMission({
             <InstinctMeter state={instinctMeter} />
           </div>
           
+          {/* X-Ray Purchase Button */}
+          <div className="flex items-center justify-center gap-3 mb-3 pointer-events-auto">
+            <XRayPurchaseButton
+              energy={xray.energy}
+              hasAvailableClues={xray.canUse}
+              alreadyUsed={xray.wasUsed}
+              loading={xray.isLoading}
+              onPurchase={async () => {
+                const success = await xray.activateXRay();
+                if (success) {
+                  haptic.heavy();
+                  audio.playSound("scanner");
+                }
+              }}
+            />
+            {xray.wasUsed && (
+              <span className="text-amber-400/70 text-xs">XP -20%</span>
+            )}
+          </div>
+          
           <div className="flex items-center justify-center gap-2 text-white/50 text-xs">
             <span>👆 Вращайте камеру</span>
             <span>•</span>
@@ -729,6 +766,20 @@ export function HiddenClueMission({
             <span>👁️ Режим видения</span>
           </div>
         </div>
+        
+        {/* X-Ray Minimap Overlay */}
+        <AnimatePresence>
+          {xray.isActive && xray.clueCoordinates && playerPosition && (
+            <XRayMinimap
+              playerPosition={playerPosition}
+              cluePosition={xray.clueCoordinates}
+              clueName={xray.targetClue?.name}
+              clueIcon={xray.targetClue?.icon}
+              onClose={xray.closeXRay}
+              onExpire={xray.closeXRay}
+            />
+          )}
+        </AnimatePresence>
         
         {/* Proximity Audio Visual Feedback */}
         {proximityTemp && (
@@ -770,7 +821,7 @@ export function HiddenClueMission({
   // ═══════════════════════════════════════════════════════════════════════════
   
   const earnedXp = phase === "completed"
-    ? Math.round(mission.xpReward * (collectedClues.length / mission.clues.length))
+    ? Math.round(mission.xpReward * (collectedClues.length / mission.clues.length) * xray.xpMultiplier)
     : 0;
   
   return (
