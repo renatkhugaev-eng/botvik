@@ -16,17 +16,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Declare google maps types
-declare const google: {
-  maps: {
-    Map: new (element: HTMLElement, options: unknown) => unknown;
-    Marker: new (options: unknown) => unknown;
-    SymbolPath: {
-      FORWARD_CLOSED_ARROW: unknown;
-      CIRCLE: unknown;
-    };
-  };
-};
+// Используем any для Google Maps API чтобы избежать конфликта типов
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GoogleMapsAPI = any;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -69,15 +61,18 @@ export function LiveMinimap({
   
   // ─── Проверяем загрузку Google Maps API ───
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    
     // Если уже загружено
-    if (window.google?.maps) {
+    if (win.google?.maps) {
       setIsGoogleLoaded(true);
       return;
     }
     
     // Ждём загрузки с интервалом
     const checkInterval = setInterval(() => {
-      if (window.google?.maps) {
+      if (win.google?.maps) {
         setIsGoogleLoaded(true);
         clearInterval(checkInterval);
       }
@@ -104,66 +99,79 @@ export function LiveMinimap({
 
   // ─── Инициализация карты ───
   useEffect(() => {
-    // Ждём загрузки Google Maps API
-    if (!isGoogleLoaded || !window.google?.maps) return;
-    
-    // Проверяем DOM элемент и состояние
-    if (!mapRef.current || isCollapsed) return;
-    
-    // Если карта уже создана, не пересоздаём
-    if (googleMapRef.current) return;
-    
-    // Проверяем валидность координат
-    if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      
+      // Ждём загрузки Google Maps API
+      if (!isGoogleLoaded || !win.google?.maps) return;
+      
+      // Проверяем DOM элемент и состояние
+      if (!mapRef.current || isCollapsed) return;
+      
+      // Если карта уже создана, не пересоздаём
+      if (googleMapRef.current) return;
+      
+      // Проверяем валидность координат
+      if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
 
-    // Создаём карту
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: playerPosition[0], lng: playerPosition[1] },
-      zoom,
-      disableDefaultUI: true,
-      gestureHandling: "none",
-      zoomControl: false,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      clickableIcons: false,
-      mapTypeId: "hybrid", // Спутник + дороги
-      styles: [
-        // Убираем POI для чистоты
-        { featureType: "poi", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", stylers: [{ visibility: "off" }] },
-      ],
-    });
+      const googleMaps = win.google.maps as GoogleMapsAPI;
 
-    googleMapRef.current = map;
+      // Создаём карту
+      const map = new googleMaps.Map(mapRef.current, {
+        center: { lat: playerPosition[0], lng: playerPosition[1] },
+        zoom,
+        disableDefaultUI: true,
+        gestureHandling: "none",
+        zoomControl: false,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        clickableIcons: false,
+        mapTypeId: "hybrid", // Спутник + дороги
+        styles: [
+          // Убираем POI для чистоты
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", stylers: [{ visibility: "off" }] },
+        ],
+      });
 
-    // ─── Маркер игрока (красная стрелка) ───
-    const playerMarker = new google.maps.Marker({
-      position: { lat: playerPosition[0], lng: playerPosition[1] },
-      map,
-      icon: {
-        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-        scale: 6,
-        fillColor: "#ef4444",
-        fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 2,
-        rotation: playerHeading,
-      },
-      title: "Вы здесь",
-      zIndex: 100,
-    });
-    playerMarkerRef.current = playerMarker;
+      googleMapRef.current = map;
 
-    setIsMapReady(true);
+      // ─── Маркер игрока (красная стрелка) ───
+      const playerMarker = new googleMaps.Marker({
+        position: { lat: playerPosition[0], lng: playerPosition[1] },
+        map,
+        icon: {
+          path: googleMaps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: "#ef4444",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+          rotation: playerHeading,
+        },
+        title: "Вы здесь",
+        zIndex: 100,
+      });
+      playerMarkerRef.current = playerMarker;
+
+      setIsMapReady(true);
+    } catch (error) {
+      console.error("[LiveMinimap] Error initializing map:", error);
+    }
 
     return () => {
-      if (playerMarkerRef.current) {
-        playerMarkerRef.current.setMap(null);
-        playerMarkerRef.current = null;
+      try {
+        if (playerMarkerRef.current) {
+          playerMarkerRef.current.setMap(null);
+          playerMarkerRef.current = null;
+        }
+        googleMapRef.current = null;
+        setIsMapReady(false);
+      } catch (error) {
+        console.error("[LiveMinimap] Error cleaning up:", error);
       }
-      googleMapRef.current = null;
-      setIsMapReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollapsed, isGoogleLoaded]); // При сворачивании или загрузке Google Maps
