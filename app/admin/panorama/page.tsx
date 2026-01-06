@@ -412,6 +412,12 @@ export default function PanoramaGeneratorPage() {
           
           <div className="flex gap-3">
             <Button 
+              onClick={() => router.push("/admin/panorama/batch")}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
+            >
+              🌍 Batch (10 локаций)
+            </Button>
+            <Button 
               onClick={() => router.push("/admin/panorama/missions")}
               className="bg-slate-700 hover:bg-slate-600 text-white"
             >
