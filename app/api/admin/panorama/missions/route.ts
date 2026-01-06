@@ -153,6 +153,10 @@ export async function POST(req: NextRequest) {
     }
     
     // Создаём миссию
+    // NOTE: auth.user.id === 0 для браузерных админ-сессий (JWT), 
+    // поэтому используем null чтобы избежать FK constraint error
+    const creatorId = auth.user.id > 0 ? auth.user.id : null;
+    
     const savedMission = await prisma.panoramaMission.create({
       data: {
         id: mission.id,
@@ -173,7 +177,7 @@ export async function POST(req: NextRequest) {
         isPublished: publish,
         isFeatured: featured,
         publishedAt: publish ? new Date() : null,
-        createdById: auth.user.id,
+        createdById: creatorId,
         generatorVersion: "3.1.0",
       },
     });
