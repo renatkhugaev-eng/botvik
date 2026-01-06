@@ -26,27 +26,48 @@ export async function GET(req: NextRequest) {
     // 1. Получаем миссии из БД
     // ═══════════════════════════════════════════════════════════════════════════
     
-    const dbMissions = await prisma.panoramaMission.findMany({
-      where: { isPublished: true },
-      orderBy: [
-        { isFeatured: "desc" },
-        { publishedAt: "desc" },
-      ],
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        location: true,
-        difficulty: true,
-        theme: true,
-        clueCount: true,
-        requiredClues: true,
-        timeLimit: true,
-        xpReward: true,
-        isFeatured: true,
-        missionJson: true,
-      },
-    });
+    let dbMissions: Array<{
+      id: string;
+      title: string;
+      description: string;
+      location: string;
+      difficulty: string;
+      theme: string;
+      clueCount: number;
+      requiredClues: number;
+      timeLimit: number;
+      xpReward: number;
+      isFeatured: boolean;
+      missionJson: unknown;
+    }> = [];
+    
+    try {
+      dbMissions = await prisma.panoramaMission.findMany({
+        where: { isPublished: true },
+        orderBy: [
+          { isFeatured: "desc" },
+          { publishedAt: "desc" },
+        ],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          location: true,
+          difficulty: true,
+          theme: true,
+          clueCount: true,
+          requiredClues: true,
+          timeLimit: true,
+          xpReward: true,
+          isFeatured: true,
+          missionJson: true,
+        },
+      });
+      console.log(`[panorama] Found ${dbMissions.length} missions in DB`);
+    } catch (dbError) {
+      console.error("[panorama] DB query failed, falling back to demo:", dbError);
+      // Continue with empty dbMissions - will fallback to demo
+    }
     
     // ═══════════════════════════════════════════════════════════════════════════
     // 2. Если БД пустая — используем демо-миссии
