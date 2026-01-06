@@ -1,8 +1,18 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ALL HIDDEN CLUE MISSIONS
- * 6 уникальных локаций по всему миру с отличным покрытием Street View
+ * ALL HIDDEN CLUE MISSIONS v3.1.0
+ * 8 уникальных локаций по всему миру с отличным покрытием Street View
  * Все миссии с возможностью перемещения и скрытыми уликами
+ * 
+ * Локации:
+ * 1. Токио, Сибуя — Якудза
+ * 2. Лондон, Сохо — Шпионаж  
+ * 3. Лас-Вегас — Ограбление
+ * 4. Рим, Ватикан — Реликвия
+ * 5. Сидней — Контрабанда
+ * 6. Амстердам — Кража искусства
+ * 7. Гонконг, Монгкок — Неоновый лабиринт (NEW)
+ * 8. Венеция, Сан-Марко — Венецианская ночь (NEW)
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -682,6 +692,275 @@ export const AMSTERDAM_MISSION: HiddenClueMission = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 7. ГОНКОНГ, МОНГКОК — Неоновый лабиринт контрабанды
+// Плотнейшая сеть улиц в мире — до 130 000 человек/км²
+// ═══════════════════════════════════════════════════════════════════════════
+
+const HONGKONG_CLUES: HiddenClue[] = [
+  {
+    id: "hk_package",
+    panoId: "START",
+    revealHeading: 75,
+    coneDegrees: 26,
+    dwellTime: 2.4,
+    name: "Чёрная спортивная сумка",
+    icon: "📦",
+    storyContext: "Внутри — тестовый образец. Героин, чистота 96%. Мьянма. Партия на $80M.",
+    xpReward: 45,
+    hintText: "Чёрная сумка у стены...",
+    scannerHint: "Обнаружен подозрительный объект.",
+  },
+  {
+    id: "hk_radio",
+    panoId: "STEP_5-8",
+    revealHeading: 195,
+    coneDegrees: 22,
+    dwellTime: 2.8,
+    name: "Рация с шифрованием",
+    icon: "📻",
+    storyContext: "Последнее сообщение: '龍來了' (Дракон здесь). Частота полиции Гонконга.",
+    xpReward: 50,
+    hintText: "Что-то электронное у стены...",
+    scannerHint: "Радиопередатчик активен!",
+  },
+  {
+    id: "hk_card",
+    panoId: "STEP_10-14",
+    revealHeading: 315,
+    coneDegrees: 20,
+    dwellTime: 3.0,
+    name: "Визитка ночного клуба",
+    icon: "🀄",
+    storyContext: "'Golden Dragon Club'. Это крыша триады. Сделки заключаются в VIP-комнате.",
+    xpReward: 40,
+    hintText: "Визитка на земле...",
+    scannerHint: "Печатный материал обнаружен.",
+  },
+  {
+    id: "hk_money",
+    panoId: "STEP_16-20",
+    revealHeading: 135,
+    coneDegrees: 18,
+    dwellTime: 3.2,
+    name: "Пачка гонконгских долларов",
+    icon: "💵",
+    storyContext: "HK$500 000. Задаток за товар. Серийные номера — в базе Интерпола.",
+    xpReward: 60,
+    hintText: "Деньги в щели...",
+    scannerHint: "Крупная сумма наличных!",
+  },
+  {
+    id: "hk_phone",
+    panoId: "STEP_22-28",
+    revealHeading: 255,
+    coneDegrees: 16,
+    dwellTime: 3.5,
+    name: "Выброшенный смартфон",
+    icon: "📱",
+    storyContext: "WeChat: один контакт — '白龍' (Белый Дракон). 47 сообщений за час.",
+    xpReward: 55,
+    hintText: "Телефон в луже...",
+    scannerHint: "Электроника с данными!",
+  },
+  {
+    id: "hk_blood",
+    panoId: "STEP_30-36",
+    revealHeading: 45,
+    coneDegrees: 14,
+    dwellTime: 3.8,
+    name: "Следы крови",
+    icon: "🩸",
+    storyContext: "Свежая кровь. Максимум 30 минут. Кого-то здесь избили. Наш информатор?",
+    xpReward: 70,
+    hintText: "Тёмные пятна на асфальте...",
+    scannerHint: "КРИТИЧНО: Биологические следы!",
+  },
+  {
+    id: "hk_key",
+    panoId: "STEP_40+",
+    revealHeading: 165,
+    coneDegrees: 12,
+    dwellTime: 4.0,
+    name: "Ключ от склада",
+    icon: "🔑",
+    storyContext: "Гравировка: 'KT-7749'. Склад в Квун Тонг, ячейка 7749. Там товар!",
+    xpReward: 65,
+    hintText: "Ключи в траве...",
+    scannerHint: "Ключ с идентификацией!",
+  },
+];
+
+export const HONGKONG_MISSION: HiddenClueMission = {
+  id: "hongkong_mongkok",
+  title: "Неоновый лабиринт",
+  description: "В переулках Монгкока скрывается партия на $80 миллионов.",
+  briefing: `📋 ОПЕРАЦИЯ "ДРАКОН ТЕНИ"
+
+Гонконг, 23:47. Район Монгкок.
+Информатор из триады Sun Yee On сообщил: сегодня — крупнейшая сделка года.
+80 миллионов долларов. Товар прибыл контейнером из Мьянмы.
+
+Сейчас он где-то в лабиринте переулков Монгкока.
+Продавец — "Белый Дракон". Никто не знает его лица.
+Наш информатор исчез час назад. Последнее сообщение: "Они меня засекли."
+
+ВАША ЗАДАЧА:
+• Найдите следы сделки в переулках
+• Идентифицируйте точку передачи товара
+• Время до рассвета: ограничено
+
+🐉 В неоновом свете все тени — чёрные.`,
+  startCoordinates: [22.3193, 114.1694], // Mongkok, Hong Kong
+  startPanoId: "START",
+  startHeading: 90,
+  allowNavigation: true,
+  clues: HONGKONG_CLUES,
+  requiredClues: 5, // 5 из 7
+  timeLimit: 600, // 10 минут
+  xpReward: 420,
+  speedBonusPerSecond: 0.5,
+  location: "Гонконг, Монгкок",
+  difficulty: "hard",
+  icon: "🐉",
+  color: "#ef4444",
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. ВЕНЕЦИЯ, САН-МАРКО — Венецианская ночь
+// Лабиринт каналов и 400+ мостов
+// ═══════════════════════════════════════════════════════════════════════════
+
+const VENICE_CLUES: HiddenClue[] = [
+  {
+    id: "ven_frame",
+    panoId: "START",
+    revealHeading: 30,
+    coneDegrees: 26,
+    dwellTime: 2.4,
+    name: "Осколок позолоченной рамы",
+    icon: "🖼️",
+    storyContext: "Дуб XVI века, сусальное золото. 100% совпадение с рамой Тициана.",
+    xpReward: 45,
+    hintText: "Золотистая щепка у моста...",
+    scannerHint: "Антикварный материал обнаружен.",
+  },
+  {
+    id: "ven_glove",
+    panoId: "STEP_6-10",
+    revealHeading: 210,
+    coneDegrees: 22,
+    dwellTime: 2.8,
+    name: "Белая хлопковая перчатка",
+    icon: "🧤",
+    storyContext: "Внутри — волос. Светлый, европейский. ДНК уже в базе Интерпола.",
+    xpReward: 55,
+    hintText: "Белая перчатка у канала...",
+    scannerHint: "Биологический образец!",
+  },
+  {
+    id: "ven_ticket",
+    panoId: "STEP_12-16",
+    revealHeading: 330,
+    coneDegrees: 20,
+    dwellTime: 3.0,
+    name: "Билет в галерею Академии",
+    icon: "🎫",
+    storyContext: "Вчера, 17:47. За 13 минут до закрытия. Имя: Марко Росси — не существует.",
+    xpReward: 40,
+    hintText: "Билет в канале...",
+    scannerHint: "Входной документ.",
+  },
+  {
+    id: "ven_phone",
+    panoId: "STEP_18-24",
+    revealHeading: 120,
+    coneDegrees: 18,
+    dwellTime: 3.2,
+    name: "Выброшенный iPhone",
+    icon: "📱",
+    storyContext: "Один контакт: +7 (Россия). Олигарх? Посредник? Заказчик.",
+    xpReward: 60,
+    hintText: "Телефон в канале...",
+    scannerHint: "Электроника с данными!",
+  },
+  {
+    id: "ven_map",
+    panoId: "STEP_26-32",
+    revealHeading: 270,
+    coneDegrees: 16,
+    dwellTime: 3.5,
+    name: "Карта Венеции с пометками",
+    icon: "🗺️",
+    storyContext: "Три точки: галерея → мост Риальто → причал Мурано. Маршрут побега.",
+    xpReward: 65,
+    hintText: "Карта у стены...",
+    scannerHint: "Картографический документ!",
+  },
+  {
+    id: "ven_shoe",
+    panoId: "STEP_34-40",
+    revealHeading: 60,
+    coneDegrees: 14,
+    dwellTime: 3.8,
+    name: "Потерянный ботинок",
+    icon: "👞",
+    storyContext: "Ferragamo, размер 43. Ценник €800. Вор — не бедный. Потерял при бегстве.",
+    xpReward: 50,
+    hintText: "Ботинок у канала...",
+    scannerHint: "Улика идентификации!",
+  },
+  {
+    id: "ven_key",
+    panoId: "STEP_44+",
+    revealHeading: 180,
+    coneDegrees: 12,
+    dwellTime: 4.0,
+    name: "Ключ от катера",
+    icon: "🔑",
+    storyContext: "Брелок: 'Marina Murano'. Там ждёт катер для побега. Успеть до рассвета!",
+    xpReward: 70,
+    hintText: "Ключи в воде...",
+    scannerHint: "КРИТИЧНО: Ключ от транспорта!",
+  },
+];
+
+export const VENICE_MISSION: HiddenClueMission = {
+  id: "venice_sanmarco",
+  title: "Венецианская ночь",
+  description: "Тициан исчез из галереи. След ведёт через мосты Венеции.",
+  briefing: `📋 ДЕЛО "ВЕНЕЦИАНСКАЯ НОЧЬ"
+
+Венеция, 04:23. Галерея Академии.
+Сигнализация молчала. Охрана "спала". Камеры — отключены.
+
+Пропала "Венера Урбинская" Тициана. 1538 год. Страховка: €500 миллионов.
+Но дело не в деньгах — картина незаменима.
+
+Источник в Интерполе: "Заказчик — русский олигарх. Картина уже на пути к частному причалу."
+Вор сбежал через лабиринт переулков к Сан-Марко.
+
+ВАША ЗАДАЧА:
+• Пройдите маршрут побега от галереи
+• Найдите следы вора
+• Остановите вывоз до рассвета
+
+🎨 В Венеции даже воры — артисты.`,
+  startCoordinates: [45.4343, 12.3388], // San Marco, Venice
+  startPanoId: "START",
+  startHeading: 0,
+  allowNavigation: true,
+  clues: VENICE_CLUES,
+  requiredClues: 5, // 5 из 7
+  timeLimit: 540, // 9 минут
+  xpReward: 400,
+  speedBonusPerSecond: 0.5,
+  location: "Венеция, Сан-Марко",
+  difficulty: "hard",
+  icon: "🦁",
+  color: "#8b5cf6",
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EXPORT ALL MISSIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -692,6 +971,8 @@ export const ALL_HIDDEN_MISSIONS: HiddenClueMission[] = [
   ROME_MISSION,
   SYDNEY_MISSION,
   AMSTERDAM_MISSION,
+  HONGKONG_MISSION,
+  VENICE_MISSION,
 ];
 
 export default ALL_HIDDEN_MISSIONS;
