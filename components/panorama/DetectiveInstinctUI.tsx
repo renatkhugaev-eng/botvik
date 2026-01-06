@@ -177,7 +177,7 @@ export function VisionButton({ state, onActivate, className = "" }: VisionButton
       disabled={!canActivate}
       whileTap={canActivate ? { scale: 0.95 } : {}}
       className={`
-        relative w-11 h-11 rounded-2xl flex items-center justify-center backdrop-blur-md border
+        relative w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-md border
         transition-all duration-300
         ${isActive 
           ? "bg-cyan-500/30 border-cyan-400/50 ring-1 ring-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)]" 

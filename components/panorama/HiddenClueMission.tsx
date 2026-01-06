@@ -573,49 +573,43 @@ export function HiddenClueMission({
     return (
       <div className="h-screen bg-[#0a0a12] text-white flex flex-col overflow-hidden relative">
         {/* HUD - Top */}
-        <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-          <div className="flex items-center justify-between">
-            {/* Back button */}
+        <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-4 pb-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Close button */}
             <button
               onClick={onExit}
-              className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
-                         flex items-center justify-center pointer-events-auto
+              className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 
+                         flex items-center justify-center pointer-events-auto shrink-0
                          hover:bg-white/15 active:scale-95 transition-all"
             >
-              <svg className="w-5 h-5 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-[18px] h-[18px] text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
             
-            {/* Timer */}
+            {/* Center: Timer */}
             {mission.timeLimit ? (
-              <div className={`h-11 px-4 rounded-2xl backdrop-blur-md border font-mono text-sm font-bold 
+              <div className={`h-10 px-4 rounded-xl backdrop-blur-md border font-mono text-sm font-bold 
                 pointer-events-auto flex items-center gap-1.5
                 ${timeRemaining <= 30 
                   ? "bg-red-500/20 border-red-500/30 text-red-400 animate-pulse" 
                   : "bg-white/10 border-white/20 text-white"}`}>
-                <span className="text-base">⏱️</span>
+                <span className="text-sm">⏱️</span>
                 <span>{formatTime(timeRemaining)}</span>
               </div>
             ) : (
-              <div className="h-11 px-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+              <div className="h-10 px-4 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 
                               font-mono text-sm text-white/90 pointer-events-auto flex items-center">
                 {formatTime(timeSpent)}
               </div>
             )}
             
-            {/* Vision + Audio + Clue counter */}
-            <div className="flex items-center gap-2 pointer-events-auto">
-              {/* Detective Vision button */}
-              <VisionButton 
-                state={detectiveVision} 
-                onActivate={activateVision}
-              />
-              
+            {/* Right: Audio + Clue counter */}
+            <div className="flex items-center gap-2 pointer-events-auto shrink-0">
               {/* Audio toggle */}
               <button
                 onClick={toggleAudio}
-                className={`w-11 h-11 rounded-2xl backdrop-blur-md border flex items-center justify-center 
+                className={`w-10 h-10 rounded-xl backdrop-blur-md border flex items-center justify-center 
                   transition-all active:scale-95
                   ${audioEnabled 
                     ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" 
@@ -623,13 +617,13 @@ export function HiddenClueMission({
                 title={audioEnabled ? "Выключить звук" : "Включить звук"}
               >
                 {audioEnabled ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                       d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" 
                     />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                       d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" 
                     />
@@ -746,8 +740,14 @@ export function HiddenClueMission({
             <InstinctMeter state={instinctMeter} />
           </div>
           
-          {/* X-Ray Purchase Button */}
+          {/* Vision + X-Ray Buttons */}
           <div className="flex items-center justify-center gap-3 mb-3 pointer-events-auto">
+            {/* Detective Vision button */}
+            <VisionButton 
+              state={detectiveVision} 
+              onActivate={activateVision}
+            />
+            
             <XRayPurchaseButton
               energy={xray.energy}
               hasAvailableClues={xray.canUse}

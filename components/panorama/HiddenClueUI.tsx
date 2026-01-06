@@ -292,7 +292,7 @@ export function ClueCounter({ found, total, required }: ClueCounterProps) {
   
   return (
     <div className={`
-      h-11 px-4 rounded-2xl backdrop-blur-md border flex items-center gap-2
+      h-10 px-3 rounded-xl backdrop-blur-md border flex items-center gap-2
       ${isComplete 
         ? "bg-green-500/15 border-green-500/30" 
         : "bg-white/10 border-white/20"}

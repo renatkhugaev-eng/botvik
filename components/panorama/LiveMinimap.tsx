@@ -65,6 +65,34 @@ export function LiveMinimap({
   const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed);
   const [isMapReady, setIsMapReady] = useState(false);
   const [zoom, setZoom] = useState(initialZoom);
+  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+  
+  // ─── Проверяем загрузку Google Maps API ───
+  useEffect(() => {
+    // Если уже загружено
+    if (window.google?.maps) {
+      setIsGoogleLoaded(true);
+      return;
+    }
+    
+    // Ждём загрузки с интервалом
+    const checkInterval = setInterval(() => {
+      if (window.google?.maps) {
+        setIsGoogleLoaded(true);
+        clearInterval(checkInterval);
+      }
+    }, 100);
+    
+    // Таймаут на 10 секунд
+    const timeout = setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 10000);
+    
+    return () => {
+      clearInterval(checkInterval);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   // Позиция на экране (bottom учитывает нижний HUD и ClueDetector ~150px)
   const positionClasses = {
@@ -76,7 +104,11 @@ export function LiveMinimap({
 
   // ─── Инициализация карты ───
   useEffect(() => {
-    if (!mapRef.current || !window.google?.maps || isCollapsed) return;
+    // Ждём загрузки Google Maps API
+    if (!isGoogleLoaded || !window.google?.maps) return;
+    
+    // Проверяем DOM элемент и состояние
+    if (!mapRef.current || isCollapsed) return;
     
     // Если карта уже создана, не пересоздаём
     if (googleMapRef.current) return;
@@ -134,7 +166,7 @@ export function LiveMinimap({
       setIsMapReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCollapsed]); // Только при сворачивании/разворачивании (playerPosition обновляется отдельно)
+  }, [isCollapsed, isGoogleLoaded]); // При сворачивании или загрузке Google Maps
 
   // ─── Обновление позиции и направления игрока ───
   useEffect(() => {
@@ -259,9 +291,16 @@ export function LiveMinimap({
             {/* ─── Map ─── */}
             <div 
               ref={mapRef}
-              className="w-36 h-36 bg-slate-800/50"
+              className="w-36 h-36 bg-slate-800/50 relative"
               style={{ minWidth: "144px", minHeight: "144px" }}
-            />
+            >
+              {/* Loading indicator */}
+              {!isMapReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
 
             {/* ─── Compass ─── */}
             <div className="absolute bottom-1.5 left-1.5 w-5 h-5 rounded bg-black/60 
