@@ -104,59 +104,68 @@ export function LiveMinimap({
     // Проверяем валидность координат
     if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
 
-    // Используем window.google для безопасного доступа
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gmaps = (window as any).google?.maps;
-    if (!gmaps) return;
+    try {
+      // Используем window.google для безопасного доступа
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const gmaps = (window as any).google?.maps;
+      if (!gmaps) return;
 
-    // Создаём карту
-    const map = new gmaps.Map(mapRef.current, {
-      center: { lat: playerPosition[0], lng: playerPosition[1] },
-      zoom,
-      disableDefaultUI: true,
-      gestureHandling: "none",
-      zoomControl: false,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      clickableIcons: false,
-      mapTypeId: "hybrid", // Спутник + дороги
-      styles: [
-        // Убираем POI для чистоты
-        { featureType: "poi", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", stylers: [{ visibility: "off" }] },
-      ],
-    });
+      // Создаём карту
+      const map = new gmaps.Map(mapRef.current, {
+        center: { lat: playerPosition[0], lng: playerPosition[1] },
+        zoom,
+        disableDefaultUI: true,
+        gestureHandling: "none",
+        zoomControl: false,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        clickableIcons: false,
+        mapTypeId: "hybrid", // Спутник + дороги
+        styles: [
+          // Убираем POI для чистоты
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", stylers: [{ visibility: "off" }] },
+        ],
+      });
 
-    googleMapRef.current = map;
+      googleMapRef.current = map;
 
-    // ─── Маркер игрока (красная стрелка) ───
-    const playerMarker = new gmaps.Marker({
-      position: { lat: playerPosition[0], lng: playerPosition[1] },
-      map,
-      icon: {
-        path: gmaps.SymbolPath.FORWARD_CLOSED_ARROW,
-        scale: 6,
-        fillColor: "#ef4444",
-        fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 2,
-        rotation: playerHeading,
-      },
-      title: "Вы здесь",
-      zIndex: 100,
-    });
-    playerMarkerRef.current = playerMarker;
+      // ─── Маркер игрока (красная стрелка) ───
+      const playerMarker = new gmaps.Marker({
+        position: { lat: playerPosition[0], lng: playerPosition[1] },
+        map,
+        icon: {
+          path: gmaps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: "#ef4444",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+          rotation: playerHeading,
+        },
+        title: "Вы здесь",
+        zIndex: 100,
+      });
+      playerMarkerRef.current = playerMarker;
 
-    setIsMapReady(true);
+      setIsMapReady(true);
+    } catch (e) {
+      console.error("[LiveMinimap] Error initializing map:", e);
+    }
 
     return () => {
-      if (playerMarkerRef.current) {
-        playerMarkerRef.current.setMap(null);
-        playerMarkerRef.current = null;
+      try {
+        if (playerMarkerRef.current) {
+          playerMarkerRef.current.setMap(null);
+          playerMarkerRef.current = null;
+        }
+        googleMapRef.current = null;
+        setIsMapReady(false);
+      } catch (e) {
+        // Игнорируем ошибки cleanup - DOM элементы могут быть уже удалены
+        console.warn("[LiveMinimap] Cleanup warning:", e);
       }
-      googleMapRef.current = null;
-      setIsMapReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollapsed, isGoogleLoaded]); // При сворачивании/разворачивании или загрузке Google Maps
@@ -165,27 +174,31 @@ export function LiveMinimap({
   useEffect(() => {
     if (!playerMarkerRef.current || !googleMapRef.current || !isMapReady) return;
 
-    // Обновляем позицию маркера
-    playerMarkerRef.current.setPosition({
-      lat: playerPosition[0],
-      lng: playerPosition[1],
-    });
-
-    // Обновляем поворот стрелки
-    const currentIcon = playerMarkerRef.current.getIcon();
-    if (currentIcon) {
-      playerMarkerRef.current.setIcon({
-        ...currentIcon,
-        rotation: playerHeading,
+    try {
+      // Обновляем позицию маркера
+      playerMarkerRef.current.setPosition({
+        lat: playerPosition[0],
+        lng: playerPosition[1],
       });
-    }
 
-    // Центрируем карту на игроке
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (googleMapRef.current as any).panTo({
-      lat: playerPosition[0],
-      lng: playerPosition[1],
-    });
+      // Обновляем поворот стрелки
+      const currentIcon = playerMarkerRef.current.getIcon();
+      if (currentIcon) {
+        playerMarkerRef.current.setIcon({
+          ...currentIcon,
+          rotation: playerHeading,
+        });
+      }
+
+      // Центрируем карту на игроке
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (googleMapRef.current as any).panTo({
+        lat: playerPosition[0],
+        lng: playerPosition[1],
+      });
+    } catch (e) {
+      // Игнорируем ошибки - карта может быть уже удалена
+    }
   }, [playerPosition, playerHeading, isMapReady]);
 
   // ─── Zoom controls ───
