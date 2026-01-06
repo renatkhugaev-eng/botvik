@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
             break;
 
           case "leaderboard_change":
-            success = await notifyLeaderboardChange(userId, 3, "up", "TestPlayer", 500);
+            success = await notifyLeaderboardChange(userId, "up", 3, "TestPlayer", 500);
             break;
 
           case "weekly_winner":
@@ -158,8 +158,9 @@ export async function POST(req: NextRequest) {
           case "duel_result":
             await notifyDuelResult(userId, {
               duelId: "test-duel-123",
-              isWinner: true,
               opponentName: "TestOpponent",
+              isWinner: true,
+              isDraw: false,
               myScore: 500,
               opponentScore: 400,
               xpEarned: 50,

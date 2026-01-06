@@ -76,7 +76,7 @@ const TOP_10_LOCATIONS: LocationPreset[] = [
     country: "Италия",
     flag: "🇮🇹",
     coords: [45.4343, 12.3388],
-    theme: "art-theft",
+    theme: "art_theft",
     difficulty: "medium",
     clueCount: 5,
     description: "Лабиринт каналов и мостов исторического центра",
