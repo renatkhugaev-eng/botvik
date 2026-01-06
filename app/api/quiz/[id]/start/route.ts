@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { checkRateLimit, quizStartLimiter, getClientIdentifier } from "@/lib/ratelimit";
-import { getCachedQuestions, cacheQuestions } from "@/lib/quiz-cache";
+import { getQuizQuestions } from "@/lib/quiz-edge-cache";
 import { scheduleEnergyNotification } from "@/lib/notifications";
 import { logger } from "@/lib/logger";
 
@@ -533,29 +533,16 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-// Optimized questions with cache
+// Optimized questions with Redis cache
 async function getQuestionsOptimized(quizId: number) {
-  // Note: We can't cache shuffled options, so we cache base questions
-  // and shuffle on each request
-  const questions = await prisma.question.findMany({
-    where: { quizId },
-    orderBy: { order: "asc" },
-    select: {
-      id: true,
-      text: true,
-      order: true,
-      difficulty: true,
-      answers: {
-        select: { id: true, text: true },
-      },
-    },
-  });
+  // Use Redis-cached questions and shuffle options on each request
+  const { questions } = await getQuizQuestions(quizId);
 
   return questions.map((q) => ({
     id: q.id,
     text: q.text,
     order: q.order,
     difficulty: q.difficulty,
-    options: shuffleArray(q.answers.map((a) => ({ id: a.id, text: a.text }))),
+    options: shuffleArray(q.options),
   }));
 }

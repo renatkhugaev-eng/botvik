@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMiniAppSession } from "../layout";
 import { haptic } from "@/lib/haptic";
@@ -256,14 +256,17 @@ export default function ShopPage() {
     }
   };
 
-  const filteredItems = items.filter(item => {
-    if (filter === "ALL") return true;
-    if (filter === "OWNED") return item.owned;
-    return item.rarity === filter;
-  });
+  // ═══ OPTIMIZED: Memoized filtering to prevent recalculation on every render ═══
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      if (filter === "ALL") return true;
+      if (filter === "OWNED") return item.owned;
+      return item.rarity === filter;
+    });
+  }, [items, filter]);
 
-  const equippedFrame = items.find(i => i.id === equippedFrameId);
-  const ownedCount = items.filter(i => i.owned).length;
+  const equippedFrame = useMemo(() => items.find(i => i.id === equippedFrameId), [items, equippedFrameId]);
+  const ownedCount = useMemo(() => items.filter(i => i.owned).length, [items]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -500,23 +503,23 @@ export default function ShopPage() {
           </motion.div>
         ) : (
           <div role="list" aria-label="Список товаров">
-            <motion.div layout className="grid grid-cols-2 gap-3">
-              <AnimatePresence mode="popLayout">
-                {filteredItems.map((item, index) => (
-                  <ShopItemCard
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    photoUrl={photoUrl}
-                    userName={userName}
-                    purchasing={purchasing === item.id}
-                    equipping={equipping === item.id}
-                    onPurchase={() => handlePurchase(item)}
-                    onEquip={() => handleEquip(item)}
-                  />
-                ))}
-              </AnimatePresence>
-            </motion.div>
+            {/* OPTIMIZED: Removed layout animations (major perf hit) */}
+            {/* Using CSS transitions instead of Framer Motion for grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {filteredItems.map((item, index) => (
+                <ShopItemCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  photoUrl={photoUrl}
+                  userName={userName}
+                  purchasing={purchasing === item.id}
+                  equipping={equipping === item.id}
+                  onPurchase={() => handlePurchase(item)}
+                  onEquip={() => handleEquip(item)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -556,7 +559,8 @@ function getFrameThumbnail(imageUrl: string): string {
   return imageUrl; // Fallback на оригинал
 }
 
-function ShopItemCard({ 
+// OPTIMIZED: Memoized card component to prevent unnecessary re-renders
+const ShopItemCard = memo(function ShopItemCard({ 
   item, 
   index, 
   photoUrl, 
@@ -572,16 +576,14 @@ function ShopItemCard({
   // Используем оптимизированный thumbnail (12-14KB вместо 300-400KB)
   const thumbnailUrl = getFrameThumbnail(item.imageUrl);
 
-  // Оптимизация: ограничиваем stagger delay для больших списков
-  const staggerDelay = Math.min(index * 0.03, 0.3);
+  // OPTIMIZED: Faster CSS animation instead of Framer Motion
+  // Using CSS animation-delay for stagger effect
+  const animationDelay = `${Math.min(index * 30, 300)}ms`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: staggerDelay, duration: 0.2 }}
-      // Фиксированный aspect ratio для предотвращения layout shift
-      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient} border border-white/10 shadow-lg ${style.glow} flex flex-col active:scale-[0.98] transition-transform`}
+    <div
+      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient} border border-white/10 shadow-lg ${style.glow} flex flex-col active:scale-[0.98] transition-transform animate-fade-in-up`}
+      style={{ animationDelay }}
     >
       {/* Top badges — упрощённый layout */}
       <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between gap-1.5 z-10">
@@ -687,6 +689,6 @@ function ShopItemCard({
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});

@@ -13,6 +13,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
 import { levelFromXp } from "@/lib/xp";
+import { seededShuffle } from "@/lib/seeded-shuffle";
 import {
   runAIWorker,
   getDifficultyForPlayer,
@@ -115,12 +116,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Для дуэлей используем фиксированные 15 секунд на вопрос
     const DUEL_TIME_LIMIT_SECONDS = 15;
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTI-CHEAT: Рандомизация порядка вопросов и вариантов ответа
+    // Используем duelId как seed для детерминированного shuffle
+    // Это предотвращает запоминание ответов при реванше
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Shuffle вопросов и вариантов ответа
+    const shuffledQuestions = seededShuffle(duel.quiz.questions, id);
+    
     // SECURITY: Убираем isCorrect из ответа клиенту
-    const questions = duel.quiz.questions.map((q) => ({
+    const questions = shuffledQuestions.map((q, qIndex) => ({
       id: q.id,
       text: q.text,
       timeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
-      options: q.answers.map((a) => ({
+      // Shuffle вариантов ответа тоже (разный seed для каждого вопроса)
+      options: seededShuffle(q.answers, id + "-q" + qIndex).map((a) => ({
         id: a.id,
         text: a.text,
         // isCorrect НЕ отправляется клиенту!
@@ -191,12 +202,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const aiDifficulty = getDifficultyForPlayer(playerLevel);
       
       // Подготавливаем вопросы с правильными ответами для AI
-      const questionsForAI: QuestionWithAnswers[] = duel.quiz.questions.map((q) => ({
+      // ВАЖНО: используем те же shuffled вопросы что и для игрока!
+      const questionsForAI: QuestionWithAnswers[] = shuffledQuestions.map((q, qIndex) => ({
         id: q.id,
         text: q.text,
-        order: q.order,
+        order: qIndex, // Новый порядок после shuffle
         timeLimitSeconds: DUEL_TIME_LIMIT_SECONDS,
-        answers: q.answers.map((a) => ({
+        answers: seededShuffle(q.answers, id + "-q" + qIndex).map((a) => ({
           id: a.id,
           text: a.text,
           isCorrect: a.isCorrect,

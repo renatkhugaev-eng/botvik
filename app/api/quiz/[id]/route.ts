@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getQuizDetails, getQuizCacheHeaders } from "@/lib/quiz-edge-cache";
 
 export const runtime = "nodejs";
 
 /**
  * GET /api/quiz/[id]
- * Get quiz info by ID
+ * Get quiz info by ID (Redis-cached)
  */
 export async function GET(
   req: NextRequest,
@@ -18,22 +18,16 @@ export async function GET(
     return NextResponse.json({ error: "invalid_quiz_id" }, { status: 400 });
   }
 
-  const quiz = await prisma.quiz.findUnique({
-    where: { id: quizId },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      prizeTitle: true,
-      isActive: true,
-      startsAt: true,
-      endsAt: true,
-    },
-  });
+  const { quiz, fromCache } = await getQuizDetails(quizId);
 
   if (!quiz) {
     return NextResponse.json({ error: "quiz_not_found" }, { status: 404 });
   }
 
-  return NextResponse.json(quiz);
+  return NextResponse.json(quiz, {
+    headers: {
+      ...getQuizCacheHeaders("details"),
+      "X-Cache": fromCache ? "HIT" : "MISS",
+    },
+  });
 }

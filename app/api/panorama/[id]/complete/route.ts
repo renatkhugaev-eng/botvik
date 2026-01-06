@@ -4,6 +4,7 @@ import { getMissionById } from "@/lib/panorama-missions";
 import { prisma } from "@/lib/prisma";
 import { getLevelProgress } from "@/lib/xp";
 import { getWeekStart } from "@/lib/week";
+import { invalidateLeaderboardCache } from "@/lib/leaderboard-cache";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -123,29 +124,44 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const newLevelInfo = getLevelProgress(updatedUser.xp);
     const levelUp = newLevelInfo.level > oldLevelInfo.level;
     
-    // TODO: Сохранить прогресс в БД
-    // await prisma.panoramaMissionProgress.upsert({
-    //   where: {
-    //     userId_missionId: { userId, missionId: id },
-    //   },
-    //   create: {
-    //     userId,
-    //     missionId: id,
-    //     status: body.status,
-    //     cluesFound: body.cluesFound,
-    //     cluesTotal: body.cluesTotal,
-    //     timeSpent: body.timeSpent,
-    //     earnedXp,
-    //     completedAt: new Date(),
-    //   },
-    //   update: {
-    //     status: body.status,
-    //     cluesFound: body.cluesFound,
-    //     timeSpent: body.timeSpent,
-    //     earnedXp,
-    //     completedAt: new Date(),
-    //   },
-    // });
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Сохраняем прогресс в PanoramaMissionAttempt (если миссия из БД)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Проверяем есть ли миссия в БД
+    const dbMission = await prisma.panoramaMission.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    
+    if (dbMission) {
+      // Миссия из БД — сохраняем attempt
+      await prisma.panoramaMissionAttempt.create({
+        data: {
+          missionId: id,
+          userId,
+          isCompleted: body.status === "completed",
+          cluesFound,
+          timeSpent: timeSpent > 0 ? Math.round(timeSpent) : null,
+          xpEarned: earnedXp,
+          completedAt: new Date(),
+          detailsJson: {
+            cluesTotal,
+            status: body.status,
+            cluesProgress: body.cluesProgress || null,
+          },
+        },
+      });
+      
+      // Обновляем статистику миссии
+      await prisma.panoramaMission.update({
+        where: { id },
+        data: {
+          playCount: { increment: 1 },
+        },
+      }).catch(() => {});
+    }
+    // Для демо-миссий прогресс не сохраняется (нет записи в БД)
     
     // Записываем активность
     await prisma.userActivity.create({
@@ -167,6 +183,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
     
     console.log(`[panorama/complete] User ${userId} completed mission ${id}, earned ${earnedXp} XP`);
+    
+    // ═══ INVALIDATE LEADERBOARD CACHE ═══
+    invalidateLeaderboardCache({
+      weekStart,
+      invalidateGlobal: true,
+    }).catch(err => console.error("[panorama/complete] Leaderboard cache invalidation failed:", err));
     
     return NextResponse.json({
       success: true,

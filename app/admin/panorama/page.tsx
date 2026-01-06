@@ -104,6 +104,8 @@ export default function PanoramaGeneratorPage() {
   const [spots, setSpots] = useState<ClueSpot[]>([]);
   const [generatedMission, setGeneratedMission] = useState<GeneratedMission | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   
@@ -334,6 +336,43 @@ export default function PanoramaGeneratorPage() {
     window.open("/miniapp/panorama/preview", "_blank");
   }, [generatedMission]);
   
+  // ─── Publish mission to DB ───
+  const handlePublish = useCallback(async (featured: boolean = false) => {
+    if (!generatedMission) return;
+    
+    setPublishing(true);
+    setError(null);
+    
+    try {
+      const res = await fetch("/api/admin/panorama/missions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          mission: generatedMission,
+          theme: selectedTheme,
+          publish: true,
+          featured,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (!data.ok) {
+        throw new Error(data.error || "Ошибка публикации");
+      }
+      
+      setPublishSuccess(true);
+      console.log("[Panorama] Mission published:", data.mission);
+      
+    } catch (e) {
+      console.error("Publish error:", e);
+      setError(e instanceof Error ? e.message : "Ошибка публикации");
+    } finally {
+      setPublishing(false);
+    }
+  }, [generatedMission, selectedTheme]);
+
   // ─── Reset ───
   const handleReset = useCallback(() => {
     setStep("input");
@@ -342,6 +381,7 @@ export default function PanoramaGeneratorPage() {
     setSpots([]);
     setError(null);
     setCopySuccess(false);
+    setPublishSuccess(false);
     setScanMetrics(null);
   }, []);
   
@@ -370,13 +410,21 @@ export default function PanoramaGeneratorPage() {
             </p>
           </div>
           
-          <Button 
-            variant="outline" 
-            onClick={() => router.push("/admin")}
-            className="text-slate-300 border-slate-600 hover:bg-slate-700"
-          >
-            ← Назад
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => router.push("/admin/panorama/missions")}
+              className="bg-slate-700 hover:bg-slate-600 text-white"
+            >
+              📋 Список миссий
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => router.push("/admin")}
+              className="text-slate-300 border-slate-600 hover:bg-slate-700"
+            >
+              ← Назад
+            </Button>
+          </div>
         </div>
         
         {/* Themes loading error */}
@@ -764,28 +812,46 @@ export default function PanoramaGeneratorPage() {
                       ))}
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Publish Button — Main Action */}
+                    {!publishSuccess ? (
+                      <Button
+                        onClick={() => handlePublish(false)}
+                        disabled={publishing}
+                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white py-5 text-lg font-medium"
+                      >
+                        {publishing ? "⏳ Публикация..." : "🚀 Опубликовать миссию"}
+                      </Button>
+                    ) : (
+                      <div className="bg-green-900/50 border border-green-500 rounded-xl p-4 text-center">
+                        <div className="text-2xl mb-1">✅</div>
+                        <div className="text-green-300 font-medium">Миссия опубликована!</div>
+                        <div className="text-green-400/70 text-sm mt-1">Доступна игрокам</div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-2">
                       <Button
                         onClick={handleCopyMission}
-                        className={`${copySuccess ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"} text-white`}
+                        variant="outline"
+                        className={`${copySuccess ? "border-green-500 text-green-400" : "border-slate-600 text-slate-300"} hover:bg-slate-700`}
                       >
-                        {copySuccess ? "✓ Скопировано!" : "📋 Скопировать JSON"}
+                        {copySuccess ? "✓" : "📋"}
                       </Button>
                       <Button
                         onClick={handlePreviewMission}
-                        className="bg-purple-600 hover:bg-purple-500 text-white"
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
                       >
                         🎮 Тест
                       </Button>
+                      <Button
+                        onClick={handleReset}
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        🔄 Ещё
+                      </Button>
                     </div>
-                    
-                    <Button
-                      onClick={handleReset}
-                      variant="outline"
-                      className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
-                    >
-                      🔄 Создать ещё
-                    </Button>
                   </div>
                 )}
               </CardContent>

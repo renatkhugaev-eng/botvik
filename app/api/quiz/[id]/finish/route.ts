@@ -28,6 +28,7 @@ import {
 } from "@/lib/activity";
 import { updateChallengeProgress } from "@/lib/daily-challenges";
 import { DailyChallengeType } from "@prisma/client";
+import { invalidateLeaderboardCache } from "@/lib/leaderboard-cache";
 
 export const runtime = "nodejs";
 
@@ -613,6 +614,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Calculate total leaderboard score
   const leaderboardScore = calculateTotalScore(newBestScore, newAttempts);
+
+  // ═══ INVALIDATE LEADERBOARD CACHE ═══
+  // Async, non-blocking - cache will be refreshed on next request
+  if (!alreadyFinished) {
+    const weekStartForCache = getWeekStart();
+    invalidateLeaderboardCache({
+      quizId,
+      weekStart: weekStartForCache,
+      invalidateGlobal: true,
+    }).catch(err => console.error("[finish] Leaderboard cache invalidation failed:", err));
+  }
 
   // ═══ NOTIFY REFERRER IF THEIR REFERRAL BEAT THEIR SCORE ═══
   if (!alreadyFinished && currentGameScore > currentBestScore) {

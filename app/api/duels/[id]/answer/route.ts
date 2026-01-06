@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { seededShuffle } from "@/lib/seeded-shuffle";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -121,6 +122,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "DUEL_NOT_FOUND" }, { status: 404 });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTI-CHEAT: Применяем тот же shuffle что и в start/route.ts
+    // Используем duelId как seed для детерминированного порядка
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Shuffle вопросов в том же порядке что и при старте
+    const shuffledQuestions = seededShuffle(duel.quiz.questions, duelId);
+
     // ═══ PARTICIPANT CHECK ═══
     if (duel.challengerId !== userId && duel.opponentId !== userId) {
       console.warn(`[Duel Answer] User ${userId} is not a participant of duel ${duelId}`);
@@ -136,7 +145,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // ═══ QUESTION BOUNDS CHECK ═══
-    if (questionIndex >= duel.quiz.questions.length) {
+    if (questionIndex >= shuffledQuestions.length) {
       return NextResponse.json({ ok: false, error: "QUESTION_OUT_OF_BOUNDS" }, { status: 400 });
     }
 
@@ -182,7 +191,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // ═══ VERIFY CORRECT ANSWER ═══
-    const question = duel.quiz.questions[questionIndex];
+    // Используем shuffled порядок вопросов
+    const question = shuffledQuestions[questionIndex];
     const correctOption = question.answers.find((a) => a.isCorrect);
     
     // Определяем правильность ответа
@@ -215,6 +225,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       `optionId=${optionId}, isCorrect=${isCorrect}, timeMs=${clampedTimeMs}`
     );
 
+    // NOTE: correctOptionId отправляется для UI (показ правильного ответа обоим игрокам)
+    // Защита от читерства при реванше реализована через рандомизацию вопросов в start/route.ts
     return NextResponse.json({
       ok: true,
       answer: {

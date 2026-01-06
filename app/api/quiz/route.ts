@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateRequest } from "@/lib/auth";
+import { getQuizList, getQuizCacheHeaders } from "@/lib/quiz-edge-cache";
 
 export const runtime = "nodejs";
 
-// Cache quiz list for 60 seconds
-export const revalidate = 60;
+// Disable Next.js ISR - using Redis cache instead
+export const revalidate = false;
 
 const RATE_LIMIT_MS = 60_000; // 1 минута между сессиями
 const MAX_ATTEMPTS = 5; // Максимум попыток (энергия)
@@ -15,48 +16,24 @@ const ATTEMPT_COOLDOWN_MS = HOURS_PER_ATTEMPT * 60 * 60 * 1000; // 4 часа в
 export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams;
   const withLimits = search.get("withLimits") === "true";
-  
-  // Получаем ID ВСЕХ квизов, которые являются этапами турниров (любого статуса)
-  // Турнирные квизы не должны показываться в общем списке
-  const tournamentQuizIds = await prisma.tournamentStage.findMany({
-    where: {
-      quizId: { not: null },
-    },
-    select: { quizId: true },
-  });
-  
-  const excludeQuizIds = tournamentQuizIds
-    .map(s => s.quizId)
-    .filter((id): id is number => id !== null);
-  
-  // Исключаем турнирные квизы из общего списка
-  const quizzes = await prisma.quiz.findMany({
-    where: { 
-      isActive: true,
-      id: { notIn: excludeQuizIds.length > 0 ? excludeQuizIds : undefined },
-    },
-    orderBy: [
-      { startsAt: "desc" },
-      { id: "desc" },
-    ],
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      prizeTitle: true,
-    },
-  });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PUBLIC: Только список квизов (кэшируется)
+  // PUBLIC: Только список квизов (Redis-кэшируется)
   // ═══════════════════════════════════════════════════════════════════════════
   if (!withLimits) {
+    const { quizzes, fromCache, cacheAge } = await getQuizList();
+    
     return NextResponse.json({ quizzes }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        ...getQuizCacheHeaders("list"),
+        "X-Cache": fromCache ? "HIT" : "MISS",
+        ...(cacheAge !== null && { "X-Cache-Age": String(Math.floor(cacheAge / 1000)) }),
       },
     });
   }
+  
+  // For withLimits=true, we still need fresh tournament IDs
+  const { quizzes } = await getQuizList();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PROTECTED: С информацией о лимитах — ТРЕБУЕТСЯ АВТОРИЗАЦИЯ

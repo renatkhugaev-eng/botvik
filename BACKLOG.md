@@ -11,8 +11,8 @@ Technical debt and future improvements tracked from codebase audit.
 
 ### ⚡ Performance
 
-- [ ] Add Redis caching for leaderboard queries
-- [ ] Implement edge caching for static quiz data
+- [x] Add Redis caching for leaderboard queries ✅ (2025-01-06)
+- [x] Implement edge caching for static quiz data ✅ (2025-01-06)
 - [ ] Add bundle analyzer to CI pipeline
 
 ## Medium Priority

@@ -15,6 +15,7 @@ import { getWeekStart } from "@/lib/week";
 import { updateChallengeProgress } from "@/lib/daily-challenges";
 import { DailyChallengeType } from "@prisma/client";
 import type { ActivityType, Prisma } from "@prisma/client";
+import { invalidateLeaderboardCache } from "@/lib/leaderboard-cache";
 
 export const runtime = "nodejs";
 
@@ -314,6 +315,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       return { xpUpdates, winnerId, challengerScore, opponentScore };
     });
+
+    // ═══ INVALIDATE LEADERBOARD CACHE ═══
+    // Only invalidate if this was a fresh finish (not already finished)
+    if (!("alreadyFinished" in result)) {
+      const weekStart = getWeekStart();
+      invalidateLeaderboardCache({
+        weekStart,
+        invalidateGlobal: true,
+      }).catch(err => console.error("[duel/finish] Leaderboard cache invalidation failed:", err));
+    }
 
     // Если дуэль уже была завершена другим запросом
     if ("alreadyFinished" in result && result.alreadyFinished) {
