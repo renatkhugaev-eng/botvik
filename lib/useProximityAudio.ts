@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { getAudioHints } from "./audio-hints";
+import { isClueAvailable } from "./clue-pano-matcher";
 import type { HiddenClue, ClueRuntimeState } from "@/types/hidden-clue";
 import type { IntensityLevel } from "@/types/audio-hints";
 
@@ -60,10 +61,7 @@ export interface ProximityTemperature {
   progressToClue: number; // 0-1, насколько близко к улике
 }
 
-interface DirectionalFeedback {
-  direction: "left" | "right" | "center" | "behind";
-  intensity: number; // 0-1
-}
+type DirectionalFeedbackDirection = "left" | "right" | "center" | "behind";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -124,7 +122,7 @@ function getHeadingDelta(current: number, target: number): number {
 /**
  * Определяет направление к улике
  */
-function getDirection(delta: number): DirectionalFeedback["direction"] {
+function getDirection(delta: number): DirectionalFeedbackDirection {
   const absDelta = Math.abs(delta);
   
   if (absDelta > 135) return "behind";
@@ -140,46 +138,6 @@ function getIntensityLevel(absDelta: number): IntensityLevel {
   if (absDelta <= INTENSITY_THRESHOLDS.hot) return "hot";
   if (absDelta <= INTENSITY_THRESHOLDS.warm) return "warm";
   return "cold";
-}
-
-/**
- * Проверяет доступна ли улика в текущей панораме
- */
-function isClueAvailable(
-  clue: HiddenClue,
-  currentPanoId: string | null,
-  stepCount: number
-): boolean {
-  const panoId = clue.panoId;
-  
-  // Виртуальные panoId
-  if (panoId === "START") return stepCount === 0;
-  if (panoId === "ANY") return true;
-  
-  // STEP_N-M (диапазон)
-  const rangeMatch = panoId.match(/^STEP_(\d+)-(\d+)$/);
-  if (rangeMatch) {
-    const min = parseInt(rangeMatch[1], 10);
-    const max = parseInt(rangeMatch[2], 10);
-    return stepCount >= min && stepCount <= max;
-  }
-  
-  // STEP_N+ (N и выше)
-  const plusMatch = panoId.match(/^STEP_(\d+)\+$/);
-  if (plusMatch) {
-    const min = parseInt(plusMatch[1], 10);
-    return stepCount >= min;
-  }
-  
-  // STEP_N (точный шаг)
-  const exactMatch = panoId.match(/^STEP_(\d+)$/);
-  if (exactMatch) {
-    const exact = parseInt(exactMatch[1], 10);
-    return stepCount === exact;
-  }
-  
-  // Реальный panoId — точное совпадение
-  return panoId === currentPanoId;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -201,12 +159,13 @@ export function useProximityAudio({
   // ─── Refs ───
   const audioRef = useRef(getAudioHints());
   const lastIntensityRef = useRef<IntensityLevel>("cold");
-  const lastDirectionRef = useRef<DirectionalFeedback["direction"]>("center");
+  const lastDirectionRef = useRef<DirectionalFeedbackDirection>("center");
   const lastStepRef = useRef(stepCount);
   const temperatureHistoryRef = useRef<IntensityLevel[]>([]);
   const lastDirectionalSoundRef = useRef(0);
   const lastProximityPulseRef = useRef(0); // Throttle для proximity pulse
   const isProximityAudioActiveRef = useRef(false); // Флаг активности
+  const lastMovementSoundRef = useRef(0); // Throttle для звуков при перемещении
   
   // ─── Доступные улики (скрытые, в текущей панораме) ───
   const availableClues = useMemo(() => {
@@ -387,16 +346,24 @@ export function useProximityAudio({
   
   // ─── Горячо-холодно при перемещении ───
   useEffect(() => {
-    if (!enabled || !audioEnabled) return;
+    if (!enabled || !audioEnabled || isRevealing) return;
     if (stepCount === lastStepRef.current) return;
     
     const audio = audioRef.current;
     const history = temperatureHistoryRef.current;
     const currentLevel = temperature.level;
+    const now = Date.now();
     
     // Добавляем текущую температуру в историю
     history.push(currentLevel);
     if (history.length > 5) history.shift();
+    
+    // Throttle: не играем звуки чаще чем раз в 1 секунду
+    const timeSinceLastSound = now - lastMovementSoundRef.current;
+    if (timeSinceLastSound < 1000) {
+      lastStepRef.current = stepCount;
+      return;
+    }
     
     // Проверяем тренд — становится теплее или холоднее?
     if (history.length >= 2) {
@@ -406,14 +373,16 @@ export function useProximityAudio({
       if (currRank > prevRank) {
         // Ближе к улике — поощрение
         audio.playHint();
+        lastMovementSoundRef.current = now;
       } else if (currRank < prevRank && prevRank >= 2) {
         // Дальше от улики (если был warm или выше) — предупреждение
         audio.playWhisper();
+        lastMovementSoundRef.current = now;
       }
     }
     
     lastStepRef.current = stepCount;
-  }, [enabled, audioEnabled, stepCount, temperature.level]);
+  }, [enabled, audioEnabled, isRevealing, stepCount, temperature.level]);
   
   // ─── Cleanup ───
   useEffect(() => {
@@ -434,15 +403,16 @@ export function useProximityAudio({
   const playDirectionalHint = useCallback((direction: "left" | "right" | "forward") => {
     const audio = audioRef.current;
     
+    // Используем новый метод со стерео-панорамированием
     switch (direction) {
       case "left":
-        audio.playHint(); // TODO: pan left
+        audio.playDirectionalHint("left");
         break;
       case "right":
-        audio.playScanner(); // TODO: pan right
+        audio.playDirectionalHint("right");
         break;
       case "forward":
-        audio.playDiscovery();
+        audio.playDirectionalHint("center");
         break;
     }
   }, []);

@@ -224,24 +224,24 @@ export function HiddenClueMission({
   const [upcomingHint, setUpcomingHint] = useState<string | null>(null);
   
   // ─── Instinct event handler (присваиваем в ref) ───
-  // Координируем с reveal progress чтобы не дублировать звуки
+  // Координируем с reveal progress И proximity audio чтобы не дублировать звуки
   instinctEventRef.current = useCallback((event: InstinctEvent) => {
     // Если идёт revealing — пропускаем instinct звуки (они уже играют через updateRevealProgress)
     if (revealProgressRef.current > 0) return;
     
+    // Если есть proximity audio активный — пропускаем meter_* события (proximity audio уже играет)
+    // НО разрешаем vision/flashback звуки — они уникальные
+    const isProximityAudioHandled = 
+      proximityTemp?.closestClue && proximityTemp.level !== "cold";
+    
     switch (event.type) {
       case "meter_warming":
-        audio.playSound("hint");
-        setUpcomingHint(null);
-        break;
       case "meter_hot":
-        // Только hint, не heartbeat — чтобы не дублировать
-        audio.playSound("hint");
-        setUpcomingHint(null);
-        break;
       case "meter_burning":
-        // Близко к улике — scanner ping
-        audio.playSound("scanner");
+        // Proximity audio уже обрабатывает эти состояния со звуками
+        if (!isProximityAudioHandled) {
+          audio.playSound(event.type === "meter_burning" ? "scanner" : "hint");
+        }
         setUpcomingHint(null);
         break;
       case "meter_upcoming":
@@ -253,8 +253,8 @@ export function HiddenClueMission({
           "🌫️ Смутное ощущение... продолжай путь",
         ];
         setUpcomingHint(hints[Math.floor(Math.random() * hints.length)]);
-        // Whisper только с 30% шансом (не спамить)
-        if (Math.random() < 0.3) {
+        // Whisper только если proximity audio не активен
+        if (!isProximityAudioHandled && Math.random() < 0.3) {
           audio.playSound("whisper");
         }
         break;
@@ -262,14 +262,16 @@ export function HiddenClueMission({
         setUpcomingHint(null);
         break;
       case "vision_start":
+        // Уникальный звук — всегда играем
         audio.playSound("scanner");
         break;
       case "flashback_start":
+        // Уникальные звуки — всегда играем
         audio.playSound("whisper");
         audio.playSound("tension");
         break;
     }
-  }, [audio]);
+  }, [audio, proximityTemp]);
   
   // ─── Audio reveal progress sync ───
   useEffect(() => {
