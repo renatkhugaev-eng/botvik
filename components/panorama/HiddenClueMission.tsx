@@ -32,6 +32,7 @@ import { useProximityAudio, type ProximityTemperature } from "@/lib/useProximity
 import { useXRayHint } from "@/lib/useXRayHint";
 import { ProximityIndicator, EdgeGlowIndicator } from "./ProximityIndicator";
 import { XRayMinimap, XRayPurchaseButton } from "./XRayMinimap";
+import { LiveMinimap } from "./LiveMinimap";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { HiddenClueMission as MissionType, HiddenClue, ClueDiscoveryEvent } from "@/types/hidden-clue";
 import type { InstinctEvent } from "@/types/detective-instinct";
@@ -370,17 +371,6 @@ export function HiddenClueMission({
     if (mission.timeLimit) setTimeRemaining(mission.timeLimit);
   };
   
-  // ─── Handle panorama position change ───
-  const handlePositionChange = useCallback((panoId: string, coords?: [number, number]) => {
-    if (panoId !== currentPanoId) {
-      setCurrentPanoId(panoId);
-      setStepCount(prev => prev + 1);
-      haptic.light();
-    }
-    if (coords) {
-      setPlayerPosition(coords);
-    }
-  }, [currentPanoId]);
   
   // ─── Handle direction change ───
   const handleDirectionChange = useCallback((direction: [number, number]) => {
@@ -588,21 +578,26 @@ export function HiddenClueMission({
             {/* Back button */}
             <button
               onClick={onExit}
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center pointer-events-auto"
+              className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+                         flex items-center justify-center pointer-events-auto
+                         hover:bg-white/15 active:scale-95 transition-all"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
             
             {/* Timer */}
             {mission.timeLimit ? (
-              <div className={`px-4 py-2 rounded-full backdrop-blur-sm font-mono text-lg font-bold pointer-events-auto
-                ${timeRemaining <= 30 ? "bg-red-500/30 text-red-400 animate-pulse" : "bg-black/40 text-white"}`}>
+              <div className={`px-4 py-2.5 rounded-2xl backdrop-blur-md border font-mono text-base font-bold pointer-events-auto
+                ${timeRemaining <= 30 
+                  ? "bg-red-500/20 border-red-500/30 text-red-400 animate-pulse" 
+                  : "bg-white/10 border-white/20 text-white"}`}>
                 ⏱️ {formatTime(timeRemaining)}
               </div>
             ) : (
-              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-sm font-mono text-lg pointer-events-auto">
+              <div className="px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+                              font-mono text-base text-white/90 pointer-events-auto">
                 {formatTime(timeSpent)}
               </div>
             )}
@@ -618,8 +613,11 @@ export function HiddenClueMission({
               {/* Audio toggle */}
               <button
                 onClick={toggleAudio}
-                className={`w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-colors
-                  ${audioEnabled ? "bg-cyan-500/30 text-cyan-400" : "bg-black/40 text-white/40"}`}
+                className={`w-11 h-11 rounded-2xl backdrop-blur-md border flex items-center justify-center 
+                  transition-all active:scale-95
+                  ${audioEnabled 
+                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" 
+                    : "bg-white/10 border-white/20 text-white/50"}`}
                 title={audioEnabled ? "Выключить звук" : "Включить звук"}
               >
                 {audioEnabled ? (
@@ -683,8 +681,16 @@ export function HiddenClueMission({
             allowNavigation={mission.allowNavigation ?? true}
             onDirectionChange={handleDirectionChange}
             onPositionChange={(coords) => {
+              // Всегда обновляем координаты для миникарты
+              setPlayerPosition(coords);
+              
+              // Обновляем panoId только если он доступен
               const panoId = panoramaRef.current?.getPanoId();
-              if (panoId) handlePositionChange(panoId, coords);
+              if (panoId && panoId !== currentPanoId) {
+                setCurrentPanoId(panoId);
+                setStepCount(prev => prev + 1);
+                haptic.light();
+              }
             }}
             onReady={() => {
               const panoId = panoramaRef.current?.getPanoId();
@@ -773,6 +779,7 @@ export function HiddenClueMission({
           {xray.isActive && xray.clueCoordinates && playerPosition && (
             <XRayMinimap
               playerPosition={playerPosition}
+              playerHeading={currentHeading}
               cluePosition={xray.clueCoordinates}
               clueName={xray.targetClue?.name}
               clueIcon={xray.targetClue?.icon}
@@ -781,6 +788,16 @@ export function HiddenClueMission({
             />
           )}
         </AnimatePresence>
+        
+        {/* Live GPS Minimap (постоянная миникарта) */}
+        {playerPosition && !xray.isActive && (
+          <LiveMinimap
+            playerPosition={playerPosition}
+            playerHeading={currentHeading}
+            position="bottom-left"
+            initiallyCollapsed={false}
+          />
+        )}
         
         {/* Proximity Audio Visual Feedback */}
         {proximityTemp && (

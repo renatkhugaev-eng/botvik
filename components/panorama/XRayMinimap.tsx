@@ -7,8 +7,8 @@
  * 
  * Функции:
  * - Показывает карту Google Maps с реальными координатами
- * - Маркер игрока (синий, пульсирующий)
- * - Маркер улики (красный, мерцающий)
+ * - Маркер игрока (красная стрелка, вращается по направлению взгляда)
+ * - Маркер улики (зелёный пульсирующий круг)
  * - Автоматически скрывается через 15 секунд
  * - XP штраф -20% за использование
  * ═══════════════════════════════════════════════════════════════════════════
@@ -25,6 +25,7 @@ declare const google: {
     Polyline: new (options: unknown) => unknown;
     SymbolPath: {
       CIRCLE: unknown;
+      FORWARD_CLOSED_ARROW: unknown;
       BACKWARD_CLOSED_ARROW: unknown;
     };
   };
@@ -37,6 +38,8 @@ declare const google: {
 interface XRayMinimapProps {
   /** Координаты игрока [lat, lng] */
   playerPosition: [number, number];
+  /** Направление взгляда игрока (0-360 градусов) */
+  playerHeading?: number;
   /** Координаты ближайшей улики [lat, lng] */
   cluePosition: [number, number];
   /** Название улики для tooltip */
@@ -65,6 +68,7 @@ const XP_PENALTY = 0.2; // 20% штраф к XP
 
 export function XRayMinimap({
   playerPosition,
+  playerHeading = 0,
   cluePosition,
   clueName = "Улика",
   clueIcon = "🔍",
@@ -132,34 +136,35 @@ export function XRayMinimap({
 
     googleMapRef.current = map;
 
-    // ─── Маркер игрока (синий пульсирующий) ───
+    // ─── Маркер игрока (красная стрелка, вращается по направлению взгляда) ───
     const playerMarker = new google.maps.Marker({
       position: { lat: playerPosition[0], lng: playerPosition[1] },
       map,
       icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 12,
-        fillColor: "#3b82f6",
+        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        scale: 7,
+        fillColor: "#ef4444",
         fillOpacity: 1,
-        strokeColor: "#1d4ed8",
-        strokeWeight: 3,
+        strokeColor: "#b91c1c",
+        strokeWeight: 2,
+        rotation: playerHeading, // Поворот по направлению взгляда
       },
       title: "Вы здесь",
       zIndex: 100,
     });
     playerMarkerRef.current = playerMarker;
 
-    // ─── Маркер улики (красный мерцающий) ───
+    // ─── Маркер улики (зелёный пульсирующий круг) ───
     const clueMarker = new google.maps.Marker({
       position: { lat: cluePosition[0], lng: cluePosition[1] },
       map,
       icon: {
-        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-        scale: 8,
-        fillColor: "#ef4444",
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: "#22c55e",
         fillOpacity: 1,
-        strokeColor: "#b91c1c",
-        strokeWeight: 2,
+        strokeColor: "#15803d",
+        strokeWeight: 3,
       },
       title: clueName,
       zIndex: 99,
@@ -172,12 +177,12 @@ export function XRayMinimap({
       if (clueMarker) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (clueMarker as any).setIcon({
-          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-          scale: pulseState ? 10 : 7,
-          fillColor: pulseState ? "#f87171" : "#ef4444",
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: pulseState ? 12 : 9,
+          fillColor: pulseState ? "#4ade80" : "#22c55e",
           fillOpacity: pulseState ? 0.9 : 1,
-          strokeColor: "#b91c1c",
-          strokeWeight: 2,
+          strokeColor: "#15803d",
+          strokeWeight: 3,
         });
         pulseState = !pulseState;
       }
@@ -222,17 +227,25 @@ export function XRayMinimap({
       googleMapRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cluePosition, clueName]); // НЕ зависим от playerPosition — она обновляется отдельно
+  }, [cluePosition, clueName]); // НЕ зависим от playerPosition/playerHeading — они обновляются отдельно
 
-  // ─── Обновление позиции игрока в реальном времени ───
+  // ─── Обновление позиции и направления игрока в реальном времени ───
   useEffect(() => {
     if (playerMarkerRef.current && googleMapRef.current) {
       playerMarkerRef.current.setPosition({
         lat: playerPosition[0],
         lng: playerPosition[1],
       });
+      // Обновляем поворот стрелки по направлению взгляда
+      const currentIcon = playerMarkerRef.current.getIcon();
+      if (currentIcon) {
+        playerMarkerRef.current.setIcon({
+          ...currentIcon,
+          rotation: playerHeading,
+        });
+      }
     }
-  }, [playerPosition]);
+  }, [playerPosition, playerHeading]);
 
   // ─── Таймер обратного отсчёта ───
   useEffect(() => {
@@ -331,11 +344,11 @@ export function XRayMinimap({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-red-500 text-lg">➤</span>
                   <span className="text-slate-400">Вы</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                  <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
                   <span className="text-slate-400">Улика</span>
                 </div>
               </div>
@@ -417,17 +430,17 @@ export function XRayPurchaseButton({
 
   return (
     <motion.button
-      whileHover={!isDisabled ? { scale: 1.05 } : undefined}
+      whileHover={!isDisabled ? { scale: 1.02 } : undefined}
       whileTap={!isDisabled ? { scale: 0.95 } : undefined}
       onClick={onPurchase}
       disabled={isDisabled}
       title={tooltipText}
       className={`
-        relative px-4 py-2 rounded-xl font-medium text-sm
+        relative px-5 py-2.5 rounded-2xl font-medium text-sm backdrop-blur-md border
         transition-all duration-200
         ${isDisabled
-          ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
-          : "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/20"
+          ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed"
+          : "bg-cyan-500/20 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 shadow-lg shadow-cyan-500/10"
         }
       `}
     >

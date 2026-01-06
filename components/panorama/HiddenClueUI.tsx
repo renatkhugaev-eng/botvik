@@ -292,9 +292,10 @@ export function ClueCounter({ found, total, required }: ClueCounterProps) {
   
   return (
     <div className={`
-      flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm
-      ${isComplete ? "bg-green-500/20 border-green-500/30" : "bg-black/40 border-white/10"}
-      border
+      flex items-center gap-2.5 px-4 py-2.5 rounded-2xl backdrop-blur-md border
+      ${isComplete 
+        ? "bg-green-500/15 border-green-500/30" 
+        : "bg-white/10 border-white/20"}
     `}>
       <span className="text-lg">{isComplete ? "✅" : "🔍"}</span>
       <span className={`text-sm font-bold ${isComplete ? "text-green-400" : "text-white"}`}>
