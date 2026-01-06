@@ -200,12 +200,20 @@ export default function PanoramaGeneratorPage() {
     setLocationName(preset.name);
   }, []);
   
+  // Scan metrics state
+  const [scanMetrics, setScanMetrics] = useState<{
+    cacheHits: number;
+    cacheMisses: number;
+    totalTimeMs: number;
+  } | null>(null);
+  
   // ─── Start scanning ───
   const handleStartScan = useCallback(async () => {
     setStep("scanning");
     setError(null);
     setScanProgress(0);
     setScanMessage("Инициализация...");
+    setScanMetrics(null);
     
     // Создаём AbortController для возможности отмены
     abortControllerRef.current = new AbortController();
@@ -215,6 +223,7 @@ export default function PanoramaGeneratorPage() {
         maxDepth,
         maxNodes,
         requestDelay: 200, // Безопасная задержка для Google API
+        useCache: true, // Используем LRU кэш
         onProgress: (current, total, message) => {
           setScanProgress(Math.round((current / total) * 100));
           setScanMessage(message);
@@ -224,6 +233,16 @@ export default function PanoramaGeneratorPage() {
       
       const result = await buildPanoramaGraph(coordinates, options);
       setGraph(result);
+      
+      // Сохраняем метрики сканирования
+      if ('metrics' in result) {
+        setScanMetrics({
+          cacheHits: result.metrics.cacheHits,
+          cacheMisses: result.metrics.cacheMisses,
+          totalTimeMs: result.metrics.totalTimeMs,
+        });
+      }
+      
       setStep("preview");
       
     } catch (e) {
@@ -321,6 +340,7 @@ export default function PanoramaGeneratorPage() {
     setSpots([]);
     setError(null);
     setCopySuccess(false);
+    setScanMetrics(null);
   }, []);
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -659,6 +679,19 @@ export default function PanoramaGeneratorPage() {
                         <span>Ср. связей:</span>
                         <span className="text-blue-400">{graph.stats.avgLinks}</span>
                       </div>
+                      {scanMetrics && (
+                        <>
+                          <div className="border-t border-slate-600 my-2" />
+                          <div className="flex justify-between">
+                            <span>Время сканирования:</span>
+                            <span className="text-emerald-400">{(scanMetrics.totalTimeMs / 1000).toFixed(1)}с</span>
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span>Кэш (hit/miss):</span>
+                            <span className="text-cyan-400">{scanMetrics.cacheHits}/{scanMetrics.cacheMisses}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                     
                     <Button

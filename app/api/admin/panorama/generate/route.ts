@@ -1,15 +1,16 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * PANORAMA MISSION GENERATOR API v3.0.0
+ * PANORAMA MISSION GENERATOR API v3.1.0
  * POST /api/admin/panorama/generate
  * 
  * Генерирует панорамную миссию на основе координат и темы
  * 
- * Улучшения v3.0.0:
+ * Best Practices 2025:
  * - Zod валидация входных данных
  * - Сохранение в БД (Prisma)
  * - Seed для воспроизводимости
- * - Улучшенное логирование
+ * - Rate limiting с auto-cleanup
+ * - Структурированное логирование
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -25,28 +26,145 @@ import {
 import { prisma } from "@/lib/prisma";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RATE LIMITING (простой in-memory для админки)
+// RATE LIMITING (с автоматической очисткой)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 10; // Максимум запросов
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // За 1 минуту
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+  firstRequestAt: number;
+}
 
-function checkRateLimit(adminId: string): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const record = rateLimitMap.get(adminId);
+class RateLimiter {
+  private map = new Map<string, RateLimitEntry>();
+  private readonly maxRequests: number;
+  private readonly windowMs: number;
+  private lastCleanup = Date.now();
+  private readonly cleanupIntervalMs = 60 * 1000; // Очистка каждую минуту
   
-  if (!record || record.resetAt < now) {
-    rateLimitMap.set(adminId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1 };
+  constructor(maxRequests: number = 10, windowMs: number = 60 * 1000) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
   }
   
-  if (record.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, remaining: 0 };
+  /**
+   * Проверить rate limit для ключа
+   */
+  check(key: string): {
+    allowed: boolean;
+    remaining: number;
+    resetIn: number;
+    total: number;
+  } {
+    this.maybeCleanup();
+    
+    const now = Date.now();
+    const entry = this.map.get(key);
+    
+    // Новый ключ или истёкший window
+    if (!entry || entry.resetAt <= now) {
+      this.map.set(key, {
+        count: 1,
+        resetAt: now + this.windowMs,
+        firstRequestAt: now,
+      });
+      return {
+        allowed: true,
+        remaining: this.maxRequests - 1,
+        resetIn: Math.ceil(this.windowMs / 1000),
+        total: this.maxRequests,
+      };
+    }
+    
+    // Проверяем лимит
+    if (entry.count >= this.maxRequests) {
+      const resetIn = Math.ceil((entry.resetAt - now) / 1000);
+      return {
+        allowed: false,
+        remaining: 0,
+        resetIn,
+        total: this.maxRequests,
+      };
+    }
+    
+    // Инкрементируем счётчик
+    entry.count++;
+    const resetIn = Math.ceil((entry.resetAt - now) / 1000);
+    
+    return {
+      allowed: true,
+      remaining: this.maxRequests - entry.count,
+      resetIn,
+      total: this.maxRequests,
+    };
   }
   
-  record.count++;
-  return { allowed: true, remaining: RATE_LIMIT_MAX - record.count };
+  /**
+   * Периодическая очистка просроченных записей
+   */
+  private maybeCleanup(): void {
+    const now = Date.now();
+    
+    if (now - this.lastCleanup < this.cleanupIntervalMs) {
+      return;
+    }
+    
+    this.lastCleanup = now;
+    let cleaned = 0;
+    
+    for (const [key, entry] of this.map) {
+      if (entry.resetAt <= now) {
+        this.map.delete(key);
+        cleaned++;
+      }
+    }
+    
+    if (cleaned > 0) {
+      console.log(`[RateLimiter] Cleaned up ${cleaned} expired entries`);
+    }
+  }
+  
+  /**
+   * Получить статистику
+   */
+  getStats(): { activeKeys: number; totalRequests: number } {
+    this.maybeCleanup();
+    
+    let totalRequests = 0;
+    for (const entry of this.map.values()) {
+      totalRequests += entry.count;
+    }
+    
+    return {
+      activeKeys: this.map.size,
+      totalRequests,
+    };
+  }
+}
+
+// Глобальный rate limiter
+const rateLimiter = new RateLimiter(10, 60 * 1000); // 10 запросов в минуту
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOGGING HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface LogContext {
+  adminId?: string;
+  action: string;
+  duration?: number;
+  [key: string]: unknown;
+}
+
+function log(level: "info" | "warn" | "error", message: string, context?: LogContext): void {
+  const timestamp = new Date().toISOString();
+  const prefix = `[Admin Panorama ${level.toUpperCase()}]`;
+  
+  const contextStr = context 
+    ? ` | ${Object.entries(context).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}`
+    : "";
+    
+  console[level](`${timestamp} ${prefix} ${message}${contextStr}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -54,6 +172,7 @@ function checkRateLimit(adminId: string): { allowed: boolean; remaining: number 
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now();
   const auth = await authenticateAdmin(req);
   
   if (!auth.ok) {
@@ -83,8 +202,16 @@ export async function GET(req: NextRequest) {
       );
     } catch {
       // Таблица может не существовать — игнорируем
-      console.warn("[Admin Panorama] Could not fetch mission stats (table may not exist)");
     }
+    
+    const duration = Date.now() - startTime;
+    
+    log("info", "Themes fetched", {
+      adminId: auth.user.telegramId,
+      action: "GET_THEMES",
+      duration,
+      themesCount: themes.length,
+    });
     
     return NextResponse.json({
       ok: true,
@@ -97,7 +224,11 @@ export async function GET(req: NextRequest) {
       generatorVersion: GENERATOR_VERSION,
     });
   } catch (error) {
-    console.error("[Admin Panorama] Error fetching themes:", error);
+    log("error", "Failed to fetch themes", {
+      action: "GET_THEMES",
+      error: error instanceof Error ? error.message : "Unknown",
+    });
+    
     return NextResponse.json(
       { ok: false, error: "Failed to fetch themes" },
       { status: 500 }
@@ -110,27 +241,42 @@ export async function GET(req: NextRequest) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   const auth = await authenticateAdmin(req);
   
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
   
-  // Rate limiting (используем telegramId админа)
   const adminId = auth.user.telegramId;
-  const rateLimit = checkRateLimit(adminId);
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // RATE LIMITING
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  const rateLimit = rateLimiter.check(adminId);
   
   if (!rateLimit.allowed) {
-    console.warn(`[Admin Panorama] Rate limit exceeded for admin ${adminId}`);
+    log("warn", "Rate limit exceeded", {
+      adminId,
+      action: "RATE_LIMIT",
+      resetIn: rateLimit.resetIn,
+    });
+    
     return NextResponse.json(
       { 
         ok: false, 
-        error: "Слишком много запросов. Подождите минуту.",
-        retryAfter: 60,
+        error: `Слишком много запросов. Подождите ${rateLimit.resetIn} сек.`,
+        retryAfter: rateLimit.resetIn,
       },
       { 
         status: 429,
-        headers: { "Retry-After": "60" },
+        headers: { 
+          "Retry-After": String(rateLimit.resetIn),
+          "X-RateLimit-Limit": String(rateLimit.total),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(rateLimit.resetIn),
+        },
       }
     );
   }
@@ -145,7 +291,12 @@ export async function POST(req: NextRequest) {
     const validation = safeValidateGenerateRequest(rawBody);
     
     if (!validation.success) {
-      console.warn(`[Admin Panorama] Validation failed: ${validation.error}`);
+      log("warn", "Validation failed", {
+        adminId,
+        action: "VALIDATION_ERROR",
+        error: validation.error,
+      });
+      
       return NextResponse.json(
         { 
           ok: false, 
@@ -158,12 +309,40 @@ export async function POST(req: NextRequest) {
     
     const body = validation.data;
     
-    console.log(
-      `[Admin Panorama] Generating mission: ` +
-      `theme=${body.theme}, clues=${body.clueCount}, ` +
-      `location=${body.locationName || "unknown"}, ` +
-      `seed=${body.seed || "auto"}`
-    );
+    log("info", "Generating mission", {
+      adminId,
+      action: "GENERATE_START",
+      theme: body.theme,
+      clueCount: body.clueCount,
+      location: body.locationName || "unknown",
+      difficulty: body.difficulty,
+      seed: body.seed || "auto",
+      graphNodes: body.graph.nodes.length,
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ВАЛИДАЦИЯ ГРАФА
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    if (body.graph.nodes.length < 10) {
+      return NextResponse.json(
+        { 
+          ok: false,
+          error: `Граф слишком маленький (${body.graph.nodes.length} узлов). Минимум 10 узлов требуется для генерации.`,
+        },
+        { status: 400 }
+      );
+    }
+    
+    if (body.graph.maxDepth < 3) {
+      return NextResponse.json(
+        { 
+          ok: false,
+          error: `Граф слишком мелкий (глубина ${body.graph.maxDepth}). Минимальная глубина 3 шага.`,
+        },
+        { status: 400 }
+      );
+    }
     
     // ═══════════════════════════════════════════════════════════════════════
     // ГЕНЕРАЦИЯ
@@ -182,11 +361,17 @@ export async function POST(req: NextRequest) {
         locationName: body.locationName,
         difficulty: body.difficulty,
       },
-      body.seed // Передаём seed для воспроизводимости
+      body.seed
     );
     
     if (!result.success || !result.mission) {
-      console.warn(`[Admin Panorama] Generation failed: ${result.error}`);
+      log("warn", "Generation failed", {
+        adminId,
+        action: "GENERATE_FAIL",
+        error: result.error,
+        timeMs: result.generationTimeMs,
+      });
+      
       return NextResponse.json(
         { 
           ok: false,
@@ -196,12 +381,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    
-    console.log(
-      `[Admin Panorama] Mission generated: ` +
-      `id=${result.mission.id}, clues=${result.mission.clues.length}, ` +
-      `time=${result.generationTimeMs}ms`
-    );
     
     // ═══════════════════════════════════════════════════════════════════════
     // СОХРАНЕНИЕ В БД
@@ -227,19 +406,38 @@ export async function POST(req: NextRequest) {
             requiredClues: result.mission.requiredClues,
             timeLimit: result.mission.timeLimit,
             xpReward: result.mission.xpReward,
-            generatorVersion: GENERATOR_VERSION,
             seed: result.mission.seed,
-            isPublished: false, // По умолчанию не опубликована
+            isPublished: false,
             createdById: auth.user.id,
           },
         });
         
-        console.log(`[Admin Panorama] Mission saved to DB: ${savedMission.id}`);
+        log("info", "Mission saved to DB", {
+          adminId,
+          action: "SAVE_MISSION",
+          missionId: savedMission.id,
+        });
       } catch (dbError) {
-        console.error("[Admin Panorama] Failed to save mission:", dbError);
+        log("error", "Failed to save mission", {
+          adminId,
+          action: "SAVE_ERROR",
+          error: dbError instanceof Error ? dbError.message : "Unknown",
+        });
         // Не прерываем — миссия сгенерирована, просто не сохранена
       }
     }
+    
+    const totalDuration = Date.now() - startTime;
+    
+    log("info", "Mission generated successfully", {
+      adminId,
+      action: "GENERATE_SUCCESS",
+      missionId: result.mission.id,
+      clues: result.mission.clues.length,
+      generationTimeMs: result.generationTimeMs,
+      totalTimeMs: totalDuration,
+      saved: savedMission !== null,
+    });
     
     // Конвертируем в формат HiddenClueMission для совместимости
     const hiddenClueMission = toHiddenClueMission(result.mission);
@@ -254,18 +452,33 @@ export async function POST(req: NextRequest) {
         spotsFound: result.spots?.length || 0,
         cluesGenerated: result.mission.clues.length,
         generationTimeMs: result.generationTimeMs,
+        totalTimeMs: totalDuration,
       },
       saved: savedMission !== null,
       savedId: savedMission?.id,
       rateLimit: {
         remaining: rateLimit.remaining,
-        resetIn: RATE_LIMIT_WINDOW_MS / 1000,
+        resetIn: rateLimit.resetIn,
+        total: rateLimit.total,
       },
       generatorVersion: GENERATOR_VERSION,
+    }, {
+      headers: {
+        "X-RateLimit-Limit": String(rateLimit.total),
+        "X-RateLimit-Remaining": String(rateLimit.remaining),
+        "X-RateLimit-Reset": String(rateLimit.resetIn),
+      },
     });
     
   } catch (error) {
-    console.error("[Admin Panorama] Generation error:", error);
+    const duration = Date.now() - startTime;
+    
+    log("error", "Generation error", {
+      adminId,
+      action: "GENERATE_ERROR",
+      duration,
+      error: error instanceof Error ? error.message : "Unknown",
+    });
     
     // Определяем тип ошибки
     if (error instanceof SyntaxError) {

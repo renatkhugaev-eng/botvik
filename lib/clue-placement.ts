@@ -1,18 +1,19 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CLUE PLACEMENT ALGORITHM
+ * CLUE PLACEMENT ALGORITHM v3.0.0
  * Алгоритм автоматического размещения улик на графе панорам
+ * 
+ * Best Practices 2025:
+ * - Адаптивные параметры относительно размера графа
+ * - Корректная обработка углов (wrap-around)
+ * - Улучшенное зональное распределение
+ * - Документированные магические числа
  * 
  * Выбирает "интересные" точки:
  * - Тупики (отличные места для финальных улик)
  * - Перекрёстки (можно пропустить если не смотреть)
  * - Углы (спрятать за поворотом)
  * - Дальние точки (максимальная глубина)
- * 
- * v2.0.0 - Исправлено:
- * - prioritizeDeadEnds теперь используется
- * - Защита от пустого графа
- * - Улучшенная документация магических чисел
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -22,15 +23,17 @@ import type {
   ClueSpot,
   SpotType,
 } from "@/types/panorama-graph";
+import { averageHeading } from "./panorama-graph-builder";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS (с обоснованием)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Минимальная глубина для первой улики (чтобы не спавнить у старта) */
-const DEFAULT_MIN_FIRST_CLUE_DEPTH = 2;
-
-/** Минимальное расстояние между уликами (в шагах), чтобы они не были рядом */
+/**
+ * Минимальное расстояние между уликами (в шагах), чтобы они не были рядом
+ * Значение 3 выбрано эмпирически: достаточно чтобы улики не были в соседних панорамах,
+ * но не слишком большое для маленьких графов
+ */
 const DEFAULT_MIN_DISTANCE_BETWEEN_CLUES = 3;
 
 /** 
@@ -41,19 +44,30 @@ const DEFAULT_MIN_DISTANCE_BETWEEN_CLUES = 3;
 const DIFFICULTY_DISTANCE_DIVISOR = 8;
 
 /**
- * Минимальная глубина для разных типов точек
- * Тупики ценнее, можно ближе к старту
+ * Минимальные глубины для разных типов точек (в % от maxDepth)
+ * Используются относительные значения для адаптации к размеру графа
  */
-const MIN_DEPTH_BY_TYPE: Record<SpotType, number> = {
-  dead_end: 3,      // Тупики на 3+ шагах
-  corner: 4,        // Углы на 4+ шагах
-  intersection: 5,  // Перекрёстки на 5+ шагах
-  hidden_alley: 10, // Переулки глубже
-  far_point: 0,     // Определяется динамически
+const MIN_DEPTH_RATIO_BY_TYPE: Record<SpotType, number> = {
+  dead_end: 0.08,      // 8% от maxDepth (минимум 2)
+  corner: 0.10,        // 10% от maxDepth (минимум 3)
+  intersection: 0.12,  // 12% от maxDepth (минимум 4)
+  hidden_alley: 0.25,  // 25% от maxDepth — переулки глубже
+  far_point: 0.80,     // 80% от maxDepth — дальние точки
 };
 
 /**
- * Бонусы к скору за тип точки
+ * Абсолютные минимумы для типов (защита для маленьких графов)
+ */
+const MIN_DEPTH_ABSOLUTE: Record<SpotType, number> = {
+  dead_end: 2,
+  corner: 3,
+  intersection: 4,
+  hidden_alley: 6,
+  far_point: 10,
+};
+
+/**
+ * Бонусы к скору за тип точки (определяют приоритет)
  */
 const SCORE_BONUS_BY_TYPE: Record<SpotType, number> = {
   dead_end: 40,      // Тупики — лучшие места (нужно специально идти)
@@ -74,13 +88,71 @@ export interface PlacementOptions {
   minDistanceBetweenClues?: number;
   /** Приоритизировать тупики (добавляет бонус к скору) */
   prioritizeDeadEnds?: boolean;
-  /** Минимальная глубина для первой улики */
+  /** Минимальная глубина для первой улики (по умолчанию адаптивная) */
   minFirstClueDepth?: number;
 }
 
 interface ScoredSpot {
   spot: ClueSpot;
   score: number;
+}
+
+/** Метрики размещения */
+export interface PlacementMetrics {
+  totalPotentialSpots: number;
+  spotsByType: Record<SpotType, number>;
+  selectedSpots: number;
+  avgDifficulty: number;
+  avgDistance: number;
+  coverageRatio: number; // % графа покрытого уликами
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANGLE UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Нормализовать угол в диапазон [0, 360)
+ */
+function normalizeHeading(heading: number): number {
+  return ((heading % 360) + 360) % 360;
+}
+
+/**
+ * Вычислить противоположное направление
+ */
+function oppositeHeading(heading: number): number {
+  return normalizeHeading(heading + 180);
+}
+
+/**
+ * Добавить смещение к углу
+ */
+function addHeading(heading: number, offset: number): number {
+  return normalizeHeading(heading + offset);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADAPTIVE FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Вычислить адаптивную минимальную глубину для типа точки
+ */
+function getAdaptiveMinDepth(type: SpotType, graphMaxDepth: number): number {
+  const ratio = MIN_DEPTH_RATIO_BY_TYPE[type];
+  const absolute = MIN_DEPTH_ABSOLUTE[type];
+  
+  // Используем максимум из относительного и абсолютного значения
+  return Math.max(absolute, Math.floor(graphMaxDepth * ratio));
+}
+
+/**
+ * Вычислить адаптивную минимальную глубину для первой улики
+ */
+function getAdaptiveMinFirstClueDepth(graphMaxDepth: number): number {
+  // 5% от глубины графа, минимум 2 шага
+  return Math.max(2, Math.floor(graphMaxDepth * 0.05));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,9 +163,13 @@ interface ScoredSpot {
  * Вычислить базовую сложность на основе дистанции и типа
  * Диапазон: 1-5
  */
-function calculateDifficulty(distance: number, type: SpotType): number {
+function calculateDifficulty(distance: number, type: SpotType, graphMaxDepth: number): number {
+  // Нормализованная дистанция (0-1)
+  const normalizedDistance = graphMaxDepth > 0 ? distance / graphMaxDepth : 0;
+  
   // Базовая сложность от дистанции (1-5)
-  let baseDifficulty = Math.min(5, Math.ceil(distance / DIFFICULTY_DISTANCE_DIVISOR));
+  let baseDifficulty = Math.ceil(normalizedDistance * 5);
+  baseDifficulty = Math.max(1, Math.min(5, baseDifficulty));
   
   // Модификаторы типа
   switch (type) {
@@ -126,58 +202,77 @@ function calculateOptimalHeading(node: PanoNode): number {
   // Игрок смотрит назад откуда пришёл, и там улика
   if (node.isDeadEnd && node.links.length === 1) {
     const entryHeading = node.links[0].heading;
-    return (entryHeading + 180) % 360;
+    return oppositeHeading(entryHeading);
   }
   
   // Для перекрёстков — наименее очевидное направление
   // Находим самый большой промежуток между направлениями
   if (node.isIntersection && node.links.length >= 3) {
-    const headings = node.links.map(l => l.heading).sort((a, b) => a - b);
+    const headings = node.links
+      .map(l => normalizeHeading(l.heading))
+      .sort((a, b) => a - b);
     
     let maxGap = 0;
     let gapMidpoint = 0;
     
     for (let i = 0; i < headings.length; i++) {
-      const next = (i + 1) % headings.length;
-      let gap = headings[next] - headings[i];
-      if (gap < 0) gap += 360;
+      const current = headings[i];
+      const next = headings[(i + 1) % headings.length];
+      
+      // Вычисляем промежуток с учётом wrap-around
+      let gap = next - current;
+      if (gap <= 0) gap += 360;
       
       if (gap > maxGap) {
         maxGap = gap;
-        gapMidpoint = (headings[i] + gap / 2) % 360;
+        // Середина промежутка
+        gapMidpoint = normalizeHeading(current + gap / 2);
       }
     }
     
     return gapMidpoint;
   }
   
-  // Для углов — перпендикулярно основному пути
+  // Для углов — перпендикулярно среднему направлению пути
   if (node.isCorner && node.links.length === 2) {
     const h1 = node.links[0].heading;
     const h2 = node.links[1].heading;
-    // Среднее направление + 90 градусов
-    return ((h1 + h2) / 2 + 90) % 360;
+    // Используем корректное усреднение + 90 градусов
+    return addHeading(averageHeading(h1, h2), 90);
   }
   
-  // По умолчанию — случайное направление
-  return Math.random() * 360;
+  // Для обычных узлов — направление в сторону с меньшим количеством связей
+  if (node.links.length === 2) {
+    // Улика между двумя направлениями (перпендикулярно пути)
+    const h1 = node.links[0].heading;
+    const h2 = node.links[1].heading;
+    return addHeading(averageHeading(h1, h2), 90);
+  }
+  
+  // По умолчанию — случайное направление (но детерминированное на основе panoId)
+  const hash = node.panoId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return (hash * 137) % 360; // Детерминированный "случайный" угол
 }
 
 /**
  * Получить описание причины выбора точки
  */
-function getSpotReason(type: SpotType, distance: number): string {
+function getSpotReason(type: SpotType, distance: number, graphMaxDepth: number): string {
+  const depthPercent = graphMaxDepth > 0 
+    ? Math.round((distance / graphMaxDepth) * 100) 
+    : 0;
+    
   switch (type) {
     case "dead_end":
-      return `Тупик на глубине ${distance} — идеально для скрытой улики`;
+      return `Тупик на ${depthPercent}% глубины (${distance} шагов) — идеально для скрытой улики`;
     case "intersection":
-      return `Перекрёсток на глубине ${distance} — можно пропустить`;
+      return `Перекрёсток на ${depthPercent}% глубины (${distance} шагов) — можно пропустить`;
     case "corner":
-      return `Угол на глубине ${distance} — спрятано за поворотом`;
+      return `Угол на ${depthPercent}% глубины (${distance} шагов) — спрятано за поворотом`;
     case "far_point":
-      return `Дальняя точка (${distance} шагов) — сложно добраться`;
+      return `Дальняя точка (${distance} шагов, ${depthPercent}%) — сложно добраться`;
     case "hidden_alley":
-      return `Переулок на глубине ${distance} — малозаметный путь`;
+      return `Переулок на ${depthPercent}% глубины (${distance} шагов) — малозаметный путь`;
   }
 }
 
@@ -196,38 +291,44 @@ export function findAllPotentialSpots(graph: PanoramaGraph): ClueSpot[] {
   }
   
   const spots: ClueSpot[] = [];
-  const farPointThreshold = Math.max(1, graph.maxDepth * 0.8);
+  const { maxDepth } = graph;
+  
+  // Вычисляем пороги для far_point адаптивно
+  const farPointThreshold = getAdaptiveMinDepth("far_point", maxDepth);
   
   graph.nodes.forEach(node => {
-    // Пропускаем старт
+    // Пропускаем старт (улика не может быть в точке старта)
     if (node.distanceFromStart === 0) return;
     
     let type: SpotType | null = null;
     
-    // Определяем тип точки по приоритету
-    if (node.isDeadEnd && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.dead_end) {
+    // Определяем тип точки по приоритету (от более ценных к менее)
+    if (node.isDeadEnd && node.distanceFromStart >= getAdaptiveMinDepth("dead_end", maxDepth)) {
       type = "dead_end";
-    } else if (node.isCorner && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.corner) {
+    } else if (node.isCorner && node.distanceFromStart >= getAdaptiveMinDepth("corner", maxDepth)) {
       type = "corner";
-    } else if (node.isIntersection && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.intersection) {
+    } else if (node.isIntersection && node.distanceFromStart >= getAdaptiveMinDepth("intersection", maxDepth)) {
       type = "intersection";
     } else if (node.distanceFromStart >= farPointThreshold) {
       type = "far_point";
-    } else if (node.links.length <= 2 && node.distanceFromStart >= MIN_DEPTH_BY_TYPE.hidden_alley) {
+    } else if (node.links.length <= 2 && node.distanceFromStart >= getAdaptiveMinDepth("hidden_alley", maxDepth)) {
       type = "hidden_alley";
     }
     
     if (type) {
+      const heading = calculateOptimalHeading(node);
+      const difficulty = calculateDifficulty(node.distanceFromStart, type, maxDepth);
+      
       spots.push({
         panoId: node.panoId,
         type,
         lat: node.lat,
         lng: node.lng,
-        heading: calculateOptimalHeading(node),
-        difficulty: calculateDifficulty(node.distanceFromStart, type),
+        heading: Math.round(heading * 100) / 100, // Округляем до 2 знаков
+        difficulty,
         distanceFromStart: node.distanceFromStart,
         description: node.description,
-        reason: getSpotReason(type, node.distanceFromStart),
+        reason: getSpotReason(type, node.distanceFromStart, maxDepth),
       });
     }
   });
@@ -244,14 +345,16 @@ function scoreSpot(
   prioritizeDeadEnds: boolean = false
 ): number {
   let score = 0;
+  const { maxDepth } = graph;
   
   // Базовый балл от дистанции (нормализованный 0-30)
-  const normalizedDistance = graph.maxDepth > 0 
-    ? (spot.distanceFromStart / graph.maxDepth) 
+  // Чем дальше — тем лучше (награда за исследование)
+  const normalizedDistance = maxDepth > 0 
+    ? (spot.distanceFromStart / maxDepth) 
     : 0;
   score += normalizedDistance * 30;
   
-  // Бонус за тип
+  // Бонус за тип точки
   score += SCORE_BONUS_BY_TYPE[spot.type] || 0;
   
   // Дополнительный бонус за тупики если включён приоритет
@@ -261,6 +364,12 @@ function scoreSpot(
   
   // Бонус за сложность (0-25)
   score += spot.difficulty * 5;
+  
+  // Небольшой бонус за "интересность" — если точка на перекрёстке с 4+ путями
+  // или на дальнем тупике
+  if (spot.type === "dead_end" && normalizedDistance > 0.6) {
+    score += 10; // Дальние тупики особенно ценны
+  }
   
   return Math.round(score * 10) / 10;
 }
@@ -277,7 +386,7 @@ export function selectDistributedSpots(
   const {
     minDistanceBetweenClues = DEFAULT_MIN_DISTANCE_BETWEEN_CLUES,
     prioritizeDeadEnds = true,
-    minFirstClueDepth = DEFAULT_MIN_FIRST_CLUE_DEPTH,
+    minFirstClueDepth,
   } = options;
   
   // Защита от пустого массива
@@ -291,9 +400,13 @@ export function selectDistributedSpots(
     return [...spots].sort((a, b) => a.distanceFromStart - b.distanceFromStart);
   }
   
+  // Адаптивная минимальная глубина для первой улики
+  const effectiveMinFirstClueDepth = minFirstClueDepth ?? 
+    getAdaptiveMinFirstClueDepth(graph.maxDepth);
+  
   // Оцениваем все точки с учётом фильтра по минимальной глубине
   const scored: ScoredSpot[] = spots
-    .filter(s => s.distanceFromStart >= minFirstClueDepth)
+    .filter(s => s.distanceFromStart >= effectiveMinFirstClueDepth)
     .map(spot => ({
       spot,
       score: scoreSpot(spot, graph, prioritizeDeadEnds),
@@ -301,7 +414,7 @@ export function selectDistributedSpots(
   
   // Если после фильтрации ничего не осталось — берём всё без фильтра
   if (scored.length === 0) {
-    console.warn("[CluePlacement] No spots after depth filter, using all");
+    console.warn("[CluePlacement] No spots after depth filter, using all spots");
     return spots
       .slice(0, count)
       .sort((a, b) => a.distanceFromStart - b.distanceFromStart);
@@ -310,7 +423,7 @@ export function selectDistributedSpots(
   // Сортируем по баллу (лучшие первые)
   scored.sort((a, b) => b.score - a.score);
   
-  // Группируем по "зонам дистанции" для равномерного распределения
+  // Вычисляем зоны для равномерного распределения
   const maxDist = Math.max(...spots.map(s => s.distanceFromStart));
   const zoneSize = Math.max(1, Math.ceil(maxDist / count));
   
@@ -320,12 +433,18 @@ export function selectDistributedSpots(
   
   // Вспомогательная функция проверки минимальной дистанции
   const isTooClose = (spot: ClueSpot): boolean => {
+    // Адаптивная минимальная дистанция на основе размера графа
+    const adaptiveMinDistance = Math.max(
+      minDistanceBetweenClues,
+      Math.floor(graph.maxDepth * 0.05) // Минимум 5% от глубины
+    );
+    
     return selected.some(
-      s => Math.abs(s.distanceFromStart - spot.distanceFromStart) < minDistanceBetweenClues
+      s => Math.abs(s.distanceFromStart - spot.distanceFromStart) < adaptiveMinDistance
     );
   };
   
-  // Первый проход — по одной улике из каждой зоны
+  // Первый проход — по одной улике из каждой зоны (равномерное распределение)
   for (const { spot } of scored) {
     if (selected.length >= count) break;
     if (usedPanoIds.has(spot.panoId)) continue;
@@ -361,7 +480,7 @@ export function selectDistributedSpots(
     }
   }
   
-  // Сортируем по дистанции (от близких к дальним)
+  // Сортируем по дистанции (от близких к дальним — для нарастающей сложности)
   return selected.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
 }
 
@@ -382,15 +501,20 @@ export function findOptimalClueSpots(
     return [];
   }
   
+  const startTime = Date.now();
+  
   // 1. Находим все потенциальные точки
   const allSpots = findAllPotentialSpots(graph);
   
-  console.log(`[CluePlacement] Найдено ${allSpots.length} потенциальных точек`);
-  console.log(`[CluePlacement] Тупиков: ${allSpots.filter(s => s.type === "dead_end").length}`);
-  console.log(`[CluePlacement] Углов: ${allSpots.filter(s => s.type === "corner").length}`);
-  console.log(`[CluePlacement] Перекрёстков: ${allSpots.filter(s => s.type === "intersection").length}`);
-  console.log(`[CluePlacement] Дальних точек: ${allSpots.filter(s => s.type === "far_point").length}`);
-  console.log(`[CluePlacement] Переулков: ${allSpots.filter(s => s.type === "hidden_alley").length}`);
+  console.log(
+    `[CluePlacement] Анализ графа (${graph.nodes.size} узлов, глубина ${graph.maxDepth}):`
+  );
+  console.log(`  • Потенциальных точек: ${allSpots.length}`);
+  console.log(`  • Тупиков: ${allSpots.filter(s => s.type === "dead_end").length}`);
+  console.log(`  • Углов: ${allSpots.filter(s => s.type === "corner").length}`);
+  console.log(`  • Перекрёстков: ${allSpots.filter(s => s.type === "intersection").length}`);
+  console.log(`  • Дальних точек: ${allSpots.filter(s => s.type === "far_point").length}`);
+  console.log(`  • Переулков: ${allSpots.filter(s => s.type === "hidden_alley").length}`);
   
   // 2. Выбираем N лучших с равномерным распределением
   const selected = selectDistributedSpots(
@@ -400,9 +524,15 @@ export function findOptimalClueSpots(
     options
   );
   
-  console.log(`[CluePlacement] Выбрано ${selected.length} точек для улик:`);
+  const timeMs = Date.now() - startTime;
+  
+  console.log(`[CluePlacement] Выбрано ${selected.length} точек за ${timeMs}ms:`);
   selected.forEach((spot, i) => {
-    console.log(`  ${i + 1}. ${spot.type} на глубине ${spot.distanceFromStart} (сложность ${spot.difficulty})`);
+    console.log(
+      `  ${i + 1}. ${spot.type} на глубине ${spot.distanceFromStart} ` +
+      `(${Math.round(spot.distanceFromStart / graph.maxDepth * 100)}%) ` +
+      `сложность ${spot.difficulty}, heading ${spot.heading.toFixed(1)}°`
+    );
   });
   
   return selected;
@@ -411,15 +541,10 @@ export function findOptimalClueSpots(
 /**
  * Получить статистику по потенциальным точкам
  */
-export function getPlacementStats(graph: PanoramaGraph): {
-  totalSpots: number;
-  byType: Record<SpotType, number>;
-  avgDifficulty: number;
-  maxDistance: number;
-} {
+export function getPlacementStats(graph: PanoramaGraph): PlacementMetrics {
   const spots = findAllPotentialSpots(graph);
   
-  const byType: Record<SpotType, number> = {
+  const spotsByType: Record<SpotType, number> = {
     dead_end: 0,
     intersection: 0,
     corner: 0,
@@ -428,20 +553,26 @@ export function getPlacementStats(graph: PanoramaGraph): {
   };
   
   let totalDifficulty = 0;
-  let maxDistance = 0;
+  let totalDistance = 0;
   
   spots.forEach(spot => {
-    byType[spot.type]++;
+    spotsByType[spot.type]++;
     totalDifficulty += spot.difficulty;
-    maxDistance = Math.max(maxDistance, spot.distanceFromStart);
+    totalDistance += spot.distanceFromStart;
   });
   
   return {
-    totalSpots: spots.length,
-    byType,
+    totalPotentialSpots: spots.length,
+    spotsByType,
+    selectedSpots: 0, // Заполняется после selectDistributedSpots
     avgDifficulty: spots.length > 0 
       ? Math.round((totalDifficulty / spots.length) * 10) / 10 
       : 0,
-    maxDistance,
+    avgDistance: spots.length > 0 
+      ? Math.round((totalDistance / spots.length) * 10) / 10 
+      : 0,
+    coverageRatio: graph.nodes.size > 0 
+      ? Math.round((spots.length / graph.nodes.size) * 100) / 100 
+      : 0,
   };
 }

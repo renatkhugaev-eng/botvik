@@ -1,13 +1,14 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * MISSION GENERATOR v3.0.0
+ * MISSION GENERATOR v3.1.0
  * Автоматическая генерация панорамных миссий с контентом
  * 
- * Архитектура 2025:
+ * Best Practices 2025:
  * - Zod валидация входных/выходных данных
  * - SeededRandom для воспроизводимости
  * - Темы вынесены в отдельные модули
- * - Округление координат для консистентности
+ * - Адаптивные параметры
+ * - Структурированные метрики
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -26,7 +27,7 @@ import {
   type MissionTheme,
 } from "@/lib/themes";
 
-import { findOptimalClueSpots } from "./clue-placement";
+import { findOptimalClueSpots, getPlacementStats } from "./clue-placement";
 import { SeededRandom, generateSeed } from "./seeded-random";
 import { 
   type GeneratedMission, 
@@ -41,7 +42,7 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Версия генератора — семантическое версионирование */
-export const GENERATOR_VERSION = "3.0.0";
+export const GENERATOR_VERSION = "3.1.0";
 
 /** Лимит времени на миссию в зависимости от сложности (в секундах) */
 const TIME_LIMIT_BY_DIFFICULTY: Record<string, number> = {
@@ -63,9 +64,13 @@ const REQUIRED_CLUES_RATIO_BY_DIFFICULTY: Record<string, number> = {
 const MIN_CLUE_COUNT = 3;
 const MAX_CLUE_COUNT = 7;
 
-/** Точность округления координат (знаков после запятой) */
+/** Точность округления */
 const HEADING_PRECISION = 2;
 const COORDINATE_PRECISION = 6;
+
+/** Минимальные требования к графу */
+const MIN_GRAPH_NODES = 10;
+const MIN_GRAPH_DEPTH = 3;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -92,13 +97,20 @@ function generateMissionId(rng: SeededRandom): string {
 /**
  * Вычислить параметры сложности улики
  */
-function calculateClueParams(difficulty: number): {
-  coneDegrees: number;
-  dwellTime: number;
-} {
-  // Чем сложнее — тем уже конус и дольше смотреть
-  const coneDegrees = Math.max(12, 30 - difficulty * 4); // 30 → 12
-  const dwellTime = round(2.0 + difficulty * 0.4, 1); // 2.0 → 4.0
+function calculateClueParams(
+  difficulty: number, 
+  graphMaxDepth: number
+): { coneDegrees: number; dwellTime: number } {
+  // Адаптивный конус: чем глубже граф, тем уже может быть конус на высоких сложностях
+  const depthFactor = Math.min(1, graphMaxDepth / 40); // нормализуем до 40 шагов
+  
+  // Базовый конус: 30° для сложности 1, до 12° для сложности 5
+  const baseCone = 30 - difficulty * 4;
+  // Применяем фактор глубины (глубокие графы = можно уже конус)
+  const coneDegrees = Math.max(12, Math.round(baseCone * (1 - depthFactor * 0.2)));
+  
+  // Время удержания: 2.0с для сложности 1, до 4.0с для сложности 5
+  const dwellTime = round(2.0 + difficulty * 0.4, 1);
   
   return { coneDegrees, dwellTime };
 }
@@ -107,7 +119,37 @@ function calculateClueParams(difficulty: number): {
  * Вычислить награду XP на основе сложности
  */
 function calculateXpReward(baseXp: number, difficulty: number): number {
+  // Прогрессивный бонус: +20% за каждый уровень сложности
   return Math.round(baseXp * (1 + (difficulty - 1) * 0.2));
+}
+
+/**
+ * Вычислить общую награду миссии на основе улик и сложности
+ */
+function calculateMissionReward(
+  clues: GeneratedClue[], 
+  difficulty: string,
+  graphMaxDepth: number
+): number {
+  const totalClueXp = clues.reduce((sum, c) => sum + c.xpReward, 0);
+  
+  // Базовая награда = 50% от суммы улик
+  let reward = Math.round(totalClueXp * 0.5);
+  
+  // Бонус за сложность
+  const difficultyMultiplier: Record<string, number> = {
+    easy: 0.8,
+    medium: 1.0,
+    hard: 1.2,
+    extreme: 1.5,
+  };
+  reward = Math.round(reward * (difficultyMultiplier[difficulty] || 1.0));
+  
+  // Бонус за глубину графа (большие графы = больше награда)
+  const depthBonus = Math.floor(graphMaxDepth / 10) * 20; // +20 XP за каждые 10 шагов глубины
+  reward += depthBonus;
+  
+  return reward;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -122,17 +164,18 @@ function generateClue(
   index: number,
   template: ClueTemplate,
   theme: MissionThemeType,
-  rng: SeededRandom
+  rng: SeededRandom,
+  graphMaxDepth: number
 ): GeneratedClue {
-  const { coneDegrees, dwellTime } = calculateClueParams(spot.difficulty);
+  const { coneDegrees, dwellTime } = calculateClueParams(spot.difficulty, graphMaxDepth);
   
-  // Безопасное получение префикса panoId
+  // Безопасное получение префикса panoId (для уникального ID улики)
   const panoIdPrefix = spot.panoId.slice(0, 8);
   
   return {
     id: `${theme}_clue_${index}_${panoIdPrefix}`,
     panoId: spot.panoId,
-    revealHeading: round(spot.heading, HEADING_PRECISION), // Округляем до 2 знаков
+    revealHeading: round(spot.heading, HEADING_PRECISION),
     coneDegrees,
     dwellTime,
     name: rng.choice(template.nameTemplates),
@@ -177,18 +220,38 @@ export function generateMission(
     
     // Проверяем тему
     if (!isValidTheme(request.theme)) {
+      const availableThemes = getAllThemes().map(t => t.type).join(", ");
       return {
         success: false,
-        error: `Неизвестная тема миссии: "${request.theme}". Доступные: yakuza, spy, heist, murder, smuggling, art_theft, kidnapping, corruption, custom`,
+        error: `Неизвестная тема миссии: "${request.theme}". Доступные: ${availableThemes}`,
         generationTimeMs: Date.now() - startTime,
       };
     }
     
-    // Проверяем граф
+    // Проверяем граф — размер
     if (!graph.nodes || graph.nodes.size === 0) {
       return {
         success: false,
         error: "Граф панорам пуст. Сначала выполните сканирование.",
+        generationTimeMs: Date.now() - startTime,
+      };
+    }
+    
+    if (graph.nodes.size < MIN_GRAPH_NODES) {
+      return {
+        success: false,
+        error: `Граф слишком маленький (${graph.nodes.size} узлов). ` +
+               `Минимум ${MIN_GRAPH_NODES} узлов требуется. Увеличьте радиус сканирования.`,
+        generationTimeMs: Date.now() - startTime,
+      };
+    }
+    
+    // Проверяем граф — глубина
+    if (graph.maxDepth < MIN_GRAPH_DEPTH) {
+      return {
+        success: false,
+        error: `Граф слишком мелкий (глубина ${graph.maxDepth} шагов). ` +
+               `Минимум ${MIN_GRAPH_DEPTH} шага требуется. Увеличьте глубину сканирования.`,
         generationTimeMs: Date.now() - startTime,
       };
     }
@@ -213,22 +276,34 @@ export function generateMission(
     }
     
     // ═══════════════════════════════════════════════════════════════════════
-    // ГЕНЕРАЦИЯ
+    // АНАЛИЗ ГРАФА
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    const placementStats = getPlacementStats(graph);
+    
+    console.log(
+      `[MissionGenerator] Анализ графа: ` +
+      `${graph.nodes.size} узлов, глубина ${graph.maxDepth}, ` +
+      `${placementStats.totalPotentialSpots} потенциальных точек ` +
+      `(покрытие ${Math.round(placementStats.coverageRatio * 100)}%)`
+    );
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ГЕНЕРАЦИЯ УЛИК
     // ═══════════════════════════════════════════════════════════════════════
     
     // 1. Находим оптимальные точки для улик
     const spots = findOptimalClueSpots(graph, {
       clueCount,
-      minDistanceBetweenClues: 3,
+      minDistanceBetweenClues: Math.max(3, Math.floor(graph.maxDepth * 0.08)),
       prioritizeDeadEnds: true,
-      minFirstClueDepth: 2,
     });
     
     if (spots.length < clueCount) {
       return {
         success: false,
         error: `Недостаточно интересных точек: найдено ${spots.length}, нужно ${clueCount}. ` +
-               `Попробуйте увеличить глубину сканирования.`,
+               `Попробуйте увеличить глубину сканирования или выбрать другую локацию.`,
         generationTimeMs: Date.now() - startTime,
       };
     }
@@ -239,17 +314,14 @@ export function generateMission(
     // 3. Генерируем улики
     const clues: GeneratedClue[] = spots.map((spot, index) => {
       const template = shuffledTemplates[index % shuffledTemplates.length];
-      return generateClue(spot, index, template, request.theme, rng);
+      return generateClue(spot, index, template, request.theme, rng, graph.maxDepth);
     });
     
-    // 4. Вычисляем награды и параметры на основе сложности
-    const totalXp = clues.reduce((sum, c) => sum + c.xpReward, 0);
-    const baseReward = Math.round(totalXp * 0.5);
-    
-    // Динамические параметры от сложности
+    // 4. Вычисляем параметры миссии на основе сложности
     const timeLimit = TIME_LIMIT_BY_DIFFICULTY[difficulty] || 600;
     const requiredCluesRatio = REQUIRED_CLUES_RATIO_BY_DIFFICULTY[difficulty] || 0.8;
     const requiredClues = Math.ceil(clueCount * requiredCluesRatio);
+    const xpReward = calculateMissionReward(clues, difficulty, graph.maxDepth);
     
     // 5. Собираем миссию
     const mission: GeneratedMission = {
@@ -267,7 +339,7 @@ export function generateMission(
       clues,
       requiredClues,
       timeLimit,
-      xpReward: baseReward,
+      xpReward,
       speedBonusPerSecond: 0.5,
       location: request.locationName || "Неизвестная локация",
       difficulty,
@@ -275,7 +347,7 @@ export function generateMission(
       color: theme.color,
       generatedAt: new Date().toISOString(),
       generatorVersion: GENERATOR_VERSION,
-      seed: actualSeed, // Сохраняем seed для воспроизводимости
+      seed: actualSeed,
     };
     
     // 6. Валидируем результат через Zod
@@ -289,9 +361,12 @@ export function generateMission(
       };
     }
     
+    const generationTimeMs = Date.now() - startTime;
+    
     console.log(
-      `[MissionGenerator] Успешно сгенерирована миссия "${mission.title}" ` +
-      `с ${clues.length} уликами (seed: ${actualSeed.slice(0, 12)}...)`
+      `[MissionGenerator] ✓ Миссия "${mission.title}" сгенерирована за ${generationTimeMs}ms: ` +
+      `${clues.length} улик, награда ${xpReward} XP, лимит ${timeLimit}с, ` +
+      `seed: ${actualSeed.slice(0, 12)}...`
     );
     
     return {
@@ -299,7 +374,7 @@ export function generateMission(
       mission,
       graph,
       spots,
-      generationTimeMs: Date.now() - startTime,
+      generationTimeMs,
     };
     
   } catch (error) {
@@ -358,6 +433,5 @@ export function toHiddenClueMission(generated: GeneratedMission): import("@/type
 // RE-EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Реэкспортируем для обратной совместимости
 export { getMissionTheme, getAllThemes, isValidTheme, getMaxClueCount };
 export type { MissionTheme };
