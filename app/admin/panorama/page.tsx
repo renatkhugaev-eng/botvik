@@ -60,6 +60,8 @@ const LOCATION_PRESETS = [
   { name: "Рим, Ватикан", coords: [41.9029, 12.4534] as [number, number] },
   { name: "Сидней, Гавань", coords: [-33.8599, 151.2090] as [number, number] },
   { name: "Амстердам, Каналы", coords: [52.3676, 4.9041] as [number, number] },
+  { name: "Гонконг, Монгкок", coords: [22.3193, 114.1694] as [number, number] },
+  { name: "Венеция, Сан-Марко", coords: [45.4343, 12.3388] as [number, number] },
   { name: "Нью-Йорк, Таймс-Сквер", coords: [40.7580, -73.9855] as [number, number] },
   { name: "Париж, Эйфелева башня", coords: [48.8584, 2.2945] as [number, number] },
 ];
