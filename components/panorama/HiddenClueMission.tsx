@@ -28,6 +28,8 @@ import {
 import { useClueDiscovery } from "@/lib/useClueDiscovery";
 import { useAudioHints } from "@/lib/useAudioHints";
 import { useDetectiveInstinct } from "@/lib/useDetectiveInstinct";
+import { useProximityAudio, type ProximityTemperature } from "@/lib/useProximityAudio";
+import { ProximityIndicator, EdgeGlowIndicator } from "./ProximityIndicator";
 import { haptic, investigationHaptic } from "@/lib/haptic";
 import type { HiddenClueMission as MissionType, HiddenClue, ClueDiscoveryEvent } from "@/types/hidden-clue";
 import type { InstinctEvent } from "@/types/detective-instinct";
@@ -100,6 +102,7 @@ export function HiddenClueMission({
   const [scannerHintText, setScannerHintText] = useState<string | null>(null);
   const [collectedClue, setCollectedClue] = useState<HiddenClue | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(!disableAudio);
+  const [proximityTemp, setProximityTemp] = useState<ProximityTemperature | null>(null);
   
   // ─── Audio hints ───
   const audio = useAudioHints({
@@ -157,6 +160,22 @@ export function HiddenClueMission({
     enabled: phase === "playing",
     onInstinctEvent: useCallback((event: InstinctEvent) => {
       instinctEventRef.current?.(event);
+    }, []),
+  });
+  
+  // ─── Proximity Audio hook — связь звуков с уликами ───
+  // Отключается во время revealing чтобы не конфликтовать с reveal progress audio
+  const { temperature: proximityTemperature } = useProximityAudio({
+    clues: mission.clues,
+    clueStates,
+    currentPanoId,
+    currentHeading,
+    stepCount,
+    enabled: phase === "playing",
+    audioEnabled: audioEnabled && !disableAudio,
+    isRevealing: revealProgress > 0, // Отключаем proximity audio при revealing
+    onTemperatureChange: useCallback((temp: ProximityTemperature) => {
+      setProximityTemp(temp);
     }, []),
   });
   
@@ -708,6 +727,21 @@ export function HiddenClueMission({
             <span>👁️ Режим видения</span>
           </div>
         </div>
+        
+        {/* Proximity Audio Visual Feedback */}
+        {proximityTemp && (
+          <>
+            <ProximityIndicator 
+              temperature={proximityTemp} 
+              visible={phase === "playing" && !revealingClue}
+            />
+            <EdgeGlowIndicator 
+              headingDelta={proximityTemp.headingDelta}
+              level={proximityTemp.level}
+              visible={phase === "playing" && !revealingClue}
+            />
+          </>
+        )}
         
         {/* Detective Vision Overlay */}
         <AnimatePresence>

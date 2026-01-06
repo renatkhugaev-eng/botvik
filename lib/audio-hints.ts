@@ -393,8 +393,9 @@ class AudioHintSystem {
   
   /**
    * Мягкая подсказка (лёгкий тон)
+   * @param pan - стерео позиция (-1 = лево, 0 = центр, 1 = право)
    */
-  playHint(): void {
+  playHint(pan: number = 0): void {
     if (!this.ensureInit() || !this.context || !this.masterGain) return;
     
     const now = this.context.currentTime;
@@ -410,11 +411,105 @@ class AudioHintSystem {
     gain.gain.linearRampToValueAtTime(volume, now + 0.05);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
     
+    // Стерео панорамирование
+    if (pan !== 0 && this.context.createStereoPanner) {
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = Math.max(-1, Math.min(1, pan));
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(this.masterGain);
+    } else {
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+    }
+    
+    osc.start(now);
+    osc.stop(now + 0.3);
+  }
+  
+  /**
+   * Направленный звук подсказки с указанием стороны
+   * @param direction - направление ("left", "right", "center", "behind")
+   */
+  playDirectionalHint(direction: "left" | "right" | "center" | "behind"): void {
+    if (!this.ensureInit() || !this.context || !this.masterGain) return;
+    
+    const now = this.context.currentTime;
+    const volume = this.config.effectsVolume * this.config.masterVolume * 0.25;
+    
+    // Разные частоты для разных направлений
+    const frequencies: Record<typeof direction, number> = {
+      left: 500,
+      right: 700,
+      center: 900,
+      behind: 300,
+    };
+    
+    const panValues: Record<typeof direction, number> = {
+      left: -0.8,
+      right: 0.8,
+      center: 0,
+      behind: 0,
+    };
+    
+    const osc = this.context.createOscillator();
+    const gain = this.context.createGain();
+    
+    osc.type = direction === "center" ? "sine" : "triangle";
+    osc.frequency.setValueAtTime(frequencies[direction], now);
+    
+    // Для "center" делаем восходящий тон
+    if (direction === "center") {
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+    }
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    
+    // Стерео панорамирование
+    if (this.context.createStereoPanner) {
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = panValues[direction];
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(this.masterGain);
+    } else {
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+    }
+    
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
+  
+  /**
+   * Пульс приближения — нарастающий звук при подходе к улике
+   * @param progress - прогресс приближения (0-1)
+   */
+  playProximityPulse(progress: number): void {
+    if (!this.ensureInit() || !this.context || !this.masterGain) return;
+    
+    const now = this.context.currentTime;
+    // Громкость и частота растут с прогрессом
+    const volume = this.config.effectsVolume * this.config.masterVolume * 0.15 * progress;
+    const frequency = 200 + progress * 400; // 200-600 Hz
+    
+    const osc = this.context.createOscillator();
+    const gain = this.context.createGain();
+    
+    osc.type = "sine";
+    osc.frequency.value = frequency;
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    
     osc.connect(gain);
     gain.connect(this.masterGain);
     
     osc.start(now);
-    osc.stop(now + 0.3);
+    osc.stop(now + 0.15);
   }
   
   /**

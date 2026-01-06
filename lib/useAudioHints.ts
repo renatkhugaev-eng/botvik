@@ -57,6 +57,12 @@ interface UseAudioHintsResult {
   /** Воспроизвести разовый звук */
   playSound: (type: SoundType) => void;
   
+  /** Направленный звук подсказки */
+  playDirectionalHint: (direction: "left" | "right" | "center" | "behind") => void;
+  
+  /** Пульс приближения */
+  playProximityPulse: (progress: number) => void;
+  
   /** Остановить все звуки */
   stopAll: () => void;
   
@@ -216,6 +222,20 @@ export function useAudioHints({
     }
   }, []);
   
+  // ─── Directional hint ───
+  const playDirectionalHint = useCallback((direction: "left" | "right" | "center" | "behind") => {
+    if (audioRef.current && isReady) {
+      audioRef.current.playDirectionalHint(direction);
+    }
+  }, [isReady]);
+  
+  // ─── Proximity pulse ───
+  const playProximityPulse = useCallback((progress: number) => {
+    if (audioRef.current && isReady) {
+      audioRef.current.playProximityPulse(progress);
+    }
+  }, [isReady]);
+  
   // ─── Update config ───
   const updateConfig = useCallback((newConfig: Partial<AudioConfig>) => {
     if (audioRef.current) {
@@ -234,6 +254,8 @@ export function useAudioHints({
     updateRevealProgress,
     cancelReveal,
     playSound,
+    playDirectionalHint,
+    playProximityPulse,
     stopAll,
     updateConfig,
   };
