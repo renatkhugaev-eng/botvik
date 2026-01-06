@@ -52,10 +52,12 @@ export type NotificationType =
  */
 const RATE_LIMIT_BYPASS_TYPES: NotificationType[] = [
   "level_up",
-  "energy_full",        // ← Добавлено! Пользователь ждёт восстановления
+  "energy_full",        // Пользователь ждёт восстановления
+  "daily_reminder",     // ← ДОБАВЛЕНО! CRON отправляет 1 раз в день
+  "leaderboard_change", // ← ДОБАВЛЕНО! Важные события в рейтинге
   "tournament_winner",
   "tournament_finished",
-  "tournament_starting", // ← Добавлено! Важно не пропустить
+  "tournament_starting", // Важно не пропустить
   "weekly_winner",
   "duel_challenge",
   "duel_accepted",
