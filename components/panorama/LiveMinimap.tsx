@@ -16,9 +16,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Используем any для Google Maps API чтобы избежать конфликта типов
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type GoogleMapsAPI = any;
+// Declare google maps types
+declare const google: {
+  maps: {
+    Map: new (element: HTMLElement, options: unknown) => unknown;
+    Marker: new (options: unknown) => unknown;
+    SymbolPath: {
+      FORWARD_CLOSED_ARROW: unknown;
+      CIRCLE: unknown;
+    };
+  };
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -57,37 +65,6 @@ export function LiveMinimap({
   const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed);
   const [isMapReady, setIsMapReady] = useState(false);
   const [zoom, setZoom] = useState(initialZoom);
-  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
-  
-  // ─── Проверяем загрузку Google Maps API ───
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    
-    // Если уже загружено
-    if (win.google?.maps) {
-      setIsGoogleLoaded(true);
-      return;
-    }
-    
-    // Ждём загрузки с интервалом
-    const checkInterval = setInterval(() => {
-      if (win.google?.maps) {
-        setIsGoogleLoaded(true);
-        clearInterval(checkInterval);
-      }
-    }, 100);
-    
-    // Таймаут на 10 секунд
-    const timeout = setTimeout(() => {
-      clearInterval(checkInterval);
-    }, 10000);
-    
-    return () => {
-      clearInterval(checkInterval);
-      clearTimeout(timeout);
-    };
-  }, []);
 
   // Позиция на экране (bottom учитывает нижний HUD и ClueDetector ~150px)
   const positionClasses = {
@@ -99,82 +76,65 @@ export function LiveMinimap({
 
   // ─── Инициализация карты ───
   useEffect(() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const win = window as any;
-      
-      // Ждём загрузки Google Maps API
-      if (!isGoogleLoaded || !win.google?.maps) return;
-      
-      // Проверяем DOM элемент и состояние
-      if (!mapRef.current || isCollapsed) return;
-      
-      // Если карта уже создана, не пересоздаём
-      if (googleMapRef.current) return;
-      
-      // Проверяем валидность координат
-      if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
+    if (!mapRef.current || !window.google?.maps || isCollapsed) return;
+    
+    // Если карта уже создана, не пересоздаём
+    if (googleMapRef.current) return;
+    
+    // Проверяем валидность координат
+    if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
 
-      const googleMaps = win.google.maps as GoogleMapsAPI;
+    // Создаём карту
+    const map = new google.maps.Map(mapRef.current, {
+      center: { lat: playerPosition[0], lng: playerPosition[1] },
+      zoom,
+      disableDefaultUI: true,
+      gestureHandling: "none",
+      zoomControl: false,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      clickableIcons: false,
+      mapTypeId: "hybrid", // Спутник + дороги
+      styles: [
+        // Убираем POI для чистоты
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", stylers: [{ visibility: "off" }] },
+      ],
+    });
 
-      // Создаём карту
-      const map = new googleMaps.Map(mapRef.current, {
-        center: { lat: playerPosition[0], lng: playerPosition[1] },
-        zoom,
-        disableDefaultUI: true,
-        gestureHandling: "none",
-        zoomControl: false,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        clickableIcons: false,
-        mapTypeId: "hybrid", // Спутник + дороги
-        styles: [
-          // Убираем POI для чистоты
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] },
-        ],
-      });
+    googleMapRef.current = map;
 
-      googleMapRef.current = map;
+    // ─── Маркер игрока (красная стрелка) ───
+    const playerMarker = new google.maps.Marker({
+      position: { lat: playerPosition[0], lng: playerPosition[1] },
+      map,
+      icon: {
+        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        scale: 6,
+        fillColor: "#ef4444",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+        rotation: playerHeading,
+      },
+      title: "Вы здесь",
+      zIndex: 100,
+    });
+    playerMarkerRef.current = playerMarker;
 
-      // ─── Маркер игрока (красная стрелка) ───
-      const playerMarker = new googleMaps.Marker({
-        position: { lat: playerPosition[0], lng: playerPosition[1] },
-        map,
-        icon: {
-          path: googleMaps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 6,
-          fillColor: "#ef4444",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-          rotation: playerHeading,
-        },
-        title: "Вы здесь",
-        zIndex: 100,
-      });
-      playerMarkerRef.current = playerMarker;
-
-      setIsMapReady(true);
-    } catch (error) {
-      console.error("[LiveMinimap] Error initializing map:", error);
-    }
+    setIsMapReady(true);
 
     return () => {
-      try {
-        if (playerMarkerRef.current) {
-          playerMarkerRef.current.setMap(null);
-          playerMarkerRef.current = null;
-        }
-        googleMapRef.current = null;
-        setIsMapReady(false);
-      } catch (error) {
-        console.error("[LiveMinimap] Error cleaning up:", error);
+      if (playerMarkerRef.current) {
+        playerMarkerRef.current.setMap(null);
+        playerMarkerRef.current = null;
       }
+      googleMapRef.current = null;
+      setIsMapReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCollapsed, isGoogleLoaded]); // При сворачивании или загрузке Google Maps
+  }, [isCollapsed]); // Только при сворачивании/разворачивании (playerPosition обновляется отдельно)
 
   // ─── Обновление позиции и направления игрока ───
   useEffect(() => {
@@ -237,12 +197,12 @@ export function LiveMinimap({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => setIsCollapsed(false)}
-            className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 
+            className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
                        flex items-center justify-center shadow-lg shadow-black/30
                        hover:bg-white/15 hover:border-white/30 transition-all active:scale-95"
             title="Показать миникарту"
           >
-            <span className="text-base">🗺️</span>
+            <span className="text-lg">🗺️</span>
           </motion.button>
         ) : (
           // ─── Развёрнутое состояние (карта) ───
@@ -256,28 +216,28 @@ export function LiveMinimap({
           >
             {/* ─── Header ─── */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between 
-                            px-1.5 py-1.5 bg-gradient-to-b from-black/70 to-transparent">
-              <div className="flex items-center gap-1">
-                <span className="text-xs">📍</span>
-                <span className="text-[9px] text-white/60 font-medium">GPS</span>
+                            px-2.5 py-2 bg-gradient-to-b from-black/60 to-transparent">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">📍</span>
+                <span className="text-[11px] text-white/70 font-medium tracking-wide">GPS</span>
               </div>
               
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {/* Zoom controls */}
                 <button
                   onClick={handleZoomOut}
-                  className="w-5 h-5 rounded bg-white/15 hover:bg-white/25 
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 
                              flex items-center justify-center text-white/70 hover:text-white 
-                             transition-all text-[10px] font-medium active:scale-90"
+                             transition-all text-sm font-medium active:scale-90"
                   title="Уменьшить"
                 >
                   −
                 </button>
                 <button
                   onClick={handleZoomIn}
-                  className="w-5 h-5 rounded bg-white/15 hover:bg-white/25 
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 
                              flex items-center justify-center text-white/70 hover:text-white 
-                             transition-all text-[10px] font-medium active:scale-90"
+                             transition-all text-sm font-medium active:scale-90"
                   title="Увеличить"
                 >
                   +
@@ -286,9 +246,9 @@ export function LiveMinimap({
                 {/* Collapse button */}
                 <button
                   onClick={() => setIsCollapsed(true)}
-                  className="w-5 h-5 rounded bg-white/15 hover:bg-white/25 
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 
                              flex items-center justify-center text-white/70 hover:text-white 
-                             transition-all text-[9px] active:scale-90"
+                             transition-all text-xs active:scale-90"
                   title="Свернуть"
                 >
                   ✕
@@ -299,22 +259,15 @@ export function LiveMinimap({
             {/* ─── Map ─── */}
             <div 
               ref={mapRef}
-              className="w-36 h-36 bg-slate-800/50 relative"
+              className="w-36 h-36 bg-slate-800/50"
               style={{ minWidth: "144px", minHeight: "144px" }}
-            >
-              {/* Loading indicator */}
-              {!isMapReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
-                  <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-                </div>
-              )}
-            </div>
+            />
 
             {/* ─── Compass ─── */}
-            <div className="absolute bottom-1.5 left-1.5 w-5 h-5 rounded bg-black/60 
+            <div className="absolute bottom-2 left-2 w-7 h-7 rounded-lg bg-black/50 backdrop-blur-sm
                             flex items-center justify-center border border-white/10">
               <span 
-                className="text-red-400 text-[8px] font-bold block transition-transform duration-200"
+                className="text-red-400 text-[10px] font-bold block transition-transform duration-200"
                 style={{ transform: `rotate(${-playerHeading}deg)` }}
               >
                 N
@@ -322,8 +275,8 @@ export function LiveMinimap({
             </div>
 
             {/* ─── Heading indicator ─── */}
-            <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/60 
-                            text-[8px] text-white/50 font-mono border border-white/10">
+            <div className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/50 backdrop-blur-sm
+                            text-[10px] text-white/60 font-mono border border-white/10">
               {Math.round(playerHeading)}°
             </div>
           </motion.div>

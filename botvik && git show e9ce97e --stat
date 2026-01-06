@@ -1,0 +1,5 @@
+[33me9ce97e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: LiveMinimap типы Google Maps API - устранение конфликта типов
+[33m78d7a16[m feat: redesign panorama HUD - uniform h-10 buttons, move VisionButton to bottom, fix minimap loading, add loading indicator
+[33m85031f4[m fix: adjust panorama UI sizes - smaller timer, uniform button heights (h-11), compact minimap controls
+[33m6f3b25c[m feat: add live GPS minimap with glassmorphism UI, fix position tracking bugs, update all panorama buttons to consistent style
+[33m8c0a3c2[m feat: add 10 immersive panorama missions with unique stories, clues, and individual difficulty settings
