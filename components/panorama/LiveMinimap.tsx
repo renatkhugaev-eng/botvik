@@ -14,7 +14,6 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -220,38 +219,30 @@ export function LiveMinimap({
     }
   }, [zoom]);
 
+  // Не рендерим если свёрнуто — избегаем конфликта AnimatePresence с Google Maps
+  if (isCollapsed) {
+    return (
+      <div className={`fixed ${positionClasses[position]} z-40`}>
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+                     flex items-center justify-center shadow-lg shadow-black/30
+                     hover:bg-white/15 hover:border-white/30 transition-all active:scale-95"
+          title="Показать миникарту"
+        >
+          <span className="text-lg">🗺️</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`fixed ${positionClasses[position]} z-40`}
-    >
-      <AnimatePresence mode="wait">
-        {isCollapsed ? (
-          // ─── Свёрнутое состояние (кнопка) ───
-          <motion.button
-            key="collapsed"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            onClick={() => setIsCollapsed(false)}
-            className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
-                       flex items-center justify-center shadow-lg shadow-black/30
-                       hover:bg-white/15 hover:border-white/30 transition-all active:scale-95"
-            title="Показать миникарту"
-          >
-            <span className="text-lg">🗺️</span>
-          </motion.button>
-        ) : (
-          // ─── Развёрнутое состояние (карта) ───
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="relative bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden 
-                       border border-white/20 shadow-xl shadow-black/40"
-          >
+    <div className={`fixed ${positionClasses[position]} z-40`}>
+      {/* ─── Развёрнутое состояние (карта) ─── */}
+      <div
+        className="relative bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden 
+                   border border-white/20 shadow-xl shadow-black/40"
+      >
             {/* ─── Header ─── */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between 
                             px-2.5 py-2 bg-gradient-to-b from-black/60 to-transparent">
@@ -324,10 +315,8 @@ export function LiveMinimap({
                             text-[10px] text-white/60 font-mono border border-white/10">
               {Math.round(playerHeading)}°
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+          </div>
+    </div>
   );
 }
 
