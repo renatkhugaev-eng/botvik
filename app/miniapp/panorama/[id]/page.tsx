@@ -10,10 +10,9 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { HiddenClueMission } from "@/components/panorama";
-import { getMissionById } from "@/lib/panorama-missions";
 import type { HiddenClueMission as MissionType } from "@/types/hidden-clue";
 import { haptic } from "@/lib/haptic";
-import { fetchWithAuth } from "@/lib/api";
+import { api, fetchWithAuth } from "@/lib/api";
 
 export default function PanoramaMissionPage() {
   const router = useRouter();
@@ -24,18 +23,18 @@ export default function PanoramaMissionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Загрузка миссии
+  // Загрузка миссии из API
   useEffect(() => {
     const loadMission = async () => {
       try {
-        const foundMission = getMissionById(missionId);
+        const data = await api.get<{ mission: MissionType }>(`/api/panorama/${missionId}`);
         
-        if (!foundMission) {
+        if (!data.mission) {
           setError("Миссия не найдена");
           return;
         }
         
-        setMission(foundMission);
+        setMission(data.mission);
       } catch (err) {
         console.error("Failed to load mission:", err);
         setError("Не удалось загрузить миссию");

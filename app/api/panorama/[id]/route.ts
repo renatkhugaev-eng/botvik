@@ -31,15 +31,27 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // 1. Пробуем найти в БД
     // ═══════════════════════════════════════════════════════════════════════════
     
-    const dbMission = await prisma.panoramaMission.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        isPublished: true,
-        missionJson: true,
-      },
-    });
+    let dbMission: {
+      id: string;
+      title: string;
+      isPublished: boolean;
+      missionJson: unknown;
+    } | null = null;
+    
+    try {
+      dbMission = await prisma.panoramaMission.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          isPublished: true,
+          missionJson: true,
+        },
+      });
+    } catch (dbError) {
+      console.error(`[panorama/${id}] DB query failed:`, dbError);
+      // Continue - will fallback to demo missions
+    }
     
     let mission: HiddenClueMission | null = null;
     let source: "db" | "demo" = "demo";
