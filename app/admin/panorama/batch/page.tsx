@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { 
   buildPanoramaGraph, 
   graphToSerializable,
@@ -196,6 +197,10 @@ export default function BatchPanoramaPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoPublish, setAutoPublish] = useState(true);
   
+  // Scan settings
+  const [maxDepth, setMaxDepth] = useState(40);
+  const [maxNodes, setMaxNodes] = useState(200);
+  
   // Stats
   const [stats, setStats] = useState({ total: 0, done: 0, errors: 0 });
   
@@ -240,8 +245,8 @@ export default function BatchPanoramaPage() {
       updateLocation(location.id, { status: "scanning", progress: 10 });
       
       const options: BuildGraphOptions = {
-        maxDepth: 40,
-        maxNodes: 200,
+        maxDepth,
+        maxNodes,
         onProgress: (scanned, total, depth) => {
           const progress = Math.min(10 + (scanned / Math.max(total, 1)) * 40, 50);
           updateLocation(location.id, { progress });
@@ -336,7 +341,7 @@ export default function BatchPanoramaPage() {
       });
       return false;
     }
-  }, [updateLocation, autoPublish]);
+  }, [updateLocation, autoPublish, maxDepth, maxNodes]);
   
   // ─── Run batch generation ───
   const runBatch = useCallback(async () => {
@@ -520,6 +525,65 @@ export default function BatchPanoramaPage() {
                   ⏳ Загрузка Google Maps...
                 </p>
               )}
+            </CardContent>
+          </Card>
+          
+          {/* Scan Settings */}
+          <Card className="bg-slate-800/50 border-slate-700 mb-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg text-white flex items-center gap-2">
+                ⚙️ Параметры сканирования
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Max Depth */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-slate-300">Глубина обхода</label>
+                    <span className="text-cyan-400 font-mono">{maxDepth} шагов</span>
+                  </div>
+                  <Slider
+                    value={[maxDepth]}
+                    onValueChange={([v]) => setMaxDepth(v)}
+                    min={10}
+                    max={100}
+                    step={5}
+                    disabled={isRunning}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Больше = глубже обход, дольше сканирование
+                  </p>
+                </div>
+                
+                {/* Max Nodes */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-slate-300">Макс. точек</label>
+                    <span className="text-cyan-400 font-mono">{maxNodes}</span>
+                  </div>
+                  <Slider
+                    value={[maxNodes]}
+                    onValueChange={([v]) => setMaxNodes(v)}
+                    min={50}
+                    max={500}
+                    step={25}
+                    disabled={isRunning}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Больше = больше мест для улик, дольше сканирование
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+                <p className="text-xs text-slate-400">
+                  💡 <strong>Рекомендуемые значения:</strong> 40 шагов, 200 точек (~50 сек сканирования).
+                  Для больших локаций: 60-80 шагов, 300-400 точек.
+                </p>
+              </div>
             </CardContent>
           </Card>
           
