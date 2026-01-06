@@ -4,21 +4,46 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * PANORAMA MISSIONS LIST PAGE
  * Все миссии используют систему скрытых улик
+ * Загружает миссии из API (БД или демо)
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
-import { getAllMissions } from "@/lib/panorama-missions";
-import type { HiddenClueMission } from "@/types/hidden-clue";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface MissionListItem {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  icon: string;
+  color?: string;
+  difficulty: "easy" | "medium" | "hard" | "extreme";
+  cluesCount: number;
+  timeLimit: number;
+  xpReward: number;
+  isFeatured: boolean;
+  source: "db" | "demo";
+  progress: {
+    isCompleted: boolean;
+    bestCluesFound: number;
+    bestXpEarned: number;
+    attempts: number;
+    lastPlayedAt: string | null;
+  } | null;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIFFICULTY CONFIG
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DIFFICULTY_CONFIG: Record<HiddenClueMission["difficulty"], { label: string; color: string }> = {
+const DIFFICULTY_CONFIG: Record<MissionListItem["difficulty"], { label: string; color: string }> = {
   easy: { label: "Лёгкая", color: "#22c55e" },
   medium: { label: "Средняя", color: "#f59e0b" },
   hard: { label: "Сложная", color: "#ef4444" },
@@ -31,11 +56,45 @@ const DIFFICULTY_CONFIG: Record<HiddenClueMission["difficulty"], { label: string
 
 export default function PanoramaMissionsPage() {
   const router = useRouter();
-  const [selectedMission, setSelectedMission] = useState<HiddenClueMission | null>(null);
+  const [selectedMission, setSelectedMission] = useState<MissionListItem | null>(null);
+  const [missions, setMissions] = useState<MissionListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const missions = getAllMissions();
+  // ─── Fetch missions from API ───
+  useEffect(() => {
+    async function fetchMissions() {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const res = await fetch("/api/panorama", {
+          credentials: "include",
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        
+        const data = await res.json();
+        
+        if (data.missions) {
+          setMissions(data.missions);
+        } else {
+          throw new Error("No missions in response");
+        }
+      } catch (e) {
+        console.error("[panorama] Failed to fetch missions:", e);
+        setError("Не удалось загрузить миссии");
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchMissions();
+  }, []);
   
-  const handleMissionClick = (mission: HiddenClueMission) => {
+  const handleMissionClick = (mission: MissionListItem) => {
     haptic.medium();
     setSelectedMission(mission);
   };
@@ -45,6 +104,35 @@ export default function PanoramaMissionsPage() {
     haptic.heavy();
     router.push(`/miniapp/panorama/${selectedMission.id}`);
   };
+  
+  // ─── Loading state ───
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a12] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/50">Загрузка миссий...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // ─── Error state ───
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0a0a12] text-white flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-white/10 rounded-lg text-white"
+          >
+            Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-[#0a0a12] text-white">
@@ -65,8 +153,7 @@ export default function PanoramaMissionsPage() {
           </button>
           
           <div className="flex items-center gap-2">
-            <span className="text-xs text-cyan-400 font-medium">НОВАЯ МЕХАНИКА</span>
-            <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+            <span className="text-xs text-cyan-400 font-medium">{missions.length} миссий</span>
           </div>
         </div>
 
@@ -88,7 +175,7 @@ export default function PanoramaMissionsPage() {
               key={mission.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.08 }}
+              transition={{ delay: index * 0.05 }}
               onClick={() => handleMissionClick(mission)}
               className={`relative w-full p-4 rounded-2xl text-left transition-all
                 ${selectedMission?.id === mission.id 
@@ -96,6 +183,20 @@ export default function PanoramaMissionsPage() {
                   : "bg-white/5 border border-white/10 hover:bg-white/10"
                 }`}
             >
+              {/* Featured badge */}
+              {mission.isFeatured && (
+                <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full text-xs font-bold shadow-lg">
+                  ⭐ NEW
+                </div>
+              )}
+              
+              {/* Completed badge */}
+              {mission.progress?.isCompleted && (
+                <div className="absolute -top-2 -left-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-white text-xs">✓</span>
+                </div>
+              )}
+              
               <div className="flex gap-4">
                 {/* Icon */}
                 <div 
@@ -129,10 +230,7 @@ export default function PanoramaMissionsPage() {
                       {DIFFICULTY_CONFIG[mission.difficulty].label}
                     </span>
                     <span className="text-xs text-white/40">
-                      🔍 {mission.clues.length} улик
-                    </span>
-                    <span className="text-xs text-white/40">
-                      ✓ {mission.requiredClues} нужно
+                      🔍 {mission.cluesCount} улик
                     </span>
                     {mission.timeLimit && (
                       <span className="text-xs text-white/40">
@@ -154,25 +252,34 @@ export default function PanoramaMissionsPage() {
           ))}
         </div>
         
-        {/* Info card */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl"
-        >
-          <div className="flex gap-3">
-            <span className="text-2xl">👁️</span>
-            <div>
-              <h4 className="font-medium text-cyan-400 mb-1">Как найти улики?</h4>
-              <p className="text-sm text-white/60">
-                Улики скрыты! Вращай камеру, смотри по сторонам. 
-                Когда смотришь в нужную сторону — улика появится. 
-                Сворачивай в переулки для секретных находок!
-              </p>
-            </div>
+        {/* Empty state */}
+        {missions.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-white/50">Нет доступных миссий</p>
           </div>
-        </motion.div>
+        )}
+        
+        {/* Info card */}
+        {missions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl"
+          >
+            <div className="flex gap-3">
+              <span className="text-2xl">👁️</span>
+              <div>
+                <h4 className="font-medium text-cyan-400 mb-1">Как найти улики?</h4>
+                <p className="text-sm text-white/60">
+                  Улики скрыты! Вращай камеру, смотри по сторонам. 
+                  Когда смотришь в нужную сторону — улика появится. 
+                  Сворачивай в переулки для секретных находок!
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
       
       {/* Bottom action bar */}
@@ -207,7 +314,7 @@ export default function PanoramaMissionsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Начать расследование
+                {selectedMission.progress?.isCompleted ? "Пройти снова" : "Начать расследование"}
               </span>
             </button>
           </div>
