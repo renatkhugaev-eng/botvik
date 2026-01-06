@@ -12,6 +12,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
+import { api } from "@/lib/api";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -68,15 +69,7 @@ export default function PanoramaMissionsPage() {
         setLoading(true);
         setError(null);
         
-        const res = await fetch("/api/panorama", {
-          credentials: "include",
-        });
-        
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        
-        const data = await res.json();
+        const data = await api.get<{ missions: MissionListItem[] }>("/api/panorama");
         
         if (data.missions) {
           setMissions(data.missions);
