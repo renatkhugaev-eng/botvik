@@ -14,6 +14,19 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Declare google maps types
+declare const google: {
+  maps: {
+    Map: new (element: HTMLElement, options: unknown) => unknown;
+    Marker: new (options: unknown) => unknown;
+    SymbolPath: {
+      FORWARD_CLOSED_ARROW: unknown;
+      CIRCLE: unknown;
+    };
+  };
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -52,37 +65,6 @@ export function LiveMinimap({
   const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed);
   const [isMapReady, setIsMapReady] = useState(false);
   const [zoom, setZoom] = useState(initialZoom);
-  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
-
-  // ─── Ждём загрузки Google Maps API ───
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    
-    // Проверяем сразу
-    if (win.google?.maps) {
-      setIsGoogleLoaded(true);
-      return;
-    }
-    
-    // Ждём загрузки с интервалом
-    const checkInterval = setInterval(() => {
-      if (win.google?.maps) {
-        setIsGoogleLoaded(true);
-        clearInterval(checkInterval);
-      }
-    }, 100);
-    
-    // Таймаут 10 секунд
-    const timeout = setTimeout(() => {
-      clearInterval(checkInterval);
-    }, 10000);
-    
-    return () => {
-      clearInterval(checkInterval);
-      clearTimeout(timeout);
-    };
-  }, []);
 
   // Позиция на экране (bottom учитывает нижний HUD и ClueDetector ~150px)
   const positionClasses = {
@@ -94,8 +76,7 @@ export function LiveMinimap({
 
   // ─── Инициализация карты ───
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!mapRef.current || !isGoogleLoaded || !(window as any).google?.maps || isCollapsed) return;
+    if (!mapRef.current || !window.google?.maps || isCollapsed) return;
     
     // Если карта уже создана, не пересоздаём
     if (googleMapRef.current) return;
@@ -103,101 +84,83 @@ export function LiveMinimap({
     // Проверяем валидность координат
     if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
 
-    try {
-      // Используем window.google для безопасного доступа
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const gmaps = (window as any).google?.maps;
-      if (!gmaps) return;
+    // Создаём карту
+    const map = new google.maps.Map(mapRef.current, {
+      center: { lat: playerPosition[0], lng: playerPosition[1] },
+      zoom,
+      disableDefaultUI: true,
+      gestureHandling: "none",
+      zoomControl: false,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      clickableIcons: false,
+      mapTypeId: "hybrid", // Спутник + дороги
+      styles: [
+        // Убираем POI для чистоты
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", stylers: [{ visibility: "off" }] },
+      ],
+    });
 
-      // Создаём карту
-      const map = new gmaps.Map(mapRef.current, {
-        center: { lat: playerPosition[0], lng: playerPosition[1] },
-        zoom,
-        disableDefaultUI: true,
-        gestureHandling: "none",
-        zoomControl: false,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        clickableIcons: false,
-        mapTypeId: "hybrid", // Спутник + дороги
-        styles: [
-          // Убираем POI для чистоты
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] },
-        ],
-      });
+    googleMapRef.current = map;
 
-      googleMapRef.current = map;
+    // ─── Маркер игрока (красная стрелка) ───
+    const playerMarker = new google.maps.Marker({
+      position: { lat: playerPosition[0], lng: playerPosition[1] },
+      map,
+      icon: {
+        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        scale: 6,
+        fillColor: "#ef4444",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+        rotation: playerHeading,
+      },
+      title: "Вы здесь",
+      zIndex: 100,
+    });
+    playerMarkerRef.current = playerMarker;
 
-      // ─── Маркер игрока (красная стрелка) ───
-      const playerMarker = new gmaps.Marker({
-        position: { lat: playerPosition[0], lng: playerPosition[1] },
-        map,
-        icon: {
-          path: gmaps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 6,
-          fillColor: "#ef4444",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-          rotation: playerHeading,
-        },
-        title: "Вы здесь",
-        zIndex: 100,
-      });
-      playerMarkerRef.current = playerMarker;
-
-      setIsMapReady(true);
-    } catch (e) {
-      console.error("[LiveMinimap] Error initializing map:", e);
-    }
+    setIsMapReady(true);
 
     return () => {
-      try {
-        if (playerMarkerRef.current) {
-          playerMarkerRef.current.setMap(null);
-          playerMarkerRef.current = null;
-        }
-        googleMapRef.current = null;
-        setIsMapReady(false);
-      } catch (e) {
-        // Игнорируем ошибки cleanup - DOM элементы могут быть уже удалены
-        console.warn("[LiveMinimap] Cleanup warning:", e);
+      if (playerMarkerRef.current) {
+        playerMarkerRef.current.setMap(null);
+        playerMarkerRef.current = null;
       }
+      googleMapRef.current = null;
+      setIsMapReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCollapsed, isGoogleLoaded]); // При сворачивании/разворачивании или загрузке Google Maps
+  }, [isCollapsed]); // Только при сворачивании/разворачивании (playerPosition обновляется отдельно)
 
   // ─── Обновление позиции и направления игрока ───
   useEffect(() => {
     if (!playerMarkerRef.current || !googleMapRef.current || !isMapReady) return;
 
-    try {
-      // Обновляем позицию маркера
-      playerMarkerRef.current.setPosition({
-        lat: playerPosition[0],
-        lng: playerPosition[1],
-      });
+    // Обновляем позицию маркера
+    playerMarkerRef.current.setPosition({
+      lat: playerPosition[0],
+      lng: playerPosition[1],
+    });
 
-      // Обновляем поворот стрелки
-      const currentIcon = playerMarkerRef.current.getIcon();
-      if (currentIcon) {
-        playerMarkerRef.current.setIcon({
-          ...currentIcon,
-          rotation: playerHeading,
-        });
-      }
-
-      // Центрируем карту на игроке
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (googleMapRef.current as any).panTo({
-        lat: playerPosition[0],
-        lng: playerPosition[1],
+    // Обновляем поворот стрелки
+    const currentIcon = playerMarkerRef.current.getIcon();
+    if (currentIcon) {
+      playerMarkerRef.current.setIcon({
+        ...currentIcon,
+        rotation: playerHeading,
       });
-    } catch (e) {
-      // Игнорируем ошибки - карта может быть уже удалена
     }
+
+    // Центрируем карту на игроке
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (googleMapRef.current as any).panTo({
+      lat: playerPosition[0],
+      lng: playerPosition[1],
+    });
   }, [playerPosition, playerHeading, isMapReady]);
 
   // ─── Zoom controls ───
@@ -219,30 +182,38 @@ export function LiveMinimap({
     }
   }, [zoom]);
 
-  // Не рендерим если свёрнуто — избегаем конфликта AnimatePresence с Google Maps
-  if (isCollapsed) {
-    return (
-      <div className={`fixed ${positionClasses[position]} z-40`}>
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
-                     flex items-center justify-center shadow-lg shadow-black/30
-                     hover:bg-white/15 hover:border-white/30 transition-all active:scale-95"
-          title="Показать миникарту"
-        >
-          <span className="text-lg">🗺️</span>
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className={`fixed ${positionClasses[position]} z-40`}>
-      {/* ─── Развёрнутое состояние (карта) ─── */}
-      <div
-        className="relative bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden 
-                   border border-white/20 shadow-xl shadow-black/40"
-      >
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`fixed ${positionClasses[position]} z-40`}
+    >
+      <AnimatePresence mode="wait">
+        {isCollapsed ? (
+          // ─── Свёрнутое состояние (кнопка) ───
+          <motion.button
+            key="collapsed"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => setIsCollapsed(false)}
+            className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 
+                       flex items-center justify-center shadow-lg shadow-black/30
+                       hover:bg-white/15 hover:border-white/30 transition-all active:scale-95"
+            title="Показать миникарту"
+          >
+            <span className="text-lg">🗺️</span>
+          </motion.button>
+        ) : (
+          // ─── Развёрнутое состояние (карта) ───
+          <motion.div
+            key="expanded"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="relative bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden 
+                       border border-white/20 shadow-xl shadow-black/40"
+          >
             {/* ─── Header ─── */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between 
                             px-2.5 py-2 bg-gradient-to-b from-black/60 to-transparent">
@@ -288,16 +259,9 @@ export function LiveMinimap({
             {/* ─── Map ─── */}
             <div 
               ref={mapRef}
-              className="w-36 h-36 bg-slate-800/50 relative"
+              className="w-36 h-36 bg-slate-800/50"
               style={{ minWidth: "144px", minHeight: "144px" }}
-            >
-              {/* Loading indicator */}
-              {!isMapReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
-                  <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-                </div>
-              )}
-            </div>
+            />
 
             {/* ─── Compass ─── */}
             <div className="absolute bottom-2 left-2 w-7 h-7 rounded-lg bg-black/50 backdrop-blur-sm
@@ -315,8 +279,10 @@ export function LiveMinimap({
                             text-[10px] text-white/60 font-mono border border-white/10">
               {Math.round(playerHeading)}°
             </div>
-          </div>
-    </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
