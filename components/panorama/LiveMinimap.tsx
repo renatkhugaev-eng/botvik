@@ -16,18 +16,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Declare google maps types
-declare const google: {
-  maps: {
-    Map: new (element: HTMLElement, options: unknown) => unknown;
-    Marker: new (options: unknown) => unknown;
-    SymbolPath: {
-      FORWARD_CLOSED_ARROW: unknown;
-      CIRCLE: unknown;
-    };
-  };
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -69,15 +57,18 @@ export function LiveMinimap({
 
   // ─── Ждём загрузки Google Maps API ───
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    
     // Проверяем сразу
-    if (window.google?.maps) {
+    if (win.google?.maps) {
       setIsGoogleLoaded(true);
       return;
     }
     
     // Ждём загрузки с интервалом
     const checkInterval = setInterval(() => {
-      if (window.google?.maps) {
+      if (win.google?.maps) {
         setIsGoogleLoaded(true);
         clearInterval(checkInterval);
       }
@@ -104,7 +95,8 @@ export function LiveMinimap({
 
   // ─── Инициализация карты ───
   useEffect(() => {
-    if (!mapRef.current || !isGoogleLoaded || !window.google?.maps || isCollapsed) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!mapRef.current || !isGoogleLoaded || !(window as any).google?.maps || isCollapsed) return;
     
     // Если карта уже создана, не пересоздаём
     if (googleMapRef.current) return;
@@ -112,8 +104,13 @@ export function LiveMinimap({
     // Проверяем валидность координат
     if (!playerPosition || !Array.isArray(playerPosition) || playerPosition.length !== 2) return;
 
+    // Используем window.google для безопасного доступа
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gmaps = (window as any).google?.maps;
+    if (!gmaps) return;
+
     // Создаём карту
-    const map = new google.maps.Map(mapRef.current, {
+    const map = new gmaps.Map(mapRef.current, {
       center: { lat: playerPosition[0], lng: playerPosition[1] },
       zoom,
       disableDefaultUI: true,
@@ -134,11 +131,11 @@ export function LiveMinimap({
     googleMapRef.current = map;
 
     // ─── Маркер игрока (красная стрелка) ───
-    const playerMarker = new google.maps.Marker({
+    const playerMarker = new gmaps.Marker({
       position: { lat: playerPosition[0], lng: playerPosition[1] },
       map,
       icon: {
-        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        path: gmaps.SymbolPath.FORWARD_CLOSED_ARROW,
         scale: 6,
         fillColor: "#ef4444",
         fillOpacity: 1,
