@@ -314,7 +314,7 @@ export default function BatchPanoramaPage() {
         const pubData = await pubResponse.json();
         
         if (!pubData.ok) {
-          throw new Error(pubData.error || "Ошибка публикации");
+          throw new Error(pubData.details || pubData.error || "Ошибка публикации");
         }
         
         updateLocation(location.id, { 

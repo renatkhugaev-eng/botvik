@@ -191,8 +191,18 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Admin Panorama Missions POST] Error:", error);
+    
+    // Возвращаем детальную ошибку для отладки
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorDetails = error instanceof Error ? error.stack : String(error);
+    
     return NextResponse.json(
-      { ok: false, error: "Failed to save mission" },
+      { 
+        ok: false, 
+        error: "Failed to save mission",
+        details: errorMessage,
+        stack: process.env.NODE_ENV === "development" ? errorDetails : undefined,
+      },
       { status: 500 }
     );
   }
