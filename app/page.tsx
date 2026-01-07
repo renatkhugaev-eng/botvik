@@ -147,7 +147,7 @@ export default function Home() {
       >
         <span className="text-xs text-white/30">Создано каналом</span>
         <a 
-          href="https://t.me/ink_and_blood" 
+          href="https://t.me/dark_bookshelf" 
           target="_blank" 
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white/70"

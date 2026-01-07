@@ -1867,6 +1867,19 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           ))}
         </div>
       </Card>
+
+      {/* ─────────────────────────────────────────────────────────────────
+          FOOTER — Privacy Policy
+      ───────────────────────────────────────────────────────────────── */}
+      <div className="flex justify-center pt-4 pb-8">
+        <a 
+          href="/privacy" 
+          target="_blank"
+          className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          Политика конфиденциальности
+        </a>
+      </div>
     </div>
   );
 }
