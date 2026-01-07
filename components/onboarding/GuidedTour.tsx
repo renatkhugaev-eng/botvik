@@ -151,7 +151,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
   const BOTTOM_NAV_HEIGHT = 80; // Высота нижней навигации + safe area
   const TOOLTIP_WIDTH = Math.min(300, windowSize.width - PADDING * 2);
   const ARROW_SIZE = 12;
-  const GAP = 16; // Отступ между элементом и tooltip
+  const GAP = 24; // Увеличенный отступ между элементом и tooltip
 
   // Позиция tooltip с учётом границ экрана
   const getTooltipStyle = (): React.CSSProperties => {
@@ -173,8 +173,8 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     // Доступная высота с учётом нижней навигации
     const safeViewportHeight = viewportHeight - BOTTOM_NAV_HEIGHT;
     
-    // Примерная высота tooltip (будет уточняться)
-    const estimatedTooltipHeight = Math.min(350, safeViewportHeight - PADDING * 2);
+    // Компактная высота tooltip
+    const estimatedTooltipHeight = Math.min(280, safeViewportHeight * 0.45);
 
     let top: number;
     let left: number;
@@ -186,34 +186,43 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     // Корректируем чтобы не выходило за границы по горизонтали
     left = Math.max(PADDING, Math.min(viewportWidth - TOOLTIP_WIDTH - PADDING, left));
 
-    // Вычисляем позицию сверху в зависимости от position
-    if (step.position === 'bottom') {
-      // Tooltip снизу от элемента
-      top = targetRect.bottom + GAP;
-      
-      // Если не влезает снизу (с учётом нижней навигации) — показываем сверху
-      if (top + estimatedTooltipHeight > safeViewportHeight - PADDING) {
-        top = targetRect.top - estimatedTooltipHeight - GAP;
-        actualPosition = 'top';
-      }
-    } else if (step.position === 'top') {
-      // Tooltip сверху от элемента
+    // Свободное место сверху и снизу от элемента
+    const spaceAbove = targetRect.top - PADDING;
+    const spaceBelow = safeViewportHeight - targetRect.bottom - PADDING;
+    
+    // Выбираем оптимальную позицию (там где больше места)
+    const preferTop = spaceAbove > spaceBelow;
+    
+    // Если предпочтительная позиция - сверху и там достаточно места
+    if (preferTop && spaceAbove >= estimatedTooltipHeight + GAP) {
       top = targetRect.top - estimatedTooltipHeight - GAP;
-      
-      // Если не влезает сверху — показываем снизу
-      if (top < PADDING) {
-        top = targetRect.bottom + GAP;
-        actualPosition = 'bottom';
-      }
-    } else {
-      // left/right — пока делаем как bottom
+      actualPosition = 'top';
+    }
+    // Если снизу достаточно места
+    else if (!preferTop && spaceBelow >= estimatedTooltipHeight + GAP) {
       top = targetRect.bottom + GAP;
-      if (top + estimatedTooltipHeight > safeViewportHeight - PADDING) {
-        top = Math.max(PADDING, targetRect.top - estimatedTooltipHeight - GAP);
-      }
+      actualPosition = 'bottom';
+    }
+    // Если сверху есть хоть какое-то место
+    else if (spaceAbove > spaceBelow) {
+      top = Math.max(PADDING, targetRect.top - estimatedTooltipHeight - GAP);
+      actualPosition = 'top';
+    }
+    // Иначе снизу
+    else {
+      top = targetRect.bottom + GAP;
+      actualPosition = 'bottom';
     }
 
-    // Финальная корректировка по вертикали с учётом нижней навигации
+    // Финальная корректировка — tooltip не должен перекрывать элемент
+    if (actualPosition === 'top' && top + estimatedTooltipHeight > targetRect.top - 8) {
+      top = Math.max(PADDING, targetRect.top - estimatedTooltipHeight - GAP);
+    }
+    if (actualPosition === 'bottom' && top < targetRect.bottom + 8) {
+      top = targetRect.bottom + GAP;
+    }
+    
+    // Гарантируем что не выходит за границы
     top = Math.max(PADDING, Math.min(safeViewportHeight - estimatedTooltipHeight - PADDING, top));
 
     return {
@@ -366,17 +375,17 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
               </div>
 
               {/* Content */}
-              <div className="p-4">
+              <div className="p-3">
                 {/* Step indicator */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold text-red-500/80 uppercase tracking-wider">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] font-bold text-red-500/80 uppercase tracking-wider">
                     Шаг {currentStep + 1} из {TOUR_STEPS.length}
                   </span>
-                  <div className="flex gap-1">
+                  <div className="flex gap-0.5">
                     {TOUR_STEPS.map((_, i) => (
                       <div
                         key={i}
-                        className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                        className={`w-1 h-1 rounded-full transition-colors ${
                           i === currentStep
                             ? 'bg-red-500'
                             : i < currentStep
@@ -389,24 +398,24 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-[15px] font-black text-white mb-2 leading-tight">
+                <h3 className="text-[13px] font-black text-white mb-1.5 leading-tight">
                   {step.title}
                 </h3>
 
                 {/* Content with scroll if needed */}
-                <div className="max-h-[35vh] overflow-y-auto scrollbar-thin scrollbar-thumb-red-900/50 scrollbar-track-transparent pr-1">
-                  <p className="text-[11px] text-white/70 leading-relaxed whitespace-pre-line">
+                <div className="max-h-[25vh] overflow-y-auto scrollbar-thin scrollbar-thumb-red-900/50 scrollbar-track-transparent pr-1">
+                  <p className="text-[10px] text-white/70 leading-relaxed whitespace-pre-line">
                     {step.content}
                   </p>
                 </div>
 
                 {/* Buttons */}
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex items-center gap-2 mt-3">
                   {!isFirst && (
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={handlePrev}
-                      className="flex-1 h-10 rounded-xl bg-white/10 border border-white/10 text-white/70 text-[12px] font-semibold hover:bg-white/15 transition-colors"
+                      className="flex-1 h-8 rounded-lg bg-white/10 border border-white/10 text-white/70 text-[11px] font-semibold hover:bg-white/15 transition-colors"
                     >
                       ← Назад
                     </motion.button>
@@ -415,7 +424,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={handleNext}
-                    className="flex-1 h-10 rounded-xl bg-gradient-to-r from-red-700 to-red-600 text-white text-[12px] font-bold shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500 transition-colors"
+                    className="flex-1 h-8 rounded-lg bg-gradient-to-r from-red-700 to-red-600 text-white text-[11px] font-bold shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500 transition-colors"
                   >
                     {isLast ? 'Погнали! 🔪' : 'Далее →'}
                   </motion.button>
@@ -425,7 +434,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                 {!isLast && (
                   <button
                     onClick={handleSkip}
-                    className="w-full mt-2 text-center text-[10px] text-white/40 hover:text-white/60 transition-colors py-1"
+                    className="w-full mt-1.5 text-center text-[9px] text-white/40 hover:text-white/60 transition-colors py-0.5"
                   >
                     Пропустить обучение
                   </button>
