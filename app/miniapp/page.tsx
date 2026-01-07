@@ -20,6 +20,8 @@ import { DailyRewardButton } from "@/components/DailyRewardModal";
 import { AvatarWithFrame } from "@/components/AvatarWithFrame";
 import { LazyDailyRewardModal, LazyFriendsFeed, LazyDailyChallenges } from "@/components/lazy";
 import type { DailyRewardStatus, DailyReward } from "@/lib/daily-rewards";
+import { GuidedTour } from "@/components/onboarding/GuidedTour";
+import { isTourCompleted } from "@/components/onboarding/tourSteps";
 import {
   LightningIcon,
   DiamondIcon,
@@ -367,6 +369,22 @@ export default function MiniAppPage() {
   
   // Tournaments
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
+  
+  // Guided Tour (Onboarding)
+  const [showTour, setShowTour] = useState(false);
+  
+  // Проверяем нужно ли показать туториал после загрузки данных
+  useEffect(() => {
+    if (session.status === "ready" && !loading && quizzes.length > 0) {
+      // Небольшая задержка чтобы страница успела отрендериться
+      const timer = setTimeout(() => {
+        if (!isTourCompleted()) {
+          setShowTour(true);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [session.status, loading, quizzes.length]);
   const [lastFinishedTournament, setLastFinishedTournament] = useState<TournamentSummary | null>(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -746,11 +764,13 @@ export default function MiniAppPage() {
         </motion.div>
 
         {/* Daily Reward Button — right side */}
-        <DailyRewardButton
-          onClick={() => setShowDailyRewardModal(true)}
-          hasReward={dailyRewardStatus?.canClaim ?? false}
-          streak={dailyRewardStatus?.currentStreak ?? 0}
-        />
+        <div data-tour="daily-reward">
+          <DailyRewardButton
+            onClick={() => setShowDailyRewardModal(true)}
+            hasReward={dailyRewardStatus?.canClaim ?? false}
+            streak={dailyRewardStatus?.currentStreak ?? 0}
+          />
+        </div>
       </header>
 
 
@@ -770,6 +790,7 @@ export default function MiniAppPage() {
           const hasFrame = !!userStats?.equippedFrameUrl;
           return (
             <motion.button
+              data-tour="avatar"
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 haptic.medium();
@@ -856,6 +877,7 @@ export default function MiniAppPage() {
         <div className="flex justify-center items-center gap-3">
           {/* Energy pill */}
           <motion.div
+            data-tour="energy"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
@@ -872,6 +894,7 @@ export default function MiniAppPage() {
           
           {/* Score pill */}
           <motion.div
+            data-tour="score"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
@@ -931,6 +954,7 @@ export default function MiniAppPage() {
 
             {/* Weekly Leaderboard Position */}
             <motion.button
+              data-tour="leaderboard"
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 haptic.medium();
@@ -1166,6 +1190,18 @@ export default function MiniAppPage() {
         onClose={() => setShowDailyRewardModal(false)}
         onClaim={handleDailyRewardClaim}
       />
+
+      {/* Guided Tour (Onboarding) */}
+      {showTour && (
+        <GuidedTour
+          onComplete={() => setShowTour(false)}
+          onSkip={() => setShowTour(false)}
+        />
+      )}
+      
+      {/* Tour anchors for welcome/finish steps */}
+      <div data-tour="welcome" className="hidden" />
+      <div data-tour="finish" className="hidden" />
     </div>
     </PullToRefresh>
   );
@@ -1225,7 +1261,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       {/* ─────────────────────────────────────────────────────────────────
           CAROUSEL SECTION
       ───────────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-4" style={{ contain: 'layout' }}>
+      <section data-tour="quizzes" className="flex flex-col gap-4" style={{ contain: 'layout' }}>
         {/* Header — Height: 24px */}
         <div className="flex h-6 items-center justify-between">
           <h2 className="font-display text-[17px] font-bold text-[#1a1a2e]">Активные</h2>
@@ -1639,6 +1675,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           DUELS — кликабельный блок ведёт на /miniapp/duels
       ───────────────────────────────────────────────────────────────── */}
       <motion.div
+        data-tour="duels"
         whileTap={{ scale: 0.98 }}
         onClick={() => {
           haptic.medium();
@@ -1672,6 +1709,7 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
           PANORAMA MISSIONS — кликабельный блок ведёт на /miniapp/panorama
       ───────────────────────────────────────────────────────────────── */}
       <motion.div
+        data-tour="panorama"
         whileTap={{ scale: 0.98 }}
         onClick={() => {
           haptic.medium();
