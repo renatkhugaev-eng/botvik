@@ -47,7 +47,11 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
   }, [step]);
 
   useEffect(() => {
+    // Первоначальное обновление
     updateTargetPosition();
+    
+    // Периодическое обновление для динамических элементов
+    const intervalId = setInterval(updateTargetPosition, 200);
 
     // Следим за изменениями размера
     observerRef.current = new ResizeObserver(updateTargetPosition);
@@ -61,25 +65,58 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     window.addEventListener('resize', updateTargetPosition);
 
     return () => {
+      clearInterval(intervalId);
       observerRef.current?.disconnect();
       window.removeEventListener('scroll', updateTargetPosition, true);
       window.removeEventListener('resize', updateTargetPosition);
     };
   }, [step, updateTargetPosition]);
 
-  // Скролл к элементу
+  // Умный скролл к элементу с учётом tooltip
   useEffect(() => {
     if (!step?.spotlight) return;
     
-    const target = document.querySelector(step.target);
-    if (target) {
-      // Небольшая задержка чтобы DOM успел обновиться
-      setTimeout(() => {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Обновляем позицию после скролла
-        setTimeout(updateTargetPosition, 300);
-      }, 100);
-    }
+    const target = document.querySelector(step.target) as HTMLElement;
+    if (!target) return;
+
+    const scrollToElement = () => {
+      const rect = target.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const bottomNavHeight = 80;
+      const tooltipHeight = 380; // Примерная высота tooltip
+      const padding = 20;
+      
+      // Проверяем, виден ли элемент
+      const isVisible = rect.top >= padding && rect.bottom <= viewportHeight - bottomNavHeight - padding;
+      
+      if (!isVisible) {
+        // Вычисляем оптимальную позицию скролла
+        let scrollTarget: ScrollLogicalPosition = 'center';
+        
+        // Если tooltip будет сверху — скроллим так, чтобы элемент был внизу видимой области
+        if (step.position === 'top') {
+          scrollTarget = 'end';
+        } 
+        // Если tooltip будет снизу — скроллим так, чтобы элемент был вверху
+        else if (step.position === 'bottom') {
+          scrollTarget = 'start';
+        }
+        
+        target.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: scrollTarget,
+          inline: 'nearest'
+        });
+      }
+      
+      // Обновляем позицию после скролла
+      setTimeout(updateTargetPosition, 400);
+    };
+
+    // Небольшая задержка чтобы DOM успел обновиться
+    const timeoutId = setTimeout(scrollToElement, 150);
+    
+    return () => clearTimeout(timeoutId);
   }, [step, updateTargetPosition]);
 
   const handleNext = useCallback(() => {
@@ -275,11 +312,22 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
             />
           </svg>
 
-          {/* Spotlight border glow */}
+          {/* Spotlight border glow with pulse animation */}
           {targetRect && step.spotlight && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                boxShadow: [
+                  '0 0 20px rgba(220, 38, 38, 0.4), inset 0 0 15px rgba(220, 38, 38, 0.1)',
+                  '0 0 40px rgba(220, 38, 38, 0.6), inset 0 0 25px rgba(220, 38, 38, 0.2)',
+                  '0 0 20px rgba(220, 38, 38, 0.4), inset 0 0 15px rgba(220, 38, 38, 0.1)'
+                ]
+              }}
+              transition={{
+                boxShadow: { duration: 2, repeat: Infinity, ease: 'easeInOut' }
+              }}
               className="absolute pointer-events-none"
               style={{
                 left: targetRect.left - 10,
@@ -288,7 +336,6 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                 height: targetRect.height + 20,
                 borderRadius: 18,
                 border: '2px solid rgba(220, 38, 38, 0.6)',
-                boxShadow: '0 0 30px rgba(220, 38, 38, 0.4), inset 0 0 20px rgba(220, 38, 38, 0.1)',
               }}
             />
           )}
