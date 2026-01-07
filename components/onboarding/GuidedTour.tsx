@@ -111,6 +111,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 
   // Безопасные отступы
   const PADDING = 16;
+  const BOTTOM_NAV_HEIGHT = 80; // Высота нижней навигации + safe area
   const TOOLTIP_WIDTH = Math.min(300, windowSize.width - PADDING * 2);
   const ARROW_SIZE = 12;
   const GAP = 16; // Отступ между элементом и tooltip
@@ -132,8 +133,11 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     const viewportHeight = windowSize.height;
     const viewportWidth = windowSize.width;
     
+    // Доступная высота с учётом нижней навигации
+    const safeViewportHeight = viewportHeight - BOTTOM_NAV_HEIGHT;
+    
     // Примерная высота tooltip (будет уточняться)
-    const estimatedTooltipHeight = 350;
+    const estimatedTooltipHeight = Math.min(350, safeViewportHeight - PADDING * 2);
 
     let top: number;
     let left: number;
@@ -150,8 +154,8 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
       // Tooltip снизу от элемента
       top = targetRect.bottom + GAP;
       
-      // Если не влезает снизу — показываем сверху
-      if (top + estimatedTooltipHeight > viewportHeight - PADDING) {
+      // Если не влезает снизу (с учётом нижней навигации) — показываем сверху
+      if (top + estimatedTooltipHeight > safeViewportHeight - PADDING) {
         top = targetRect.top - estimatedTooltipHeight - GAP;
         actualPosition = 'top';
       }
@@ -167,13 +171,13 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     } else {
       // left/right — пока делаем как bottom
       top = targetRect.bottom + GAP;
-      if (top + estimatedTooltipHeight > viewportHeight - PADDING) {
+      if (top + estimatedTooltipHeight > safeViewportHeight - PADDING) {
         top = Math.max(PADDING, targetRect.top - estimatedTooltipHeight - GAP);
       }
     }
 
-    // Финальная корректировка по вертикали
-    top = Math.max(PADDING, Math.min(viewportHeight - estimatedTooltipHeight - PADDING, top));
+    // Финальная корректировка по вертикали с учётом нижней навигации
+    top = Math.max(PADDING, Math.min(safeViewportHeight - estimatedTooltipHeight - PADDING, top));
 
     return {
       position: 'fixed',
@@ -343,7 +347,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                 </h3>
 
                 {/* Content with scroll if needed */}
-                <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-red-900/50 scrollbar-track-transparent pr-1">
+                <div className="max-h-[35vh] overflow-y-auto scrollbar-thin scrollbar-thumb-red-900/50 scrollbar-track-transparent pr-1">
                   <p className="text-[11px] text-white/70 leading-relaxed whitespace-pre-line">
                     {step.content}
                   </p>
