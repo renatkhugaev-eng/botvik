@@ -79,9 +79,7 @@ export type WeeklyLeaderboardData = {
   scoringInfo: {
     formula: string;
     description: string;
-    activityBonusPerGame: number;
-    maxActivityBonus: number;
-    maxGamesForBonus: number;
+    note: string;
   };
   cachedAt: number;
 };
@@ -466,6 +464,7 @@ async function refreshQuizLeaderboardCache(quizId: number): Promise<void> {
 
 /**
  * Fetch weekly leaderboard from database
+ * NEW: Uses sum of best scores per quiz (totalBestScore) instead of single best
  */
 async function fetchWeeklyLeaderboardFromDB(weekStart: Date): Promise<{
   leaderboard: LeaderboardEntry[];
@@ -480,8 +479,8 @@ async function fetchWeeklyLeaderboardFromDB(weekStart: Date): Promise<{
       },
     },
     select: {
-      bestScore: true,
-      quizzes: true,
+      totalBestScore: true, // NEW: Sum of best scores per quiz
+      quizzes: true,        // Number of unique quizzes played
       panoramaBestScore: true,
       panoramaCount: true,
       duelBestScore: true,
@@ -499,18 +498,20 @@ async function fetchWeeklyLeaderboardFromDB(weekStart: Date): Promise<{
   });
 
   // Calculate total scores and sort
+  // NEW: No more activity bonus - total is sum of all bests
   const scoredEntries = weeklyScores
     .map(entry => {
-      const combinedBestScore = entry.bestScore + entry.panoramaBestScore + entry.duelBestScore;
-      const totalGames = entry.quizzes + entry.panoramaCount + entry.duelCount;
-      const totalScore = calculateTotalScore(combinedBestScore, totalGames);
+      // Quiz score = sum of best scores for each quiz played
+      // Panorama + Duel scores are still single best (can be extended later)
+      const totalScore = entry.totalBestScore + entry.panoramaBestScore + entry.duelBestScore;
       return {
         user: entry.user,
-        combinedBestScore,
-        totalGames,
         totalScore,
+        quizTotalBest: entry.totalBestScore,
         quizzes: entry.quizzes,
+        panoramaBestScore: entry.panoramaBestScore,
         panoramaCount: entry.panoramaCount,
+        duelBestScore: entry.duelBestScore,
         duelCount: entry.duelCount,
       };
     })
@@ -526,8 +527,8 @@ async function fetchWeeklyLeaderboardFromDB(weekStart: Date): Promise<{
       photoUrl: entry.user.photoUrl,
     },
     score: entry.totalScore,
-    bestScore: entry.combinedBestScore,
-    quizzes: entry.quizzes,
+    bestScore: entry.quizTotalBest, // Sum of best scores per quiz
+    quizzes: entry.quizzes,         // Unique quizzes played
     panoramas: entry.panoramaCount,
     duels: entry.duelCount,
   }));
@@ -548,13 +549,11 @@ export async function getWeeklyLeaderboard(userId?: number): Promise<{
   myPosition: {
     place: number;
     score: number;
-    bestScore: number;
-    quizzes: number;
+    quizTotalBest: number;  // Sum of best scores per quiz
+    uniqueQuizzes: number;  // Number of unique quizzes played
     panoramas: number;
     duels: number;
     duelWins: number;
-    activityBonus: number;
-    gamesUntilMaxBonus: number;
   } | null;
   fromCache: boolean;
 }> {
@@ -638,11 +637,9 @@ export async function getWeeklyLeaderboard(userId?: number): Promise<{
         prize: w.prize,
       })),
       scoringInfo: {
-        formula: "TotalScore = (QuizBest + PanoramaBest + DuelBest) + ActivityBonus",
-        description: "Квизы, панорамы и дуэли суммируются",
-        activityBonusPerGame: 50,
-        maxActivityBonus: 500,
-        maxGamesForBonus: MAX_GAMES_FOR_BONUS,
+        formula: "TotalScore = SUM(QuizBests) + PanoramaBest + DuelBest",
+        description: "Сумма лучших результатов по каждому квизу + панорамы + дуэли",
+        note: "Играй больше разных квизов — получай больше очков!",
       },
       cachedAt,
     };
@@ -657,17 +654,15 @@ export async function getWeeklyLeaderboard(userId?: number): Promise<{
     const myScore = await prisma.weeklyScore.findUnique({
       where: { userId_weekStart: { userId, weekStart } },
       select: { 
-        bestScore: true, quizzes: true, 
+        totalBestScore: true, quizzes: true, 
         panoramaBestScore: true, panoramaCount: true,
         duelBestScore: true, duelCount: true, duelWins: true,
       },
     });
 
     if (myScore) {
-      const myCombinedBest = myScore.bestScore + myScore.panoramaBestScore + myScore.duelBestScore;
-      const myTotalGames = myScore.quizzes + myScore.panoramaCount + myScore.duelCount;
-      const myTotalScore = calculateTotalScore(myCombinedBest, myTotalGames);
-      const activityBonus = Math.min(myTotalGames * 50, 500);
+      // NEW: Total score is sum of all quiz bests + panorama + duel
+      const myTotalScore = myScore.totalBestScore + myScore.panoramaBestScore + myScore.duelBestScore;
       
       // Determine user's place accurately
       // First check if user is in cached top-50
@@ -698,13 +693,11 @@ export async function getWeeklyLeaderboard(userId?: number): Promise<{
       myPosition = {
         place,
         score: myTotalScore,
-        bestScore: myCombinedBest,
-        quizzes: myScore.quizzes,
+        quizTotalBest: myScore.totalBestScore,
+        uniqueQuizzes: myScore.quizzes,
         panoramas: myScore.panoramaCount,
         duels: myScore.duelCount,
         duelWins: myScore.duelWins,
-        activityBonus,
-        gamesUntilMaxBonus: Math.max(0, MAX_GAMES_FOR_BONUS - myTotalGames),
       };
     }
   }
@@ -766,11 +759,9 @@ async function refreshWeeklyLeaderboardCache(weekStart: Date): Promise<void> {
       prize: w.prize,
     })),
     scoringInfo: {
-      formula: "TotalScore = (QuizBest + PanoramaBest + DuelBest) + ActivityBonus",
-      description: "Квизы, панорамы и дуэли суммируются",
-      activityBonusPerGame: 50,
-      maxActivityBonus: 500,
-      maxGamesForBonus: MAX_GAMES_FOR_BONUS,
+      formula: "TotalScore = SUM(QuizBests) + PanoramaBest + DuelBest",
+      description: "Сумма лучших результатов по каждому квизу + панорамы + дуэли",
+      note: "Играй больше разных квизов — получай больше очков!",
     },
     cachedAt,
   };

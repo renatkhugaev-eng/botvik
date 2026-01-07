@@ -635,7 +635,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   // ═══ WEEKLY SCORE UPDATE ═══
-  // Same Best + Activity system for weekly competition
+  // NEW: Sum of best scores per quiz (not just single best)
   
   let weeklyScoreInfo = null;
   
@@ -643,24 +643,58 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     try {
       const weekStart = getWeekStart();
       
-      // Get current weekly entry
-      const currentWeekly = await prisma.weeklyScore.findUnique({
+      // ═══ 1. Update per-quiz best score for this week ═══
+      const currentQuizBest = await prisma.weeklyQuizBest.findUnique({
         where: {
-          userId_weekStart: {
+          userId_weekStart_quizId: {
             userId: session.userId,
             weekStart,
+            quizId,
           },
         },
-        select: { bestScore: true, quizzes: true },
+        select: { bestScore: true, attempts: true },
       });
 
-      const weeklyBestScore = currentWeekly?.bestScore ?? 0;
-      const weeklyQuizzes = currentWeekly?.quizzes ?? 0;
-      
-      // Update best score only if current game is better
-      const newWeeklyBest = Math.max(weeklyBestScore, currentGameScore);
-      const newWeeklyQuizzes = weeklyQuizzes + 1;
+      const previousQuizBest = currentQuizBest?.bestScore ?? 0;
+      const previousAttempts = currentQuizBest?.attempts ?? 0;
+      const newQuizBest = Math.max(previousQuizBest, currentGameScore);
+      const isNewQuiz = !currentQuizBest; // First time playing this quiz this week
+      const isImprovement = currentGameScore > previousQuizBest;
 
+      await prisma.weeklyQuizBest.upsert({
+        where: {
+          userId_weekStart_quizId: {
+            userId: session.userId,
+            weekStart,
+            quizId,
+          },
+        },
+        update: {
+          bestScore: newQuizBest,
+          attempts: previousAttempts + 1,
+        },
+        create: {
+          userId: session.userId,
+          weekStart,
+          quizId,
+          bestScore: currentGameScore,
+          attempts: 1,
+        },
+      });
+
+      // ═══ 2. Calculate total weekly score (sum of all quiz bests) ═══
+      const allQuizBests = await prisma.weeklyQuizBest.findMany({
+        where: {
+          userId: session.userId,
+          weekStart,
+        },
+        select: { bestScore: true },
+      });
+
+      const totalBestScore = allQuizBests.reduce((sum, q) => sum + q.bestScore, 0);
+      const uniqueQuizzes = allQuizBests.length;
+
+      // ═══ 3. Update WeeklyScore with cached totals ═══
       const weeklyResult = await prisma.weeklyScore.upsert({
         where: {
           userId_weekStart: {
@@ -669,31 +703,53 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           },
         },
         update: {
-          bestScore: newWeeklyBest,
-          quizzes: newWeeklyQuizzes,
+          totalBestScore,
+          quizzes: uniqueQuizzes,
+          bestScore: Math.max(currentGameScore, previousQuizBest), // Legacy field
         },
         create: {
           userId: session.userId,
           weekStart,
-          bestScore: currentGameScore,
+          totalBestScore,
           quizzes: 1,
+          bestScore: currentGameScore, // Legacy field
         },
       });
 
+      // ═══ 4. Calculate improvement for response ═══
+      const scoreDelta = isImprovement ? (currentGameScore - previousQuizBest) : 0;
+
       weeklyScoreInfo = {
-        bestScore: weeklyResult.bestScore,
+        totalBestScore: weeklyResult.totalBestScore,
+        uniqueQuizzes: weeklyResult.quizzes,
+        thisQuizBest: newQuizBest,
+        thisQuizAttempts: previousAttempts + 1,
+        isNewQuiz,
+        isImprovement,
+        scoreDelta,
+        // Для совместимости со старым API
+        bestScore: weeklyResult.totalBestScore,
         quizzes: weeklyResult.quizzes,
-        totalScore: calculateTotalScore(weeklyResult.bestScore, weeklyResult.quizzes),
-        activityBonus: Math.min(weeklyResult.quizzes * ACTIVITY_BONUS_PER_GAME, MAX_ACTIVITY_BONUS),
-        gamesUntilMaxBonus: Math.max(0, MAX_GAMES_FOR_BONUS - weeklyResult.quizzes),
+        totalScore: weeklyResult.totalBestScore, // Теперь это сумма лучших
+        activityBonus: 0, // Больше не используется
+        gamesUntilMaxBonus: 0, // Больше не используется
       };
 
-      console.log("[finish] Weekly score updated:", weeklyScoreInfo);
+      console.log("[finish] Weekly score updated (sum of bests):", {
+        quizId,
+        previousQuizBest,
+        currentGameScore,
+        newQuizBest,
+        totalBestScore,
+        uniqueQuizzes,
+        isNewQuiz,
+        isImprovement,
+      });
       
       // Check if this pushed anyone down in the leaderboard (async, non-blocking)
       checkAndNotifyLeaderboardChanges(
         session.userId,
-        weeklyScoreInfo.totalScore,
+        weeklyResult.totalBestScore,
         weekStart
       ).catch(err => console.error("[finish] Leaderboard notification failed:", err));
       

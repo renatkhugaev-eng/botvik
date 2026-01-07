@@ -92,8 +92,9 @@ model User {
   leaderboardEntries LeaderboardEntry[]
   
   // Weekly competition
-  weeklyScores  WeeklyScore[]
-  weeklyWins    WeeklyWinner[]
+  weeklyScores    WeeklyScore[]
+  weeklyQuizBests WeeklyQuizBest[]
+  weeklyWins      WeeklyWinner[]
   
   // Friends relationships
   friendsAdded    Friendship[] @relation("FriendshipUser")
@@ -198,6 +199,9 @@ model Quiz {
   
   // Users currently playing this quiz (Profile 2.0)
   usersCurrentlyPlaying User[] @relation("CurrentlyPlaying")
+  
+  // Weekly per-quiz best scores
+  weeklyQuizBests WeeklyQuizBest[]
 }
 
 model Question {
@@ -286,13 +290,37 @@ model LeaderboardEntry {
 // WEEKLY COMPETITION SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Weekly scores - resets every Sunday at 23:59
+// Per-quiz best scores for the week (for accurate leaderboard calculation)
+// Formula: Weekly Total = SUM(bestScore) across all quizzes played this week
+model WeeklyQuizBest {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  weekStart DateTime // Monday 00:00 of the week
+  quizId    Int
+  bestScore Int      @default(0)  // Лучший результат за этот квиз на этой неделе
+  attempts  Int      @default(1)  // Количество попыток этого квиза
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id])
+  quiz      Quiz     @relation(fields: [quizId], references: [id])
+
+  @@unique([userId, weekStart, quizId])
+  @@index([weekStart])
+  @@index([userId, weekStart])
+}
+
+// Weekly aggregate scores (cached totals for fast leaderboard queries)
 model WeeklyScore {
   id        Int      @id @default(autoincrement())
   userId    Int
   weekStart DateTime // Monday 00:00 of the week
-  bestScore Int      @default(0)  // Лучший результат за одну игру на неделе (квизы)
-  quizzes   Int      @default(0)  // Количество квизов за неделю
+  
+  // Quiz scores (NEW: сумма лучших результатов по всем квизам)
+  totalBestScore Int @default(0)  // SUM(WeeklyQuizBest.bestScore) — кешированная сумма
+  quizzes        Int @default(0)  // Количество уникальных квизов за неделю
+  
+  // Legacy field (deprecated, kept for backwards compatibility)
+  bestScore Int      @default(0)  // Старое поле — теперь не используется
   
   // Panorama scores (панорамные миссии)
   panoramaBestScore Int @default(0)  // Лучший результат панорамы на неделе
@@ -307,7 +335,7 @@ model WeeklyScore {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, weekStart])
-  @@index([weekStart, bestScore])
+  @@index([weekStart, totalBestScore])
 }
 
 // Archive of weekly winners
