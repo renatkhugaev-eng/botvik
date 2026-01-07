@@ -480,8 +480,8 @@ export default function MiniAppPage() {
       // Process daily reward status
       if (dailyRewardRes) {
         setDailyRewardStatus(dailyRewardRes);
-        // Автоматически показываем модалку если есть награда
-        if (dailyRewardRes.canClaim && !dailyRewardRes.claimedToday) {
+        // Автоматически показываем модалку если есть награда (только в production)
+        if (dailyRewardRes.canClaim && !dailyRewardRes.claimedToday && process.env.NODE_ENV === 'production') {
           // Небольшая задержка чтобы страница успела загрузиться
           setTimeout(() => setShowDailyRewardModal(true), 500);
         }
@@ -763,14 +763,16 @@ export default function MiniAppPage() {
           </span>
         </motion.div>
 
-        {/* Daily Reward Button — right side */}
-        <div data-tour="daily-reward">
-          <DailyRewardButton
-            onClick={() => setShowDailyRewardModal(true)}
-            hasReward={dailyRewardStatus?.canClaim ?? false}
-            streak={dailyRewardStatus?.currentStreak ?? 0}
-          />
-        </div>
+        {/* Daily Reward Button — right side (hidden in dev for testing) */}
+        {process.env.NODE_ENV === 'production' && (
+          <div data-tour="daily-reward">
+            <DailyRewardButton
+              onClick={() => setShowDailyRewardModal(true)}
+              hasReward={dailyRewardStatus?.canClaim ?? false}
+              streak={dailyRewardStatus?.currentStreak ?? 0}
+            />
+          </div>
+        )}
       </header>
 
 

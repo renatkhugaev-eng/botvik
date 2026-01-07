@@ -14,12 +14,24 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const observerRef = useRef<ResizeObserver | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const step = TOUR_STEPS[currentStep];
   const isFirst = currentStep === 0;
   const isLast = currentStep === TOUR_STEPS.length - 1;
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
+
+  // Отслеживаем размер окна
+  useEffect(() => {
+    const updateSize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   // Найти и отследить целевой элемент
   const updateTargetPosition = useCallback(() => {
@@ -61,9 +73,14 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     
     const target = document.querySelector(step.target);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Небольшая задержка чтобы DOM успел обновиться
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Обновляем позицию после скролла
+        setTimeout(updateTargetPosition, 300);
+      }, 100);
     }
-  }, [step]);
+  }, [step, updateTargetPosition]);
 
   const handleNext = useCallback(() => {
     haptic.light();
@@ -92,49 +109,128 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 
   if (!step) return null;
 
-  // Позиция tooltip
-  const getTooltipPosition = () => {
+  // Безопасные отступы
+  const PADDING = 16;
+  const TOOLTIP_WIDTH = Math.min(300, windowSize.width - PADDING * 2);
+  const ARROW_SIZE = 12;
+  const GAP = 16; // Отступ между элементом и tooltip
+
+  // Позиция tooltip с учётом границ экрана
+  const getTooltipStyle = (): React.CSSProperties => {
+    // Центрированный tooltip (для welcome/finish)
     if (!targetRect || step.position === 'center') {
+      const centeredLeft = Math.max(PADDING, (windowSize.width - TOOLTIP_WIDTH) / 2);
       return {
+        position: 'fixed',
         top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
+        left: centeredLeft,
+        transform: 'translateY(-50%)',
+        width: TOOLTIP_WIDTH,
       };
     }
 
-    const padding = 16;
-    const tooltipHeight = 280;
-    const tooltipWidth = 320;
+    const viewportHeight = windowSize.height;
+    const viewportWidth = windowSize.width;
+    
+    // Примерная высота tooltip (будет уточняться)
+    const estimatedTooltipHeight = 350;
 
-    switch (step.position) {
-      case 'bottom':
-        return {
-          top: `${targetRect.bottom + padding}px`,
-          left: `${Math.max(padding, Math.min(window.innerWidth - tooltipWidth - padding, targetRect.left + targetRect.width / 2 - tooltipWidth / 2))}px`,
-        };
-      case 'top':
-        return {
-          top: `${Math.max(padding, targetRect.top - tooltipHeight - padding)}px`,
-          left: `${Math.max(padding, Math.min(window.innerWidth - tooltipWidth - padding, targetRect.left + targetRect.width / 2 - tooltipWidth / 2))}px`,
-        };
-      case 'left':
-        return {
-          top: `${targetRect.top + targetRect.height / 2 - tooltipHeight / 2}px`,
-          left: `${Math.max(padding, targetRect.left - tooltipWidth - padding)}px`,
-        };
-      case 'right':
-        return {
-          top: `${targetRect.top + targetRect.height / 2 - tooltipHeight / 2}px`,
-          left: `${targetRect.right + padding}px`,
-        };
-      default:
-        return {
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-        };
+    let top: number;
+    let left: number;
+    let actualPosition = step.position;
+
+    // Вычисляем позицию слева (центрируем относительно элемента)
+    left = targetRect.left + targetRect.width / 2 - TOOLTIP_WIDTH / 2;
+    
+    // Корректируем чтобы не выходило за границы по горизонтали
+    left = Math.max(PADDING, Math.min(viewportWidth - TOOLTIP_WIDTH - PADDING, left));
+
+    // Вычисляем позицию сверху в зависимости от position
+    if (step.position === 'bottom') {
+      // Tooltip снизу от элемента
+      top = targetRect.bottom + GAP;
+      
+      // Если не влезает снизу — показываем сверху
+      if (top + estimatedTooltipHeight > viewportHeight - PADDING) {
+        top = targetRect.top - estimatedTooltipHeight - GAP;
+        actualPosition = 'top';
+      }
+    } else if (step.position === 'top') {
+      // Tooltip сверху от элемента
+      top = targetRect.top - estimatedTooltipHeight - GAP;
+      
+      // Если не влезает сверху — показываем снизу
+      if (top < PADDING) {
+        top = targetRect.bottom + GAP;
+        actualPosition = 'bottom';
+      }
+    } else {
+      // left/right — пока делаем как bottom
+      top = targetRect.bottom + GAP;
+      if (top + estimatedTooltipHeight > viewportHeight - PADDING) {
+        top = Math.max(PADDING, targetRect.top - estimatedTooltipHeight - GAP);
+      }
+    }
+
+    // Финальная корректировка по вертикали
+    top = Math.max(PADDING, Math.min(viewportHeight - estimatedTooltipHeight - PADDING, top));
+
+    return {
+      position: 'fixed',
+      top,
+      left,
+      width: TOOLTIP_WIDTH,
+      maxWidth: `calc(100vw - ${PADDING * 2}px)`,
+    };
+  };
+
+  // Позиция стрелки
+  const getArrowStyle = (): React.CSSProperties | null => {
+    if (!targetRect || step.position === 'center') return null;
+
+    const tooltipStyle = getTooltipStyle();
+    const tooltipLeft = typeof tooltipStyle.left === 'number' ? tooltipStyle.left : 0;
+    const tooltipTop = typeof tooltipStyle.top === 'number' ? tooltipStyle.top : 0;
+    
+    // Центр элемента
+    const elementCenterX = targetRect.left + targetRect.width / 2;
+    
+    // Позиция стрелки относительно tooltip
+    const arrowLeft = Math.max(20, Math.min(TOOLTIP_WIDTH - 20, elementCenterX - tooltipLeft));
+    
+    // Определяем направление стрелки
+    const isAbove = tooltipTop < targetRect.top;
+
+    if (isAbove) {
+      // Tooltip сверху — стрелка внизу указывает вниз
+      return {
+        position: 'absolute',
+        bottom: -ARROW_SIZE + 2,
+        left: arrowLeft,
+        transform: 'translateX(-50%) rotate(45deg)',
+        width: ARROW_SIZE,
+        height: ARROW_SIZE,
+        background: 'linear-gradient(135deg, transparent 50%, #1a0a0a 50%)',
+        borderRight: '1px solid rgba(127, 29, 29, 0.3)',
+        borderBottom: '1px solid rgba(127, 29, 29, 0.3)',
+      };
+    } else {
+      // Tooltip снизу — стрелка сверху указывает вверх
+      return {
+        position: 'absolute',
+        top: -ARROW_SIZE + 2,
+        left: arrowLeft,
+        transform: 'translateX(-50%) rotate(-135deg)',
+        width: ARROW_SIZE,
+        height: ARROW_SIZE,
+        background: 'linear-gradient(135deg, transparent 50%, #1a0a0a 50%)',
+        borderRight: '1px solid rgba(127, 29, 29, 0.3)',
+        borderBottom: '1px solid rgba(127, 29, 29, 0.3)',
+      };
     }
   };
+
+  const arrowStyle = getArrowStyle();
 
   return (
     <AnimatePresence>
@@ -170,7 +266,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
               y="0"
               width="100%"
               height="100%"
-              fill="rgba(0, 0, 0, 0.85)"
+              fill="rgba(0, 0, 0, 0.9)"
               mask="url(#spotlight-mask)"
             />
           </svg>
@@ -195,13 +291,13 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 
           {/* Tooltip */}
           <motion.div
+            ref={tooltipRef}
             key={step.id}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="absolute w-[320px] max-w-[calc(100vw-32px)]"
-            style={getTooltipPosition()}
+            style={getTooltipStyle()}
           >
             {/* Card */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a0a0a] via-[#1a1a2e] to-[#0a0a12] border border-red-900/30 shadow-2xl">
@@ -219,7 +315,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
               </div>
 
               {/* Content */}
-              <div className="p-5">
+              <div className="p-4">
                 {/* Step indicator */}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[10px] font-bold text-red-500/80 uppercase tracking-wider">
@@ -242,22 +338,24 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-[17px] font-black text-white mb-3 leading-tight">
+                <h3 className="text-[15px] font-black text-white mb-2 leading-tight">
                   {step.title}
                 </h3>
 
-                {/* Content */}
-                <p className="text-[13px] text-white/70 leading-relaxed whitespace-pre-line">
-                  {step.content}
-                </p>
+                {/* Content with scroll if needed */}
+                <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-red-900/50 scrollbar-track-transparent pr-1">
+                  <p className="text-[11px] text-white/70 leading-relaxed whitespace-pre-line">
+                    {step.content}
+                  </p>
+                </div>
 
                 {/* Buttons */}
-                <div className="flex items-center gap-2 mt-5">
+                <div className="flex items-center gap-2 mt-4">
                   {!isFirst && (
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={handlePrev}
-                      className="flex-1 h-11 rounded-xl bg-white/10 border border-white/10 text-white/70 text-[13px] font-semibold hover:bg-white/15 transition-colors"
+                      className="flex-1 h-10 rounded-xl bg-white/10 border border-white/10 text-white/70 text-[12px] font-semibold hover:bg-white/15 transition-colors"
                     >
                       ← Назад
                     </motion.button>
@@ -266,7 +364,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={handleNext}
-                    className="flex-1 h-11 rounded-xl bg-gradient-to-r from-red-700 to-red-600 text-white text-[13px] font-bold shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500 transition-colors"
+                    className="flex-1 h-10 rounded-xl bg-gradient-to-r from-red-700 to-red-600 text-white text-[12px] font-bold shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-500 transition-colors"
                   >
                     {isLast ? 'Погнали! 🔪' : 'Далее →'}
                   </motion.button>
@@ -276,31 +374,16 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
                 {!isLast && (
                   <button
                     onClick={handleSkip}
-                    className="w-full mt-3 text-center text-[11px] text-white/40 hover:text-white/60 transition-colors"
+                    className="w-full mt-2 text-center text-[10px] text-white/40 hover:text-white/60 transition-colors py-1"
                   >
                     Пропустить обучение
                   </button>
                 )}
               </div>
-
-              {/* Decorative skull watermark */}
-              <div className="absolute -bottom-4 -right-4 text-6xl opacity-5 pointer-events-none select-none">
-                💀
-              </div>
             </div>
 
             {/* Arrow pointer */}
-            {targetRect && step.spotlight && step.position !== 'center' && (
-              <div
-                className="absolute w-4 h-4 bg-[#1a0a0a] border-l border-t border-red-900/30 rotate-45"
-                style={{
-                  ...(step.position === 'bottom' && { top: -8, left: '50%', marginLeft: -8 }),
-                  ...(step.position === 'top' && { bottom: -8, left: '50%', marginLeft: -8, transform: 'rotate(-135deg)' }),
-                  ...(step.position === 'left' && { right: -8, top: '50%', marginTop: -8, transform: 'rotate(135deg)' }),
-                  ...(step.position === 'right' && { left: -8, top: '50%', marginTop: -8, transform: 'rotate(-45deg)' }),
-                }}
-              />
-            )}
+            {arrowStyle && <div style={arrowStyle} />}
           </motion.div>
         </motion.div>
       )}
@@ -309,4 +392,3 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 }
 
 export default GuidedTour;
-

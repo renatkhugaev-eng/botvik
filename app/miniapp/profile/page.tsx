@@ -20,6 +20,7 @@ import {
   LazyRecentOpponents, 
   LazyProfileEditor 
 } from "@/components/lazy";
+import { resetTour } from "@/components/onboarding/tourSteps";
 
 // Profile 2.0 Components
 import { 
@@ -1699,6 +1700,39 @@ export default function ProfilePage() {
               enabled={notifySettings.notifyFriends}
               onChange={(v) => updateNotifySetting("notifyFriends", v)}
             />
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Help & Tutorial Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.58 }}
+      >
+        <Card className="overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+          <div className="h-1.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg">
+                <span className="text-lg">❓</span>
+              </div>
+              <span className="font-bold">Помощь</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full h-12 rounded-xl border-2 font-semibold hover:bg-cyan-50 hover:border-cyan-300 transition-all"
+              onClick={() => {
+                haptic.medium();
+                resetTour();
+                router.push("/miniapp");
+              }}
+            >
+              <span className="text-xl mr-2">🎓</span>
+              Пройти обучение заново
+            </Button>
           </CardContent>
         </Card>
       </motion.div>
