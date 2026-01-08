@@ -1708,6 +1708,61 @@ function QuizView({ quizzes, loading, error, startingId, startError, countdowns,
       </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────
+          INVESTIGATIONS — расследования (inkjs) — Красный Лес
+      ───────────────────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, type: "spring", stiffness: 300 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          haptic.medium();
+          router.push("/miniapp/investigation");
+        }}
+        className="relative cursor-pointer"
+      >
+        {/* Glassmorphism card with glow effect */}
+        <div 
+          className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#1a0a0a]/98 to-[#2e1a1a]/98 p-1"
+          style={{
+            boxShadow: '0 8px 32px rgba(220, 38, 38, 0.2), 0 0 40px rgba(220, 38, 38, 0.1)',
+          }}
+        >
+          {/* Animated border glow */}
+          <div className="absolute inset-0 rounded-[20px] bg-gradient-to-r from-red-500/25 via-rose-500/20 to-red-500/25 opacity-70" />
+          
+          {/* Inner content */}
+          <div className="relative flex items-center gap-4 p-4 rounded-[16px]">
+            {/* Icon with glow */}
+            <div className="relative flex-shrink-0">
+              <div className="absolute inset-0 rounded-xl bg-red-500/30 blur-sm" />
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-rose-700">
+                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-[15px] font-bold text-white">Красный Лес</p>
+                <span className="px-1.5 py-0.5 text-[8px] font-bold bg-red-500/20 text-red-400 rounded uppercase tracking-wide">Новое</span>
+              </div>
+              <p className="text-[12px] text-white/50">Интерактивное расследование • 7 концовок</p>
+            </div>
+            
+            {/* Arrow */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5">
+              <svg className="h-4 w-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ─────────────────────────────────────────────────────────────────
           PANORAMA MISSIONS — кликабельный блок ведёт на /miniapp/panorama
       ───────────────────────────────────────────────────────────────── */}
       <motion.div

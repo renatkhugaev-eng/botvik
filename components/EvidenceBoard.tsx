@@ -400,10 +400,19 @@ function ListView({
   onEvidenceClick: (id: string) => void;
   onEvidenceLongPress: (evidence: Evidence) => void;
 }) {
+  // Используем ref для таймера чтобы избежать утечек
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+  
   return (
     <div className="space-y-2">
       {state.evidence.map((evidence) => {
-        let longPressTimer: ReturnType<typeof setTimeout> | null = null;
         return (
           <motion.div
             key={evidence.id}
@@ -415,16 +424,13 @@ function ListView({
               className="bg-white/5 rounded-xl p-4 border border-white/10 cursor-pointer"
               onClick={() => onEvidenceClick(evidence.id)}
               onPointerDown={() => {
-                longPressTimer = setTimeout(() => {
+                clearLongPressTimer();
+                longPressTimerRef.current = setTimeout(() => {
                   onEvidenceLongPress(evidence);
                 }, 500);
               }}
-              onPointerUp={() => {
-                if (longPressTimer) clearTimeout(longPressTimer);
-              }}
-              onPointerLeave={() => {
-                if (longPressTimer) clearTimeout(longPressTimer);
-              }}
+              onPointerUp={clearLongPressTimer}
+              onPointerLeave={clearLongPressTimer}
             >
               <div className="flex items-start gap-3">
                 <div className="text-2xl">{evidence.icon}</div>

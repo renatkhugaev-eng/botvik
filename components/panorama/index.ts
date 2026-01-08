@@ -36,7 +36,5 @@ export { ClueDiscoveryModal } from "./ClueDiscoveryModal";
 export { ClueRadar } from "./ClueRadar";
 export { MapillaryPanorama } from "./MapillaryPanorama";
 export type { MapillaryPanoramaRef } from "./MapillaryPanorama";
-export { YandexPanorama } from "./YandexPanorama";
-export type { YandexPanoramaRef } from "./YandexPanorama";
 export { PanoramaClue, ClueOverlay } from "./PanoramaClue";
 

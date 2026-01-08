@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * PANORAMA MISSION TYPES
- * Типы для панорамных расследований с Yandex Maps
+ * Типы для панорамных расследований с Google Street View
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -194,40 +194,6 @@ export type PanoramaMissionProgress = {
   /** Заработано XP */
   earnedXp?: number;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// YANDEX PANORAMA PLAYER TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** Интерфейс Yandex Panorama Player (упрощённый) */
-export interface YandexPanoramaPlayer {
-  /** Получить текущее направление камеры [yaw, pitch] */
-  getDirection(): CameraDirection;
-  
-  /** Установить направление камеры */
-  setDirection(direction: CameraDirection): void;
-  
-  /** Получить текущий уровень зума */
-  getSpan(): number;
-  
-  /** Установить уровень зума */
-  setSpan(span: number): void;
-  
-  /** Получить текущую панораму */
-  getPanorama(): unknown;
-  
-  /** Переключиться на другую панораму */
-  setPanorama(panorama: unknown): void;
-  
-  /** Уничтожить плеер */
-  destroy(): void;
-  
-  /** События */
-  events: {
-    add(event: string, callback: () => void): void;
-    remove(event: string, callback: () => void): void;
-  };
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EPISODE CONTENT TYPE (для интеграции с Investigation)
