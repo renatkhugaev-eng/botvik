@@ -15,6 +15,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [isReady, setIsReady] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState(0);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const step = TOUR_STEPS[currentStep];
@@ -27,6 +28,25 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
   const TOOLTIP_HEIGHT = 350;
   const NAV_HEIGHT = 100;
   const GAP = 20;
+
+  // Отслеживаем реальную высоту viewport (для Android)
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      // Используем visualViewport для точной высоты на мобильных
+      const vh = window.visualViewport?.height || window.innerHeight;
+      setViewportHeight(vh);
+    };
+    
+    updateViewportHeight();
+    
+    window.addEventListener('resize', updateViewportHeight);
+    window.visualViewport?.addEventListener('resize', updateViewportHeight);
+    
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight);
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+    };
+  }, []);
 
   // Получить элемент текущего шага
   const getTargetElement = useCallback(() => {
@@ -47,13 +67,43 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     }
   }, [getTargetElement]);
 
+  // Кроссплатформенный скролл к элементу
+  const smoothScrollTo = useCallback((targetY: number, callback?: () => void) => {
+    const startY = window.scrollY;
+    const diff = targetY - startY;
+    const duration = 400;
+    let startTime: number | null = null;
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      
+      // Easing function
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      
+      window.scrollTo(0, startY + diff * eased);
+      
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        callback?.();
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, []);
+
   // Проскроллить к элементу и показать tooltip
   const scrollAndShow = useCallback(() => {
     setIsReady(false);
     
-    // Для центральных шагов (welcome/finish) — сразу показываем
+    // Для центральных шагов (welcome/finish) — скроллим вверх и показываем
     if (!step?.spotlight || step.position === 'center') {
-      setTimeout(() => setIsReady(true), 100);
+      smoothScrollTo(0, () => {
+        setTimeout(() => setIsReady(true), 100);
+      });
       return;
     }
 
@@ -71,23 +121,27 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     
     if (isBottomElement) {
       // Для навигации: скроллим в самый низ страницы
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      smoothScrollTo(maxScroll, () => {
+        setTimeout(() => {
+          updateRect();
+          setIsReady(true);
+        }, 100);
+      });
     } else {
-      // Для всех остальных: скроллим элемент к началу экрана
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Для всех остальных: вычисляем позицию для скролла
+      const elRect = el.getBoundingClientRect();
+      const currentScroll = window.scrollY;
+      const targetScroll = currentScroll + elRect.top - 80; // 80px отступ сверху
       
-      // Дополнительный отступ сверху
-      setTimeout(() => {
-        window.scrollBy({ top: -100, behavior: 'smooth' });
-      }, 150);
+      smoothScrollTo(Math.max(0, targetScroll), () => {
+        setTimeout(() => {
+          updateRect();
+          setIsReady(true);
+        }, 100);
+      });
     }
-
-    // Ждём завершения скролла
-    setTimeout(() => {
-      updateRect();
-      setIsReady(true);
-    }, 600);
-  }, [step, getTargetElement, updateRect]);
+  }, [step, getTargetElement, updateRect, smoothScrollTo]);
 
   // При смене шага — скроллим
   useEffect(() => {
@@ -139,18 +193,20 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 
   // Вычисляем позицию tooltip
   const getTooltipPosition = () => {
+    // Используем отслеживаемую высоту или fallback
+    const vh = viewportHeight || window.visualViewport?.height || window.innerHeight;
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
     const tooltipWidth = Math.min(320, vw - PADDING * 2);
 
     // Центральный tooltip (welcome/finish) — проверяем ДО targetRect
     if (step.position === 'center') {
       // Центрируем с учётом навигации внизу
-      const safeHeight = vh - NAV_HEIGHT - 40;
+      const safeHeight = vh - NAV_HEIGHT;
       const centerY = safeHeight / 2;
+      const tooltipEstimatedHeight = 280; // Примерная высота tooltip
       
       return {
-        top: Math.max(PADDING, centerY - 180), // Примерно половина высоты tooltip
+        top: Math.max(PADDING, centerY - tooltipEstimatedHeight / 2),
         left: Math.max(PADDING, (vw - tooltipWidth) / 2),
         width: tooltipWidth,
         position: 'center' as const,
@@ -159,11 +215,12 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     
     // Если нет targetRect — тоже центрируем
     if (!targetRect) {
-      const safeHeight = vh - NAV_HEIGHT - 40;
+      const safeHeight = vh - NAV_HEIGHT;
       const centerY = safeHeight / 2;
+      const tooltipEstimatedHeight = 280;
       
       return {
-        top: Math.max(PADDING, centerY - 180),
+        top: Math.max(PADDING, centerY - tooltipEstimatedHeight / 2),
         left: Math.max(PADDING, (vw - tooltipWidth) / 2),
         width: tooltipWidth,
         position: 'center' as const,
@@ -251,9 +308,10 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[9999]"
+          style={{ height: viewportHeight || '100vh' }}
         >
           {/* Затемнение с вырезом */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ height: viewportHeight || '100%' }}>
             <defs>
               <mask id="tour-mask">
                 <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -314,6 +372,7 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
               width: tooltipPos.width,
               maxHeight: tooltipPos.maxHeight,
               overflow: tooltipPos.maxHeight ? 'auto' : undefined,
+              WebkitOverflowScrolling: 'touch',
             }}
           >
             <div className="relative rounded-2xl bg-gradient-to-br from-[#1a0a0a] via-[#1a1a2e] to-[#0a0a12] border border-red-900/40 shadow-2xl overflow-hidden">
