@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TOUR_STEPS, markTourCompleted } from "./tourSteps";
 import { haptic } from "@/lib/haptic";
@@ -15,36 +15,47 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [isReady, setIsReady] = useState(false);
-  const [viewportHeight, setViewportHeight] = useState(0);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const tooltipRef = useRef<HTMLDivElement>(null);
+  
+  // Уникальный ID для SVG mask (избегаем конфликтов)
+  const maskId = useId();
 
   const step = TOUR_STEPS[currentStep];
   const isFirst = currentStep === 0;
   const isLast = currentStep === TOUR_STEPS.length - 1;
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
 
-  // Константы
-  const PADDING = 16;
-  const TOOLTIP_HEIGHT = 350;
-  const NAV_HEIGHT = 100;
-  const GAP = 20;
+  // Адаптивные константы
+  const PADDING = Math.max(12, Math.min(16, viewport.width * 0.04));
+  const NAV_HEIGHT = 90; // Высота нижней навигации + отступ
+  const GAP = 16;
+  const SAFE_AREA_TOP = 44; // iPhone notch
 
-  // Отслеживаем реальную высоту viewport (для Android)
+  // Отслеживаем размеры viewport (для всех устройств)
   useEffect(() => {
-    const updateViewportHeight = () => {
-      // Используем visualViewport для точной высоты на мобильных
-      const vh = window.visualViewport?.height || window.innerHeight;
-      setViewportHeight(vh);
+    const updateViewport = () => {
+      // visualViewport даёт точные размеры с учётом клавиатуры и UI браузера
+      const vv = window.visualViewport;
+      setViewport({
+        width: vv?.width || window.innerWidth,
+        height: vv?.height || window.innerHeight,
+      });
     };
     
-    updateViewportHeight();
+    updateViewport();
     
-    window.addEventListener('resize', updateViewportHeight);
-    window.visualViewport?.addEventListener('resize', updateViewportHeight);
+    // Слушаем все возможные изменения размера
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('orientationchange', updateViewport);
+    window.visualViewport?.addEventListener('resize', updateViewport);
+    window.visualViewport?.addEventListener('scroll', updateViewport);
     
     return () => {
-      window.removeEventListener('resize', updateViewportHeight);
-      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('orientationchange', updateViewport);
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('scroll', updateViewport);
     };
   }, []);
 
@@ -67,81 +78,81 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     }
   }, [getTargetElement]);
 
-  // Кроссплатформенный скролл к элементу
-  const smoothScrollTo = useCallback((targetY: number, callback?: () => void) => {
-    const startY = window.scrollY;
-    const diff = targetY - startY;
-    const duration = 400;
-    let startTime: number | null = null;
-
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      
-      // Easing function
-      const eased = progress < 0.5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-      
-      window.scrollTo(0, startY + diff * eased);
-      
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        callback?.();
-      }
-    };
-
-    requestAnimationFrame(step);
+  // Найти scroll-контейнер (в layout это div с overflow-y-auto)
+  const getScrollContainer = useCallback((): HTMLElement => {
+    // Ищем контейнер с overflow-y-auto внутри app-container
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer) {
+      const scrollable = appContainer.querySelector('[class*="overflow-y-auto"]') as HTMLElement;
+      if (scrollable) return scrollable;
+    }
+    // Fallback на documentElement
+    return document.documentElement;
   }, []);
 
   // Проскроллить к элементу и показать tooltip
   const scrollAndShow = useCallback(() => {
     setIsReady(false);
     
+    const scrollContainer = getScrollContainer();
+    
     // Для центральных шагов (welcome/finish) — скроллим вверх и показываем
     if (!step?.spotlight || step.position === 'center') {
-      smoothScrollTo(0, () => {
-        setTimeout(() => setIsReady(true), 100);
-      });
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => setIsReady(true), 400);
       return;
     }
 
-    const el = getTargetElement();
-    if (!el) {
-      // Элемент не найден — пропускаем шаг
-      setTimeout(() => {
-        setCurrentStep(prev => Math.min(prev + 1, TOUR_STEPS.length - 1));
-      }, 100);
-      return;
-    }
+    // Ждём немного чтобы DOM обновился
+    setTimeout(() => {
+      const el = getTargetElement();
+      if (!el) {
+        // Элемент не найден — пробуем ещё раз
+        setTimeout(() => {
+          const retryEl = getTargetElement();
+          if (retryEl) {
+            doScrollToElement(retryEl);
+          } else {
+            console.warn(`[Tour] Skipping step ${step.id}: element not found`);
+            setCurrentStep(prev => Math.min(prev + 1, TOUR_STEPS.length - 1));
+          }
+        }, 300);
+        return;
+      }
 
-    // Определяем: это элемент внизу экрана? (навигация)
-    const isBottomElement = step.id === 'navigation';
+      doScrollToElement(el);
+    }, 100);
     
-    if (isBottomElement) {
-      // Для навигации: скроллим в самый низ страницы
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      smoothScrollTo(maxScroll, () => {
-        setTimeout(() => {
-          updateRect();
-          setIsReady(true);
-        }, 100);
-      });
-    } else {
-      // Для всех остальных: вычисляем позицию для скролла
-      const elRect = el.getBoundingClientRect();
-      const currentScroll = window.scrollY;
-      const targetScroll = currentScroll + elRect.top - 80; // 80px отступ сверху
+    function doScrollToElement(el: HTMLElement) {
+      // Используем scrollIntoView — работает с любым scroll-контейнером!
+      const isNavigation = step?.id === 'navigation';
       
-      smoothScrollTo(Math.max(0, targetScroll), () => {
+      // scrollIntoView с block: 'start' или 'end' в зависимости от элемента
+      el.scrollIntoView({
+        behavior: 'smooth',
+        block: isNavigation ? 'end' : 'start',
+        inline: 'nearest'
+      });
+      
+      // После скролла корректируем позицию и показываем tooltip
+      setTimeout(() => {
+        // Для не-навигации делаем небольшую корректировку вверх
+        // чтобы было место для tooltip снизу
+        if (!isNavigation) {
+          const rect = el.getBoundingClientRect();
+          // Если элемент слишком близко к верху — корректируем
+          if (rect.top < 60) {
+            scrollContainer.scrollBy({ top: rect.top - 80, behavior: 'smooth' });
+          }
+        }
+        
         setTimeout(() => {
           updateRect();
           setIsReady(true);
         }, 100);
-      });
+      }, 400);
     }
-  }, [step, getTargetElement, updateRect, smoothScrollTo]);
+  }, [step, getTargetElement, updateRect, getScrollContainer]);
 
   // При смене шага — скроллим
   useEffect(() => {
@@ -193,34 +204,33 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 
   // Вычисляем позицию tooltip
   const getTooltipPosition = () => {
-    // Используем отслеживаемую высоту или fallback
-    const vh = viewportHeight || window.visualViewport?.height || window.innerHeight;
-    const vw = window.innerWidth;
-    const tooltipWidth = Math.min(320, vw - PADDING * 2);
+    const vh = viewport.height || window.innerHeight;
+    const vw = viewport.width || window.innerWidth;
+    
+    // Адаптивная ширина tooltip
+    const tooltipWidth = Math.min(320, Math.max(280, vw - PADDING * 2));
+    const tooltipEstimatedHeight = 300;
 
-    // Центральный tooltip (welcome/finish) — проверяем ДО targetRect
+    // Центральный tooltip (welcome/finish)
     if (step.position === 'center') {
-      // Центрируем с учётом навигации внизу
-      const safeHeight = vh - NAV_HEIGHT;
-      const centerY = safeHeight / 2;
-      const tooltipEstimatedHeight = 280; // Примерная высота tooltip
+      const safeHeight = vh - NAV_HEIGHT - SAFE_AREA_TOP;
+      const centerY = SAFE_AREA_TOP + safeHeight / 2;
       
       return {
-        top: Math.max(PADDING, centerY - tooltipEstimatedHeight / 2),
+        top: Math.max(SAFE_AREA_TOP + PADDING, centerY - tooltipEstimatedHeight / 2),
         left: Math.max(PADDING, (vw - tooltipWidth) / 2),
         width: tooltipWidth,
         position: 'center' as const,
       };
     }
     
-    // Если нет targetRect — тоже центрируем
+    // Если нет targetRect — центрируем
     if (!targetRect) {
-      const safeHeight = vh - NAV_HEIGHT;
-      const centerY = safeHeight / 2;
-      const tooltipEstimatedHeight = 280;
+      const safeHeight = vh - NAV_HEIGHT - SAFE_AREA_TOP;
+      const centerY = SAFE_AREA_TOP + safeHeight / 2;
       
       return {
-        top: Math.max(PADDING, centerY - tooltipEstimatedHeight / 2),
+        top: Math.max(SAFE_AREA_TOP + PADDING, centerY - tooltipEstimatedHeight / 2),
         left: Math.max(PADDING, (vw - tooltipWidth) / 2),
         width: tooltipWidth,
         position: 'center' as const,
@@ -231,18 +241,20 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     let left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
     left = Math.max(PADDING, Math.min(vw - tooltipWidth - PADDING, left));
 
-    // Для шага navigation или элементов внизу экрана — tooltip СВЕРХУ
-    const isNavigation = step.id === 'navigation';
-    const isBottomElement = targetRect.bottom > vh - NAV_HEIGHT - 100 || isNavigation;
+    // Вычисляем доступное пространство сверху и снизу
+    const spaceAbove = targetRect.top - SAFE_AREA_TOP - GAP;
+    const spaceBelow = vh - targetRect.bottom - NAV_HEIGHT - GAP;
     
-    if (isBottomElement) {
-      // Tooltip сверху от элемента, не перекрывая его
-      const maxTop = targetRect.top - GAP - 10; // Нижняя граница tooltip
-      let top = maxTop - TOOLTIP_HEIGHT;
-      if (top < PADDING) top = PADDING;
-      
-      // Ограничиваем высоту чтобы не залезать на элемент
-      const maxHeight = maxTop - top;
+    // Для навигации или если мало места снизу — tooltip СВЕРХУ
+    const isNavigation = step.id === 'navigation';
+    const preferAbove = isNavigation || spaceBelow < 200 || targetRect.bottom > vh - NAV_HEIGHT - 120;
+    
+    if (preferAbove && spaceAbove > 150) {
+      // Tooltip сверху от элемента
+      // Для навигации — больше отступ чтобы не перекрывать кнопки
+      const extraGap = isNavigation ? 120 : 0;
+      const maxHeight = Math.min(spaceAbove - PADDING - extraGap, 380);
+      const top = Math.max(SAFE_AREA_TOP + PADDING, targetRect.top - GAP - extraGap - Math.min(maxHeight, tooltipEstimatedHeight));
       
       return {
         top,
@@ -255,11 +267,27 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
 
     // Tooltip снизу от элемента
     const top = targetRect.bottom + GAP;
+    const maxHeight = Math.min(vh - top - NAV_HEIGHT - PADDING, 400);
+    
+    // Проверка что tooltip не вылезет за экран снизу
+    if (maxHeight < 150) {
+      // Мало места — центрируем
+      const safeHeight = vh - NAV_HEIGHT - SAFE_AREA_TOP;
+      const centerY = SAFE_AREA_TOP + safeHeight / 2;
+      
+      return {
+        top: Math.max(SAFE_AREA_TOP + PADDING, centerY - tooltipEstimatedHeight / 2),
+        left: Math.max(PADDING, (vw - tooltipWidth) / 2),
+        width: tooltipWidth,
+        position: 'center' as const,
+      };
+    }
     
     return {
       top,
       left,
       width: tooltipWidth,
+      maxHeight,
       position: 'below' as const,
     };
   };
@@ -300,6 +328,9 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
     };
   };
 
+  const vh = viewport.height || '100vh';
+  const vw = viewport.width || '100vw';
+
   return (
     <AnimatePresence>
       {isVisible && isReady && (
@@ -308,12 +339,22 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[9999]"
-          style={{ height: viewportHeight || '100vh' }}
+          style={{ 
+            height: vh,
+            width: vw,
+            // Блокируем взаимодействие с фоном
+            touchAction: 'none',
+          }}
         >
           {/* Затемнение с вырезом */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ height: viewportHeight || '100%' }}>
+          <svg 
+            className="absolute inset-0 pointer-events-none" 
+            style={{ width: '100%', height: '100%' }}
+            viewBox={`0 0 ${viewport.width || window.innerWidth} ${viewport.height || window.innerHeight}`}
+            preserveAspectRatio="none"
+          >
             <defs>
-              <mask id="tour-mask">
+              <mask id={maskId}>
                 <rect x="0" y="0" width="100%" height="100%" fill="white" />
                 {targetRect && step.spotlight && (
                   <rect
@@ -330,8 +371,8 @@ export function GuidedTour({ onComplete, onSkip }: GuidedTourProps) {
             <rect
               x="0" y="0"
               width="100%" height="100%"
-              fill="rgba(0, 0, 0, 0.88)"
-              mask="url(#tour-mask)"
+              fill="rgba(0, 0, 0, 0.9)"
+              mask={`url(#${maskId})`}
             />
           </svg>
 
