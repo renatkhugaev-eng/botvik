@@ -159,6 +159,8 @@ VAR available_endings = 0
 ~ days_remaining = days_remaining - 1
 ~ current_day = current_day + 1
 ~ chapter = chapter + 1
+// ДОБАВЛЕНО: синхронизация evidence_collected с реальным количеством улик
+~ evidence_collected = count_all_clues()
 ~ return current_day
 
 
@@ -1743,15 +1745,12 @@ VAR available_endings = 0
 
 Ещё не поздно. Куда дальше?
 
-{ not (MetCharacters ? tanya):
-    * [На завод — к Тане]
-        -> ep1_meet_tanya_short
-}
+// ИСПРАВЛЕНО: choices вынесены из условий для корректной работы Ink
+* { not (MetCharacters ? tanya) } [На завод — к Тане]
+    -> ep1_meet_tanya_short
 
-{ not (MetCharacters ? serafim):
-    * [К Серафиму]
-        -> ep1_meet_serafim_short
-}
+* { not (MetCharacters ? serafim) } [К Серафиму]
+    -> ep1_meet_serafim_short
 
 * [Хватит на сегодня]
     -> ep1_day_continue
@@ -1851,9 +1850,15 @@ VAR available_endings = 0
     
     — После исчезновения я искала. Ничего. Но... — Она достаёт потрёпанную книжку. — Это из его шкафчика здесь.
     
-    ~ CluesB += echo_docs
-    ~ KeyEvents += found_notebook
-    ~ evidence_collected = evidence_collected + 2
+    // ИСПРАВЛЕНО: добавлена защита от дублирования улики
+    { not (CluesB ? echo_docs):
+        ~ CluesB += echo_docs
+        ~ evidence_collected = evidence_collected + 1
+    }
+    { not (KeyEvents ? found_notebook):
+        ~ KeyEvents += found_notebook
+        ~ evidence_collected = evidence_collected + 1
+    }
     
     # clue
     Улика найдена: записная книжка Зорина
@@ -1899,13 +1904,29 @@ VAR available_endings = 0
     -> ep1_tanya_end
 
 * [Кто такой Чернов?]
-    — Академик Чернов. — Таня морщится. — Раньше на заводе. Исчез пару лет назад. Как папа.
+    — Академик Чернов. — Таня морщится. — Раньше работал на заводе. Главный по секретному отделу.
     
-    ~ CluesC += chernov_diary
-    ~ evidence_collected = evidence_collected + 1
+    — Что за секретный отдел?
     
-    # clue
-    Улика найдена: информация о Чернове
+    — Папа говорил — что-то связанное с пещерами под заводом. Чернов руководил какими-то экспериментами. "Проект Эхо", кажется.
+    
+    — Исчез?
+    
+    — Официально — уехал в Москву. Но папа говорил — он никуда не уехал. Он ТАМ. Под землёй. Руководит... чем-то.
+    
+    Таня вздрагивает.
+    
+    — Папа боялся его. Очень боялся.
+    
+    // ИСПРАВЛЕНО: добавлена защита от дублирования
+    { not (CluesC ? chernov_diary):
+        ~ CluesC += chernov_diary
+        ~ evidence_collected = evidence_collected + 1
+        ~ cult_awareness = cult_awareness + 2
+    
+        # clue
+        Улика найдена: информация о Чернове — лидере Проекта "Эхо"
+    }
     
     -> ep1_tanya_end
 
@@ -2138,13 +2159,24 @@ VAR available_endings = 0
 
 Площадь. Памятник Ленину. Девять вечера.
 
-Таня уже здесь. В тени.
+Таня уже здесь. В тени. Её дыхание — белым паром в холодном воздухе.
+
+Когда она видит вас — что-то меняется в её лице. Напряжение? Облегчение?
+
+— Вы пришли. — Она делает шаг навстречу. — Я не была уверена...
+
+— Я обещал.
+
+Она смотрит на вас. Долго. В её глазах — благодарность. И что-то ещё — глубже.
 
 — Папа оставил мне кое-что. Сказал — передать тому, кто будет искать по-настоящему.
 
 Из-под пальто — конверт.
 
 — Фотографии. Я боюсь смотреть.
+
+// ДОБАВЛЕНО: укрепление связи при встрече
+~ trust_tanya = trust_tanya + 5
 
 ~ KeyEvents += found_photos
 ~ CluesC += ritual_photos
@@ -2996,11 +3028,20 @@ VAR available_endings = 0
 
 — Я могу помочь. Показать путь. Но...
 
+// ИСПРАВЛЕНО: устанавливаем оба флага при согласии Фёдора помочь
+// fyodor_ally — факт союзничества (в KeyEvents)
+// trusted_fyodor — уровень доверия (в Relationships)
+
 * [Что взамен?]
     — Обещайте. Если я не вернусь... сожгите сторожку. Всё.
     
-    ~ Relationships += trusted_fyodor
-    ~ KeyEvents += fyodor_ally
+    // ИСПРАВЛЕНО: оба флага устанавливаются вместе для консистентности
+    { not (KeyEvents ? fyodor_ally):
+        ~ KeyEvents += fyodor_ally
+    }
+    { not (Relationships ? trusted_fyodor):
+        ~ Relationships += trusted_fyodor
+    }
     
     — Обещаю.
     
@@ -3009,8 +3050,13 @@ VAR available_endings = 0
 * [Это опасно]
     — Я знаю. Двадцать лет я прячусь. Хватит.
     
-    ~ Relationships += trusted_fyodor
-    ~ KeyEvents += fyodor_ally
+    // ИСПРАВЛЕНО: оба флага устанавливаются вместе для консистентности
+    { not (KeyEvents ? fyodor_ally):
+        ~ KeyEvents += fyodor_ally
+    }
+    { not (Relationships ? trusted_fyodor):
+        ~ Relationships += trusted_fyodor
+    }
     
     -> ep2_fyodor_end
 
@@ -3474,21 +3520,15 @@ VAR available_endings = 0
 * [Идти дальше]
     -> episode3_caves
 
-* [Вернуться и позвать кого-то]
-    { MetCharacters ? tanya:
-        Таня могла бы помочь. Она знает завод.
-        
-        * [Позвонить Тане]
-            -> ep3_call_tanya
-    }
-    
-    { KeyEvents ? fyodor_ally:
-        * [Вернуться к Фёдору]
-            -> episode3_fyodor_path
-    }
-    
-    * [Идти одному]
-        -> episode3_caves
+// ИСПРАВЛЕНО: вложенные choices вынесены в отдельные пункты с условиями
+* { MetCharacters ? tanya } [Позвонить Тане — она знает завод]
+    -> ep3_call_tanya
+
+* { KeyEvents ? fyodor_ally } [Вернуться к Фёдору — он знает тайный путь]
+    -> episode3_fyodor_path
+
+* [Идти одному дальше]
+    -> episode3_caves
 
 === ep3_call_tanya ===
 
@@ -3812,6 +3852,13 @@ VAR available_endings = 0
     # clue
     Улика найдена: член культа
 }
+
+// ДОБАВЛЕНО: укрепление связи с Таней после спасения
+Таня смотрит на вас. В её глазах — благодарность. И что-то ещё.
+
+— Вы... спасли мне жизнь.
+
+~ trust_tanya = trust_tanya + 10
 
 -> ep3_escape_together
 
@@ -4649,7 +4696,7 @@ VAR available_endings = 0
 
 — Таня. Завтра — всё решится.
 
-Пауза.
+Пауза. Вы слышите её дыхание в трубке.
 
 — Я знаю. — Её голос тихий. — Папа там, да?
 
@@ -4659,7 +4706,7 @@ VAR available_endings = 0
 
 — Это опасно.
 
-— Мне всё равно.
+— Виктор... — Она замолкает. Впервые назвала вас по имени. — Мне всё равно. Я хочу быть рядом. С вами.
 
 ~ trust_tanya = trust_tanya + 15
 
@@ -4667,6 +4714,23 @@ VAR available_endings = 0
     — Хорошо. Но делай, что скажу.
     
     — Обещаю.
+    
+    Пауза.
+    
+    — Виктор?
+    
+    — Да?
+    
+    — Спасибо. За всё.
+    
+    // ДОБАВЛЕНО: возможность романтики через телефонный разговор
+    { trust_tanya >= 65:
+        Что-то в её голосе... В этих словах.
+        
+        Вы понимаете — между вами есть связь. Глубже, чем просто расследование.
+        
+        ~ Relationships += romantic_tanya
+    }
     
     -> episode4_afternoon
 
@@ -4839,7 +4903,16 @@ VAR available_endings = 0
         
         — Я знаю.
         
-        ~ Relationships += romantic_tanya
+        Она придвигается ближе. Её плечо касается вашего.
+        
+        — Виктор... — Её голос — шёпот. — Что бы ни случилось завтра...
+        
+        Она не заканчивает. Но вы понимаете.
+        
+        // ИСПРАВЛЕНО: защита от дублирования флага романтики
+        { not (Relationships ? romantic_tanya):
+            ~ Relationships += romantic_tanya
+        }
         ~ gain_sanity(5)
         
         -> ep4_night
@@ -5401,8 +5474,9 @@ VAR available_endings = 0
     ~ available_endings = available_endings + 1
 }
 
-// Жертва: низкий рассудок ИЛИ очень высокая осведомлённость
-{ sanity < 40 || cult_awareness >= 15:
+// Жертва: низкий рассудок ИЛИ (высокая осведомлённость И средний рассудок)
+// ИСПРАВЛЕНО: добавлено условие на рассудок при высокой осведомлённости
+{ sanity < 40 || (cult_awareness >= 15 && sanity < 60):
     ~ available_endings = available_endings + 1
 }
 
