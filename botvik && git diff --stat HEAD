@@ -1,0 +1,10 @@
+warning: in the working copy of 'vercel.json', LF will be replaced by CRLF the next time Git touches it
+ app/api/auth/telegram/route.ts          |  40 [32m++++[m[31m-----[m
+ app/api/quiz/[id]/finish/route.ts       | 142 [32m++++++++++++++++[m[31m----------------[m
+ app/api/quiz/[id]/start/route.ts        | 127 [32m+++++++++++++++[m[31m-------------[m
+ app/miniapp/panorama/[id]/page.tsx      |  15 [32m++[m[31m--[m
+ components/panorama/PanoramaMission.tsx |   4 [31m-[m
+ components/panorama/YandexPanorama.tsx  |   7 [32m+[m[31m-[m
+ lib/admin-auth.ts                       |  14 [32m+++[m[31m-[m
+ vercel.json                             |   2 [32m+[m[31m-[m
+ 8 files changed, 185 insertions(+), 166 deletions(-)

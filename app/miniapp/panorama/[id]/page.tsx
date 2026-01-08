@@ -13,11 +13,13 @@ import { HiddenClueMission } from "@/components/panorama";
 import type { HiddenClueMission as MissionType } from "@/types/hidden-clue";
 import { haptic } from "@/lib/haptic";
 import { api, fetchWithAuth } from "@/lib/api";
+import { useNotify } from "@/components/InAppNotification";
 
 export default function PanoramaMissionPage() {
   const router = useRouter();
   const params = useParams();
   const missionId = params.id as string;
+  const notify = useNotify();
   
   const [mission, setMission] = useState<MissionType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,17 +76,16 @@ export default function PanoramaMissionPage() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log("[Panorama] Mission completed:", data);
         
-        if (data.levelUp) {
+        // Показываем уведомление о повышении уровня
+        if (data.levelUp && data.newLevel) {
           haptic.success();
-          // TODO: показать анимацию level up
+          notify.levelUp(data.newLevel, data.newTitle);
         }
-      } else {
-        console.error("[Panorama] Failed to save progress:", await response.text());
       }
-    } catch (error) {
-      console.error("[Panorama] Error saving progress:", error);
+    } catch (err) {
+      // Ошибка сохранения не критична - миссия всё равно завершена
+      console.error("[Panorama] Error saving progress:", err);
     }
     
     haptic.success();

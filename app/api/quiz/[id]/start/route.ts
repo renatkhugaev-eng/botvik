@@ -109,40 +109,50 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       if (questionStartedAt) {
         const elapsedMs = now.getTime() - questionStartedAt.getTime();
         
-        // Обрабатываем ВСЕ пропущенные вопросы в цикле
-        while (elapsedMs >= QUESTION_TIME_MS && currentIndex < questions.length) {
-          const currentQuestion = questions[currentIndex];
-          
-          const existingAnswer = await prisma.answer.findUnique({
-            where: { sessionId_questionId: { sessionId: existingSession.id, questionId: currentQuestion.id } },
-            select: { id: true },
+        // ═══ OPTIMIZED: Batch check for existing answers (fixes N+1) ═══
+        // Определяем какие вопросы потенциально пропущены
+        const potentiallyTimedOutQuestions = questions
+          .slice(currentIndex)
+          .filter((_, idx) => {
+            const questionElapsed = elapsedMs - (idx * QUESTION_TIME_MS);
+            return questionElapsed >= QUESTION_TIME_MS;
           });
-
-          if (existingAnswer) {
-            // Уже отвечен — пропускаем
-            currentIndex++;
-            continue;
-          }
-
-          // Записываем timeout
-          await prisma.answer.create({
-            data: {
+        
+        if (potentiallyTimedOutQuestions.length > 0) {
+          // Batch запрос: получаем ВСЕ существующие ответы за один запрос
+          const existingAnswers = await prisma.answer.findMany({
+            where: {
               sessionId: existingSession.id,
-              questionId: currentQuestion.id,
-              optionId: null,
-              isCorrect: false,
-              timeSpentMs: QUESTION_TIME_MS,
-              scoreDelta: 0,
+              questionId: { in: potentiallyTimedOutQuestions.map(q => q.id) },
             },
+            select: { questionId: true },
           });
+          const answeredQuestionIds = new Set(existingAnswers.map(a => a.questionId));
           
-          currentIndex++;
-          currentStreak = 0;
-          skippedQuestions++;
+          // Фильтруем вопросы без ответов для batch создания
+          const questionsToTimeout = potentiallyTimedOutQuestions
+            .filter(q => !answeredQuestionIds.has(q.id));
           
-          // Пересчитываем время для следующего вопроса
-          const newElapsed = now.getTime() - (questionStartedAt.getTime() + skippedQuestions * QUESTION_TIME_MS);
-          if (newElapsed < QUESTION_TIME_MS) break;
+          if (questionsToTimeout.length > 0) {
+            // Batch создание timeout ответов
+            await prisma.answer.createMany({
+              data: questionsToTimeout.map(q => ({
+                sessionId: existingSession.id,
+                questionId: q.id,
+                optionId: null,
+                isCorrect: false,
+                timeSpentMs: QUESTION_TIME_MS,
+                scoreDelta: 0,
+              })),
+              skipDuplicates: true, // На случай race condition
+            });
+            
+            skippedQuestions = questionsToTimeout.length;
+            currentStreak = 0;
+          }
+          
+          // Обновляем индекс на основе всех пропущенных (отвеченных + timeout)
+          currentIndex += potentiallyTimedOutQuestions.length;
         }
         
         // Обновляем сессию после обработки всех timeout'ов
@@ -156,6 +166,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             },
           });
           questionStartedAt = null;
+          
+          log.info("Processed timed out questions", { 
+            sessionId: existingSession.id, 
+            skippedQuestions,
+            newIndex: currentIndex,
+          });
         }
       }
       // Если questionStartedAt = null, НЕ устанавливаем его здесь
@@ -203,7 +219,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   // ═══ NEW SESSION — Check energy and create ═══
-  console.log(`[quiz/start] 📝 Creating NEW SESSION for quiz ${quizId}, user ${userId}`);
+  log.info("Creating new session", { quizId, userId });
   
   // ═══════════════════════════════════════════════════════════════════════════
   // TOURNAMENT QUIZ DETECTION (with race condition handling)
@@ -254,13 +270,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   let isTournamentQuiz = false;
   let tournamentDebugInfo: Record<string, unknown> = {};
   
-  console.log(`[quiz/start] 🔍 Tournament stage query result:`, activeTournamentStage ? {
+  log.debug("Tournament stage query", activeTournamentStage ? {
     stageId: activeTournamentStage.id,
     stageOrder: activeTournamentStage.order,
     tournamentId: activeTournamentStage.tournamentId,
     tournamentStatus: activeTournamentStage.tournament?.status,
     participantCount: activeTournamentStage.tournament?.participants?.length ?? 0,
-  } : "NO STAGE FOUND");
+  } : { found: false });
   
   if (activeTournamentStage) {
     const tournament = activeTournamentStage.tournament;
@@ -300,16 +316,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         
         if (!previousStagesPassed) {
           const missingStages = previousStages.filter(s => !completedStageIds.has(s.id));
-          console.log(
-            `[quiz/start] ⚠️ User ${userId} hasn't COMPLETED previous stages for stage ${activeTournamentStage.order}. ` +
-            `Missing: ${missingStages.map(s => `${s.order}. ${s.title}`).join(", ")}. ` +
-            `Completed results: ${JSON.stringify(previousResults)}`
-          );
+          log.warn("Previous tournament stages not completed", {
+            userId,
+            stageOrder: activeTournamentStage.order,
+            missing: missingStages.map(s => ({ order: s.order, title: s.title })),
+            completedResults: previousResults,
+          });
         } else {
-          // Все этапы завершены - логируем для диагностики
-          console.log(
-            `[quiz/start] ✅ User ${userId} completed all previous stages: ${JSON.stringify(previousResults)}`
-          );
+          log.debug("All previous stages completed", { userId, previousResults });
         }
       }
     }
@@ -333,10 +347,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     
     // Детальное логирование
     if (!isTournamentQuiz) {
-      console.log(
-        `[quiz/start] ❌ Quiz ${quizId} NOT counted as tournament quiz for user ${userId}:`,
-        JSON.stringify(tournamentDebugInfo, null, 2)
-      );
+      log.info("Quiz not counted as tournament", { quizId, userId, ...tournamentDebugInfo });
     }
   }
   
@@ -367,7 +378,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   // Energy check — пропускаем для турнирных квизов!
   // В турнирах энергия НЕ тратится
-  console.log(`[quiz/start] ⚡ Energy check: isTournamentQuiz=${isTournamentQuiz}, usedAttempts=${usedAttempts}/${MAX_ATTEMPTS}, bypassLimits=${bypassLimits}`);
+  log.debug("Energy check", { isTournamentQuiz, usedAttempts, maxAttempts: MAX_ATTEMPTS, bypassLimits });
   
   if (!bypassLimits && !isTournamentQuiz && usedAttempts >= MAX_ATTEMPTS) {
     // Проверяем есть ли бонусная энергия
@@ -381,7 +392,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         },
       });
       usedBonusEnergy = true;
-      console.log(`[quiz/start] User ${userId} used bonus energy (${bonusEnergy} → ${bonusEnergy - 1})`);
+      log.info("Used bonus energy", { userId, before: bonusEnergy, after: bonusEnergy - 1 });
     } else {
       // Нет ни обычной, ни бонусной энергии
       const oldestSession = recentSessions[0];
@@ -449,21 +460,25 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     
     // Планируем уведомление на время полного восстановления энергии
     scheduleEnergyNotification(userId, newestSessionStartedAt)
-      .catch(err => console.error("[quiz/start] Failed to schedule energy notification:", err));
+      .catch(err => log.error("Failed to schedule energy notification", { error: err, userId }));
   }
 
   // Логирование для турнирных квизов
   if (isTournamentQuiz) {
-    console.log(
-      `[quiz/start] 🏆 Tournament quiz! User ${userId} starting quiz ${quizId} ` +
-      `(tournament ${activeTournamentStage?.tournamentId}, stage ${activeTournamentStage?.order}/${activeTournamentStage?.tournament?.stages?.length ?? "?"}) ` +
-      `— energy NOT consumed. Debug:`, JSON.stringify(tournamentDebugInfo)
-    );
+    log.info("Tournament quiz started - energy NOT consumed", {
+      userId,
+      quizId,
+      tournamentId: activeTournamentStage?.tournamentId,
+      stageOrder: activeTournamentStage?.order,
+      totalStages: activeTournamentStage?.tournament?.stages?.length,
+    });
   } else if (activeTournamentStage) {
-    console.log(
-      `[quiz/start] ⚠️ User ${userId} playing quiz ${quizId} as REGULAR quiz ` +
-      `(tournament exists but conditions not met) — energy consumed. Debug:`, JSON.stringify(tournamentDebugInfo)
-    );
+    log.info("Quiz played as regular - energy consumed", {
+      userId,
+      quizId,
+      reason: "tournament conditions not met",
+      ...tournamentDebugInfo,
+    });
   }
 
   // ═══ PROFILE 2.0: Update "currently playing" status ═══

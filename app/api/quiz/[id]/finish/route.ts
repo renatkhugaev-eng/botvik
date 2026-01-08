@@ -29,8 +29,12 @@ import {
 import { updateChallengeProgress } from "@/lib/daily-challenges";
 import { DailyChallengeType } from "@prisma/client";
 import { invalidateLeaderboardCache } from "@/lib/leaderboard-cache";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+
+// Child logger with route context
+const log = logger.child({ route: "quiz/finish" });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TOURNAMENT INTEGRATION TYPES
@@ -127,7 +131,7 @@ async function notifyReferrerIfBeaten(
     newScore
   );
   
-  console.log(`[finish] Notified referrer ${user.referredById}: ${userName} beat their score`);
+  log.info("Notified referrer about beat score", { referrerId: user.referredById, userName });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -142,8 +146,7 @@ async function processTournamentStage(
   gameScore: number
 ): Promise<TournamentStageInfo | null> {
   const now = new Date();
-  console.log(`[processTournamentStage] ═══════════════════════════════════════`);
-  console.log(`[processTournamentStage] userId=${userId}, quizId=${quizId}, sessionId=${sessionId}, gameScore=${gameScore}, now=${now.toISOString()}`);
+  log.debug("Processing tournament stage", { userId, quizId, sessionId, gameScore });
   
   // ═══ 1. Находим турнирный этап с этим квизом ═══
   // ВАЖНО: Принимаем и ACTIVE и FINISHED турниры!
@@ -202,15 +205,13 @@ async function processTournamentStage(
     orderBy: { tournament: { startsAt: "asc" } },
   });
 
-  console.log(`[processTournamentStage] 🔍 activeStage query result:`, activeStage ? {
+  log.debug("Tournament activeStage query", activeStage ? {
     stageId: activeStage.id,
     stageOrder: activeStage.order,
     stageTitle: activeStage.title,
     tournamentId: activeStage.tournament?.id,
     tournamentStatus: activeStage.tournament?.status,
-    startsAt: activeStage.startsAt?.toISOString() ?? "null",
-    endsAt: activeStage.endsAt?.toISOString() ?? "null",
-  } : "NO ACTIVE STAGE");
+  } : { found: false });
 
   if (!activeStage) {
     // Детальная диагностика
@@ -254,21 +255,17 @@ async function processTournamentStage(
         };
       });
       
-      console.log(
-        `[tournament/finish] ❌ No active stage found for quiz ${quizId}, user ${userId}.\n` +
-        `  Tournament ID: ${debugStage.tournament.id}\n` +
-        `  Tournament Status: ${debugStage.tournament.status}\n` +
-        `  Tournament endsAt: ${debugStage.tournament.endsAt?.toISOString()}\n` +
-        `  User participation: ${debugStage.tournament.participants[0]?.status ?? "NOT_JOINED"}\n` +
-        `  User currentStage: ${debugStage.tournament.participants[0]?.currentStage ?? "N/A"}\n` +
-        `  Current stage order: ${debugStage.order}\n` +
-        `  Stage startsAt: ${debugStage.startsAt?.toISOString() ?? "null"}\n` +
-        `  Stage endsAt: ${debugStage.endsAt?.toISOString() ?? "null"}\n` +
-        `  Now: ${now.toISOString()}\n` +
-        `  Stages progress: ${JSON.stringify(stagesInfo, null, 2)}`
-      );
+      log.info("No active tournament stage found", {
+        quizId,
+        userId,
+        tournamentId: debugStage.tournament.id,
+        tournamentStatus: debugStage.tournament.status,
+        participantStatus: debugStage.tournament.participants[0]?.status ?? "NOT_JOINED",
+        stageOrder: debugStage.order,
+        stagesProgress: stagesInfo,
+      });
     } else {
-      console.log(`[tournament/finish] Quiz ${quizId} is not part of any tournament`);
+      log.debug("Quiz is not part of any tournament", { quizId });
     }
     
     return null;
@@ -284,19 +281,20 @@ async function processTournamentStage(
     });
     
     if (quizSession && quizSession.startedAt > activeStage.tournament.endsAt) {
-      console.log(
-        `[tournament/finish] Session ${sessionId} started AFTER tournament ended. ` +
-        `Session: ${quizSession.startedAt.toISOString()}, Tournament ended: ${activeStage.tournament.endsAt.toISOString()}`
-      );
+      log.warn("Session started after tournament ended - not counting", {
+        sessionId,
+        sessionStartedAt: quizSession.startedAt.toISOString(),
+        tournamentEndsAt: activeStage.tournament.endsAt.toISOString(),
+      });
       return null; // Не засчитываем — сессия начата после окончания турнира
     }
     
     // Логируем для отладки когда засчитываем FINISHED турнир
     if (activeStage.tournament.status === "FINISHED") {
-      console.log(
-        `[tournament/finish] ⚡ Race condition handled! Tournament ${activeStage.tournament.id} is FINISHED, ` +
-        `but session ${sessionId} was started before endsAt. Counting as tournament quiz.`
-      );
+      log.info("Race condition handled - counting finished tournament quiz", {
+        tournamentId: activeStage.tournament.id,
+        sessionId,
+      });
     }
   }
 
@@ -309,7 +307,7 @@ async function processTournamentStage(
 
   if (existingResult?.completedAt) {
     // Этап уже пройден — не обновляем (защита от переигрывания)
-    console.log(`[tournament] Stage ${activeStage.id} already completed by user ${userId}`);
+    log.info("Tournament stage already completed", { stageId: activeStage.id, userId });
     return null;
   }
 
@@ -337,20 +335,16 @@ async function processTournamentStage(
     
     if (!allPreviousCompleted) {
       const missingStages = previousStages.filter((s: { id: number }) => !completedStageIds.has(s.id));
-      console.log(
-        `[tournament/finish] ⚠️ User ${userId} hasn't COMPLETED previous stages for stage ${activeStage.order}.\n` +
-        `  Required stages: ${previousStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}\n` +
-        `  Completed stage IDs: ${[...completedStageIds].join(", ") || "none"}\n` +
-        `  Missing: ${missingStages.map((s: { order: number; title: string }) => `${s.order}. ${s.title}`).join(", ")}\n` +
-        `  Previous results: ${JSON.stringify(previousResults)}`
-      );
+      log.warn("Previous tournament stages not completed", {
+        userId,
+        stageOrder: activeStage.order,
+        missing: missingStages.map((s: { order: number; title: string }) => ({ order: s.order, title: s.title })),
+        previousResults,
+      });
       return null; // Не даём проходить этап вне последовательности
     }
     
-    // Логируем успешную проверку
-    console.log(
-      `[tournament/finish] ✅ User ${userId} has completed all previous stages. Results: ${JSON.stringify(previousResults)}`
-    );
+    log.debug("All previous stages completed", { userId, previousResults });
   }
 
   // ═══ 4. Вычисляем очки с множителем ═══
@@ -450,10 +444,14 @@ async function processTournamentStage(
   const nextStage = activeStage.tournament.stages[currentStageIndex + 1] ?? null;
   const isLastStage = currentStageIndex === totalStages - 1;
 
-  console.log(
-    `[tournament] User ${userId} completed stage ${activeStage.order}/${totalStages}: ` +
-    `score=${tournamentScore}, rank=#${result.myRank}, passed=${passed}`
-  );
+  log.info("Tournament stage completed", {
+    userId,
+    stageOrder: activeStage.order,
+    totalStages,
+    score: tournamentScore,
+    rank: result.myRank,
+    passed,
+  });
 
   return {
     tournamentId: activeStage.tournament.id,
@@ -521,10 +519,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   // ═══ SESSION OWNERSHIP CHECK ═══
   // CRITICAL: Prevent users from finishing other users' sessions
   if (session.userId !== authenticatedUserId) {
-    console.warn(
-      `[quiz/finish] ⚠️ SECURITY: User ${authenticatedUserId} attempted to finish session ${sessionId} ` +
-      `owned by user ${session.userId}`
-    );
+    log.warn("SECURITY: Session ownership violation", {
+      attemptedBy: authenticatedUserId,
+      sessionId,
+      sessionOwner: session.userId,
+    });
     return NextResponse.json({ error: "session_not_yours" }, { status: 403 });
   }
 
@@ -623,14 +622,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       quizId,
       weekStart: weekStartForCache,
       invalidateGlobal: true,
-    }).catch(err => console.error("[finish] Leaderboard cache invalidation failed:", err));
+    }).catch(err => log.error("Leaderboard cache invalidation failed", { error: err, quizId }));
   }
 
   // ═══ NOTIFY REFERRER IF THEIR REFERRAL BEAT THEIR SCORE ═══
   if (!alreadyFinished && currentGameScore > currentBestScore) {
     // Check if user was referred by someone and beat their per-quiz score
     notifyReferrerIfBeaten(session.userId, quizId, currentGameScore).catch(err =>
-      console.error("[finish] Referrer beat notification failed:", err)
+      log.error("Referrer beat notification failed", { error: err, userId: session.userId })
     );
   }
 
@@ -735,7 +734,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         gamesUntilMaxBonus: 0, // Больше не используется
       };
 
-      console.log("[finish] Weekly score updated (sum of bests):", {
+      log.info("Weekly score updated", {
         quizId,
         previousQuizBest,
         currentGameScore,
@@ -751,10 +750,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         session.userId,
         weeklyResult.totalBestScore,
         weekStart
-      ).catch(err => console.error("[finish] Leaderboard notification failed:", err));
+      ).catch(err => log.error("Leaderboard notification failed", { error: err }));
       
     } catch (weeklyError) {
-      console.error("[finish] Weekly score update failed:", weeklyError);
+      log.error("Weekly score update failed", { error: weeklyError });
     }
   }
 
@@ -824,7 +823,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       
       const levelTitle = getLevelTitle(newLevel);
       notifyLevelUp(session.userId, newLevel, levelTitle.title, xpBreakdown.total)
-        .catch(err => console.error("Failed to send level up notification:", err));
+        .catch(err => log.error("Failed to send level up notification", { error: err, userId: session.userId }));
     }
   } else {
     const user = await prisma.user.findUnique({
@@ -895,19 +894,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           xpReward: u.achievement.xpReward,
         }));
         
-        console.log(
-          `[finish] User ${session.userId} unlocked ${newAchievements.length} achievements`
-        );
+        log.info("Achievements unlocked", { userId: session.userId, count: newAchievements.length });
       }
     } catch (achievementError) {
-      console.error("[finish] Achievement check failed:", achievementError);
+      log.error("Achievement check failed", { error: achievementError });
     }
   }
 
   // ═══ TOURNAMENT STAGE PROCESSING ═══
   let tournamentStageInfo: TournamentStageInfo | null = null;
   
-  console.log(`[quiz/finish] 🏆 Processing tournament stage: alreadyFinished=${alreadyFinished}, quizId=${quizId}, userId=${session.userId}, sessionId=${sessionId}`);
+  log.debug("Processing tournament stage check", { alreadyFinished, quizId, userId: session.userId, sessionId });
   
   if (!alreadyFinished) {
     try {
@@ -919,12 +916,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
       
       if (tournamentStageInfo) {
-        console.log(
-          `[finish] Tournament stage completed: ${tournamentStageInfo.tournamentTitle} - ${tournamentStageInfo.stageTitle}, score: ${tournamentStageInfo.tournamentScore}, rank: #${tournamentStageInfo.rank}`
-        );
+        log.info("Tournament stage completed", {
+          tournament: tournamentStageInfo.tournamentTitle,
+          stage: tournamentStageInfo.stageTitle,
+          score: tournamentStageInfo.tournamentScore,
+          rank: tournamentStageInfo.rank,
+        });
       }
     } catch (tournamentError) {
-      console.error("[finish] Tournament processing failed:", tournamentError);
+      log.error("Tournament processing failed", { error: tournamentError });
     }
   }
 
@@ -939,27 +939,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     // 1. Логируем завершение квиза
     logQuizCompleted(session.userId, quizId, quizTitle, currentGameScore).catch(err =>
-      console.error("[finish] Activity log failed:", err)
+      log.error("Activity log failed", { error: err, type: "quiz_completed" })
     );
 
     // 2. Если новый рекорд — отдельная активность
     if (currentGameScore > currentBestScore) {
       logHighScore(session.userId, quizId, quizTitle, currentGameScore).catch(err =>
-        console.error("[finish] High score activity log failed:", err)
+        log.error("Activity log failed", { error: err, type: "high_score" })
       );
     }
 
     // 3. Логируем каждое новое достижение
     for (const achievement of newAchievements) {
       logAchievement(session.userId, achievement.id, achievement.name).catch(err =>
-        console.error("[finish] Achievement activity log failed:", err)
+        log.error("Activity log failed", { error: err, type: "achievement" })
       );
     }
 
     // 4. Логируем повышение уровня
     if (levelUp) {
       logLevelUp(session.userId, newLevel).catch(err =>
-        console.error("[finish] Level up activity log failed:", err)
+        log.error("Activity log failed", { error: err, type: "level_up" })
       );
     }
 
@@ -971,7 +971,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         tournamentStageInfo.tournamentTitle,
         tournamentStageInfo.tournamentScore
       ).catch(err =>
-        console.error("[finish] Tournament stage activity log failed:", err)
+        log.error("Activity log failed", { error: err, type: "tournament_stage" })
       );
     }
   }
@@ -989,7 +989,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     });
   } catch {
     // Non-critical, don't fail the request
-    console.warn(`[finish] Failed to clear playing status for user ${session.userId}`);
+    log.warn("Failed to clear playing status", { userId: session.userId });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1028,7 +1028,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
     
     Promise.all(challengeUpdates).catch(err => 
-      console.error("[Quiz Finish] Challenge progress error:", err)
+      log.error("Challenge progress error", { error: err })
     );
   }
 

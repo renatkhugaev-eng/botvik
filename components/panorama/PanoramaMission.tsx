@@ -469,11 +469,7 @@ export function PanoramaMission({
             onDirectionChange={handleDirectionChange}
             className="w-full h-full"
           />
-          
-          {/* TODO: Здесь будет новая система заданий */}
         </div>
-        
-        {/* TODO: Здесь будет новый UI */}
       </div>
     );
   }

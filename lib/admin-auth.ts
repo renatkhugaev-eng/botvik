@@ -18,8 +18,18 @@ const TOKEN_EXPIRY = "24h";
 const COOKIE_NAME = "admin_token";
 const COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours in seconds
 
-// Admin Telegram IDs — should match lib/auth.ts ADMIN_TELEGRAM_IDS
-export const ADMIN_TELEGRAM_IDS = ["dev-mock", "5731136459"];
+// Admin Telegram IDs — loaded from environment variable
+// SECURITY: Never hardcode admin IDs, always use env variables
+export const ADMIN_TELEGRAM_IDS = (() => {
+  const ids = (process.env.ADMIN_TELEGRAM_IDS || "").split(",").filter(Boolean);
+  
+  // In development, allow dev-mock user if no admins configured
+  if (process.env.NODE_ENV === "development" && ids.length === 0) {
+    return ["dev-mock"];
+  }
+  
+  return ids;
+})();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

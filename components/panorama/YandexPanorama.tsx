@@ -275,8 +275,11 @@ export const YandexPanorama = forwardRef<YandexPanoramaRef, YandexPanoramaProps>
           
           if (onPanoramaChange) {
             player.events.add("panoramachange", () => {
-              // TODO: Получить новые координаты панорамы
-              // Yandex API не даёт простого способа получить координаты
+              // Note: Yandex Panorama API limitation - coordinates are not
+              // directly accessible from the panoramachange event.
+              // The player position can be retrieved via player.getPanorama()
+              // but coordinate extraction requires additional API calls.
+              onPanoramaChange();
             });
           }
           

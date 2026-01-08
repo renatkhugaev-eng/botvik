@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseInitData, validateInitData } from "@/lib/telegram";
 import { notifyFriendActivity } from "@/lib/notifications";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+
+// Child logger with route context
+const log = logger.child({ route: "auth/telegram" });
 
 type TelegramUser = {
   id: number;
@@ -24,14 +28,12 @@ export async function POST(req: NextRequest) {
   const rawInitData = payload?.initData ?? "";
   const referralCodeFromBody = payload?.referralCode?.toUpperCase()?.trim();
   
-  // Only log initData length in production, no preview (contains sensitive user data)
-  if (process.env.NODE_ENV === "development") {
-    console.log("[auth/telegram] incoming initData length:", rawInitData.length);
-  }
+  // Only log initData length (no preview - contains sensitive user data)
+  log.debug("Incoming auth request", { initDataLength: rawInitData.length });
 
   // ═══ DEV MODE: Return dev-mock user when no initData in development ═══
   if (!rawInitData && process.env.NEXT_PUBLIC_ALLOW_DEV_NO_TELEGRAM === "true" && process.env.NODE_ENV === "development") {
-    console.log("[auth/telegram] Dev mode - returning dev-mock user");
+    log.debug("Dev mode - returning dev-mock user");
     
     // Find or create dev-mock user
     let devUser = await prisma.user.findUnique({
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
           status: "ONLINE",
         },
       });
-      console.log("[auth/telegram] Created dev-mock user:", devUser.id);
+      log.info("Created dev-mock user", { userId: devUser.id });
     }
     
     return NextResponse.json({
@@ -72,17 +74,14 @@ export async function POST(req: NextRequest) {
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) {
-    console.error("[auth/telegram] NO_BOT_TOKEN");
+    log.error("NO_BOT_TOKEN configured");
     return NextResponse.json({ ok: false, reason: "NO_BOT_TOKEN" }, { status: 500 });
   }
 
   const validation = validateInitData(rawInitData, botToken);
   if (!validation.ok) {
-    // Don't log initData content in production — contains sensitive user data
-    console.error("[auth/telegram] invalid initData", {
-      reason: validation.reason,
-      initDataLength: rawInitData.length,
-    });
+    // Don't log initData content — contains sensitive user data
+    log.warn("Invalid initData", { reason: validation.reason, initDataLength: rawInitData.length });
     return NextResponse.json({ ok: false, reason: validation.reason }, { status: 401 });
   }
 
@@ -120,11 +119,10 @@ export async function POST(req: NextRequest) {
     // 2. referralCode в body (от ?ref= параметра в URL)
     const startParam = parsed["start_param"];
     
-    // DEBUG: Логируем все источники реферального кода
-    console.log("[auth/telegram] Referral debug:", {
+    log.debug("Referral code sources", {
       startParam,
       referralCodeFromBody,
-      allParsedKeys: Object.keys(parsed),
+      parsedKeys: Object.keys(parsed),
     });
     
     let referralCode = startParam?.startsWith("ref_") 
@@ -170,19 +168,19 @@ export async function POST(req: NextRequest) {
               bonusEnergyEarned: { increment: 1 },
             },
           });
-          console.log(`[auth/telegram] Referral: user ${newUser.id} referred by ${referrerId}`);
+          log.info("Referral processed", { newUserId: newUser.id, referrerId });
           
           // Уведомляем реферера о новом друге (async, не блокируем)
           const friendName = newUser.username || newUser.firstName || "Новый игрок";
           notifyFriendActivity(referrerId, friendName, "joined").catch(err => {
-            console.error("[auth/telegram] Failed to notify referrer:", err);
+            log.error("Failed to notify referrer", { error: err, referrerId });
           });
         }
         
         return newUser;
       });
     } catch (txError) {
-      console.error("[auth/telegram] Referral transaction failed:", txError);
+      log.error("Referral transaction failed", { error: txError });
       // Fallback без реферала
       user = await prisma.user.create({
         data: {
@@ -207,11 +205,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  console.log("[auth/telegram] ok", {
-    length: rawInitData.length,
-    userId: user.id,
-    telegramId: user.telegramId,
-  });
+  log.info("Auth successful", { userId: user.id, telegramId: user.telegramId });
 
   return NextResponse.json({
     ok: true,

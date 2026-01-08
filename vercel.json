@@ -27,7 +27,7 @@
     },
     {
       "path": "/api/cron/scheduled-notifications",
-      "schedule": "* * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/activity-cleanup",
