@@ -49,7 +49,7 @@ const EPISODES = [
   {
     id: "red-forest-complete",
     episodeNum: 1,
-    title: "🔴 Красный лес",
+    title: "Красный лес",
     subtitle: "Полная история. 5 эпизодов. 7 концовок.",
     description: "Закрытый город. Пропавшие люди. Древний культ. И дверь, которую лучше не открывать. Профессиональная нелинейная история с отслеживанием улик и системой рассудка.",
     icon: "🔴",
@@ -71,6 +71,236 @@ type GameScreen = "episode_select" | "playing";
 const CLUE_TAG_TO_EVIDENCE_ID: Record<string, string> = {};
 
 // ══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА УЛИК — Описания и категории
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface ClueInfo {
+  name: string;
+  description: string;
+  category: "lore" | "event" | "artifact";
+  icon: string;
+  importance: "minor" | "major" | "critical";
+}
+
+// CultLore — знания о культе
+const CULT_LORE_INFO: Record<string, ClueInfo> = {
+  lore_ancient_tribe: {
+    name: "Древнее племя",
+    description: "Легенды о племени, населявшем эти леса тысячи лет назад. Они поклонялись чему-то в глубине земли — существу, говорящему через корни деревьев.",
+    category: "lore",
+    icon: "📜",
+    importance: "major",
+  },
+  lore_first_contact: {
+    name: "Первый контакт",
+    description: "Записи о первых встречах переселенцев с культом в 1780-х годах. Странные огни в лесу, пропадающий скот, шёпот из-под земли.",
+    category: "lore",
+    icon: "👁️",
+    importance: "major",
+  },
+  lore_expedition_1890: {
+    name: "Экспедиция 1890 года",
+    description: "Научная экспедиция Императорского географического общества. Из 12 человек вернулись трое. Их записи засекречены до сих пор.",
+    category: "lore",
+    icon: "🗺️",
+    importance: "critical",
+  },
+  lore_soviet_discovery: {
+    name: "Советское открытие",
+    description: "В 1953 году геологи обнаружили систему пещер. То, что они нашли внутри, заставило Москву закрыть город и создать 'Проект Эхо'.",
+    category: "lore",
+    icon: "☭",
+    importance: "critical",
+  },
+  lore_project_echo_start: {
+    name: "Проект 'Эхо'",
+    description: "Секретная программа по изучению аномалии. Официально — исследование редких минералов. На самом деле — попытка установить контакт с Тем, Кто Ждёт.",
+    category: "lore",
+    icon: "🔬",
+    importance: "critical",
+  },
+  lore_first_sacrifice: {
+    name: "Первая жертва",
+    description: "1967 год. Первое задокументированное жертвоприношение после советского периода. Дверь открылась на 3 секунды. Этого хватило.",
+    category: "lore",
+    icon: "🩸",
+    importance: "critical",
+  },
+  // lore_chernov_rise — не используется в истории, зарезервирован для будущего контента
+  lore_door_nature: {
+    name: "Природа Двери",
+    description: "Дверь — не просто проход. Это мембрана между мирами, истончённая тысячелетиями ритуалов. Каждая жертва делает её тоньше.",
+    category: "lore",
+    icon: "🚪",
+    importance: "critical",
+  },
+  lore_entity_truth: {
+    name: "Истина о Сущности",
+    description: "То, Что Ждёт за Дверью — не бог и не демон. Это нечто настолько чуждое, что человеческий разум ломается от одного взгляда. Оно голодно. Оно терпеливо. Оно почти свободно.",
+    category: "lore",
+    icon: "🌀",
+    importance: "critical",
+  },
+};
+
+// KeyEvents — ключевые события расследования
+const KEY_EVENTS_INFO: Record<string, ClueInfo> = {
+  saw_symbol: {
+    name: "Символ культа",
+    description: "Вы впервые увидели символ — спираль с тремя лучами, уходящими в центр. Он выжжен на деревьях, нацарапан на стенах, вырезан на телах.",
+    category: "event",
+    icon: "⚡",
+    importance: "minor",
+  },
+  heard_voices: {
+    name: "Голоса из леса",
+    description: "Шёпот между деревьями. Не ветер — слова. На языке, который вы не знаете, но почему-то понимаете. Они зовут вас по имени.",
+    category: "event",
+    icon: "👂",
+    importance: "major",
+  },
+  found_notebook: {
+    name: "Блокнот Сорокина",
+    description: "Записи предыдущего следователя. Он был близок к разгадке. Последняя запись: 'Они знают, что я знаю. Дверь зовёт. Не открывать.'",
+    category: "event",
+    icon: "📓",
+    importance: "critical",
+  },
+  found_photos: {
+    name: "Фотографии ритуалов",
+    description: "Снимки, сделанные скрытой камерой. Люди в масках вокруг каменного алтаря. На алтаре — человек. Живой. Пока ещё живой.",
+    category: "event",
+    icon: "📷",
+    importance: "critical",
+  },
+  entered_caves: {
+    name: "Вход в пещеры",
+    description: "Вы спустились в систему пещер под городом. Воздух здесь густой и сладкий, как гниющие фрукты. Стены покрыты символами.",
+    category: "event",
+    icon: "🕳️",
+    importance: "major",
+  },
+  witnessed_ritual: {
+    name: "Свидетель ритуала",
+    description: "Вы видели это своими глазами. Пение, кровь, свет из ниоткуда. И на мгновение — щель в реальности, за которой что-то шевелилось.",
+    category: "event",
+    icon: "🕯️",
+    importance: "critical",
+  },
+  confronted_cult: {
+    name: "Противостояние культу",
+    description: "Вы встретились лицом к лицу с лидерами культа. Они не злодеи в классическом смысле. Они верят, что спасают мир. По-своему.",
+    category: "event",
+    icon: "⚔️",
+    importance: "critical",
+  },
+  serafim_kidnapped: {
+    name: "Похищение Серафима",
+    description: "Старый священник исчез. Его церковь осквернена. На полу — символ культа, нарисованный его кровью.",
+    category: "event",
+    icon: "⛪",
+    importance: "major",
+  },
+  vera_captured: {
+    name: "Вера в плену",
+    description: "Они схватили её. Вера — следующая жертва. Осталось меньше суток до полнолуния.",
+    category: "event",
+    icon: "👩",
+    importance: "critical",
+  },
+  zorin_found: {
+    name: "Находка Зорина",
+    description: "Тело бывшего следователя найдено в лесу. Официально — сердечный приступ. Но вы видели его лицо. Такой ужас нельзя подделать.",
+    category: "event",
+    icon: "💀",
+    importance: "major",
+  },
+  tanya_invited: {
+    name: "Приглашение Тани",
+    description: "Журналистка Таня Волкова приглашает вас на встречу. У неё есть информация о культе. Или это ловушка?",
+    category: "event",
+    icon: "💌",
+    importance: "minor",
+  },
+  met_klava_restaurant: {
+    name: "Встреча с Клавой",
+    description: "Хозяйка ресторана знает больше, чем говорит. Её семья жила здесь поколениями. Она помнит времена, когда жертв выбирали по жребию.",
+    category: "event",
+    icon: "🍽️",
+    importance: "minor",
+  },
+  fyodor_warned: {
+    name: "Предупреждение Фёдора",
+    description: "Местный краевед Фёдор предупредил вас: 'Уезжайте. Пока можете. Пока вы ещё свой.'",
+    category: "event",
+    icon: "⚠️",
+    importance: "minor",
+  },
+  fyodor_ally: {
+    name: "Союзник Фёдор",
+    description: "Фёдор согласился помочь. Он знает входы в пещеры, расположение алтарей, имена жрецов. Но можно ли ему верить?",
+    category: "event",
+    icon: "🤝",
+    importance: "major",
+  },
+  found_fyodor_body: {
+    name: "Тело Фёдора",
+    description: "Они убили его. Фёдор лежит у входа в пещеру, глаза вырезаны, на груди — спираль. Записка в кармане: 'Предатели умирают первыми.'",
+    category: "event",
+    icon: "⚰️",
+    importance: "critical",
+  },
+  tanya_injured: {
+    name: "Ранение Тани",
+    description: "Таня ранена. Нападение произошло у её дома. Она успела увидеть лицо под маской — это был кто-то из городской администрации.",
+    category: "event",
+    icon: "🩹",
+    importance: "major",
+  },
+  gromov_killed: {
+    name: "Смерть Громова",
+    description: "Глава местной полиции мёртв. Самоубийство, говорят. Но пистолет был в левой руке, а Громов был правшой.",
+    category: "event",
+    icon: "🔫",
+    importance: "critical",
+  },
+  vera_sacrifice: {
+    name: "Жертва Веры",
+    description: "Вы не успели. Или успели, но сделали другой выбор. Вера стала последней жертвой. Дверь открылась.",
+    category: "event",
+    icon: "💔",
+    importance: "critical",
+  },
+};
+
+// AncientArtifacts — древние артефакты
+const ARTIFACTS_INFO: Record<string, ClueInfo> = {
+  artifact_stone_tablet: {
+    name: "Каменная скрижаль",
+    description: "Плита из чёрного камня, испещрённая символами. При прикосновении руки начинают дрожать. Текст описывает ритуал открытия Двери.",
+    category: "artifact",
+    icon: "🪨",
+    importance: "critical",
+  },
+  // artifact_shaman_mask, artifact_bone_knife, artifact_ritual_robe — не используются в истории
+  artifact_expedition_journal: {
+    name: "Журнал экспедиции",
+    description: "Дневник руководителя экспедиции 1890 года. Последние страницы написаны кровью. Почерк становится всё более нечитаемым к концу.",
+    category: "artifact",
+    icon: "📖",
+    importance: "critical",
+  },
+  // artifact_original_map — не используется в истории
+};
+
+// Объединённый справочник всех улик
+const ALL_CLUES_INFO: Record<string, ClueInfo> = {
+  ...CULT_LORE_INFO,
+  ...KEY_EVENTS_INFO,
+  ...ARTIFACTS_INFO,
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ОСНОВНОЙ КОМПОНЕНТ
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -88,6 +318,8 @@ export default function InvestigationPage() {
   const [endingType, setEndingType] = useState<string | undefined>(undefined);
   const [storyScore, setStoryScore] = useState(0);
   const [storyKey, setStoryKey] = useState(0); // Ключ для перезагрузки истории
+  const [foundClues, setFoundClues] = useState<Set<string>>(new Set()); // Найденные улики
+  const [showCluesModal, setShowCluesModal] = useState(false); // Модальное окно улик
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
   const evidenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -235,7 +467,9 @@ export default function InvestigationPage() {
       boardState,
       currentChapter,
       storyScore,
-      playtime
+      playtime,
+      [], // achievements
+      Array.from(foundClues) // foundClues
     );
     
     if (result.success) {
@@ -244,7 +478,7 @@ export default function InvestigationPage() {
     
     // Brief saving indicator
     setTimeout(() => setIsSaving(false), 500);
-  }, [inkStateJson, boardState, currentChapter, storyScore, playtime, isStoryEnded]);
+  }, [inkStateJson, boardState, currentChapter, storyScore, playtime, isStoryEnded, foundClues]);
   
   // Auto-save every 30 seconds with proper interval (fixes race condition)
   useEffect(() => {
@@ -270,7 +504,9 @@ export default function InvestigationPage() {
       boardState,
       currentChapter,
       storyScore,
-      playtime
+      playtime,
+      [], // achievements
+      Array.from(foundClues) // foundClues
     );
     
     setTimeout(() => {
@@ -279,7 +515,7 @@ export default function InvestigationPage() {
     }, 500);
     
     return result.success;
-  }, [inkStateJson, boardState, currentChapter, storyScore, playtime]);
+  }, [inkStateJson, boardState, currentChapter, storyScore, playtime, foundClues]);
   
   const handleLoadSave = useCallback((saveId: string) => {
     const result = loadFromLocalStorage(INVESTIGATION_ID, saveId);
@@ -290,6 +526,8 @@ export default function InvestigationPage() {
       setStoryScore(result.data.storyScore);
       setCurrentChapter(result.data.currentChapter);
       setPlaytime(result.data.playtime);
+      // Восстанавливаем найденные улики
+      setFoundClues(new Set(result.data.foundClues || []));
       setShowSaveMenu(false);
       setShowContinuePrompt(false);
       investigationHaptic.sceneTransition();
@@ -305,6 +543,8 @@ export default function InvestigationPage() {
       setStoryScore(result.data.storyScore);
       setCurrentChapter(result.data.currentChapter);
       setPlaytime(result.data.playtime);
+      // Восстанавливаем найденные улики
+      setFoundClues(new Set(result.data.foundClues || []));
       setShowContinuePrompt(false);
       investigationHaptic.sceneTransition();
     }
@@ -332,6 +572,7 @@ export default function InvestigationPage() {
     setShowEndingButton(false);
     setEndingType(undefined);
     setStoryScore(0);
+    setFoundClues(new Set());
     setFinalStats(null);
     setPlaytime(0);
     setCurrentChapter(1);
@@ -421,6 +662,62 @@ export default function InvestigationPage() {
   const handleVariableChange = useCallback((name: string, value: unknown) => {
     if (name === "score" && typeof value === "number") {
       setStoryScore(value);
+    }
+    
+    // Отслеживаем улики из Ink LIST переменных
+    if (name === "CultLore" || name === "KeyEvents" || name === "AncientArtifacts") {
+      let items: string[] = [];
+      
+      // InkList может приходить в разных форматах
+      if (typeof value === "string") {
+        // Как строка: "lore_ancient_tribe, lore_first_contact"
+        items = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      } else if (value && typeof value === "object") {
+        // InkList object
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inkList = value as any;
+        
+        // Способ 1: toString() даёт строку с именами
+        if (typeof inkList.toString === "function") {
+          const str = String(inkList);
+          if (str && str !== "[object Object]") {
+            items = str.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          }
+        }
+        
+        // Способ 2: проверяем _items
+        if (items.length === 0 && inkList._items && typeof inkList._items === "object") {
+          items = Object.keys(inkList._items).map(key => {
+            // Ключ может быть в формате "listName.itemName"
+            const parts = key.split(".");
+            return parts[parts.length - 1];
+          });
+        }
+      }
+      
+      if (items.length > 0) {
+        setFoundClues(prev => {
+          const newClues = new Set(prev);
+          let hasNew = false;
+          
+          items.forEach(item => {
+            // Убираем префикс списка если есть
+            const cleanItem = item.includes(".") ? item.split(".").pop()! : item;
+            
+            if (!newClues.has(cleanItem) && ALL_CLUES_INFO[cleanItem]) {
+              newClues.add(cleanItem);
+              hasNew = true;
+            }
+          });
+          
+          // Haptic feedback при новой улике
+          if (hasNew) {
+            investigationHaptic.clueDiscovered();
+          }
+          
+          return newClues;
+        });
+      }
     }
   }, []);
 
@@ -516,11 +813,13 @@ export default function InvestigationPage() {
     <div className="min-h-screen bg-[#0a0a12] text-white flex flex-col">
       {/* Хедер */}
       <Header
-        storyScore={storyScore}
+        foundCluesCount={foundClues.size}
         playtime={playtime}
         episodeTitle={selectedEpisode?.title || "Расследование"}
+        episodeNum={selectedEpisode?.episodeNum || 1}
         onBack={handleBackToEpisodes}
         onSaveClick={() => setShowSaveMenu(true)}
+        onCluesClick={() => setShowCluesModal(true)}
         isMusicPlaying={isMusicPlaying}
         onMusicToggle={toggleMusic}
       />
@@ -597,6 +896,7 @@ export default function InvestigationPage() {
               setShowEndingButton(false);
               setEndingType(undefined);
               setStoryScore(0);
+              setFoundClues(new Set());
               setFinalStats(null);
               setBoardState(createInitialBoardState());
               setInkStateJson("");
@@ -653,6 +953,16 @@ export default function InvestigationPage() {
         )}
       </AnimatePresence>
       
+      {/* Модальное окно улик */}
+      <AnimatePresence>
+        {showCluesModal && (
+          <CluesModal
+            foundClues={foundClues}
+            onClose={() => setShowCluesModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Меню сохранений */}
       <AnimatePresence>
         {showSaveMenu && (
@@ -691,92 +1001,485 @@ export default function InvestigationPage() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// МОДАЛЬНОЕ ОКНО УЛИК
+// ══════════════════════════════════════════════════════════════════════════════
+
+function CluesModal({
+  foundClues,
+  onClose,
+}: {
+  foundClues: Set<string>;
+  onClose: () => void;
+}) {
+  const [selectedClue, setSelectedClue] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<"all" | "lore" | "event" | "artifact">("all");
+
+  // Группируем улики по категориям
+  const cluesByCategory = {
+    lore: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "lore"),
+    event: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "event"),
+    artifact: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "artifact"),
+  };
+
+  const filteredClues = activeCategory === "all" 
+    ? Array.from(foundClues).filter(id => ALL_CLUES_INFO[id])
+    : cluesByCategory[activeCategory];
+
+  const selectedClueInfo = selectedClue ? ALL_CLUES_INFO[selectedClue] : null;
+
+  const categoryLabels = {
+    all: { label: "Все", icon: "📋" },
+    lore: { label: "Знания", icon: "📜" },
+    event: { label: "События", icon: "⚡" },
+    artifact: { label: "Артефакты", icon: "🏺" },
+  };
+
+  const importanceColors = {
+    minor: "border-white/20 bg-white/5",
+    major: "border-amber-400/30 bg-amber-500/10",
+    critical: "border-red-400/30 bg-red-500/10",
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      
+      {/* Modal */}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="
+          relative w-full max-w-lg max-h-[85vh]
+          rounded-3xl overflow-hidden
+          bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a]
+          border border-white/10
+          shadow-[0_24px_64px_rgba(0,0,0,0.5)]
+          flex flex-col
+        "
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-white/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔍</span>
+              <div>
+                <h2 className="text-lg font-bold text-white">Досье расследования</h2>
+                <p className="text-xs text-white/50">Найдено улик: {foundClues.size}</p>
+              </div>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={onClose}
+              className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20"
+            >
+              ✕
+            </motion.button>
+          </div>
+
+          {/* Category tabs */}
+          <div className="flex gap-2 mt-4">
+            {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`
+                  px-3 py-1.5 rounded-lg text-xs font-medium
+                  flex items-center gap-1.5
+                  transition-all
+                  ${activeCategory === cat 
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-400/20" 
+                    : "bg-white/5 text-white/50 border border-white/5 hover:bg-white/10"
+                  }
+                `}
+              >
+                <span>{categoryLabels[cat].icon}</span>
+                <span>{categoryLabels[cat].label}</span>
+                {cat !== "all" && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded bg-black/30 text-[10px]">
+                    {cluesByCategory[cat].length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Clue list */}
+          <div className="w-1/2 border-r border-white/10 overflow-y-auto">
+            {filteredClues.length === 0 ? (
+              <div className="p-6 text-center text-white/40">
+                <span className="text-3xl mb-2 block">🔎</span>
+                <p className="text-sm">Улики не найдены</p>
+                <p className="text-xs mt-1">Исследуйте историю, чтобы обнаружить их</p>
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {filteredClues.map((clueId) => {
+                  const info = ALL_CLUES_INFO[clueId];
+                  if (!info) return null;
+                  
+                  return (
+                    <motion.button
+                      key={clueId}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        investigationHaptic.evidenceSelect();
+                        setSelectedClue(clueId);
+                      }}
+                      className={`
+                        w-full p-3 rounded-xl text-left
+                        border transition-all
+                        ${selectedClue === clueId 
+                          ? "bg-amber-500/20 border-amber-400/30" 
+                          : `${importanceColors[info.importance]} hover:bg-white/10`
+                        }
+                      `}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-lg">{info.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-white/90 truncate">
+                            {info.name}
+                          </div>
+                          <div className="text-[10px] text-white/40 mt-0.5">
+                            {info.importance === "critical" && "🔴 Критическая улика"}
+                            {info.importance === "major" && "🟡 Важная улика"}
+                            {info.importance === "minor" && "⚪ Улика"}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Clue details */}
+          <div className="w-1/2 p-4 overflow-y-auto">
+            {selectedClueInfo ? (
+              <motion.div
+                key={selectedClue}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-4"
+              >
+                {/* Icon & name */}
+                <div className="text-center">
+                  <div className="
+                    w-16 h-16 mx-auto mb-3
+                    rounded-2xl
+                    bg-gradient-to-br from-amber-500/20 to-orange-500/10
+                    border border-amber-400/20
+                    flex items-center justify-center
+                    text-3xl
+                  ">
+                    {selectedClueInfo.icon}
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    {selectedClueInfo.name}
+                  </h3>
+                  <div className={`
+                    inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px]
+                    ${selectedClueInfo.importance === "critical" 
+                      ? "bg-red-500/20 text-red-300" 
+                      : selectedClueInfo.importance === "major"
+                        ? "bg-amber-500/20 text-amber-300"
+                        : "bg-white/10 text-white/50"
+                    }
+                  `}>
+                    {selectedClueInfo.importance === "critical" && "Критическая улика"}
+                    {selectedClueInfo.importance === "major" && "Важная улика"}
+                    {selectedClueInfo.importance === "minor" && "Улика"}
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="
+                  p-4 rounded-xl
+                  bg-white/[0.03]
+                  border border-white/[0.08]
+                ">
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    {selectedClueInfo.description}
+                  </p>
+                </div>
+
+                {/* Category badge */}
+                <div className="flex justify-center">
+                  <span className={`
+                    px-3 py-1 rounded-full text-xs
+                    ${selectedClueInfo.category === "lore" && "bg-violet-500/20 text-violet-300"}
+                    ${selectedClueInfo.category === "event" && "bg-blue-500/20 text-blue-300"}
+                    ${selectedClueInfo.category === "artifact" && "bg-emerald-500/20 text-emerald-300"}
+                  `}>
+                    {selectedClueInfo.category === "lore" && "📜 Знания о культе"}
+                    {selectedClueInfo.category === "event" && "⚡ Событие расследования"}
+                    {selectedClueInfo.category === "artifact" && "🏺 Древний артефакт"}
+                  </span>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-white/30">
+                <span className="text-4xl mb-3">👈</span>
+                <p className="text-sm">Выберите улику</p>
+                <p className="text-xs mt-1">для просмотра деталей</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-white/10 bg-black/20">
+          <div className="flex items-center justify-between text-xs text-white/40">
+            <span>
+              {cluesByCategory.lore.length} знаний • {cluesByCategory.event.length} событий • {cluesByCategory.artifact.length} артефактов
+            </span>
+            <span className="text-amber-400/60">
+              {Math.round((foundClues.size / Object.keys(ALL_CLUES_INFO).length) * 100)}% найдено
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ХЕДЕР — Glassmorphism style
 // ══════════════════════════════════════════════════════════════════════════════
 
 function Header({
-  storyScore,
+  foundCluesCount,
   playtime,
   episodeTitle,
+  episodeNum,
   onBack,
   onSaveClick,
+  onCluesClick,
   isMusicPlaying,
   onMusicToggle,
 }: {
-  storyScore: number;
+  foundCluesCount: number;
   playtime: number;
   episodeTitle: string;
+  episodeNum: number;
   onBack: () => void;
   onSaveClick: () => void;
+  onCluesClick: () => void;
   isMusicPlaying: boolean;
   onMusicToggle: () => void;
 }) {
 
   return (
-    <div className="sticky top-0 z-40 backdrop-blur-xl bg-[#0a0a12]/80 border-b border-white/5">
-      {/* Top row */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            investigationHaptic.sceneTransition();
-            onBack();
-          }}
-          className="flex items-center gap-1 text-white/60 hover:text-white transition-colors"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </motion.button>
+    <div className="sticky top-0 z-40 px-3 pt-2 space-y-2">
+      {/* Верхняя панель — управление */}
+      <div className="
+        relative overflow-hidden
+        rounded-3xl
+        bg-white/[0.03]
+        backdrop-blur-3xl
+        border border-white/[0.08]
+        shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.1)]
+      ">
+        {/* Блик преломления — верхний */}
+        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        {/* Блик преломления — диагональный */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent pointer-events-none" />
+        {/* Нижняя тень для объёма */}
+        <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-black/20 to-transparent" />
+        
+        <div className="relative flex items-center justify-between px-3 py-2.5">
+          
+          {/* Левая часть — Назад + Глава */}
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                investigationHaptic.sceneTransition();
+                onBack();
+              }}
+              className="
+                relative overflow-hidden
+                w-10 h-10 
+                rounded-xl 
+                bg-white/[0.04]
+                backdrop-blur-xl
+                border border-white/[0.08]
+                shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]
+                flex items-center justify-center 
+                text-white/50 hover:text-white hover:bg-white/[0.08]
+                transition-all
+              "
+            >
+              <svg className="h-4 w-4 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </motion.button>
 
-        <div className="text-center">
-          <div className="text-[10px] text-white/40 uppercase tracking-wider">
-            Расследование • {formatPlaytime(playtime)}
+            <div className="
+              relative overflow-hidden
+              h-10 px-4
+              rounded-xl 
+              bg-violet-500/[0.08]
+              backdrop-blur-xl
+              border border-violet-400/[0.12]
+              shadow-[inset_0_1px_0_rgba(167,139,250,0.1)]
+              flex items-center justify-center 
+              text-xs font-semibold text-violet-300/90
+            ">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-400/[0.08] via-transparent to-transparent" />
+              <span className="relative">Глава {episodeNum}</span>
+            </div>
           </div>
-          <div className="text-sm font-bold text-white">{episodeTitle}</div>
+
+          {/* Центр — Таймер */}
+          <div className="
+            relative h-10 px-4
+            rounded-xl 
+            bg-black/[0.15]
+            backdrop-blur-xl
+            border border-white/[0.06]
+            shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),inset_0_-1px_0_rgba(255,255,255,0.05)]
+            flex items-center gap-3
+            overflow-hidden
+          ">
+            {/* Блик стекла */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
+            {/* Subtle red glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/[0.06] to-red-500/0 animate-pulse" />
+            
+            {/* Recording indicator */}
+            <div className="relative flex items-center justify-center">
+              <span className="absolute w-3.5 h-3.5 rounded-full bg-red-500/20 animate-ping" />
+              <span className="relative w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+            </div>
+            
+            {/* Time display */}
+            <span className="
+              relative text-sm font-mono font-semibold tabular-nums
+              text-white/80
+              tracking-wider
+            ">
+              {formatPlaytime(playtime)}
+            </span>
+          </div>
+
+          {/* Правая часть — Действия */}
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                investigationHaptic.evidenceSelect();
+                onMusicToggle();
+              }}
+              className={`
+                relative overflow-hidden
+                w-10 h-10 
+                rounded-xl 
+                backdrop-blur-xl
+                flex items-center justify-center 
+                text-sm
+                transition-all
+                ${isMusicPlaying 
+                  ? "bg-violet-500/[0.1] border border-violet-400/[0.15] text-violet-300 shadow-[inset_0_1px_0_rgba(167,139,250,0.1)]" 
+                  : "bg-white/[0.04] border border-white/[0.08] text-white/50 hover:bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                }
+              `}
+            >
+              <span className="relative z-10">{isMusicPlaying ? "🔊" : "🔇"}</span>
+            </motion.button>
+            
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                investigationHaptic.evidenceSelect();
+                onSaveClick();
+              }}
+              className="
+                relative overflow-hidden
+                w-10 h-10 
+                rounded-xl 
+                bg-white/[0.04]
+                backdrop-blur-xl
+                border border-white/[0.08]
+                shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]
+                flex items-center justify-center 
+                text-sm
+                text-white/60 hover:bg-white/[0.08]
+                transition-all
+              "
+            >
+              <span className="relative z-10">💾</span>
+            </motion.button>
+            
+            {/* Кнопка улик */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                investigationHaptic.evidenceSelect();
+                onCluesClick();
+              }}
+              className="
+                relative overflow-hidden
+                h-10 px-3
+                rounded-xl 
+                bg-amber-500/[0.08]
+                backdrop-blur-xl
+                border border-amber-400/[0.12]
+                shadow-[inset_0_1px_0_rgba(251,191,36,0.1)]
+                flex items-center gap-2
+                text-sm font-semibold text-amber-200/90
+                hover:bg-amber-500/[0.12]
+                transition-all
+              "
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/[0.06] via-transparent to-transparent" />
+              <span className="relative">🔍</span>
+              <span className="relative tabular-nums">{foundCluesCount}</span>
+            </motion.button>
+          </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {/* Music toggle button */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              investigationHaptic.evidenceSelect();
-              onMusicToggle();
-            }}
-            className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all ${
-              isMusicPlaying 
-                ? "bg-violet-500/20 border-violet-400/30 text-violet-300" 
-                : "bg-white/5 border-white/10 text-white/40"
-            }`}
-            title={isMusicPlaying ? "Выключить музыку" : "Включить музыку"}
-          >
-            {isMusicPlaying ? "🔊" : "🔇"}
-          </motion.button>
+      {/* Название расследования — отдельный glass блок по центру */}
+      <div className="flex justify-center">
+        <div className="
+          relative overflow-hidden
+          px-7 py-3
+          rounded-2xl
+          bg-white/[0.02]
+          backdrop-blur-3xl
+          border border-white/[0.06]
+          shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-1px_0_rgba(0,0,0,0.1)]
+        ">
+          {/* Блик преломления — верхний */}
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          {/* Блик преломления — диагональный */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+          {/* Красноватое свечение снизу */}
+          <div className="absolute inset-0 bg-gradient-to-t from-red-500/[0.03] via-transparent to-transparent pointer-events-none" />
           
-          {/* Save button */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              investigationHaptic.evidenceSelect();
-              onSaveClick();
-            }}
-            className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 transition-colors"
-            title="Сохранения"
-          >
-            💾
-          </motion.button>
-          
-          {/* Score badge with glow */}
-          <div 
-            className="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"
-            style={{
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.2))',
-              boxShadow: '0 0 12px rgba(139, 92, 246, 0.3)',
-            }}
-          >
-            <span className="text-violet-300">{storyScore}</span>
-          </div>
+          <span className="
+            relative
+            text-base font-semibold tracking-wide
+            bg-gradient-to-r from-red-400 via-red-300 to-red-400
+            bg-clip-text text-transparent
+            drop-shadow-[0_0_16px_rgba(239,68,68,0.5)]
+          ">
+            {episodeTitle}
+          </span>
         </div>
       </div>
     </div>

@@ -34,7 +34,7 @@ type InkStoryPlayerProps = {
   className?: string;
 };
 
-type MoodType = "normal" | "dark" | "tense" | "horror" | "hope" | "mystery" | "investigation" | "conflict" | "stakeout" | "pressure" | "discovery" | "crossroads" | "professional";
+type MoodType = "normal" | "dark" | "tense" | "horror" | "hope" | "mystery" | "investigation" | "conflict" | "stakeout" | "pressure" | "discovery" | "crossroads" | "professional" | "suspicion" | "revelation" | "shock" | "tension" | "cosmic_horror" | "neutral" | "emotional" | "action" | "bittersweet";
 
 type ImagePosition = "top" | "background" | "inline";
 
@@ -71,11 +71,22 @@ export function InkStoryPlayer({
   const [storyMode, setStoryMode] = useState<StoryMode>("normal");
   const [interrogationState, setInterrogationState] = useState<InterrogationState | null>(null);
   const [tacticalHint, setTacticalHint] = useState<string>("");
+  const [isVisionActive, setIsVisionActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevVarsRef = useRef<Record<string, unknown>>({});
+  const visionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Мемоизированные стили по настроению
   const moodStyles = useMemo(() => getMoodStyles(currentMood), [currentMood]);
+
+  // Очистка таймера видений при размонтировании
+  useEffect(() => {
+    return () => {
+      if (visionTimerRef.current) {
+        clearTimeout(visionTimerRef.current);
+      }
+    };
+  }, []);
 
   // ══════════════════════════════════════════════════════════════════════════
   // ИНИЦИАЛИЗАЦИЯ
@@ -186,6 +197,22 @@ export function InkStoryPlayer({
       // Warning/danger
       if (hasTag(tags, "warning") || hasTag(tags, "danger")) {
         investigationHaptic.timerWarning();
+      }
+      
+      // ═══ ВИДЕНИЯ / HORROR СОБЫТИЯ ═══
+      const eventType = getTagValue(tags, "type");
+      if (eventType === "vision") {
+        setIsVisionActive(true);
+        investigationHaptic.dramaticMoment();
+        // Очищаем предыдущий таймер если есть
+        if (visionTimerRef.current) {
+          clearTimeout(visionTimerRef.current);
+        }
+        // Автоматически скрываем индикатор через 8 секунд
+        visionTimerRef.current = setTimeout(() => {
+          setIsVisionActive(false);
+          visionTimerRef.current = null;
+        }, 8000);
       }
       
       // ═══ РЕЖИМ ДОПРОСА ═══
@@ -383,40 +410,26 @@ export function InkStoryPlayer({
         <MoodIndicator mood={currentMood} />
       </AnimatePresence>
       
-      {/* Хедер с главой и статистикой */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className={`px-2 py-1 rounded text-xs font-bold ${moodStyles.accent}`}>
-            Глава {currentChapter}
-          </div>
-          {currentTitle && (
-            <span className="text-white/60 text-sm">{currentTitle}</span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Объективность */}
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-white/40">🎯</span>
-            <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-              <motion.div
-                className={`h-full ${objectivity >= 50 ? "bg-emerald-500" : "bg-amber-500"}`}
-                initial={{ width: "50%" }}
-                animate={{ width: `${objectivity}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Очки */}
-          <div
-            className={`px-2 py-1 rounded text-xs font-bold ${
-              score >= 0 ? "bg-violet-500/20 text-violet-300" : "bg-red-500/20 text-red-300"
-            }`}
+      {/* Индикатор ВИДЕНИЯ — horror события */}
+      <AnimatePresence>
+        {isVisionActive && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-2 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full 
+                       bg-red-900/80 border border-red-500/50 backdrop-blur-sm
+                       flex items-center gap-2 shadow-lg shadow-red-900/50"
           >
-            {score > 0 ? `+${score}` : score}
-          </div>
-        </div>
-      </div>
+            <span className="text-lg animate-pulse">👁️</span>
+            <span className="text-red-200 text-sm font-medium tracking-wider uppercase">
+              Видение
+            </span>
+            <span className="text-lg animate-pulse">👁️</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       
       {/* Панель допроса */}
       <AnimatePresence>
@@ -772,7 +785,9 @@ const MOOD_INDICATORS: Record<MoodType, { icon: string; label: string; color: st
   normal: { icon: "📖", label: "", color: "text-white/40" },
   dark: { icon: "🌑", label: "Мрак", color: "text-slate-400" },
   tense: { icon: "⚡", label: "Напряжение", color: "text-amber-400" },
+  tension: { icon: "⚡", label: "Напряжение", color: "text-amber-400" },
   horror: { icon: "💀", label: "Ужас", color: "text-red-400" },
+  cosmic_horror: { icon: "🌀", label: "Космический ужас", color: "text-violet-500" },
   hope: { icon: "✨", label: "Надежда", color: "text-emerald-400" },
   mystery: { icon: "🔮", label: "Тайна", color: "text-purple-400" },
   investigation: { icon: "🔍", label: "Расследование", color: "text-blue-400" },
@@ -782,19 +797,31 @@ const MOOD_INDICATORS: Record<MoodType, { icon: string; label: string; color: st
   discovery: { icon: "💡", label: "Открытие", color: "text-lime-400" },
   crossroads: { icon: "🔀", label: "Развилка", color: "text-indigo-400" },
   professional: { icon: "📋", label: "Работа", color: "text-zinc-400" },
+  suspicion: { icon: "🤔", label: "Подозрение", color: "text-amber-500" },
+  revelation: { icon: "💥", label: "Откровение", color: "text-yellow-400" },
+  shock: { icon: "😱", label: "Шок", color: "text-red-500" },
+  neutral: { icon: "📖", label: "", color: "text-white/40" },
+  emotional: { icon: "💔", label: "Эмоции", color: "text-pink-400" },
+  action: { icon: "🏃", label: "Действие", color: "text-orange-500" },
+  bittersweet: { icon: "🥀", label: "Горечь", color: "text-rose-300" },
 };
 
 function MoodIndicator({ mood, show = true }: { mood: MoodType; show?: boolean }) {
   const indicator = MOOD_INDICATORS[mood];
   
-  if (!show || mood === "normal") return null;
+  // Защита от неизвестных mood тегов
+  if (!indicator || !show || mood === "normal" || mood === "neutral") return null;
   
   const dotColor = 
-    mood === "horror" || mood === "dark" ? "bg-red-400 shadow-red-400/50" :
-    mood === "tense" || mood === "pressure" ? "bg-amber-400 shadow-amber-400/50" :
+    mood === "horror" || mood === "dark" || mood === "shock" ? "bg-red-400 shadow-red-400/50" :
+    mood === "cosmic_horror" ? "bg-violet-500 shadow-violet-500/50" :
+    mood === "tense" || mood === "tension" || mood === "pressure" || mood === "suspicion" ? "bg-amber-400 shadow-amber-400/50" :
     mood === "mystery" ? "bg-violet-400 shadow-violet-400/50" :
     mood === "discovery" || mood === "hope" ? "bg-emerald-400 shadow-emerald-400/50" :
     mood === "investigation" ? "bg-blue-400 shadow-blue-400/50" :
+    mood === "revelation" ? "bg-yellow-400 shadow-yellow-400/50" :
+    mood === "emotional" || mood === "bittersweet" ? "bg-pink-400 shadow-pink-400/50" :
+    mood === "action" || mood === "conflict" ? "bg-orange-400 shadow-orange-400/50" :
     "bg-white/40";
   
   return (
@@ -833,10 +860,12 @@ type CharacterConfig = {
   shortName: string;
   role: string;
   avatar: {
-    emoji: string;
+    emoji: string;           // Emoji или инициалы (например "МГ" для Майора Громова)
     bgGradient: string;
     ringColor: string;
     shadowColor: string;
+    isInitials?: boolean;    // true = показывать как инициалы, false = как emoji
+    imageSrc?: string;       // Путь к изображению (если есть)
   };
   bubble: {
     bgGradient: string;
@@ -845,199 +874,385 @@ type CharacterConfig = {
   };
   nameColor: string;
   isProtagonist?: boolean;
-  statusIndicator?: "online" | "typing" | "away" | "none";
+  statusIndicator?: "online" | "typing" | "away" | "none" | "offline";
+  gender?: "male" | "female";
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА ПЕРСОНАЖЕЙ — Полная конфигурация для "Красный лес"
+// ══════════════════════════════════════════════════════════════════════════════
 
 const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
   // ═══════════════════════════════════════════════════════════════════════════
-  // КРАСНЫЙ ЛЕС — Персонажи
+  // ГЛАВНЫЙ ГЕРОЙ
   // ═══════════════════════════════════════════════════════════════════════════
   
-  ssorokin: {
+  sorokin: {
     name: "Виктор Сорокин",
-    shortName: "Вы",
-    role: "Следователь",
+    shortName: "Сорокин",
+    role: "Следователь из Москвы",
     avatar: {
-      emoji: "🔍",
-      bgGradient: "from-slate-500 via-slate-600 to-slate-700",
+      emoji: "ВС",
+      bgGradient: "from-slate-600 via-slate-700 to-slate-800",
       ringColor: "ring-slate-400/50",
       shadowColor: "shadow-slate-500/30",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-slate-700 via-slate-800 to-slate-900",
+      bgGradient: "from-slate-700/80 via-slate-800/80 to-slate-900/80",
       borderColor: "border-slate-500/30",
       textColor: "text-white",
     },
     nameColor: "text-slate-300",
     isProtagonist: true,
     statusIndicator: "online",
+    gender: "male",
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КЛЮЧЕВЫЕ ПЕРСОНАЖИ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   gromov: {
     name: "Майор Громов",
     shortName: "Громов",
     role: "Начальник милиции",
     avatar: {
-      emoji: "👮‍♂️",
+      emoji: "МГ",
       bgGradient: "from-red-700 via-red-800 to-red-900",
       ringColor: "ring-red-500/50",
-      shadowColor: "shadow-red-600/30",
+      shadowColor: "shadow-red-600/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-red-900/60 to-red-950/60",
-      borderColor: "border-red-600/30",
+      bgGradient: "from-red-900/70 to-red-950/70",
+      borderColor: "border-red-600/40",
       textColor: "text-red-100",
     },
     nameColor: "text-red-400",
-    statusIndicator: "away",
+    statusIndicator: "online",
+    gender: "male",
   },
+  
   vera: {
     name: "Вера Холодова",
     shortName: "Вера",
     role: "Психиатр",
     avatar: {
-      emoji: "👩‍⚕️",
+      emoji: "ВХ",
       bgGradient: "from-violet-500 via-purple-600 to-violet-700",
       ringColor: "ring-violet-400/50",
-      shadowColor: "shadow-violet-500/30",
+      shadowColor: "shadow-violet-500/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-violet-900/60 to-purple-900/60",
-      borderColor: "border-violet-500/30",
+      bgGradient: "from-violet-900/70 to-purple-900/70",
+      borderColor: "border-violet-500/40",
       textColor: "text-violet-100",
     },
     nameColor: "text-violet-400",
     statusIndicator: "online",
+    gender: "female",
   },
+  
   serafim: {
     name: "Отец Серафим",
     shortName: "Серафим",
-    role: "Священник",
+    role: "Настоятель церкви",
     avatar: {
-      emoji: "✝️",
+      emoji: "ОС",
       bgGradient: "from-amber-600 via-yellow-700 to-amber-800",
       ringColor: "ring-amber-400/50",
-      shadowColor: "shadow-amber-500/30",
+      shadowColor: "shadow-amber-500/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-amber-900/50 to-yellow-900/50",
-      borderColor: "border-amber-500/30",
+      bgGradient: "from-amber-900/60 to-yellow-900/60",
+      borderColor: "border-amber-500/40",
       textColor: "text-amber-100",
     },
     nameColor: "text-amber-400",
     statusIndicator: "none",
+    gender: "male",
   },
+  
   tanya: {
-    name: "Таня Зорина",
+    name: "Таня Волкова",
     shortName: "Таня",
-    role: "Инженер",
+    role: "Журналистка",
     avatar: {
-      emoji: "👩‍🔧",
+      emoji: "ТВ",
       bgGradient: "from-emerald-500 via-teal-600 to-emerald-700",
       ringColor: "ring-emerald-400/50",
-      shadowColor: "shadow-emerald-500/30",
+      shadowColor: "shadow-emerald-500/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-emerald-900/50 to-teal-900/50",
-      borderColor: "border-emerald-500/30",
+      bgGradient: "from-emerald-900/60 to-teal-900/60",
+      borderColor: "border-emerald-500/40",
       textColor: "text-emerald-100",
     },
     nameColor: "text-emerald-400",
     statusIndicator: "online",
+    gender: "female",
   },
+  
   astahov: {
     name: "Полковник Астахов",
     shortName: "Астахов",
-    role: "КГБ",
+    role: "Куратор КГБ",
     avatar: {
-      emoji: "🕴️",
+      emoji: "ПА",
       bgGradient: "from-gray-600 via-gray-700 to-gray-800",
       ringColor: "ring-gray-500/50",
-      shadowColor: "shadow-gray-600/30",
+      shadowColor: "shadow-gray-600/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-gray-800/70 to-gray-900/70",
-      borderColor: "border-gray-600/30",
+      bgGradient: "from-gray-800/80 to-gray-900/80",
+      borderColor: "border-gray-600/40",
       textColor: "text-gray-200",
     },
     nameColor: "text-gray-400",
     statusIndicator: "online",
+    gender: "male",
   },
+  
   klava: {
     name: "Клавдия Петровна",
     shortName: "Клава",
-    role: "Администратор",
+    role: "Хозяйка столовой",
     avatar: {
-      emoji: "👵",
+      emoji: "КП",
       bgGradient: "from-pink-500 via-rose-600 to-pink-700",
       ringColor: "ring-pink-400/50",
-      shadowColor: "shadow-pink-500/30",
+      shadowColor: "shadow-pink-500/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-pink-900/50 to-rose-900/50",
-      borderColor: "border-pink-500/30",
+      bgGradient: "from-pink-900/60 to-rose-900/60",
+      borderColor: "border-pink-500/40",
       textColor: "text-pink-100",
     },
     nameColor: "text-pink-400",
     statusIndicator: "none",
+    gender: "female",
   },
+  
   chernov: {
     name: "Академик Чернов",
     shortName: "Чернов",
-    role: "Учёный",
+    role: "Глава «Проекта Эхо»",
     avatar: {
-      emoji: "🧪",
+      emoji: "АЧ",
       bgGradient: "from-indigo-600 via-blue-700 to-indigo-800",
       ringColor: "ring-indigo-400/50",
-      shadowColor: "shadow-indigo-500/30",
+      shadowColor: "shadow-indigo-500/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-indigo-900/60 to-blue-900/60",
-      borderColor: "border-indigo-500/30",
+      bgGradient: "from-indigo-900/70 to-blue-900/70",
+      borderColor: "border-indigo-500/40",
       textColor: "text-indigo-100",
     },
     nameColor: "text-indigo-400",
     statusIndicator: "away",
+    gender: "male",
   },
-  cultist: {
-    name: "Голос из тьмы",
-    shortName: "???",
-    role: "",
+  
+  fyodor: {
+    name: "Фёдор Кузьмич",
+    shortName: "Фёдор",
+    role: "Местный краевед",
     avatar: {
-      emoji: "👁️",
-      bgGradient: "from-red-900 via-black to-red-950",
-      ringColor: "ring-red-700/50",
-      shadowColor: "shadow-red-900/30",
+      emoji: "ФК",
+      bgGradient: "from-orange-600 via-amber-700 to-orange-800",
+      ringColor: "ring-orange-400/50",
+      shadowColor: "shadow-orange-500/40",
+      isInitials: true,
     },
     bubble: {
-      bgGradient: "from-black/80 to-red-950/80",
-      borderColor: "border-red-800/30",
+      bgGradient: "from-orange-900/60 to-amber-900/60",
+      borderColor: "border-orange-500/40",
+      textColor: "text-orange-100",
+    },
+    nameColor: "text-orange-400",
+    statusIndicator: "none",
+    gender: "male",
+  },
+  
+  zorin: {
+    name: "Следователь Зорин",
+    shortName: "Зорин",
+    role: "Предыдущий следователь",
+    avatar: {
+      emoji: "СЗ",
+      bgGradient: "from-cyan-600 via-sky-700 to-cyan-800",
+      ringColor: "ring-cyan-400/50",
+      shadowColor: "shadow-cyan-500/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-cyan-900/60 to-sky-900/60",
+      borderColor: "border-cyan-500/40",
+      textColor: "text-cyan-100",
+    },
+    nameColor: "text-cyan-400",
+    statusIndicator: "offline",
+    gender: "male",
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ВТОРОСТЕПЕННЫЕ ПЕРСОНАЖИ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  goryunov: {
+    name: "Оперативник Горюнов",
+    shortName: "Горюнов",
+    role: "Оперуполномоченный",
+    avatar: {
+      emoji: "ОГ",
+      bgGradient: "from-cyan-500 via-teal-600 to-cyan-700",
+      ringColor: "ring-cyan-400/50",
+      shadowColor: "shadow-cyan-500/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-cyan-900/60 to-teal-900/60",
+      borderColor: "border-cyan-500/40",
+      textColor: "text-cyan-100",
+    },
+    nameColor: "text-cyan-400",
+    statusIndicator: "online",
+    gender: "male",
+  },
+  
+  expert: {
+    name: "Ольга Николаевна",
+    shortName: "Эксперт",
+    role: "Судмедэксперт",
+    avatar: {
+      emoji: "ОН",
+      bgGradient: "from-purple-500 via-violet-600 to-purple-700",
+      ringColor: "ring-purple-400/50",
+      shadowColor: "shadow-purple-500/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-purple-900/60 to-violet-900/60",
+      borderColor: "border-purple-500/40",
+      textColor: "text-purple-100",
+    },
+    nameColor: "text-purple-400",
+    statusIndicator: "online",
+    gender: "female",
+  },
+  
+  prokuror: {
+    name: "Прокурор Носов",
+    shortName: "Прокурор",
+    role: "Городской прокурор",
+    avatar: {
+      emoji: "ПН",
+      bgGradient: "from-red-500 via-rose-600 to-red-700",
+      ringColor: "ring-red-400/50",
+      shadowColor: "shadow-red-500/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-red-900/60 to-rose-900/60",
+      borderColor: "border-red-500/40",
+      textColor: "text-red-100",
+    },
+    nameColor: "text-red-400",
+    statusIndicator: "online",
+    gender: "male",
+  },
+  
+  uchastkoviy: {
+    name: "Участковый Петров",
+    shortName: "Участковый",
+    role: "Местный участковый",
+    avatar: {
+      emoji: "УП",
+      bgGradient: "from-blue-500 via-blue-600 to-indigo-700",
+      ringColor: "ring-blue-400/50",
+      shadowColor: "shadow-blue-500/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-blue-900/60 to-indigo-900/60",
+      borderColor: "border-blue-500/40",
+      textColor: "text-blue-100",
+    },
+    nameColor: "text-blue-400",
+    statusIndicator: "online",
+    gender: "male",
+  },
+  
+  witness: {
+    name: "Свидетельница",
+    shortName: "Свидетель",
+    role: "Местная жительница",
+    avatar: {
+      emoji: "СВ",
+      bgGradient: "from-emerald-500 via-green-600 to-emerald-700",
+      ringColor: "ring-emerald-400/50",
+      shadowColor: "shadow-emerald-500/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-emerald-900/60 to-green-900/60",
+      borderColor: "border-emerald-500/40",
+      textColor: "text-emerald-100",
+    },
+    nameColor: "text-emerald-400",
+    statusIndicator: "none",
+    gender: "female",
+  },
+  
+  cultist: {
+    name: "Член культа",
+    shortName: "Культист",
+    role: "Последователь",
+    avatar: {
+      emoji: "КУ",
+      bgGradient: "from-red-800 via-red-900 to-black",
+      ringColor: "ring-red-600/50",
+      shadowColor: "shadow-red-700/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-red-950/80 to-black/80",
+      borderColor: "border-red-700/40",
       textColor: "text-red-200",
     },
-    nameColor: "text-red-600",
+    nameColor: "text-red-500",
     statusIndicator: "none",
+    gender: "male",
+  },
+  
+  narrator: {
+    name: "Рассказчик",
+    shortName: "",
+    role: "",
+    avatar: {
+      emoji: "📖",
+      bgGradient: "from-slate-700 via-slate-800 to-slate-900",
+      ringColor: "ring-slate-500/30",
+      shadowColor: "shadow-slate-600/30",
+      isInitials: false,
+    },
+    bubble: {
+      bgGradient: "from-slate-800/50 to-slate-900/50",
+      borderColor: "border-slate-600/30",
+      textColor: "text-slate-300",
+    },
+    nameColor: "text-slate-500",
+    statusIndicator: "none",
+    gender: "male",
   },
 };
-
-// Компонент аватара персонажа — Simple Circle Style
-function CharacterAvatar({ config, size = "md" }: { config: CharacterConfig; size?: "sm" | "md" | "lg" }) {
-  const sizeClasses = {
-    sm: "w-7 h-7 text-xs",
-    md: "w-8 h-8 text-sm",
-    lg: "w-10 h-10 text-base",
-  };
-  
-  return (
-    <div className={`
-      ${sizeClasses[size]}
-      rounded-full 
-      bg-gradient-to-br ${config.avatar.bgGradient}
-      flex items-center justify-center
-      flex-shrink-0
-    `}>
-      {config.avatar.emoji}
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ГЛОБАЛЬНЫЙ СЧЁТЧИК ВРЕМЕНИ ДЛЯ СООБЩЕНИЙ
@@ -1064,6 +1279,98 @@ function getNextMessageTime(): string {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ЧАТ-СООБЩЕНИЕ С TYPING INDICATOR
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+// КОМПОНЕНТ АВАТАРА ПЕРСОНАЖА — Профессиональный дизайн
+// ══════════════════════════════════════════════════════════════════════════════
+
+function CharacterAvatar({ 
+  config, 
+  size = "md" 
+}: { 
+  config: CharacterConfig; 
+  size?: "sm" | "md" | "lg";
+}) {
+  const sizeClasses = {
+    sm: "w-8 h-8 text-xs",
+    md: "w-10 h-10 text-sm",
+    lg: "w-12 h-12 text-base",
+  };
+  
+  const ringSize = {
+    sm: "ring-[1.5px]",
+    md: "ring-2",
+    lg: "ring-[2.5px]",
+  };
+
+  // SVG силуэт для мужского персонажа
+  const MaleSilhouette = () => (
+    <svg viewBox="0 0 24 24" className="w-full h-full p-1.5 opacity-30">
+      <path
+        fill="currentColor"
+        d="M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 10c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"
+      />
+    </svg>
+  );
+
+  // SVG силуэт для женского персонажа
+  const FemaleSilhouette = () => (
+    <svg viewBox="0 0 24 24" className="w-full h-full p-1.5 opacity-30">
+      <path
+        fill="currentColor"
+        d="M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 8c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"
+      />
+    </svg>
+  );
+
+  return (
+    <div className="relative">
+      {/* Внешнее свечение */}
+      <div className={`
+        absolute inset-0 rounded-full blur-md opacity-40
+        bg-gradient-to-br ${config.avatar.bgGradient}
+      `} />
+      
+      {/* Основной аватар */}
+      <div className={`
+        relative ${sizeClasses[size]} rounded-full 
+        bg-gradient-to-br ${config.avatar.bgGradient}
+        ${ringSize[size]} ${config.avatar.ringColor}
+        flex items-center justify-center
+        shadow-lg ${config.avatar.shadowColor}
+        overflow-hidden
+      `}>
+        {/* Силуэт на фоне */}
+        <div className="absolute inset-0 text-white">
+          {config.gender === "female" ? <FemaleSilhouette /> : <MaleSilhouette />}
+        </div>
+        
+        {/* Инициалы или emoji */}
+        <span className={`
+          relative z-10 font-bold tracking-tight
+          ${config.avatar.isInitials 
+            ? "text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" 
+            : "text-current"
+          }
+        `}>
+          {config.avatar.emoji}
+        </span>
+      </div>
+      
+      {/* Индикатор статуса */}
+      {config.statusIndicator && config.statusIndicator !== "none" && (
+        <div className={`
+          absolute -bottom-0.5 -right-0.5 w-3 h-3 
+          rounded-full border-2 border-[#0a0a12]
+          ${config.statusIndicator === "online" ? "bg-emerald-500" : ""}
+          ${config.statusIndicator === "typing" ? "bg-blue-500 animate-pulse" : ""}
+          ${config.statusIndicator === "away" ? "bg-amber-500" : ""}
+          ${config.statusIndicator === "offline" ? "bg-gray-500" : ""}
+        `} />
+      )}
+    </div>
+  );
+}
 
 function ChatMessage({ 
   text, 
@@ -1095,18 +1402,11 @@ function ChatMessage({
   }, [isProtagonist, text.length]);
   
   return (
-    <div className={`flex items-end gap-2.5 mb-4 px-3 ${isProtagonist ? "flex-row-reverse" : "flex-row"}`}>
+    <div className={`flex items-end gap-3 mb-4 px-3 ${isProtagonist ? "flex-row-reverse" : "flex-row"}`}>
       {/* Аватар — только для не-протагониста */}
       {!isProtagonist && (
         <div className="flex-shrink-0 mb-5">
-          <div className={`
-            w-9 h-9 rounded-full 
-            bg-gradient-to-br ${config.avatar.bgGradient}
-            flex items-center justify-center
-            text-base shadow-lg
-          `}>
-            {config.avatar.emoji}
-          </div>
+          <CharacterAvatar config={config} size="md" />
         </div>
       )}
       
@@ -1217,8 +1517,9 @@ function ParagraphRenderer({
   const isWarning = text.includes("⚠️") || hasTag(tags, "warning");
   const isConsequence = text.includes("ПОСЛЕДСТВИЕ") || text.includes("✅") || text.includes("💀");
   const isImportant = hasTag(tags, "important");
-  const isEnding = text.includes("ЭПИЗОД") && text.includes("ЗАВЕРШЁН");
-  const isStats = (text.includes("Ваш счёт:") || text.includes("Объективность:")) && !isEnding;
+  const isEnding = (text.includes("ЭПИЗОД") && text.includes("ЗАВЕРШЁН")) || text.includes("КОНЕЦ ЭПИЗОДА");
+  const isEpisodeStat = text.includes("Ваш рассудок:") || text.includes("Дней осталось:") || text.includes("Собрано улик:");
+  const isStats = (text.includes("Ваш счёт:") || text.includes("Объективность:")) && !isEnding && !isEpisodeStat;
   
   // Блокнот следователя
   const isNotebookHeader = /^[А-ЯЁ]+:$/.test(text.trim()); // "КРАВЧЕНКО:", "НЕИЗВЕСТНЫЙ:"
@@ -1262,79 +1563,131 @@ function ParagraphRenderer({
   const isPause = text.trim() === "..." || text.trim() === "…";
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ДАТА — крупный заголовок
+  // 🎬 КИНЕМАТОГРАФИЧЕСКИЙ СТИЛЬ — Первый экран
   // ═══════════════════════════════════════════════════════════════════════════
   
+  // ДАТА — появляется как в начале фильма
   if (isDate) {
     return (
       <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-        className="py-8 text-center"
+        initial={{ opacity: 0, letterSpacing: "0.5em" }}
+        animate={{ opacity: 1, letterSpacing: "0.25em" }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
+        className="py-10 text-center"
       >
-        <motion.div
-          initial={{ y: 10 }}
-          animate={{ y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <span className="text-[13px] font-bold text-white/70 uppercase tracking-[0.3em]">
-            {text}
-          </span>
-        </motion.div>
-        <motion.div 
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="w-16 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mx-auto mt-4"
-        />
+        <span className="
+          text-xs font-light text-white/60 uppercase tracking-[0.25em]
+          drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]
+        ">
+          {text}
+        </span>
       </motion.div>
     );
   }
   
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ГОД — минималистичный заголовок для временных скачков
-  // ═══════════════════════════════════════════════════════════════════════════
-  
+  // ГОД — минималистичный
   if (isYear) {
     return (
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.8 }}
         className="py-6 text-center"
       >
-        <span className="text-[11px] font-semibold text-amber-400/80 uppercase tracking-[0.4em]">
+        <span className="text-xs text-white/40 tracking-[0.3em] font-light">
           {text}
         </span>
       </motion.div>
     );
   }
   
+  // ЛОКАЦИЯ — элегантный подзаголовок
+  if (isLocation) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+        className="pb-8 text-center"
+      >
+        <span className="text-sm text-white/50 tracking-wider font-light">
+          {text}
+        </span>
+      </motion.div>
+    );
+  }
+  
+  // ПАУЗА (многоточие) — три точки с анимацией
+  if (isPause) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="py-8 flex justify-center gap-3"
+      >
+        {[0, 1, 2].map((i) => (
+          <motion.span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-white/20"
+            animate={{ opacity: [0.2, 0.6, 0.2] }}
+            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+          />
+        ))}
+      </motion.div>
+    );
+  }
+  
   // ═══════════════════════════════════════════════════════════════════════════
-  // ЛОКАЦИЯ — подзаголовок
+  // ДОКУМЕНТ В КАВЫЧКАХ — стиль машинописи
   // ═══════════════════════════════════════════════════════════════════════════
   
-  if (isLocation) {
+  const isDocument = text.startsWith('"') && text.endsWith('"') && text.length > 50;
+  if (isDocument) {
     return (
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="py-2 text-center"
+        className="px-8 py-6"
       >
-        <span className="text-[12px] text-white/50 tracking-wide">
+        <div className="
+          relative pl-4 
+          border-l border-amber-500/30
+        ">
+          <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-amber-500/20 border border-amber-500/40" />
+          <p className="
+            text-[13px] text-amber-100/70 leading-[1.9] 
+            font-mono
+          ">
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КОРОТКАЯ ДРАМАТИЧНАЯ ФРАЗА — акцент
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const isDramaticShort = text.length < 30 && text.trim().endsWith(".") && !text.includes(",") && !isLocation;
+  if (isDramaticShort) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="py-6 text-center"
+      >
+        <span className="text-base text-white/90 font-light tracking-wide">
           {text}
         </span>
       </motion.div>
     );
   }
   
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ПАУЗА (многоточие) — драматическая пауза
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  if (isPause) {
+  // СТАРЫЙ ПАУЗА код для совместимости
+  if (false && isPause) {
     return (
       <motion.div 
         initial={{ opacity: 0 }}
@@ -1520,41 +1873,199 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // ЗАВЕРШЕНИЕ ЭПИЗОДА
+  // ЗАВЕРШЕНИЕ ЭПИЗОДА — Драматичный экран
   // ═══════════════════════════════════════════════════════════════════════════
   
-  if (isEnding) {
-    const isBad = text.includes("ПЛОХАЯ");
-    const isGood = text.includes("ХОРОШИЙ") || !isBad;
+  const isEpisodeEnd = text.includes("КОНЕЦ ЭПИЗОДА") || (text.includes("ЭПИЗОД") && text.includes("ЗАВЕРШЁН"));
+  
+  if (isEpisodeEnd) {
+    // Извлекаем номер эпизода
+    const episodeMatch = text.match(/ЭПИЗОДА?\s*(\d+)/i);
+    const episodeNum = episodeMatch ? episodeMatch[1] : "1";
     
     return (
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="mx-4 my-8 text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1 }}
+        className="mx-4 my-10"
       >
-        <div className={`
-          py-6 px-4 rounded-2xl border
-          ${isBad 
-            ? "bg-red-500/5 border-red-500/20" 
-            : "bg-emerald-500/5 border-emerald-500/20"
-          }
-        `}>
-          <div className="text-3xl mb-3">{isBad ? "💀" : "✓"}</div>
-          <p className={`text-[13px] font-bold uppercase tracking-wider ${
-            isBad ? "text-red-400" : "text-emerald-400"
-          }`}>
-            {text}
-          </p>
+        {/* Основной контейнер с градиентом */}
+        <div className="relative overflow-hidden rounded-3xl">
+          {/* Анимированный фон */}
+          <div className="absolute inset-0 bg-gradient-to-b from-red-950/40 via-black to-red-950/20" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent" />
+          
+          {/* Мерцающие частицы */}
+          <div className="absolute inset-0 overflow-hidden">
+            {[...Array(12)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-1 h-1 bg-red-500/60 rounded-full"
+                style={{
+                  left: `${10 + Math.random() * 80}%`,
+                  top: `${10 + Math.random() * 80}%`,
+                }}
+                animate={{
+                  opacity: [0.2, 0.8, 0.2],
+                  scale: [0.8, 1.2, 0.8],
+                }}
+                transition={{
+                  duration: 2 + Math.random() * 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* Контент */}
+          <div className="relative z-10 px-6 py-10 text-center">
+            {/* Декоративная линия сверху */}
+            <motion.div 
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="h-[1px] w-24 mx-auto mb-8 bg-gradient-to-r from-transparent via-red-500/60 to-transparent"
+            />
+            
+            {/* Заголовок */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+            >
+              <span className="text-[10px] font-medium tracking-[0.3em] text-red-400/60 uppercase">
+                Расследование продолжается
+              </span>
+              
+              <h2 className="mt-4 text-3xl font-bold tracking-tight text-white">
+                Конец эпизода
+              </h2>
+              
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", duration: 0.8, delay: 0.8 }}
+                className="mt-3 inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-red-600 to-red-800 shadow-lg shadow-red-900/50"
+              >
+                <span className="text-4xl font-black text-white">{episodeNum}</span>
+              </motion.div>
+            </motion.div>
+            
+            {/* Декоративная линия снизу */}
+            <motion.div 
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ duration: 0.8, delay: 1 }}
+              className="h-[1px] w-32 mx-auto mt-8 bg-gradient-to-r from-transparent via-red-500/40 to-transparent"
+            />
+          </div>
         </div>
       </motion.div>
     );
   }
   
+  if (isEnding) {
+    return null; // Старый код не нужен
+  }
+  
   // ═══════════════════════════════════════════════════════════════════════════
-  // СТАТИСТИКА
+  // СТАТИСТИКА ЭПИЗОДА — Карточки с данными
   // ═══════════════════════════════════════════════════════════════════════════
+  
+  const isStatLine = text.includes("Ваш рассудок:") || 
+                     text.includes("Дней осталось:") || 
+                     text.includes("Собрано улик:");
+  
+  if (isStatLine) {
+    // Парсим значение
+    const match = text.match(/:\s*(\d+)/);
+    const value = match ? match[1] : "0";
+    
+    // Определяем тип статистики
+    let icon = "📊";
+    let label = "";
+    let color = "from-slate-600 to-slate-700";
+    let textColor = "text-slate-300";
+    let maxValue = "";
+    
+    if (text.includes("рассудок")) {
+      icon = "🧠";
+      label = "Рассудок";
+      maxValue = "/100";
+      const sanityNum = parseInt(value);
+      if (sanityNum >= 70) {
+        color = "from-emerald-600 to-emerald-700";
+        textColor = "text-emerald-400";
+      } else if (sanityNum >= 40) {
+        color = "from-amber-600 to-amber-700";
+        textColor = "text-amber-400";
+      } else {
+        color = "from-red-600 to-red-700";
+        textColor = "text-red-400";
+      }
+    } else if (text.includes("Дней")) {
+      icon = "📅";
+      label = "Дней осталось";
+      const daysNum = parseInt(value);
+      if (daysNum >= 3) {
+        color = "from-sky-600 to-sky-700";
+        textColor = "text-sky-400";
+      } else if (daysNum >= 2) {
+        color = "from-amber-600 to-amber-700";
+        textColor = "text-amber-400";
+      } else {
+        color = "from-red-600 to-red-700";
+        textColor = "text-red-400";
+      }
+    } else if (text.includes("улик")) {
+      icon = "🔍";
+      label = "Собрано улик";
+      color = "from-violet-600 to-violet-700";
+      textColor = "text-violet-400";
+    }
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mx-6 my-2"
+      >
+        <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
+          {/* Градиентный акцент слева */}
+          <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${color}`} />
+          
+          <div className="flex items-center gap-4 px-5 py-4">
+            {/* Иконка */}
+            <div className={`
+              w-12 h-12 rounded-xl bg-gradient-to-br ${color}
+              flex items-center justify-center text-2xl
+              shadow-lg
+            `}>
+              {icon}
+            </div>
+            
+            {/* Текст */}
+            <div className="flex-1">
+              <span className="text-[11px] text-white/40 uppercase tracking-wider font-medium">
+                {label}
+              </span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className={`text-2xl font-bold ${textColor}`}>
+                  {value}
+                </span>
+                {maxValue && (
+                  <span className="text-sm text-white/30">{maxValue}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
   
   if (isStats) {
     return (
@@ -1613,180 +2124,107 @@ function ParagraphRenderer({
   if (isDialogue) {
     const dialogueText = text.replace(/^[—–-]\s*/, "").trim();
     
-    // Умное определение персонажа по контексту
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ПРОФЕССИОНАЛЬНОЕ ОПРЕДЕЛЕНИЕ ПЕРСОНАЖЕЙ
+    // ВАЖНО: Определяем спикера по РЕМАРКЕ в начале текста, а не по содержимому!
+    // ═══════════════════════════════════════════════════════════════════════════
+    
     const detectCharacter = (txt: string): CharacterConfig | null => {
-      const lowerText = txt.toLowerCase();
+      // ПРАВИЛО 1: Ищем ремарку в начале текста (паттерн "Имя глагол")
+      // Например: "Клава качает головой", "Громов хмурится", "Вера говорит"
+      const remarkMatch = txt.match(/^([А-ЯЁ][а-яё]+)\s+(говорит|отвечает|качает|кивает|хмурится|улыбается|вздыхает|шепчет|шёпотом|молчит|смотрит|оглядывается|наклоняется|пишет|показывает|берёт|встаёт|садится|поднимает|опускает|замолкает|продолжает|добавляет|поясняет|уточняет|перебивает|соглашается|возражает|колеблется)/i);
       
-      // Эксперт / Судмедэксперт Ольга Николаевна
-      if (lowerText.includes("эксперт") || lowerText.includes("ольга") || 
-          lowerText.includes("николаевн") || lowerText.includes("судмед") ||
-          lowerText.includes("группа крови") || lowerText.includes("ранени") ||
-          lowerText.includes("жертва") || lowerText.includes("смерть наступила") ||
-          lowerText.includes("михаил сергеевич") || lowerText.includes("не договаривает") ||
-          lowerText.includes("за 20 лет") || lowerText.includes("причина смерти") ||
-          lowerText.includes("орудие") || lowerText.includes("следы насилия") ||
-          lowerText.includes("тело") || lowerText.includes("труп") ||
-          lowerText.includes("вскрытие") || lowerText.includes("сантиметр")) {
-        return {
-          name: "Ольга Николаевна",
-          shortName: "Эксперт",
-          role: "Судмедэксперт",
-          avatar: {
-            emoji: "👩‍⚕️",
-            bgGradient: "from-purple-500 via-violet-600 to-purple-700",
-            ringColor: "ring-purple-400/50",
-            shadowColor: "shadow-purple-500/30",
-          },
-          bubble: {
-            bgGradient: "from-purple-900/60 to-violet-900/60",
-            borderColor: "border-purple-500/30",
-            textColor: "text-purple-100",
-          },
-          nameColor: "text-purple-400",
-          statusIndicator: "online",
+      if (remarkMatch) {
+        const speakerName = remarkMatch[1].toLowerCase();
+        
+        // Карта имён к конфигам
+        const nameToConfig: Record<string, CharacterConfig | undefined> = {
+          "клава": SPEAKER_CONFIG.klava,
+          "клавдия": SPEAKER_CONFIG.klava,
+          "громов": SPEAKER_CONFIG.gromov,
+          "майор": SPEAKER_CONFIG.gromov,
+          "вера": SPEAKER_CONFIG.vera,
+          "серафим": SPEAKER_CONFIG.serafim,
+          "батюшка": SPEAKER_CONFIG.serafim,
+          "таня": SPEAKER_CONFIG.tanya,
+          "астахов": SPEAKER_CONFIG.astahov,
+          "полковник": SPEAKER_CONFIG.astahov,
+          "чернов": SPEAKER_CONFIG.chernov,
+          "академик": SPEAKER_CONFIG.chernov,
+          "фёдор": SPEAKER_CONFIG.fyodor,
+          "федор": SPEAKER_CONFIG.fyodor,
+          "зорин": SPEAKER_CONFIG.zorin,
+          "горюнов": SPEAKER_CONFIG.goryunov,
+          "эксперт": SPEAKER_CONFIG.expert,
+          "ольга": SPEAKER_CONFIG.expert,
+          "прокурор": SPEAKER_CONFIG.prokuror,
+          "участковый": SPEAKER_CONFIG.uchastkoviy,
         };
+        
+        if (nameToConfig[speakerName]) {
+          return nameToConfig[speakerName]!;
+        }
       }
       
-      // Оперативник / Дежурный
-      if (lowerText.includes("дежурн") || lowerText.includes("рации") || 
-          lowerText.includes("товарищ следователь") || lowerText.includes("опер") ||
-          lowerText.includes("там страшно") || lowerText.includes("зацепка")) {
-        return {
-          name: "Оперативник Горюнов",
-          shortName: "Горюнов",
-          role: "Оперуполномоченный",
-          avatar: {
-            emoji: "👮",
-            bgGradient: "from-cyan-500 via-teal-600 to-cyan-700",
-            ringColor: "ring-cyan-400/50",
-            shadowColor: "shadow-cyan-500/30",
-          },
-          bubble: {
-            bgGradient: "from-cyan-900/50 to-teal-900/50",
-            borderColor: "border-cyan-500/30",
-            textColor: "text-cyan-100",
-          },
-          nameColor: "text-cyan-400",
-          statusIndicator: "online",
+      // ПРАВИЛО 2: Ищем паттерн "— Имя:" в начале (прямая речь с указанием спикера)
+      const directSpeechMatch = txt.match(/^([А-ЯЁ][а-яё]+):/);
+      if (directSpeechMatch) {
+        const speakerName = directSpeechMatch[1].toLowerCase();
+        const nameToConfig: Record<string, CharacterConfig | undefined> = {
+          "клава": SPEAKER_CONFIG.klava,
+          "громов": SPEAKER_CONFIG.gromov,
+          "вера": SPEAKER_CONFIG.vera,
+          "серафим": SPEAKER_CONFIG.serafim,
+          "таня": SPEAKER_CONFIG.tanya,
+          "астахов": SPEAKER_CONFIG.astahov,
+          "чернов": SPEAKER_CONFIG.chernov,
+          "фёдор": SPEAKER_CONFIG.fyodor,
+          "федор": SPEAKER_CONFIG.fyodor,
         };
+        if (nameToConfig[speakerName]) {
+          return nameToConfig[speakerName]!;
+        }
       }
       
-      // Прокурор
-      if (lowerText.includes("прокурор") || lowerText.includes("политическ") ||
-          lowerText.includes("народ требует") || lowerText.includes("обком")) {
-        return {
-          name: "Прокурор города",
-          shortName: "Прокурор",
-          role: "Надзор",
-          avatar: {
-            emoji: "⚖️",
-            bgGradient: "from-red-500 via-rose-600 to-red-700",
-            ringColor: "ring-red-400/50",
-            shadowColor: "shadow-red-500/30",
-          },
-          bubble: {
-            bgGradient: "from-red-900/60 to-rose-900/60",
-            borderColor: "border-red-500/30",
-            textColor: "text-red-100",
-          },
-          nameColor: "text-red-400",
-          statusIndicator: "online",
-        };
+      // ПРАВИЛО 3: НЕ показываем как чат если это:
+      // - Вопрос следователя (обычно короткий текст с ?)
+      // - Внутренние мысли (курсив, кавычки «»)
+      // - Повествование (описание действий без прямой речи)
+      
+      // Если текст короткий и заканчивается на ? — это вопрос следователя (мысли)
+      if (txt.length < 50 && txt.endsWith("?")) {
+        return null; // Это вопрос протагониста — показать как мысли
       }
       
-      // Свидетель / Бабушка
-      if (lowerText.includes("свидетел") || lowerText.includes("видела") || 
-          lowerText.includes("бабушка") || lowerText.includes("соседка") ||
-          lowerText.includes("мужчина") || lowerText.includes("плащ")) {
-        return {
-          name: "Свидетельница",
-          shortName: "Свидетель",
-          role: "Местная жительница",
-          avatar: {
-            emoji: "👵",
-            bgGradient: "from-emerald-500 via-green-600 to-emerald-700",
-            ringColor: "ring-emerald-400/50",
-            shadowColor: "shadow-emerald-500/30",
-          },
-          bubble: {
-            bgGradient: "from-emerald-900/50 to-green-900/50",
-            borderColor: "border-emerald-500/30",
-            textColor: "text-emerald-100",
-          },
-          nameColor: "text-emerald-400",
-          statusIndicator: "none",
-        };
+      // Если текст в кавычках — это мысли/цитата
+      if (txt.startsWith("«") || txt.startsWith('"') || txt.startsWith("„")) {
+        return null; // Мысли
       }
       
-      // Участковый
-      if (lowerText.includes("участков") || lowerText.includes("станция") ||
-          lowerText.includes("электрички")) {
-        return {
-          name: "Участковый",
-          shortName: "Участковый",
-          role: "Местный отдел",
-          avatar: {
-            emoji: "👮‍♂️",
-            bgGradient: "from-blue-500 via-blue-600 to-indigo-700",
-            ringColor: "ring-blue-400/50",
-            shadowColor: "shadow-blue-500/30",
-          },
-          bubble: {
-            bgGradient: "from-blue-900/50 to-indigo-900/50",
-            borderColor: "border-blue-500/30",
-            textColor: "text-blue-100",
-          },
-          nameColor: "text-blue-400",
-          statusIndicator: "online",
-        };
-      }
+      // ПРАВИЛО 4: БЕЗ УГАДЫВАНИЯ!
+      // Если нет явной ремарки с именем персонажа — НЕ показываем как чат.
+      // Это предотвращает ошибки типа "Товарищ следователь" → Громов,
+      // когда на самом деле это может говорить Клава или кто-то другой.
       
-      // Подозреваемый Кравченко
-      if (lowerText.includes("не убивал") || lowerText.includes("исправился") ||
-          lowerText.includes("кравченко") || lowerText.includes("сидел")) {
-        return {
-          name: "Александр Кравченко",
-          shortName: "Кравченко",
-          role: "Подозреваемый",
-          avatar: {
-            emoji: "😰",
-            bgGradient: "from-orange-500 via-amber-600 to-orange-700",
-            ringColor: "ring-orange-400/50",
-            shadowColor: "shadow-orange-500/30",
-          },
-          bubble: {
-            bgGradient: "from-orange-900/50 to-amber-900/50",
-            borderColor: "border-orange-500/30",
-            textColor: "text-orange-100",
-          },
-          nameColor: "text-orange-400",
-          statusIndicator: "away",
-        };
-      }
-      
-      // Дефолтный — внутренние мысли протагониста
-      return null; // null = мысли, не NPC
+      // По умолчанию — это повествование или мысли
+      return null;
     };
     
     const dialogueConfig = detectCharacter(dialogueText);
     
-    // Если config === null — это внутренние мысли
+    // Если config === null — это внутренние мысли или повествование
     if (dialogueConfig === null) {
+      // Это реплика NPC без определённого спикера — показываем как повествование
       return (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="py-3 px-5"
+          transition={{ duration: 0.5 }}
+          className="px-8 py-4"
         >
-          <div className="relative max-w-[85%] mx-auto">
-            {/* Внутренний голос — курсивом, с эффектом мысли */}
-            <p className="text-[14px] text-white/60 leading-[1.8] text-center italic">
-              <span className="text-white/30 mr-1">«</span>
-              {dialogueText}
-              <span className="text-white/30 ml-1">»</span>
-            </p>
-          </div>
+          <p className="text-[15px] text-white/75 leading-[1.9] font-light">
+            — {dialogueText}
+          </p>
         </motion.div>
       );
     }
@@ -1904,40 +2342,45 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // ВАЖНЫЙ ТЕКСТ И ПОСЛЕДСТВИЯ
+  // ПОСЛЕДСТВИЯ — с тонким акцентом слева
   // ═══════════════════════════════════════════════════════════════════════════
   
-  if (isImportant || isConsequence) {
-    const isPositive = text.includes("✅") || (isConsequence && !text.includes("💀"));
-    const isNegative = text.includes("💀") || text.includes("казнён") || text.includes("трагич");
+  if (isConsequence) {
+    const isPositive = text.includes("✅");
+    const isNegative = text.includes("💀") || text.includes("казнён");
     
     return (
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="mx-3 my-4"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="px-6 py-4"
       >
         <div className={`
-          relative overflow-hidden p-5 rounded-2xl border shadow-xl
-          ${isPositive
-            ? "bg-gradient-to-br from-green-900/50 via-emerald-900/40 to-green-900/50 border-green-500/40 shadow-green-500/10"
-            : isNegative
-              ? "bg-gradient-to-br from-red-900/50 via-rose-900/40 to-red-900/50 border-red-500/40 shadow-red-500/10"
-              : "bg-gradient-to-br from-violet-900/50 via-purple-900/40 to-violet-900/50 border-violet-500/40 shadow-violet-500/10"
-          }
+          pl-4 border-l-2
+          ${isPositive ? "border-emerald-500/60" : isNegative ? "border-red-500/60" : "border-amber-500/60"}
         `}>
-          {/* Иконка */}
-          <div className="absolute -top-2 -right-2 text-6xl opacity-10">
-            {isPositive ? "✓" : isNegative ? "✗" : "!"}
-          </div>
-          
           <p className={`
-            text-base leading-relaxed whitespace-pre-line relative z-10
-            ${isPositive ? "text-green-100" : isNegative ? "text-red-100" : "text-violet-100"}
+            text-[14px] leading-[1.8]
+            ${isPositive ? "text-emerald-200/90" : isNegative ? "text-red-200/90" : "text-amber-200/90"}
           `}>
-            {text}
+            {text.replace("ПОСЛЕДСТВИЕ:", "").replace("✅", "").replace("💀", "").trim()}
           </p>
         </div>
+      </motion.div>
+    );
+  }
+  
+  // Важный текст — без рамки, просто выделенный
+  if (isImportant) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="px-6 py-4"
+      >
+        <p className="text-[15px] text-white leading-[1.9] text-center font-medium">
+          {text}
+        </p>
       </motion.div>
     );
   }
@@ -2227,21 +2670,62 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // ДЛИННЫЙ ТЕКСТ — блок с фоном
+  // 🎬 КИНЕМАТОГРАФИЧЕСКИЙ ТЕКСТ
   // ═══════════════════════════════════════════════════════════════════════════
   
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="mx-4 my-4"
-    >
-      <div className="px-5 py-4 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06]">
-        <p className="text-[14px] text-white/80 leading-[1.85] whitespace-pre-line">
+  // Текст в кавычках «» или "" — внутренние мысли/цитаты
+  const isQuotedThought = (text.startsWith("«") && text.endsWith("»")) || 
+                          (text.startsWith('"') && text.endsWith('"') && text.length < 150);
+  
+  if (isQuotedThought) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.7 }}
+        className="px-10 py-5"
+      >
+        <p className="text-[14px] text-white/50 leading-[2] text-center italic font-light">
           {text}
         </p>
-      </div>
+      </motion.div>
+    );
+  }
+  
+  // Длинный атмосферный текст (больше 150 символов)
+  const isLongNarrative = text.length > 150;
+  
+  if (isLongNarrative) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="px-6 py-5"
+      >
+        <p className="
+          text-[15px] text-white/75 leading-[2] 
+          font-light
+          first-letter:text-2xl first-letter:font-normal first-letter:text-white/90
+          first-letter:mr-1 first-letter:float-left first-letter:leading-none
+        ">
+          {text}
+        </p>
+      </motion.div>
+    );
+  }
+  
+  // Обычный текст — по центру, элегантно
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="px-8 py-4"
+    >
+      <p className="text-[15px] text-white/80 leading-[1.9] text-center font-light">
+        {text}
+      </p>
     </motion.div>
   );
 }
@@ -2252,9 +2736,14 @@ function getMoodNarrativeStyle(mood: MoodType): string {
   switch (mood) {
     case "dark":
     case "horror":
+    case "shock":
       return "bg-gradient-to-br from-red-950/40 to-black/60 border border-red-900/30";
+    case "cosmic_horror":
+      return "bg-gradient-to-br from-violet-950/50 to-black/70 border border-violet-900/40";
     case "tense":
+    case "tension":
     case "pressure":
+    case "suspicion":
       return "bg-gradient-to-br from-amber-950/30 to-black/50 border border-amber-900/20";
     case "mystery":
       return "bg-gradient-to-br from-purple-950/40 to-black/60 border border-purple-900/30";
@@ -2264,24 +2753,37 @@ function getMoodNarrativeStyle(mood: MoodType): string {
     case "discovery":
       return "bg-gradient-to-br from-emerald-950/30 to-black/50 border border-emerald-900/20";
     case "conflict":
+    case "action":
       return "bg-gradient-to-br from-orange-950/30 to-black/50 border border-orange-900/20";
+    case "revelation":
+      return "bg-gradient-to-br from-yellow-950/30 to-black/50 border border-yellow-900/20";
+    case "emotional":
+    case "bittersweet":
+      return "bg-gradient-to-br from-pink-950/30 to-black/50 border border-pink-900/20";
     default:
       return "bg-white/5 border border-white/10";
   }
 }
 
 function EndScreen({ state }: { state: InkState }) {
-  const score = (state.variables.score as number) ?? 0;
-  const objectivity = (state.variables.objectivity as number) ?? 50;
-  const daysRemaining = (state.variables.days_remaining as number) ?? 0;
-  const evidenceFor = (state.variables.evidence_for_kravchenko as number) ?? 0;
+  // Переменные из Ink истории "Красный лес"
+  const sanity = (state.variables.sanity as number) ?? 100;
+  const daysRemaining = (state.variables.days_remaining as number) ?? 5;
+  const currentDay = (state.variables.current_day as number) ?? 1;
+  const evidenceCollected = (state.variables.evidence_collected as number) ?? 0;
   
-  // Правильная проверка тегов — ищем значение, а не полный текст
+  // Дни прошло = current_day
+  const daysPassed = currentDay;
+  
+  // Улики найдены = evidence_collected
+  const evidenceFor = evidenceCollected;
+  
+  // Определяем тип концовки по тегам или статистике
   const endingType = getTagValue(state.tags, "ending");
-  const hasGoodEnding = endingType === "good" || (!endingType && score >= 50);
-  const hasBadEnding = endingType === "bad" || endingType === "tragedy";
+  const hasGoodEnding = endingType === "good" || (!endingType && sanity >= 60 && evidenceCollected >= 8);
+  const hasBadEnding = endingType === "bad" || endingType === "tragedy" || (!endingType && sanity < 30);
   const hasConscienceEnding = endingType === "conscience";
-  const hasNeutralEnding = endingType === "neutral";
+  const hasNeutralEnding = endingType === "neutral" || (!endingType && !hasGoodEnding && !hasBadEnding);
   
   // Haptic feedback при показе экрана завершения
   useEffect(() => {
@@ -2381,7 +2883,7 @@ function EndScreen({ state }: { state: InkState }) {
           transition={{ delay: 0.4 }}
           className="grid grid-cols-2 gap-3"
         >
-          {/* Очки */}
+          {/* Дней осталось */}
           <div className={`
             relative overflow-hidden p-4 rounded-2xl 
             bg-gradient-to-br from-violet-900/40 to-purple-900/40 
@@ -2389,16 +2891,20 @@ function EndScreen({ state }: { state: InkState }) {
           `}>
             <div className="absolute top-0 right-0 w-16 h-16 bg-violet-500/10 rounded-full blur-xl" />
             <div className="relative">
-              <div className="text-3xl font-bold text-violet-400 mb-1">
-                {score}
+              <div className={`text-3xl font-bold mb-1 ${
+                daysRemaining >= 3 ? "text-emerald-400" : 
+                daysRemaining >= 1 ? "text-amber-400" : 
+                "text-red-400"
+              }`}>
+                {daysRemaining}
               </div>
               <div className="text-xs text-white/50 uppercase tracking-wider">
-                Очков
+                Дней осталось
               </div>
             </div>
           </div>
           
-          {/* Объективность */}
+          {/* Рассудок */}
           <div className={`
             relative overflow-hidden p-4 rounded-2xl 
             bg-gradient-to-br from-blue-900/40 to-indigo-900/40 
@@ -2407,14 +2913,14 @@ function EndScreen({ state }: { state: InkState }) {
             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl" />
             <div className="relative">
               <div className={`text-3xl font-bold mb-1 ${
-                objectivity >= 70 ? "text-emerald-400" : 
-                objectivity >= 40 ? "text-amber-400" : 
+                sanity >= 70 ? "text-emerald-400" : 
+                sanity >= 40 ? "text-amber-400" : 
                 "text-red-400"
               }`}>
-                {objectivity}%
+                {sanity}%
               </div>
               <div className="text-xs text-white/50 uppercase tracking-wider">
-                Объективность
+                Рассудок
               </div>
             </div>
           </div>
@@ -2445,7 +2951,7 @@ function EndScreen({ state }: { state: InkState }) {
             <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-full blur-xl" />
             <div className="relative">
               <div className="text-3xl font-bold text-amber-400 mb-1">
-                {3 - daysRemaining}
+                {daysPassed}
               </div>
               <div className="text-xs text-white/50 uppercase tracking-wider">
                 Дней прошло
@@ -2604,6 +3110,79 @@ function getMoodStyles(mood: MoodType) {
       choicesBackground: "bg-gradient-to-t from-[#0a0a0a] to-transparent",
       choiceButton: "bg-zinc-900/50 border border-zinc-700/50 hover:border-zinc-500/50",
       choiceLetter: "text-zinc-400",
+    },
+    // Новые типы настроений из истории
+    suspicion: {
+      background: "bg-[#0c0a08]",
+      accent: "bg-amber-600/20 text-amber-300",
+      border: "border-amber-800/30",
+      choicesBackground: "bg-gradient-to-t from-[#0c0a08] to-transparent",
+      choiceButton: "bg-amber-950/30 border border-amber-700/30 hover:border-amber-500/50",
+      choiceLetter: "text-amber-500",
+    },
+    revelation: {
+      background: "bg-[#0c0a06]",
+      accent: "bg-yellow-500/20 text-yellow-300",
+      border: "border-yellow-900/30",
+      choicesBackground: "bg-gradient-to-t from-[#0c0a06] to-transparent",
+      choiceButton: "bg-yellow-950/30 border border-yellow-800/30 hover:border-yellow-500/50",
+      choiceLetter: "text-yellow-400",
+    },
+    shock: {
+      background: "bg-[#0a0606]",
+      accent: "bg-red-600/30 text-red-300",
+      border: "border-red-800/40",
+      choicesBackground: "bg-gradient-to-t from-[#0a0606] to-transparent",
+      choiceButton: "bg-red-950/40 border border-red-800/40 hover:border-red-400/50",
+      choiceLetter: "text-red-500",
+    },
+    tension: {
+      background: "bg-[#0c0a10]",
+      accent: "bg-amber-500/20 text-amber-300",
+      border: "border-amber-900/30",
+      choicesBackground: "bg-gradient-to-t from-[#0c0a10] to-transparent",
+      choiceButton: "bg-amber-950/30 border border-amber-800/30 hover:border-amber-500/50",
+      choiceLetter: "text-amber-400",
+    },
+    cosmic_horror: {
+      background: "bg-[#08060c]",
+      accent: "bg-violet-600/30 text-violet-300",
+      border: "border-violet-900/40",
+      choicesBackground: "bg-gradient-to-t from-[#08060c] to-transparent",
+      choiceButton: "bg-violet-950/40 border border-violet-800/40 hover:border-violet-400/50",
+      choiceLetter: "text-violet-500",
+    },
+    neutral: {
+      background: "bg-[#0a0a12]",
+      accent: "bg-white/10 text-white/70",
+      border: "border-white/10",
+      choicesBackground: "bg-gradient-to-t from-[#0a0a12] to-transparent",
+      choiceButton: "bg-white/5 border border-white/10 hover:border-white/30",
+      choiceLetter: "text-white/50",
+    },
+    emotional: {
+      background: "bg-[#0c080a]",
+      accent: "bg-pink-500/20 text-pink-300",
+      border: "border-pink-900/30",
+      choicesBackground: "bg-gradient-to-t from-[#0c080a] to-transparent",
+      choiceButton: "bg-pink-950/30 border border-pink-800/30 hover:border-pink-500/50",
+      choiceLetter: "text-pink-400",
+    },
+    action: {
+      background: "bg-[#0c0806]",
+      accent: "bg-orange-600/20 text-orange-300",
+      border: "border-orange-800/30",
+      choicesBackground: "bg-gradient-to-t from-[#0c0806] to-transparent",
+      choiceButton: "bg-orange-950/30 border border-orange-700/30 hover:border-orange-500/50",
+      choiceLetter: "text-orange-500",
+    },
+    bittersweet: {
+      background: "bg-[#0a080a]",
+      accent: "bg-rose-400/20 text-rose-300",
+      border: "border-rose-900/20",
+      choicesBackground: "bg-gradient-to-t from-[#0a080a] to-transparent",
+      choiceButton: "bg-rose-950/20 border border-rose-800/20 hover:border-rose-500/40",
+      choiceLetter: "text-rose-300",
     },
   };
 

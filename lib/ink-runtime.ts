@@ -72,6 +72,12 @@ export const RED_FOREST_VARIABLES = [
   "evidence_collected",
   "cult_awareness",
   
+  // Улики и знания (LIST переменные)
+  "CultLore",
+  "KeyEvents",
+  "AncientArtifacts",
+  "Relationships",
+  
   // Флаги встреч
   "met_gromov",
   "met_vera",

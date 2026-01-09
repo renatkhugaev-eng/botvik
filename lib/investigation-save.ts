@@ -23,6 +23,8 @@ export interface InvestigationSave {
   inkState: string;
   /** Состояние доски улик */
   boardState: BoardState;
+  /** Найденные улики (ID улик из CultLore, KeyEvents, AncientArtifacts) */
+  foundClues?: string[];
   /** Разблокированные достижения */
   achievements: string[];
   /** Время игры в секундах */
@@ -197,7 +199,8 @@ export function autosave(
   currentChapter: number,
   storyScore: number,
   playtime: number,
-  achievements: string[] = []
+  achievements: string[] = [],
+  foundClues: string[] = []
 ): SaveResult {
   const save: InvestigationSave = {
     id: AUTOSAVE_KEY,
@@ -209,6 +212,7 @@ export function autosave(
     playtime,
     currentChapter,
     storyScore,
+    foundClues,
     savedAt: new Date().toISOString(),
     version: SAVE_VERSION,
   };
@@ -290,7 +294,8 @@ export function createManualSave(
   currentChapter: number,
   storyScore: number,
   playtime: number,
-  achievements: string[] = []
+  achievements: string[] = [],
+  foundClues: string[] = []
 ): SaveResult {
   const saveId = generateSaveId();
   
@@ -304,6 +309,7 @@ export function createManualSave(
     playtime,
     currentChapter,
     storyScore,
+    foundClues,
     savedAt: new Date().toISOString(),
     version: SAVE_VERSION,
   };
