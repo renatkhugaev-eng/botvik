@@ -1673,6 +1673,25 @@ function ParagraphRenderer({
   const speaker = typeof speakerTag === "string" ? speakerTag : null;
   const config = speaker ? SPEAKER_CONFIG[speaker] : null;
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ЧАТ-СООБЩЕНИЯ — ПРИОРИТЕТ НАД ВСЕМ! (должно быть в самом начале)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Если есть тег speaker — ВСЕГДА показываем как чат, игнорируя другие условия
+  if (speaker && config) {
+    const cleanText = text.replace(/^[—–-]\s*/, "").trim();
+    const isProtagonist = speaker === "sorokin";
+    
+    return (
+      <ChatMessage 
+        text={cleanText} 
+        config={config} 
+        isProtagonist={isProtagonist}
+        isAnimated={isAnimated}
+      />
+    );
+  }
+  
   // Типы контента
   const isClue = text.includes("Улика найдена") || text.includes("Улики найдены") || hasTag(tags, "clue");
   const isWarning = text.includes("⚠️") || hasTag(tags, "warning");
@@ -2260,26 +2279,6 @@ function ParagraphRenderer({
           <span className="text-[13px] text-amber-200">{text}</span>
         </div>
       </motion.div>
-    );
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ЧАТ-СООБЩЕНИЯ ОТ ПЕРСОНАЖЕЙ — ПРИОРИТЕТ НАД ВСЕМ!
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  // Если есть тег speaker — ВСЕГДА показываем как чат
-  if (speaker && config) {
-    // Удаляем тире из начала если есть (для диалогов)
-    const cleanText = text.replace(/^[—–-]\s*/, "").trim();
-    const isProtagonist = speaker === "sorokin";
-    
-    return (
-      <ChatMessage 
-        text={cleanText} 
-        config={config} 
-        isProtagonist={isProtagonist}
-        isAnimated={isAnimated}
-      />
     );
   }
   
