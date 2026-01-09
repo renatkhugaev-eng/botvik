@@ -24,6 +24,7 @@ import {
   type SaveMetadata,
   type InvestigationSave,
 } from "@/lib/investigation-save";
+import { getBackgroundMusic } from "@/lib/background-music";
 
 
 // Импортируем Error Boundary
@@ -105,6 +106,12 @@ export default function InvestigationPage() {
   const [loadedSave, setLoadedSave] = useState<InvestigationSave | null>(null);
   const playtimeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSaveTimeRef = useRef<number>(Date.now());
+  
+  // Music state
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(0.3);
+  const musicInitializedRef = useRef(false);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -115,7 +122,75 @@ export default function InvestigationPage() {
       if (playtimeIntervalRef.current) {
         clearInterval(playtimeIntervalRef.current);
       }
+      // Останавливаем музыку при размонтировании
+      const music = getBackgroundMusic();
+      music.stop();
     };
+  }, []);
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // MUSIC CONTROL
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  // Запуск музыки при начале игры
+  useEffect(() => {
+    if (gameScreen === "playing" && selectedEpisode && !musicInitializedRef.current) {
+      // Музыка запустится при первом взаимодействии пользователя
+      musicInitializedRef.current = true;
+    }
+    
+    // Остановка музыки при выходе из игры
+    if (gameScreen !== "playing" && musicInitializedRef.current) {
+      const music = getBackgroundMusic();
+      music.stop();
+      setIsMusicPlaying(false);
+      musicInitializedRef.current = false;
+    }
+  }, [gameScreen, selectedEpisode]);
+  
+  // Остановка музыки при завершении истории
+  useEffect(() => {
+    if (isStoryEnded) {
+      const music = getBackgroundMusic();
+      music.pause();
+      setIsMusicPlaying(false);
+    }
+  }, [isStoryEnded]);
+  
+  // Функция запуска музыки (вызывается при первом клике)
+  const startMusic = useCallback(async () => {
+    if (isMusicMuted) return;
+    
+    const music = getBackgroundMusic();
+    music.updateConfig({ masterVolume: musicVolume });
+    
+    const success = await music.play("red-forest-ambient");
+    if (success) {
+      setIsMusicPlaying(true);
+    }
+  }, [musicVolume, isMusicMuted]);
+  
+  // Toggle music
+  const toggleMusic = useCallback(async () => {
+    const music = getBackgroundMusic();
+    
+    if (isMusicPlaying) {
+      await music.pause();
+      setIsMusicPlaying(false);
+      setIsMusicMuted(true);
+    } else {
+      setIsMusicMuted(false);
+      const success = await music.play();
+      setIsMusicPlaying(success);
+    }
+  }, [isMusicPlaying]);
+  
+  // Изменение громкости (для будущего UI слайдера)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleVolumeChange = useCallback((volume: number) => {
+    setMusicVolume(volume);
+    const music = getBackgroundMusic();
+    music.setVolume(volume);
   }, []);
   
   // Check for saved game on mount and when episode changes
@@ -254,7 +329,10 @@ export default function InvestigationPage() {
     // Сбрасываем состояние для нового эпизода
     setBoardState(createInitialBoardState());
     setIsStoryEnded(false);
+    setShowEndingButton(false);
+    setEndingType(undefined);
     setStoryScore(0);
+    setFinalStats(null);
     setPlaytime(0);
     setCurrentChapter(1);
     setLoadedSave(null);
@@ -283,18 +361,55 @@ export default function InvestigationPage() {
   // ОБРАБОТЧИКИ INK
   // ══════════════════════════════════════════════════════════════════════════
 
+  // Состояние для показа кнопки "Показать результаты"
+  const [showEndingButton, setShowEndingButton] = useState(false);
+  // Финальная статистика из Ink
+  const [finalStats, setFinalStats] = useState<{
+    sanity: number;
+    cluesFound: number;
+    cultAwareness: number;
+    loreDepth: number;
+    humanity: number;
+    theoriesDebunked: number;
+    endingName: string;
+  } | null>(null);
+  
   const handleStoryEnd = useCallback((state: InkState) => {
     // Извлекаем тип концовки из тегов
     const endingTag = state.tags.find(t => t.startsWith("ending:"));
+    let endingName = "unknown";
     if (endingTag) {
       const ending = endingTag.split(":")[1]?.trim();
       setEndingType(ending);
+      endingName = ending || "unknown";
     }
     
-    setIsStoryEnded(true);
+    // Извлекаем статистику из переменных Ink
+    const vars = state.variables || {};
+    setFinalStats({
+      sanity: (vars.sanity as number) || 0,
+      cluesFound: (vars.evidence_collected as number) || 0,
+      cultAwareness: (vars.cult_awareness as number) || 0,
+      loreDepth: (vars.lore_depth as number) || 0,
+      humanity: (vars.humanity as number) || 50,
+      theoriesDebunked: (vars.theories_debunked as number) || 0,
+      endingName,
+    });
+    
+    // НЕ показываем финальный экран сразу — даём прочитать текст концовки
+    // Вместо этого показываем кнопку "Показать результаты"
+    setShowEndingButton(true);
+    
     // Финальное сохранение
     performAutosave();
   }, [performAutosave]);
+  
+  // Показать финальный экран по нажатию кнопки
+  const handleShowResults = useCallback(() => {
+    setShowEndingButton(false);
+    setIsStoryEnded(true);
+    investigationHaptic.sceneTransition();
+  }, []);
   
   // Обработчик изменения состояния Ink (для сохранения)
   const handleInkStateChange = useCallback((stateJson: string) => {
@@ -406,10 +521,20 @@ export default function InvestigationPage() {
         episodeTitle={selectedEpisode?.title || "Расследование"}
         onBack={handleBackToEpisodes}
         onSaveClick={() => setShowSaveMenu(true)}
+        isMusicPlaying={isMusicPlaying}
+        onMusicToggle={toggleMusic}
       />
 
       {/* Контент — только История */}
-      <div className="flex-1 overflow-hidden">
+      <div 
+        className="flex-1 overflow-hidden"
+        onClick={() => {
+          // Запускаем музыку при первом взаимодействии (требуется user gesture)
+          if (!isMusicPlaying && !isMusicMuted) {
+            startMusic();
+          }
+        }}
+      >
         <InkErrorBoundary
           onRetry={() => {
             setStoryKey(prev => prev + 1);
@@ -428,13 +553,39 @@ export default function InvestigationPage() {
         </InkErrorBoundary>
       </div>
 
+      {/* Кнопка "Показать результаты" — появляется после концовки */}
+      <AnimatePresence>
+        {showEndingButton && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12]/95 to-transparent z-40"
+          >
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handleShowResults}
+              className="w-full py-4 rounded-xl font-bold text-lg text-white flex items-center justify-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                boxShadow: '0 8px 24px rgba(139, 92, 246, 0.3)',
+              }}
+            >
+              <span>📊</span>
+              <span>Показать результаты</span>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Финальный экран */}
       <AnimatePresence>
         {isStoryEnded && (
           <FinalScreen
-            storyScore={storyScore}
             endingType={endingType}
             episodeTitle={selectedEpisode?.title}
+            playtime={playtime}
+            finalStats={finalStats}
             hasNextEpisode={(() => {
               const currentIdx = EPISODES.findIndex(e => e.id === selectedEpisode?.id);
               const nextEpisode = EPISODES[currentIdx + 1];
@@ -443,8 +594,10 @@ export default function InvestigationPage() {
             onRestart={() => {
               // Сброс всех состояний
               setIsStoryEnded(false);
+              setShowEndingButton(false);
               setEndingType(undefined);
               setStoryScore(0);
+              setFinalStats(null);
               setBoardState(createInitialBoardState());
               setInkStateJson("");
               setLoadedSave(null);
@@ -464,8 +617,10 @@ export default function InvestigationPage() {
               if (nextEpisode?.isAvailable) {
                 // Сброс состояния
                 setIsStoryEnded(false);
+                setShowEndingButton(false);
                 setEndingType(undefined);
                 setStoryScore(0);
+                setFinalStats(null);
                 setBoardState(createInitialBoardState());
                 setInkStateJson("");
                 // Запуск следующего эпизода
@@ -545,12 +700,16 @@ function Header({
   episodeTitle,
   onBack,
   onSaveClick,
+  isMusicPlaying,
+  onMusicToggle,
 }: {
   storyScore: number;
   playtime: number;
   episodeTitle: string;
   onBack: () => void;
   onSaveClick: () => void;
+  isMusicPlaying: boolean;
+  onMusicToggle: () => void;
 }) {
 
   return (
@@ -578,6 +737,23 @@ function Header({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Music toggle button */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              investigationHaptic.evidenceSelect();
+              onMusicToggle();
+            }}
+            className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all ${
+              isMusicPlaying 
+                ? "bg-violet-500/20 border-violet-400/30 text-violet-300" 
+                : "bg-white/5 border-white/10 text-white/40"
+            }`}
+            title={isMusicPlaying ? "Выключить музыку" : "Включить музыку"}
+          >
+            {isMusicPlaying ? "🔊" : "🔇"}
+          </motion.button>
+          
           {/* Save button */}
           <motion.button
             whileTap={{ scale: 0.9 }}
@@ -611,93 +787,173 @@ function Header({
 // ФИНАЛЬНЫЙ ЭКРАН — Glassmorphism style
 // ══════════════════════════════════════════════════════════════════════════════
 
+// Тип для статистики финала
+type FinalStats = {
+  sanity: number;
+  cluesFound: number;
+  cultAwareness: number;
+  loreDepth: number;
+  humanity: number;
+  theoriesDebunked: number;
+  endingName: string;
+} | null;
+
+// Данные о всех возможных концовках для мотивации перепрохождения
+const ALL_ENDINGS = [
+  { id: "escape_tanya", name: "Побег с Таней", icon: "💕", rarity: "Редкая" },
+  { id: "escape_alone", name: "Одинокое спасение", icon: "🏃", rarity: "Обычная" },
+  { id: "ritual_stop", name: "Остановить ритуал", icon: "🛑", rarity: "Героическая" },
+  { id: "ritual_join", name: "Принять Красную луну", icon: "🌑", rarity: "Тёмная" },
+  { id: "sacrifice", name: "Жертва ради других", icon: "⚰️", rarity: "Трагическая" },
+  { id: "madness", name: "Безумие", icon: "🌀", rarity: "Скрытая" },
+  { id: "betrayal", name: "Предательство", icon: "🗡️", rarity: "Тёмная" },
+  { id: "truth", name: "Раскрыть правду", icon: "📜", rarity: "Истинная" },
+];
+
 function FinalScreen({
-  storyScore,
   endingType,
   onRestart,
   onBack,
   onNextEpisode,
   hasNextEpisode,
   episodeTitle,
+  playtime,
+  finalStats,
 }: {
-  storyScore: number;
   endingType?: string;
   onRestart: () => void;
   onBack: () => void;
   onNextEpisode?: () => void;
   hasNextEpisode?: boolean;
   episodeTitle?: string;
+  playtime?: number;
+  finalStats: FinalStats;
 }) {
-  const [showTotal, setShowTotal] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showEndings, setShowEndings] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
   
-  const totalScore = storyScore;
+  // Форматирование времени игры
+  const formatPlaytime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}ч ${minutes}м`;
+    }
+    return `${minutes} мин`;
+  };
   
-  // Определяем текст и стиль концовки
+  // Определяем текст и стиль концовки на основе endingType
   const getEndingInfo = () => {
-    if (endingType === "good" || totalScore >= 200) {
-      return {
-        icon: "🏆",
-        title: "Блестящее расследование!",
-        subtitle: "Вы сохранили объективность и нашли ключевые улики.",
+    const endingMap: Record<string, {
+      icon: string;
+      title: string;
+      subtitle: string;
+      gradient: string;
+      glow: string;
+      textColor: string;
+    }> = {
+      escape_tanya: {
+        icon: "💕",
+        title: "Побег с Таней",
+        subtitle: "Вы спасли друг друга из тьмы Красного леса.",
+        gradient: "from-pink-500 to-rose-600",
+        glow: "rgba(236, 72, 153, 0.4)",
+        textColor: "text-pink-400",
+      },
+      escape_alone: {
+        icon: "🏃",
+        title: "Одинокое спасение",
+        subtitle: "Вы выбрались, но какой ценой?",
+        gradient: "from-slate-500 to-gray-600",
+        glow: "rgba(100, 116, 139, 0.4)",
+        textColor: "text-slate-400",
+      },
+      ritual_stop: {
+        icon: "🛑",
+        title: "Ритуал остановлен",
+        subtitle: "Вы предотвратили пробуждение древнего зла.",
         gradient: "from-emerald-500 to-green-600",
         glow: "rgba(16, 185, 129, 0.4)",
         textColor: "text-emerald-400",
-      };
-    } else if (endingType === "bad" || endingType === "tragedy" || totalScore < 0) {
-      return {
-        icon: "💀",
-        title: "Трагический исход",
-        subtitle: "Ваш выбор привёл к непоправимым последствиям.",
-        gradient: "from-red-500 to-rose-600",
-        glow: "rgba(239, 68, 68, 0.4)",
-        textColor: "text-red-400",
-      };
-    } else if (endingType === "conscience") {
-      return {
-        icon: "⚖️",
-        title: "Чистая совесть",
-        subtitle: "Вы потеряли карьеру, но сохранили честь.",
+      },
+      ritual_join: {
+        icon: "🌑",
+        title: "Красная луна",
+        subtitle: "Тьма приняла вас. Вы стали частью леса навсегда.",
+        gradient: "from-red-700 to-rose-900",
+        glow: "rgba(127, 29, 29, 0.5)",
+        textColor: "text-red-500",
+      },
+      sacrifice: {
+        icon: "⚰️",
+        title: "Последняя жертва",
+        subtitle: "Ваша смерть спасла других. Герои не забываются.",
         gradient: "from-amber-500 to-orange-600",
         glow: "rgba(245, 158, 11, 0.4)",
         textColor: "text-amber-400",
-      };
-    } else if (endingType === "neutral") {
-      return {
-        icon: "❓",
-        title: "Неопределённость",
-        subtitle: "Дело осталось незавершённым. История продолжится...",
-        gradient: "from-blue-500 to-cyan-600",
-        glow: "rgba(59, 130, 246, 0.4)",
-        textColor: "text-blue-400",
-      };
-    } else if (totalScore >= 100) {
-      return {
-        icon: "✅",
-        title: "Хорошая работа!",
-        subtitle: "Вы провели добросовестное расследование.",
-        gradient: "from-violet-500 to-indigo-600",
-        glow: "rgba(139, 92, 246, 0.4)",
-        textColor: "text-violet-400",
-      };
+      },
+      madness: {
+        icon: "🌀",
+        title: "Безумие",
+        subtitle: "Рассудок покинул вас. Лес победил.",
+        gradient: "from-purple-700 to-violet-900",
+        glow: "rgba(109, 40, 217, 0.5)",
+        textColor: "text-purple-400",
+      },
+      betrayal: {
+        icon: "🗡️",
+        title: "Предательство",
+        subtitle: "Вы выбрали тёмный путь ради выживания.",
+        gradient: "from-zinc-600 to-neutral-800",
+        glow: "rgba(82, 82, 91, 0.5)",
+        textColor: "text-zinc-400",
+      },
+      truth: {
+        icon: "📜",
+        title: "Правда раскрыта",
+        subtitle: "Мир узнал о том, что скрывалось в лесу.",
+        gradient: "from-cyan-500 to-blue-600",
+        glow: "rgba(6, 182, 212, 0.4)",
+        textColor: "text-cyan-400",
+      },
+    };
+    
+    if (endingType && endingMap[endingType]) {
+      return endingMap[endingType];
     }
+    
+    // Fallback для неизвестных концовок
     return {
       icon: "📋",
       title: "Расследование завершено",
-      subtitle: "Эпизод пройден.",
-      gradient: "from-slate-500 to-slate-600",
-      glow: "rgba(100, 116, 139, 0.3)",
-      textColor: "text-white/70",
+      subtitle: episodeTitle || "Эпизод пройден.",
+      gradient: "from-violet-500 to-indigo-600",
+      glow: "rgba(139, 92, 246, 0.4)",
+      textColor: "text-violet-400",
     };
   };
   
   const ending = getEndingInfo();
   
+  // Определяем статус показателей
+  const getStatStatus = (value: number, max: number) => {
+    const percent = (value / max) * 100;
+    if (percent >= 80) return { color: "text-emerald-400", bg: "bg-emerald-500", label: "Отлично" };
+    if (percent >= 50) return { color: "text-amber-400", bg: "bg-amber-500", label: "Хорошо" };
+    if (percent >= 25) return { color: "text-orange-400", bg: "bg-orange-500", label: "Средне" };
+    return { color: "text-red-400", bg: "bg-red-500", label: "Низко" };
+  };
+  
+  // Получаем открытые концовки (в будущем можно хранить в localStorage)
+  const unlockedEndings = endingType ? [endingType] : [];
+  
   // Последовательное появление элементов
   useEffect(() => {
     const timers = [
-      setTimeout(() => setShowTotal(true), 800),
-      setTimeout(() => setShowButtons(true), 1500),
+      setTimeout(() => setShowStats(true), 600),
+      setTimeout(() => setShowEndings(true), 1200),
+      setTimeout(() => setShowButtons(true), 1800),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -708,7 +964,7 @@ function FinalScreen({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 z-50"
     >
       <motion.div
         initial={{ scale: 0.8, y: 40 }}
@@ -724,70 +980,197 @@ function FinalScreen({
           }}
         />
         
-        <div className="relative rounded-[27px] bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a] p-6 max-h-[90vh] overflow-auto">
+        <div className="relative rounded-[27px] bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a] p-5 max-h-[90vh] overflow-auto custom-scrollbar">
           {/* Header with animated icon */}
           <motion.div 
-            className="text-center mb-6"
+            className="text-center mb-5"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.3 }}
           >
             {/* Icon with glow */}
-            <div className="relative inline-block mb-4">
+            <div className="relative inline-block mb-3">
               <div 
                 className="absolute inset-0 rounded-2xl blur-2xl scale-150"
                 style={{ backgroundColor: ending.glow }}
               />
               <motion.div 
-                className={`relative w-20 h-20 rounded-2xl flex items-center justify-center text-5xl bg-gradient-to-br ${ending.gradient}`}
+                className={`relative w-16 h-16 rounded-2xl flex items-center justify-center text-4xl bg-gradient-to-br ${ending.gradient}`}
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.5, type: "spring", damping: 10 }}
-                style={{ boxShadow: `0 0 40px ${ending.glow}` }}
+                transition={{ delay: 0.4, type: "spring", damping: 10 }}
+                style={{ boxShadow: `0 0 30px ${ending.glow}` }}
               >
                 {ending.icon}
               </motion.div>
             </div>
             
-            <h2 className={`text-2xl font-bold mb-2 ${ending.textColor}`}>
+            <h2 className={`text-xl font-bold mb-1 ${ending.textColor}`}>
               {ending.title}
             </h2>
-            <p className="text-sm text-white/50">
+            <p className="text-xs text-white/50 px-4">
               {ending.subtitle}
             </p>
+            
+            {/* Время прохождения */}
+            {playtime !== undefined && playtime > 0 && (
+              <div className="mt-2 text-xs text-white/30">
+                ⏱️ Время прохождения: {formatPlaytime(playtime)}
+              </div>
+            )}
           </motion.div>
 
-          {/* Total score card */}
+          {/* Статистика расследования */}
           <AnimatePresence>
-            {showTotal && (
+            {showStats && finalStats && (
               <motion.div 
-                className="text-center p-5 rounded-xl mb-5"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                style={{
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.1))',
-                  boxShadow: '0 0 30px rgba(139, 92, 246, 0.2)',
-                }}
+                className="mb-4 p-4 rounded-xl bg-white/5 border border-white/10"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
               >
-                <div className="text-xs text-white/50 uppercase tracking-wider mb-2">Общий счёт</div>
-                <motion.div 
-                  className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-purple-400"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  {totalScore}
-                </motion.div>
+                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 text-center">
+                  Итоги расследования
+                </h3>
+                
+                <div className="space-y-3">
+                  {/* Рассудок */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-white/60 flex items-center gap-1">
+                        🧠 Рассудок
+                      </span>
+                      <span className={`text-xs font-medium ${getStatStatus(finalStats.sanity, 100).color}`}>
+                        {finalStats.sanity}/100
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        className={`h-full ${getStatStatus(finalStats.sanity, 100).bg}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(finalStats.sanity, 100)}%` }}
+                        transition={{ duration: 1, delay: 0.2 }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Человечность */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-white/60 flex items-center gap-1">
+                        ❤️ Человечность
+                      </span>
+                      <span className={`text-xs font-medium ${getStatStatus(finalStats.humanity, 100).color}`}>
+                        {finalStats.humanity}/100
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        className={`h-full ${getStatStatus(finalStats.humanity, 100).bg}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(finalStats.humanity, 100)}%` }}
+                        transition={{ duration: 1, delay: 0.3 }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Улики */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="text-center p-2 rounded-lg bg-white/5">
+                      <div className="text-lg font-bold text-violet-400">
+                        {finalStats.cluesFound}
+                      </div>
+                      <div className="text-[10px] text-white/40">Улик найдено</div>
+                    </div>
+                    
+                    <div className="text-center p-2 rounded-lg bg-white/5">
+                      <div className="text-lg font-bold text-amber-400">
+                        {finalStats.loreDepth}
+                      </div>
+                      <div className="text-[10px] text-white/40">Глубина лора</div>
+                    </div>
+                    
+                    <div className="text-center p-2 rounded-lg bg-white/5">
+                      <div className="text-lg font-bold text-red-400">
+                        {finalStats.cultAwareness}%
+                      </div>
+                      <div className="text-[10px] text-white/40">Знание о культе</div>
+                    </div>
+                    
+                    <div className="text-center p-2 rounded-lg bg-white/5">
+                      <div className="text-lg font-bold text-cyan-400">
+                        {finalStats.theoriesDebunked}
+                      </div>
+                      <div className="text-[10px] text-white/40">Теорий опровергнуто</div>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
+          {/* Концовки — мотивация к перепрохождению */}
+          <AnimatePresence>
+            {showEndings && (
+              <motion.div 
+                className="mb-4 p-4 rounded-xl bg-white/5 border border-white/10"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 text-center">
+                  Концовки — {unlockedEndings.length}/{ALL_ENDINGS.length}
+                </h3>
+                
+                <div className="grid grid-cols-4 gap-2">
+                  {ALL_ENDINGS.map((e) => {
+                    const isUnlocked = unlockedEndings.includes(e.id);
+                    const isCurrent = endingType === e.id;
+                    
+                    return (
+                      <motion.div
+                        key={e.id}
+                        className={`relative aspect-square rounded-lg flex flex-col items-center justify-center p-1 ${
+                          isCurrent 
+                            ? "bg-gradient-to-br from-violet-500/30 to-purple-600/30 border border-violet-400/50" 
+                            : isUnlocked 
+                              ? "bg-white/10 border border-white/20" 
+                              : "bg-black/30 border border-white/5"
+                        }`}
+                        initial={isCurrent ? { scale: 0.8 } : {}}
+                        animate={isCurrent ? { scale: [1, 1.05, 1] } : {}}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <span className={`text-xl ${!isUnlocked && !isCurrent ? "grayscale opacity-30" : ""}`}>
+                          {isUnlocked || isCurrent ? e.icon : "❓"}
+                        </span>
+                        <span className={`text-[8px] text-center mt-0.5 leading-tight ${
+                          isCurrent ? "text-violet-300" : isUnlocked ? "text-white/60" : "text-white/20"
+                        }`}>
+                          {isUnlocked || isCurrent ? e.name : "???"}
+                        </span>
+                        
+                        {/* Текущая концовка маркер */}
+                        {isCurrent && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-violet-500 rounded-full flex items-center justify-center">
+                            <span className="text-[8px]">✓</span>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                
+                <p className="text-[10px] text-white/30 text-center mt-3">
+                  Пройдите снова, чтобы открыть другие концовки
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Action buttons */}
           <AnimatePresence>
             {showButtons && (
               <motion.div 
-                className="space-y-3"
+                className="space-y-2"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
@@ -796,26 +1179,26 @@ function FinalScreen({
                   <motion.button
                     whileTap={{ scale: 0.98 }}
                     onClick={onNextEpisode}
-                    className="w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 text-white"
+                    className="w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 text-white"
                     style={{
                       background: 'linear-gradient(135deg, #10b981, #059669)',
                       boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
                     }}
                   >
                     <span>Следующий эпизод</span>
-                    <span className="text-xl">→</span>
+                    <span className="text-lg">→</span>
                   </motion.button>
                 ) : (
                   <motion.button
                     whileTap={{ scale: 0.98 }}
                     onClick={onBack}
-                    className="w-full py-4 rounded-xl font-bold text-lg text-white"
+                    className="w-full py-3.5 rounded-xl font-bold text-base text-white"
                     style={{
                       background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
                       boxShadow: '0 8px 24px rgba(139, 92, 246, 0.3)',
                     }}
                   >
-                    Выбрать эпизод
+                    К эпизодам
                   </motion.button>
                 )}
                 
@@ -823,7 +1206,7 @@ function FinalScreen({
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={onRestart}
-                  className="w-full py-3 rounded-xl bg-white/5 border border-white/10 font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-2 text-white/70"
+                  className="w-full py-3 rounded-xl bg-white/5 border border-white/10 font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-2 text-white/70 text-sm"
                 >
                   <span>🔄</span>
                   <span>Пройти заново</span>
@@ -833,7 +1216,7 @@ function FinalScreen({
                 {hasNextEpisode && (
                   <button
                     onClick={onBack}
-                    className="w-full py-2 rounded-xl text-white/40 text-sm hover:text-white/60 transition-colors"
+                    className="w-full py-2 rounded-xl text-white/40 text-xs hover:text-white/60 transition-colors"
                   >
                     ← К списку эпизодов
                   </button>
