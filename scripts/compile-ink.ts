@@ -34,16 +34,16 @@ function analyzeSyntax(inkSource: string): string[] {
   lines.forEach((line, i) => {
     const trimmed = line.trim();
     
-    // Knot: === name ===
-    const knotMatch = trimmed.match(/^===\s*(\w+)\s*===?\s*$/);
+    // Knot: === name === или === name(params) ===
+    const knotMatch = trimmed.match(/^===\s*(\w+)(?:\s*\([^)]*\))?\s*===?\s*$/);
     if (knotMatch) {
       currentKnot = knotMatch[1];
       definedKnots.add(currentKnot);
       definedStitches.set(currentKnot, new Set());
     }
     
-    // Stitch: = name
-    const stitchMatch = trimmed.match(/^=\s*(\w+)\s*$/);
+    // Stitch: = name или = name(params)
+    const stitchMatch = trimmed.match(/^=\s*(\w+)(?:\s*\([^)]*\))?\s*$/);
     if (stitchMatch && currentKnot) {
       definedStitches.get(currentKnot)?.add(stitchMatch[1]);
     }
@@ -66,9 +66,9 @@ function analyzeSyntax(inkSource: string): string[] {
     if (trimmed.startsWith('//')) return;
     
     // Обновляем текущий knot
-    const knotMatch = trimmed.match(/^===\s*(\w+)\s*===?\s*$/);
-    if (knotMatch) {
-      currentKnot = knotMatch[1];
+    const knotMatchUpdate = trimmed.match(/^===\s*(\w+)(?:\s*\([^)]*\))?\s*===?\s*$/);
+    if (knotMatchUpdate) {
+      currentKnot = knotMatchUpdate[1];
     }
     
     // Проверяем незакрытые квадратные скобки в выборах
@@ -83,10 +83,14 @@ function analyzeSyntax(inkSource: string): string[] {
     }
     
     // Проверяем переходы (diverts)
-    const divertMatches = trimmed.matchAll(/->\s*(\w+)(?:\.(\w+))?/g);
+    // Паттерн: -> knot или -> knot.stitch или -> knot(args) или -> (для tunnel return)
+    const divertMatches = trimmed.matchAll(/->\s*(\w+)(?:\s*\([^)]*\))?(?:\.(\w+))?/g);
     for (const match of divertMatches) {
       const targetKnot = match[1];
       const targetStitch = match[2];
+      
+      // Пропускаем tunnel return (->->)
+      if (targetKnot === '>') continue;
       
       if (!definedKnots.has(targetKnot)) {
         errors.push(`Строка ${lineNum}: Переход к несуществующему knot '${targetKnot}'`);

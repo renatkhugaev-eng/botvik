@@ -62,6 +62,7 @@ export function InkStoryPlayer({
   const [state, setState] = useState<InkState | null>(null);
   const [displayedParagraphs, setDisplayedParagraphs] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
+  const [animationsSkipped, setAnimationsSkipped] = useState(false);
   const [currentMood, setCurrentMood] = useState<MoodType>("normal");
   const [currentChapter, setCurrentChapter] = useState(1);
   const [currentTitle, setCurrentTitle] = useState("");
@@ -109,6 +110,7 @@ export function InkStoryPlayer({
     setState(initialOutput);
     setDisplayedParagraphs(0);
     setIsTyping(true);
+    setAnimationsSkipped(false);
 
     // Обрабатываем начальные теги
     processGlobalTags(initialOutput.tags);
@@ -282,16 +284,54 @@ export function InkStoryPlayer({
       return;
     }
 
-    // Скорость зависит от длины параграфа
-    const currentParagraph = state.paragraphs[displayedParagraphs];
-    const delay = Math.min(100 + currentParagraph.text.length * 2, 500);
+    // ВАЖНО: Вычисляем задержку на основе ТЕКУЩЕГО показанного параграфа
+    // (того, который только что появился), а не следующего
+    const lastShownIndex = displayedParagraphs - 1;
+    const nextParagraph = state.paragraphs[displayedParagraphs];
+    
+    let delay: number;
+    
+    if (displayedParagraphs === 0) {
+      // Первый параграф — небольшая начальная задержка для плавности
+      delay = 300;
+    } else {
+      // Вычисляем задержку на основе ТОЛЬКО ЧТО ПОКАЗАННОГО параграфа
+      const lastShownParagraph = state.paragraphs[lastShownIndex];
+      const text = lastShownParagraph.text;
+      const tags = lastShownParagraph.tags;
+      
+      // Используем getTagValue для надёжного определения speaker
+      const speakerValue = getTagValue(tags, "speaker");
+      const hasSpeakerTag = speakerValue !== null && speakerValue !== false;
+      const isDialogue = text.startsWith("—") || text.startsWith("–") || text.startsWith("- ");
+      const isChatMessage = hasSpeakerTag; // speaker tag = это чат-сообщение
+      
+      if (isChatMessage) {
+        // Для чат-сообщений: typing indicator + печать текста
+        // Формула должна совпадать с ChatMessage и TypewriterText!
+        const typingTime = Math.min(800 + text.length * 8, 1500);
+        // Speed в TypewriterText: Math.max(12, Math.min(25, 1500 / text.length))
+        const charSpeed = Math.max(12, Math.min(25, 1500 / text.length));
+        const printingTime = text.length * charSpeed;
+        delay = typingTime + printingTime + 500; // +500ms буфер
+      } else if (text.length < 30) {
+        // Короткие строки — быстро, но не мгновенно
+        delay = 600;
+      } else if (text.length < 100) {
+        // Средние — время на прочтение
+        delay = 800 + text.length * 5;
+      } else {
+        // Длинные — больше времени
+        delay = Math.min(1200 + text.length * 6, 3000);
+      }
+    }
 
     const timer = setTimeout(() => {
       setDisplayedParagraphs((prev) => prev + 1);
 
-      // Обрабатываем теги параграфа
-      if (currentParagraph.tags.length > 0) {
-        processGlobalTags(currentParagraph.tags);
+      // Обрабатываем теги СЛЕДУЮЩЕГО параграфа (который будет показан)
+      if (nextParagraph.tags.length > 0) {
+        processGlobalTags(nextParagraph.tags);
       }
     }, delay);
 
@@ -357,6 +397,7 @@ export function InkStoryPlayer({
       setState(newState);
       setDisplayedParagraphs(0);
       setIsTyping(true);
+      setAnimationsSkipped(false); // Сбрасываем флаг для новых параграфов
       processGlobalTags(newState.tags);
       
       // Notify parent about state change for saving
@@ -369,7 +410,8 @@ export function InkStoryPlayer({
     if (!state) return;
 
     if (isTyping) {
-      // Skip to end of current text
+      // Skip to end of current text — отключаем все анимации
+      setAnimationsSkipped(true);
       setDisplayedParagraphs(state.paragraphs.length);
       setIsTyping(false);
       investigationHaptic.textReveal();
@@ -512,20 +554,26 @@ export function InkStoryPlayer({
         }
       >
         <AnimatePresence mode="popLayout">
-          {state.paragraphs.slice(0, displayedParagraphs).map((paragraph, index) => (
-            <motion.div
-              key={`p-${index}`}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ParagraphRenderer
-                text={paragraph.text}
-                tags={paragraph.tags}
-                mood={currentMood}
-              />
-            </motion.div>
-          ))}
+          {state.paragraphs.slice(0, displayedParagraphs).map((paragraph, index) => {
+            // Анимируем только последний параграф, и только если анимации не пропущены
+            const isLastParagraph = index === displayedParagraphs - 1;
+            const shouldAnimate = isLastParagraph && !animationsSkipped;
+            return (
+              <motion.div
+                key={`p-${index}`}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: animationsSkipped ? 0.1 : 0.3 }}
+              >
+                <ParagraphRenderer
+                  text={paragraph.text}
+                  tags={paragraph.tags}
+                  mood={currentMood}
+                  isAnimated={shouldAnimate}
+                />
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
         {/* Индикатор печати */}
@@ -1252,6 +1300,94 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
     statusIndicator: "none",
     gender: "male",
   },
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ЭПИЗОДИЧЕСКИЕ ПЕРСОНАЖИ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  driver: {
+    name: "Водитель",
+    shortName: "Водитель",
+    role: "Водитель автобуса",
+    avatar: {
+      emoji: "ВД",
+      bgGradient: "from-stone-600 via-stone-700 to-stone-800",
+      ringColor: "ring-stone-500/50",
+      shadowColor: "shadow-stone-600/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-stone-800/70 to-stone-900/70",
+      borderColor: "border-stone-600/40",
+      textColor: "text-stone-200",
+    },
+    nameColor: "text-stone-400",
+    statusIndicator: "none",
+    gender: "male",
+  },
+  
+  soldier: {
+    name: "Солдат",
+    shortName: "Солдат",
+    role: "Охранник КПП",
+    avatar: {
+      emoji: "СЛ",
+      bgGradient: "from-green-700 via-green-800 to-green-900",
+      ringColor: "ring-green-500/50",
+      shadowColor: "shadow-green-600/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-green-900/70 to-green-950/70",
+      borderColor: "border-green-600/40",
+      textColor: "text-green-100",
+    },
+    nameColor: "text-green-400",
+    statusIndicator: "none",
+    gender: "male",
+  },
+  
+  officer: {
+    name: "Офицер",
+    shortName: "Офицер",
+    role: "Старший лейтенант",
+    avatar: {
+      emoji: "ОФ",
+      bgGradient: "from-olive-600 via-olive-700 to-olive-800",
+      ringColor: "ring-lime-500/50",
+      shadowColor: "shadow-lime-600/40",
+      isInitials: true,
+    },
+    bubble: {
+      bgGradient: "from-lime-900/70 to-green-900/70",
+      borderColor: "border-lime-600/40",
+      textColor: "text-lime-100",
+    },
+    nameColor: "text-lime-400",
+    statusIndicator: "online",
+    gender: "male",
+  },
+  
+  stranger: {
+    name: "Незнакомец",
+    shortName: "",
+    role: "",
+    avatar: {
+      emoji: "👤",
+      bgGradient: "from-slate-600 via-slate-700 to-slate-800",
+      ringColor: "ring-slate-500/50",
+      shadowColor: "shadow-slate-600/40",
+      isInitials: false,
+    },
+    bubble: {
+      bgGradient: "from-slate-800/70 to-slate-900/70",
+      borderColor: "border-slate-600/40",
+      textColor: "text-slate-100",
+    },
+    nameColor: "text-slate-400",
+    statusIndicator: "none",
+    gender: "male",
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1375,31 +1511,43 @@ function CharacterAvatar({
 function ChatMessage({ 
   text, 
   config, 
-  isProtagonist 
+  isProtagonist,
+  isAnimated = false,
 }: { 
   text: string; 
   config: CharacterConfig; 
   isProtagonist: boolean;
+  isAnimated?: boolean;
 }) {
-  const [phase, setPhase] = useState<'typing' | 'message'>('typing');
+  // Запоминаем начальное значение isAnimated (при первом рендере)
+  // Это важно, потому что isAnimated может измениться когда появится новый параграф
+  const shouldAnimate = useRef(isAnimated).current;
+  
+  // Фаза анимации: typing -> printing -> done
+  const [phase, setPhase] = useState<'typing' | 'printing' | 'done'>(() => {
+    if (!shouldAnimate) return 'done';
+    if (isProtagonist) return 'printing';
+    return 'typing';
+  });
+  
   const messageTime = useRef(getNextMessageTime()).current;
   
   useEffect(() => {
-    // Протагонист — сразу показываем сообщение
-    if (isProtagonist) {
-      setPhase('message');
-      return;
-    }
+    // Если не нужна анимация — выходим
+    if (!shouldAnimate) return;
     
-    // Для других — сначала typing, потом сообщение
-    const typingDuration = Math.min(500 + text.length * 10, 1500);
+    // Протагонист уже в фазе printing, ждём завершения typewriter
+    if (isProtagonist) return;
+    
+    // Для NPC — после typing indicator переходим к printing
+    const typingDuration = Math.min(800 + text.length * 8, 1500);
     
     const timer = setTimeout(() => {
-      setPhase('message');
+      setPhase('printing');
     }, typingDuration);
     
     return () => clearTimeout(timer);
-  }, [isProtagonist, text.length]);
+  }, [isProtagonist, text.length, shouldAnimate]);
   
   return (
     <div className={`flex items-end gap-3 mb-4 px-3 ${isProtagonist ? "flex-row-reverse" : "flex-row"}`}>
@@ -1427,42 +1575,42 @@ function ChatMessage({
         )}
         
         <AnimatePresence mode="wait">
-          {/* Typing indicator */}
+          {/* Typing indicator — показывается пока NPC "печатает" */}
           {phase === 'typing' && (
             <motion.div
               key="typing"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.1 } }}
+              exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.15 } }}
               className="px-4 py-3 rounded-2xl rounded-bl-md bg-[#1c1c1e]"
             >
               <div className="flex items-center gap-[5px]">
                 <motion.span
                   className="w-[6px] h-[6px] bg-white/40 rounded-full"
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ duration: 0.5, repeat: Infinity, delay: 0 }}
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
                 />
                 <motion.span
                   className="w-[6px] h-[6px] bg-white/40 rounded-full"
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ duration: 0.5, repeat: Infinity, delay: 0.12 }}
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
                 />
                 <motion.span
                   className="w-[6px] h-[6px] bg-white/40 rounded-full"
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ duration: 0.5, repeat: Infinity, delay: 0.24 }}
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
                 />
               </div>
             </motion.div>
           )}
           
-          {/* Сообщение */}
-          {phase === 'message' && (
+          {/* Сообщение с эффектом печатания (для printing) или готовое (для done) */}
+          {(phase === 'printing' || phase === 'done') && (
             <motion.div
               key="message"
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={phase === 'done' && !shouldAnimate ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: 0.2 }}
               className={`
                 px-3.5 py-2.5 max-w-full
                 ${isProtagonist 
@@ -1472,16 +1620,27 @@ function ChatMessage({
               `}
             >
               <p className="text-[15px] text-white leading-[1.4] whitespace-pre-line">
-                {text}
+                {/* Если анимация и печатаем — TypewriterText, иначе просто текст */}
+                {shouldAnimate && phase === 'printing' ? (
+                  <TypewriterText 
+                    text={text}
+                    speed={Math.max(12, Math.min(25, 1500 / text.length))}
+                    onComplete={() => setPhase('done')}
+                  />
+                ) : (
+                  text
+                )}
               </p>
               
-              {/* Время */}
-              <div className="flex items-center justify-end gap-1 mt-1">
+              {/* Время — всегда видно для готовых, появляется после печати для анимированных */}
+              <div className={`flex items-center justify-end gap-1 mt-1 ${phase === 'done' ? 'opacity-100' : 'opacity-30'}`}>
                 <span className="text-[10px] text-white/35">
                   {messageTime}
                 </span>
                 {isProtagonist && (
-                  <span className="text-[9px] text-white/50">✓✓</span>
+                  <span className={`text-[9px] text-white/50 ${phase === 'done' ? 'opacity-100' : 'opacity-0'}`}>
+                    ✓✓
+                  </span>
                 )}
               </div>
             </motion.div>
@@ -1499,10 +1658,12 @@ function ParagraphRenderer({
   text,
   tags,
   mood,
+  isAnimated = false,
 }: {
   text: string;
   tags: string[];
   mood: MoodType;
+  isAnimated?: boolean;
 }) {
   // ═══════════════════════════════════════════════════════════════════════════
   // ОПРЕДЕЛЕНИЕ ТИПА КОНТЕНТА
@@ -1896,15 +2057,15 @@ function ParagraphRenderer({
           <div className="absolute inset-0 bg-gradient-to-b from-red-950/40 via-black to-red-950/20" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent" />
           
-          {/* Мерцающие частицы */}
+          {/* Мерцающие частицы — фиксированные позиции для SSR */}
           <div className="absolute inset-0 overflow-hidden">
-            {[...Array(12)].map((_, i) => (
+            {[15, 25, 35, 45, 55, 65, 75, 85, 20, 40, 60, 80].map((pos, i) => (
               <motion.div
                 key={i}
                 className="absolute w-1 h-1 bg-red-500/60 rounded-full"
                 style={{
-                  left: `${10 + Math.random() * 80}%`,
-                  top: `${10 + Math.random() * 80}%`,
+                  left: `${pos}%`,
+                  top: `${10 + (i * 7) % 80}%`,
                 }}
                 animate={{
                   opacity: [0.2, 0.8, 0.2],
@@ -2103,138 +2264,44 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // ЧАТ-СООБЩЕНИЯ ОТ ПЕРСОНАЖЕЙ
+  // ЧАТ-СООБЩЕНИЯ ОТ ПЕРСОНАЖЕЙ — ПРИОРИТЕТ НАД ВСЕМ!
   // ═══════════════════════════════════════════════════════════════════════════
   
-  // Если есть тег speaker — используем его
+  // Если есть тег speaker — ВСЕГДА показываем как чат
   if (speaker && config) {
+    // Удаляем тире из начала если есть (для диалогов)
+    const cleanText = text.replace(/^[—–-]\s*/, "").trim();
+    const isProtagonist = speaker === "sorokin";
+    
     return (
       <ChatMessage 
-        text={text} 
+        text={cleanText} 
         config={config} 
-        isProtagonist={config.isProtagonist || false} 
+        isProtagonist={isProtagonist}
+        isAnimated={isAnimated}
       />
     );
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // АВТООПРЕДЕЛЕНИЕ ДИАЛОГОВ (текст начинается с тире)
+  // ДИАЛОГИ БЕЗ ТЕГА SPEAKER — показываем как красивый текст
   // ═══════════════════════════════════════════════════════════════════════════
   
   if (isDialogue) {
     const dialogueText = text.replace(/^[—–-]\s*/, "").trim();
     
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ПРОФЕССИОНАЛЬНОЕ ОПРЕДЕЛЕНИЕ ПЕРСОНАЖЕЙ
-    // ВАЖНО: Определяем спикера по РЕМАРКЕ в начале текста, а не по содержимому!
-    // ═══════════════════════════════════════════════════════════════════════════
-    
-    const detectCharacter = (txt: string): CharacterConfig | null => {
-      // ПРАВИЛО 1: Ищем ремарку в начале текста (паттерн "Имя глагол")
-      // Например: "Клава качает головой", "Громов хмурится", "Вера говорит"
-      const remarkMatch = txt.match(/^([А-ЯЁ][а-яё]+)\s+(говорит|отвечает|качает|кивает|хмурится|улыбается|вздыхает|шепчет|шёпотом|молчит|смотрит|оглядывается|наклоняется|пишет|показывает|берёт|встаёт|садится|поднимает|опускает|замолкает|продолжает|добавляет|поясняет|уточняет|перебивает|соглашается|возражает|колеблется)/i);
-      
-      if (remarkMatch) {
-        const speakerName = remarkMatch[1].toLowerCase();
-        
-        // Карта имён к конфигам
-        const nameToConfig: Record<string, CharacterConfig | undefined> = {
-          "клава": SPEAKER_CONFIG.klava,
-          "клавдия": SPEAKER_CONFIG.klava,
-          "громов": SPEAKER_CONFIG.gromov,
-          "майор": SPEAKER_CONFIG.gromov,
-          "вера": SPEAKER_CONFIG.vera,
-          "серафим": SPEAKER_CONFIG.serafim,
-          "батюшка": SPEAKER_CONFIG.serafim,
-          "таня": SPEAKER_CONFIG.tanya,
-          "астахов": SPEAKER_CONFIG.astahov,
-          "полковник": SPEAKER_CONFIG.astahov,
-          "чернов": SPEAKER_CONFIG.chernov,
-          "академик": SPEAKER_CONFIG.chernov,
-          "фёдор": SPEAKER_CONFIG.fyodor,
-          "федор": SPEAKER_CONFIG.fyodor,
-          "зорин": SPEAKER_CONFIG.zorin,
-          "горюнов": SPEAKER_CONFIG.goryunov,
-          "эксперт": SPEAKER_CONFIG.expert,
-          "ольга": SPEAKER_CONFIG.expert,
-          "прокурор": SPEAKER_CONFIG.prokuror,
-          "участковый": SPEAKER_CONFIG.uchastkoviy,
-        };
-        
-        if (nameToConfig[speakerName]) {
-          return nameToConfig[speakerName]!;
-        }
-      }
-      
-      // ПРАВИЛО 2: Ищем паттерн "— Имя:" в начале (прямая речь с указанием спикера)
-      const directSpeechMatch = txt.match(/^([А-ЯЁ][а-яё]+):/);
-      if (directSpeechMatch) {
-        const speakerName = directSpeechMatch[1].toLowerCase();
-        const nameToConfig: Record<string, CharacterConfig | undefined> = {
-          "клава": SPEAKER_CONFIG.klava,
-          "громов": SPEAKER_CONFIG.gromov,
-          "вера": SPEAKER_CONFIG.vera,
-          "серафим": SPEAKER_CONFIG.serafim,
-          "таня": SPEAKER_CONFIG.tanya,
-          "астахов": SPEAKER_CONFIG.astahov,
-          "чернов": SPEAKER_CONFIG.chernov,
-          "фёдор": SPEAKER_CONFIG.fyodor,
-          "федор": SPEAKER_CONFIG.fyodor,
-        };
-        if (nameToConfig[speakerName]) {
-          return nameToConfig[speakerName]!;
-        }
-      }
-      
-      // ПРАВИЛО 3: НЕ показываем как чат если это:
-      // - Вопрос следователя (обычно короткий текст с ?)
-      // - Внутренние мысли (курсив, кавычки «»)
-      // - Повествование (описание действий без прямой речи)
-      
-      // Если текст короткий и заканчивается на ? — это вопрос следователя (мысли)
-      if (txt.length < 50 && txt.endsWith("?")) {
-        return null; // Это вопрос протагониста — показать как мысли
-      }
-      
-      // Если текст в кавычках — это мысли/цитата
-      if (txt.startsWith("«") || txt.startsWith('"') || txt.startsWith("„")) {
-        return null; // Мысли
-      }
-      
-      // ПРАВИЛО 4: БЕЗ УГАДЫВАНИЯ!
-      // Если нет явной ремарки с именем персонажа — НЕ показываем как чат.
-      // Это предотвращает ошибки типа "Товарищ следователь" → Громов,
-      // когда на самом деле это может говорить Клава или кто-то другой.
-      
-      // По умолчанию — это повествование или мысли
-      return null;
-    };
-    
-    const dialogueConfig = detectCharacter(dialogueText);
-    
-    // Если config === null — это внутренние мысли или повествование
-    if (dialogueConfig === null) {
-      // Это реплика NPC без определённого спикера — показываем как повествование
-      return (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="px-8 py-4"
-        >
-          <p className="text-[15px] text-white/75 leading-[1.9] font-light">
-            — {dialogueText}
-          </p>
-        </motion.div>
-      );
-    }
-    
+    // Нет тега speaker — показываем как повествование
     return (
-      <ChatMessage 
-        text={dialogueText} 
-        config={dialogueConfig} 
-        isProtagonist={false} 
-      />
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="px-6 py-4"
+      >
+        <p className="text-[15px] text-white/80 leading-[1.9] text-center">
+          {dialogueText}
+        </p>
+      </motion.div>
     );
   }
   
@@ -2703,12 +2770,7 @@ function ParagraphRenderer({
         transition={{ duration: 0.8 }}
         className="px-6 py-5"
       >
-        <p className="
-          text-[15px] text-white/75 leading-[2] 
-          font-light
-          first-letter:text-2xl first-letter:font-normal first-letter:text-white/90
-          first-letter:mr-1 first-letter:float-left first-letter:leading-none
-        ">
+        <p className="text-[15px] text-white/75 leading-[2] font-light">
           {text}
         </p>
       </motion.div>
