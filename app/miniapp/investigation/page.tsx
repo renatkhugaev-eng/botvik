@@ -848,7 +848,7 @@ export default function InvestigationPage() {
         foundCluesCount={foundClues.size}
         playtime={playtime}
         episodeTitle={selectedEpisode?.title || "Расследование"}
-        episodeNum={selectedEpisode?.episodeNum || 1}
+        episodeNum={currentChapter}
         onBack={handleBackToEpisodes}
         onSaveClick={() => setShowSaveMenu(true)}
         onCluesClick={() => setShowCluesModal(true)}

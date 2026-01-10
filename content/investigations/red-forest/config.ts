@@ -20,37 +20,20 @@ export const RED_FOREST_CONFIG = {
     age: 42,
   },
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // АКТУАЛЬНАЯ АРХИТЕКТУРА: Единый файл red-forest-complete.ink
+  // Старые episode-X.ink файлы DEPRECATED
+  // ═══════════════════════════════════════════════════════════════════════════
+  storyFile: "red-forest-complete.ink.json",
+  totalDuration: "2-3 часа",
+  
+  // Справочная информация по эпизодам (для UI)
   episodes: [
-    {
-      id: 1,
-      title: "Прибытие",
-      file: "episode-1.ink.json",
-      duration: "30-40 мин",
-    },
-    {
-      id: 2,
-      title: "Первая жертва",
-      file: "episode-2.ink.json",
-      duration: "35-45 мин",
-    },
-    {
-      id: 3,
-      title: "Завод",
-      file: "episode-3.ink.json",
-      duration: "40-50 мин",
-    },
-    {
-      id: 4,
-      title: "Голоса",
-      file: "episode-4.ink.json",
-      duration: "35-45 мин",
-    },
-    {
-      id: 5,
-      title: "Красный лес",
-      file: "episode-5.ink.json",
-      duration: "50-60 мин",
-    },
+    { id: 1, title: "Прибытие", description: "15 ноября — прибытие в Красногорск-12" },
+    { id: 2, title: "Первая жертва", description: "16 ноября — расследование начинается" },
+    { id: 3, title: "Завод", description: "17 ноября — тайны проекта 'Эхо'" },
+    { id: 4, title: "Голоса", description: "18 ноября — похищения и предательства" },
+    { id: 5, title: "Красный лес", description: "19 ноября — полнолуние, финал" },
   ],
   
   characters: {
@@ -70,11 +53,14 @@ export const RED_FOREST_CONFIG = {
     evidence: true,
     multipleEndings: true,
     endings: [
-      { id: "truth", name: "Правда наружу" },
-      { id: "hero", name: "Тихий герой" },
-      { id: "sacrifice", name: "Жертва" },
-      { id: "rebirth", name: "Перерождение" },
-      { id: "escape", name: "Побег" },
+      { id: "truth", name: "Правда наружу", type: "good" },
+      { id: "hero", name: "Тихий герой", type: "neutral" },
+      { id: "sacrifice", name: "Жертва", type: "bittersweet" },
+      { id: "rebirth", name: "Перерождение", type: "dark" },
+      { id: "escape", name: "Побег", type: "neutral" },
+      { id: "chernov_redemption", name: "Искупление Чернова", type: "secret" },
+      { id: "fyodor_sacrifice", name: "Жертва Фёдора", type: "secret" },
+      { id: "madness", name: "Безумие", type: "bad" },
     ],
   },
 };

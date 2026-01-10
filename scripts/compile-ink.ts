@@ -167,8 +167,19 @@ async function compileInkFile(inkPath: string): Promise<void> {
   }
 
   try {
-    // Компилируем
-    const compiler = new Compiler(inkSource);
+    // Компилируем с обработкой ошибок
+    const compiler = new Compiler(inkSource, {
+      errorHandler: (message: string, errorType: number) => {
+        // errorType: 0 = Author, 1 = Warning, 2 = Error
+        if (errorType === 2) {
+          errors.push(message);
+        } else if (errorType === 1) {
+          warnings.push(message);
+        } else {
+          warnings.push(`[Author] ${message}`);
+        }
+      }
+    });
     
     let story;
     try {
@@ -195,6 +206,11 @@ async function compileInkFile(inkPath: string): Promise<void> {
             const marker = i === lineNum - 1 ? '>>>' : '   ';
             console.log(`   ${marker} ${i + 1}: ${lines[i]}`);
           }
+        }
+        // Также попробуем показать стек ошибки
+        if (compileError.stack) {
+          console.log(`\n📋 Stack trace:`);
+          console.log(compileError.stack.split('\n').slice(0, 5).join('\n'));
         }
       }
       return;

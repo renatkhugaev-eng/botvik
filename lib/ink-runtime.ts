@@ -129,17 +129,99 @@ export const RED_FOREST_VARIABLES = [
 // INK RUNNER CLASS
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════════
+// EXTERNAL FUNCTION CALLBACKS — Тип для внешних обработчиков
+// ══════════════════════════════════════════════════════════════════════════════
+
+export type ExternalFunctionCallbacks = {
+  onPlaySound?: (soundId: string) => void;
+  onStopSound?: (soundId: string) => void;
+  onTriggerHaptic?: (hapticType: string) => void;
+  onShowNotification?: (message: string, type: string) => void;
+  onSaveCheckpoint?: (checkpointName: string) => void;
+  onTriggerGameOver?: (reason: string) => void;
+};
+
 export class InkRunner {
   private story: Story;
   private collectedParagraphs: InkParagraph[] = [];
   private variableObservers: Map<string, Set<VariableObserver>> = new Map();
   private globalObservers: Set<VariableObserver> = new Set();
   private isRedForestStory = false;
+  private externalCallbacks: ExternalFunctionCallbacks = {};
 
-  constructor(storyJson: object) {
+  constructor(storyJson: object, externalCallbacks?: ExternalFunctionCallbacks) {
     this.story = new Story(storyJson);
+    this.externalCallbacks = externalCallbacks || {};
     this.detectStoryType();
+    this.setupExternalFunctions();
     this.setupVariableObserver();
+  }
+
+  /**
+   * Устанавливает внешние callback-функции после создания runner
+   */
+  setExternalCallbacks(callbacks: ExternalFunctionCallbacks): void {
+    this.externalCallbacks = { ...this.externalCallbacks, ...callbacks };
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * EXTERNAL FUNCTIONS — Привязка функций из Ink к JavaScript
+   * ═══════════════════════════════════════════════════════════════════════════
+   * 
+   * Эти функции вызываются из Ink-скрипта через EXTERNAL декларации.
+   * Третий параметр `true` в BindExternalFunction означает, что функция
+   * является "lookahead-safe" (не имеет побочных эффектов во время lookahead).
+   */
+  private setupExternalFunctions(): void {
+    // play_sound(sound_id) — воспроизведение звука
+    this.story.BindExternalFunction("play_sound", (soundId: string) => {
+      if (this.externalCallbacks.onPlaySound) {
+        this.externalCallbacks.onPlaySound(soundId);
+      }
+      return true;
+    }, true);
+
+    // stop_sound(sound_id) — остановка звука
+    this.story.BindExternalFunction("stop_sound", (soundId: string) => {
+      if (this.externalCallbacks.onStopSound) {
+        this.externalCallbacks.onStopSound(soundId);
+      }
+      return true;
+    }, true);
+
+    // trigger_haptic(haptic_type) — тактильная обратная связь
+    this.story.BindExternalFunction("trigger_haptic", (hapticType: string) => {
+      if (this.externalCallbacks.onTriggerHaptic) {
+        this.externalCallbacks.onTriggerHaptic(hapticType);
+      }
+      return true;
+    }, true);
+
+    // show_notification(message, type) — показ уведомления
+    this.story.BindExternalFunction("show_notification", (message: string, type: string) => {
+      if (this.externalCallbacks.onShowNotification) {
+        this.externalCallbacks.onShowNotification(message, type);
+      }
+      return true;
+    }, true);
+
+    // save_checkpoint(checkpoint_name) — сохранение контрольной точки
+    this.story.BindExternalFunction("save_checkpoint", (checkpointName: string) => {
+      if (this.externalCallbacks.onSaveCheckpoint) {
+        this.externalCallbacks.onSaveCheckpoint(checkpointName);
+      }
+      return true;
+    }, true);
+
+    // trigger_game_over(reason) — триггер окончания игры
+    this.story.BindExternalFunction("trigger_game_over", (reason: string) => {
+      if (this.externalCallbacks.onTriggerGameOver) {
+        this.externalCallbacks.onTriggerGameOver(reason);
+      }
+      return true;
+    }, false); // НЕ lookahead-safe, т.к. имеет серьёзные побочные эффекты
   }
 
   /**

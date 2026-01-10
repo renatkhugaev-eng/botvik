@@ -6,10 +6,12 @@ import Image from "next/image";
 import {
   InkRunner,
   type InkState,
+  type ExternalFunctionCallbacks,
   getTagValue,
   hasTag,
 } from "@/lib/ink-runtime";
 import { investigationHaptic } from "@/lib/haptic";
+import { getBackgroundMusic } from "@/lib/background-music";
 import { 
   InterrogationView, 
   createInterrogationState, 
@@ -68,7 +70,69 @@ export function InkStoryPlayer({
   initialParagraphs,
   className = "",
 }: InkStoryPlayerProps) {
-  const [runner] = useState(() => new InkRunner(storyJson));
+  // ══════════════════════════════════════════════════════════════════════════
+  // EXTERNAL FUNCTION CALLBACKS — Связь Ink с JavaScript
+  // ══════════════════════════════════════════════════════════════════════════
+  const externalCallbacks: ExternalFunctionCallbacks = {
+    onPlaySound: (soundId: string) => {
+      const music = getBackgroundMusic();
+      music.play(soundId);
+    },
+    onStopSound: (soundId: string) => {
+      const music = getBackgroundMusic();
+      music.stop();
+    },
+    onTriggerHaptic: (hapticType: string) => {
+      // Маппинг типов haptic из Ink на реальные функции
+      switch (hapticType) {
+        case "heavy_impact":
+        case "dramatic_collapse":
+          investigationHaptic.dramaticMoment();
+          break;
+        case "medium_impact":
+        case "sacrifice_moment":
+          investigationHaptic.suspense();
+          break;
+        case "soft_success":
+        case "clue_found":
+          investigationHaptic.clueDiscovered();
+          break;
+        case "scene_transition":
+        case "day_transition":
+          investigationHaptic.sceneTransition();
+          break;
+        case "dramatic_choice":
+        case "hero_stance":
+          investigationHaptic.choiceMade();
+          break;
+        case "dark_choice":
+          investigationHaptic.suspense();
+          break;
+        case "romantic_escape":
+        case "escape_moment":
+          investigationHaptic.insight();
+          break;
+        case "redemption_moment":
+        case "secret_ending":
+          investigationHaptic.dramaticMoment();
+          break;
+        default:
+          investigationHaptic.textReveal();
+      }
+    },
+    onShowNotification: (message: string, type: string) => {
+      console.log(`[Ink Notification] ${type}: ${message}`);
+    },
+    onSaveCheckpoint: (checkpointName: string) => {
+      console.log(`[Ink Checkpoint] ${checkpointName}`);
+    },
+    onTriggerGameOver: (reason: string) => {
+      console.log(`[Ink Game Over] ${reason}`);
+      investigationHaptic.dramaticMoment();
+    },
+  };
+
+  const [runner] = useState(() => new InkRunner(storyJson, externalCallbacks));
   const [state, setState] = useState<InkState | null>(null);
   const [displayedParagraphs, setDisplayedParagraphs] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -894,16 +958,16 @@ function MoodIndicator({ mood, show = true }: { mood: MoodType; show?: boolean }
   
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, x: 10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 10 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed bottom-24 left-4 z-50"
+      className="fixed top-20 right-4 z-40"
     >
-      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/50 backdrop-blur-md border border-white/[0.06]">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/[0.05]">
         {/* Пульсирующая точка */}
         <div className="relative">
-          <div className={`w-2 h-2 rounded-full ${dotColor} shadow-sm`} />
+          <div className={`w-1.5 h-1.5 rounded-full ${dotColor} shadow-sm`} />
           <motion.div 
             className={`absolute inset-0 rounded-full ${dotColor} opacity-50`}
             animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
@@ -911,7 +975,7 @@ function MoodIndicator({ mood, show = true }: { mood: MoodType; show?: boolean }
           />
         </div>
         
-        <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">
+        <span className="text-[9px] font-medium text-white/50 uppercase tracking-wider">
           {indicator.label}
         </span>
       </div>
@@ -965,7 +1029,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-slate-400/50",
       shadowColor: "shadow-slate-500/30",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/sorokin.webp",
     },
     bubble: {
       bgGradient: "from-slate-700/80 via-slate-800/80 to-slate-900/80",
@@ -992,7 +1056,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-red-500/50",
       shadowColor: "shadow-red-600/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/gromov.webp",
     },
     bubble: {
       bgGradient: "from-red-900/70 to-red-950/70",
@@ -1014,7 +1078,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-violet-400/50",
       shadowColor: "shadow-violet-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/vera.webp",
     },
     bubble: {
       bgGradient: "from-violet-900/70 to-purple-900/70",
@@ -1036,7 +1100,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-amber-400/50",
       shadowColor: "shadow-amber-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1552058544-f2b08422138a?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/serafim.webp",
     },
     bubble: {
       bgGradient: "from-amber-900/60 to-yellow-900/60",
@@ -1058,7 +1122,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-emerald-400/50",
       shadowColor: "shadow-emerald-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/tanya.webp",
     },
     bubble: {
       bgGradient: "from-emerald-900/60 to-teal-900/60",
@@ -1080,7 +1144,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-gray-500/50",
       shadowColor: "shadow-gray-600/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-gray-800/80 to-gray-900/80",
@@ -1102,7 +1165,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-pink-400/50",
       shadowColor: "shadow-pink-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1581403341630-a6e0b9d2d257?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/klava.webp",
     },
     bubble: {
       bgGradient: "from-pink-900/60 to-rose-900/60",
@@ -1124,7 +1187,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-indigo-400/50",
       shadowColor: "shadow-indigo-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/chernov.webp",
     },
     bubble: {
       bgGradient: "from-indigo-900/70 to-blue-900/70",
@@ -1146,7 +1209,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-orange-400/50",
       shadowColor: "shadow-orange-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/fyodor.webp",
     },
     bubble: {
       bgGradient: "from-orange-900/60 to-amber-900/60",
@@ -1168,7 +1231,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-cyan-400/50",
       shadowColor: "shadow-cyan-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-cyan-900/60 to-sky-900/60",
@@ -1194,7 +1256,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-cyan-400/50",
       shadowColor: "shadow-cyan-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-cyan-900/60 to-teal-900/60",
@@ -1216,7 +1277,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-purple-400/50",
       shadowColor: "shadow-purple-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-purple-900/60 to-violet-900/60",
@@ -1238,7 +1298,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-red-400/50",
       shadowColor: "shadow-red-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1557862921-37829c790f19?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-red-900/60 to-rose-900/60",
@@ -1260,7 +1319,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-blue-400/50",
       shadowColor: "shadow-blue-500/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1480455624313-e29b44bbfde1?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-blue-900/60 to-indigo-900/60",
@@ -1303,7 +1361,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-red-600/50",
       shadowColor: "shadow-red-700/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-red-950/80 to-black/80",
@@ -1350,7 +1407,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-stone-500/50",
       shadowColor: "shadow-stone-600/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/driver.webp",
     },
     bubble: {
       bgGradient: "from-stone-800/70 to-stone-900/70",
@@ -1372,7 +1429,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-green-500/50",
       shadowColor: "shadow-green-600/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/soldier.webp",
     },
     bubble: {
       bgGradient: "from-green-900/70 to-green-950/70",
@@ -1394,7 +1451,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-lime-500/50",
       shadowColor: "shadow-lime-600/40",
       isInitials: true,
-      imageSrc: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop&crop=faces",
+      imageSrc: "/avatars/officer.webp",
     },
     bubble: {
       bgGradient: "from-lime-900/70 to-green-900/70",
@@ -1416,7 +1473,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-slate-500/50",
       shadowColor: "shadow-slate-600/40",
       isInitials: false,
-      imageSrc: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=100&h=100&fit=crop&crop=faces",
     },
     bubble: {
       bgGradient: "from-slate-800/70 to-slate-900/70",

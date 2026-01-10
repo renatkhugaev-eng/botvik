@@ -45,6 +45,12 @@ export const INVESTIGATION_TRACKS: MusicTrack[] = [
     src: "/audio/follows-dark-ambient-194926.mp3",
     mood: "horror",
   },
+  {
+    id: "madness_ambience",
+    name: "Безумие",
+    src: "/audio/follows-dark-ambient-194926.mp3", // TODO: Заменить на отдельный трек madness
+    mood: "horror",
+  },
   // Можно добавить больше треков для разных эпизодов/настроений
 ];
 
