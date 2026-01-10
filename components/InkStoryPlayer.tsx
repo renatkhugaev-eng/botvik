@@ -24,13 +24,22 @@ import {
 
 type StoryMode = "normal" | "interrogation";
 
+/** Параграф для сохранения */
+type SaveableParagraph = {
+  text: string;
+  tags: string[];
+};
+
 type InkStoryPlayerProps = {
   storyJson: object;
   onEnd?: (state: InkState) => void;
   onVariableChange?: (name: string, value: unknown) => void;
   onTagFound?: (tag: string, value: string | boolean) => void;
-  onInkStateChange?: (stateJson: string) => void;
+  /** Вызывается при изменении состояния (для сохранения) */
+  onInkStateChange?: (stateJson: string, paragraphs: SaveableParagraph[]) => void;
   initialState?: string;
+  /** Начальные параграфы (для восстановления из сохранения) */
+  initialParagraphs?: SaveableParagraph[];
   className?: string;
 };
 
@@ -56,6 +65,7 @@ export function InkStoryPlayer({
   onTagFound,
   onInkStateChange,
   initialState,
+  initialParagraphs,
   className = "",
 }: InkStoryPlayerProps) {
   const [runner] = useState(() => new InkRunner(storyJson));
@@ -101,6 +111,14 @@ export function InkStoryPlayer({
       runner.loadState(initialState);
       // После loadState нужно continue() чтобы получить текущие параграфы
       initialOutput = runner.continue();
+      
+      // Если есть сохранённые параграфы — используем их вместо пустых
+      if (initialParagraphs && initialParagraphs.length > 0 && initialOutput.paragraphs.length === 0) {
+        initialOutput = {
+          ...initialOutput,
+          paragraphs: initialParagraphs.map(p => ({ text: p.text, tags: p.tags })),
+        };
+      }
     } else {
       // reset() уже вызывает continue() внутри, поэтому используем getState()
       runner.reset();
@@ -116,9 +134,10 @@ export function InkStoryPlayer({
     processGlobalTags(initialOutput.tags);
     
     // Notify parent about initial state for saving
-    onInkStateChange?.(runner.saveState());
+    const paragraphsToSave = initialOutput.paragraphs.map(p => ({ text: p.text, tags: p.tags }));
+    onInkStateChange?.(runner.saveState(), paragraphsToSave);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runner, initialState]); // processGlobalTags, onInkStateChange намеренно исключены — вызываются только при инициализации
+  }, [runner, initialState]); // processGlobalTags, onInkStateChange, initialParagraphs намеренно исключены — вызываются только при инициализации
 
   // ══════════════════════════════════════════════════════════════════════════
   // ОБРАБОТКА ТЕГОВ
@@ -400,8 +419,9 @@ export function InkStoryPlayer({
       setAnimationsSkipped(false); // Сбрасываем флаг для новых параграфов
       processGlobalTags(newState.tags);
       
-      // Notify parent about state change for saving
-      onInkStateChange?.(runner.saveState());
+      // Notify parent about state change for saving (with paragraphs)
+      const paragraphsToSave = newState.paragraphs.map(p => ({ text: p.text, tags: p.tags }));
+      onInkStateChange?.(runner.saveState(), paragraphsToSave);
     },
     [runner, isTyping, state, processGlobalTags, onInkStateChange]
   );
@@ -1751,27 +1771,57 @@ function ParagraphRenderer({
   const intensityValues = intensityConfig[intensity as keyof typeof intensityConfig] || intensityConfig.medium;
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ✏️ ФУНКЦИЯ ВЫДЕЛЕНИЯ ВАЖНЫХ СЛОВ
+  // Синтаксис: <<важный текст>> — подчёркнуто карандашом
+  // ═══════════════════════════════════════════════════════════════════════════
+  const renderHighlightedText = (inputText: string) => {
+    const parts = inputText.split(/(<<[^>]+>>)/g);
+    
+    return parts.map((part, i) => {
+      if (part.startsWith("<<") && part.endsWith(">>")) {
+        const highlightedText = part.slice(2, -2);
+        return (
+          <span 
+            key={i}
+            className="relative inline-block mx-0.5"
+          >
+            {/* Текст */}
+            <span className="relative z-10 text-amber-200/90 font-medium">
+              {highlightedText}
+            </span>
+            {/* Подчёркивание карандашом */}
+            <span 
+              className="absolute left-0 right-0 -bottom-0.5 h-[3px] rounded-full"
+              style={{
+                background: "linear-gradient(90deg, transparent 0%, rgba(251, 191, 36, 0.5) 10%, rgba(251, 191, 36, 0.6) 50%, rgba(251, 191, 36, 0.5) 90%, transparent 100%)",
+                transform: "rotate(-0.5deg)",
+              }}
+            />
+            {/* Лёгкое свечение */}
+            <span 
+              className="absolute inset-0 -m-1 rounded bg-amber-500/5 blur-sm"
+            />
+          </span>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // 💭 МЫСЛИ — внутренний голос героя
   // ═══════════════════════════════════════════════════════════════════════════
   if (narrativeStyle === "thought") {
     return (
       <motion.div 
-        initial={{ opacity: 0, y: 8, filter: "blur(2px)" }}
-        animate={{ opacity: intensityValues.opacity * 0.8, y: 0, filter: "blur(0px)" }}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: intensityValues.opacity * 0.75, y: 0 }}
         transition={{ duration: intensityValues.duration, ease: "easeOut" }}
-        className="py-5 px-6"
+        className="py-4 px-6"
       >
-        <div className="relative">
-          {/* Градиентный фон */}
-          <div className="absolute inset-0 -mx-4 -my-3 rounded-2xl bg-gradient-to-br from-slate-800/10 via-transparent to-slate-900/10" />
-          
-          {/* Декоративная линия слева */}
-          <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-white/20 via-white/10 to-transparent" />
-          
-          <p className="relative text-[15px] text-white/55 leading-[2.2] italic font-light pl-4 tracking-wide">
-            {text}
-          </p>
-        </div>
+        <p className="text-[15px] text-white/50 leading-[2.1] text-center italic font-light tracking-wide">
+          {renderHighlightedText(text)}
+        </p>
       </motion.div>
     );
   }
@@ -1802,7 +1852,7 @@ function ParagraphRenderer({
           />
           
           <p className="relative text-[14px] text-slate-300/50 leading-[2.3] text-center font-light tracking-wider">
-            {text}
+            {renderHighlightedText(text)}
           </p>
         </div>
       </motion.div>
@@ -1873,7 +1923,7 @@ function ParagraphRenderer({
           <p className={`relative text-[15px] leading-[2] text-center font-light ${
             isHighIntensity ? "text-red-100/90" : "text-red-200/70"
           }`}>
-            {text}
+            {renderHighlightedText(text)}
           </p>
         </div>
       </motion.div>
@@ -1916,8 +1966,8 @@ function ParagraphRenderer({
           <div className="absolute -top-10 -right-10 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
           
           <div className="relative px-5 py-4">
-            <p className="text-[15px] text-amber-50/95 leading-[2] font-light">
-              {text}
+            <p className="text-[15px] text-amber-50/95 leading-[2] font-light text-center">
+              {renderHighlightedText(text)}
             </p>
           </div>
         </div>
@@ -1985,7 +2035,7 @@ function ParagraphRenderer({
           <p className={`relative text-[14px] leading-[2.4] text-center italic font-light tracking-[0.05em] ${
             isHighIntensity ? "text-violet-200/60" : "text-violet-300/45"
           }`}>
-            {text}
+            {renderHighlightedText(text)}
           </p>
         </div>
       </motion.div>
@@ -2001,42 +2051,11 @@ function ParagraphRenderer({
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="py-10"
+        className="py-8"
       >
-        <div className="relative text-center">
-          {/* Верхняя декоративная линия */}
-          <motion.div 
-            className="absolute left-1/2 -translate-x-1/2 -top-2 flex items-center gap-2"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: "auto", opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="w-8 h-[1px] bg-gradient-to-r from-transparent to-white/25" />
-            <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-            <div className="w-8 h-[1px] bg-gradient-to-l from-transparent to-white/25" />
-          </motion.div>
-          
-          <motion.p 
-            className="text-[17px] text-white/95 leading-[1.9] font-light tracking-wide px-4"
-            initial={{ letterSpacing: "0.1em" }}
-            animate={{ letterSpacing: "0.02em" }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-          >
-            {text}
-          </motion.p>
-          
-          {/* Нижняя декоративная линия */}
-          <motion.div 
-            className="absolute left-1/2 -translate-x-1/2 -bottom-2 flex items-center gap-2"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: "auto", opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <div className="w-8 h-[1px] bg-gradient-to-r from-transparent to-white/25" />
-            <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-            <div className="w-8 h-[1px] bg-gradient-to-l from-transparent to-white/25" />
-          </motion.div>
-        </div>
+        <p className="text-[17px] text-white/95 leading-[1.9] font-light tracking-wide text-center px-4">
+          {renderHighlightedText(text)}
+        </p>
       </motion.div>
     );
   }
@@ -2047,72 +2066,70 @@ function ParagraphRenderer({
   if (narrativeStyle === "action") {
     return (
       <motion.div 
-        initial={{ opacity: 0, x: -15 }}
+        initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: intensityValues.opacity, x: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="py-4 px-4"
+        className="py-4 px-6"
       >
-        <div className="relative">
-          {/* Градиентная полоса слева */}
-          <motion.div 
-            className="absolute left-0 top-0 bottom-0 w-[3px] rounded-full overflow-hidden"
-            initial={{ height: 0 }}
-            animate={{ height: "100%" }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-cyan-400/70 via-cyan-500/50 to-cyan-600/30" />
-            <motion.div 
-              className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent"
-              animate={{ y: ["-100%", "100%"] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-            />
-          </motion.div>
-          
-          <p className="text-[15px] text-cyan-50/90 leading-[1.95] pl-5 font-light">
-            {text}
-          </p>
-        </div>
+        <p className="text-[15px] text-cyan-50/80 leading-[2] text-center font-light">
+          {renderHighlightedText(text)}
+        </p>
       </motion.div>
     );
   }
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏷️ ЗАГОЛОВОК — крупный текст без блока
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "title") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+        animate={{ opacity: intensityValues.opacity, y: 0, scale: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="py-6 px-4"
+      >
+        <h1 className="text-center text-2xl md:text-3xl font-bold tracking-[0.15em] text-white/90 uppercase">
+          <span className="bg-gradient-to-r from-amber-200 via-white to-amber-200 bg-clip-text text-transparent drop-shadow-lg">
+            {text}
+          </span>
+        </h1>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏷️ ПОДЗАГОЛОВОК — меньший текст под заголовком
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "subtitle") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: intensityValues.opacity * 0.8, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        className="py-2 px-4 -mt-4"
+      >
+        <p className="text-center text-base md:text-lg font-light tracking-[0.08em] text-white/60 italic">
+          {text}
+        </p>
+      </motion.div>
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 📜 ДОКУМЕНТ — официальный текст
   // ═══════════════════════════════════════════════════════════════════════════
   if (narrativeStyle === "document") {
     return (
       <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 0.9, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="py-5 px-3"
+        className="py-4 px-6"
       >
-        <div className="relative overflow-hidden rounded-xl">
-          {/* Фон документа */}
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-800/50 to-slate-900/70" />
-          
-          {/* Текстура бумаги */}
-          <div className="absolute inset-0 opacity-5" 
-               style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\"20\" height=\"20\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Crect width=\"20\" height=\"20\" fill=\"%23fff\"/%3E%3Crect x=\"0\" y=\"0\" width=\"10\" height=\"10\" fill=\"%23000\" fill-opacity=\"0.03\"/%3E%3C/svg%3E')" }} />
-          
-          {/* Верхняя полоса "печати" */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-700/60 via-amber-600/80 to-amber-700/60" />
-          
-          {/* Рамка */}
-          <div className="absolute inset-0 rounded-xl border border-slate-600/30" />
-          
-          {/* Угловые метки */}
-          <div className="absolute top-2 left-2 w-3 h-3 border-l-2 border-t-2 border-amber-600/40" />
-          <div className="absolute top-2 right-2 w-3 h-3 border-r-2 border-t-2 border-amber-600/40" />
-          <div className="absolute bottom-2 left-2 w-3 h-3 border-l-2 border-b-2 border-amber-600/40" />
-          <div className="absolute bottom-2 right-2 w-3 h-3 border-r-2 border-b-2 border-amber-600/40" />
-          
-          <div className="relative px-5 py-4">
-            <p className="text-[13px] text-slate-200/85 leading-[1.9] font-mono tracking-wide">
-              {text}
-            </p>
-          </div>
-        </div>
+        <p className="text-[13px] text-slate-300/80 leading-[2] text-center font-mono tracking-wide">
+          {renderHighlightedText(text)}
+        </p>
       </motion.div>
     );
   }
@@ -2123,37 +2140,14 @@ function ParagraphRenderer({
   if (narrativeStyle === "flashback") {
     return (
       <motion.div 
-        initial={{ opacity: 0, filter: "blur(8px) sepia(0.5)" }}
-        animate={{ opacity: 0.85, filter: "blur(0px) sepia(0.15)" }}
+        initial={{ opacity: 0, filter: "blur(4px) sepia(0.3)" }}
+        animate={{ opacity: 0.8, filter: "blur(0px) sepia(0.1)" }}
         transition={{ duration: 1, ease: "easeOut" }}
-        className="py-6 px-5"
+        className="py-5 px-6"
       >
-        <div className="relative">
-          {/* Виньетка по краям */}
-          <div className="absolute inset-0 -mx-4 -my-3 rounded-2xl"
-               style={{
-                 background: "radial-gradient(ellipse at center, transparent 40%, rgba(120, 90, 50, 0.15) 100%)",
-               }} />
-          
-          {/* Линии плёнки */}
-          <motion.div 
-            className="absolute inset-0 -mx-4 -my-3 rounded-2xl overflow-hidden opacity-10"
-            animate={{ y: [0, -100] }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-          >
-            {[...Array(10)].map((_, i) => (
-              <div 
-                key={i} 
-                className="absolute left-0 right-0 h-[1px] bg-amber-200/30"
-                style={{ top: `${i * 10}%` }}
-              />
-            ))}
-          </motion.div>
-          
-          <p className="relative text-[14px] text-amber-100/60 leading-[2.2] text-center italic font-light tracking-wide">
-            {text}
-          </p>
-        </div>
+        <p className="text-[14px] text-amber-100/55 leading-[2.2] text-center italic font-light tracking-wide">
+          {renderHighlightedText(text)}
+        </p>
       </motion.div>
     );
   }
@@ -2164,59 +2158,17 @@ function ParagraphRenderer({
   if (narrativeStyle === "vision") {
     return (
       <motion.div 
-        initial={{ opacity: 0, scale: 1.05 }}
+        initial={{ opacity: 0, scale: 1.02 }}
         animate={{ 
-          opacity: [0, 0.8, 0.6, 0.9, 0.7],
-          scale: [1.05, 1, 1.02, 1, 1.01],
+          opacity: [0, 0.7, 0.5, 0.8],
+          scale: [1.02, 1, 1.01, 1],
         }}
-        transition={{ duration: 2 }}
-        className="py-7 px-4"
+        transition={{ duration: 1.5 }}
+        className="py-5 px-6"
       >
-        <div className="relative overflow-hidden rounded-2xl">
-          {/* Градиентный фон видения */}
-          <motion.div 
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, rgba(30, 27, 75, 0.3) 50%, rgba(127, 29, 29, 0.2) 100%)",
-            }}
-            animate={{ 
-              background: [
-                "linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, rgba(30, 27, 75, 0.3) 50%, rgba(127, 29, 29, 0.2) 100%)",
-                "linear-gradient(135deg, rgba(127, 29, 29, 0.2) 0%, rgba(88, 28, 135, 0.3) 50%, rgba(30, 27, 75, 0.25) 100%)",
-                "linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, rgba(30, 27, 75, 0.3) 50%, rgba(127, 29, 29, 0.2) 100%)",
-              ]
-            }}
-            transition={{ duration: 4, repeat: Infinity }}
-          />
-          
-          {/* Кольца расширения */}
-          <motion.div 
-            className="absolute inset-0 flex items-center justify-center"
-          >
-            {[...Array(3)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute rounded-full border border-violet-500/20"
-                style={{ width: "100%", height: "100%" }}
-                animate={{
-                  scale: [1, 2],
-                  opacity: [0.3, 0],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  delay: i * 1,
-                }}
-              />
-            ))}
-          </motion.div>
-          
-          <div className="relative px-5 py-5">
-            <p className="text-[15px] text-violet-100/80 leading-[2.1] text-center font-light">
-              {text}
-            </p>
-          </div>
-        </div>
+        <p className="text-[15px] text-violet-200/70 leading-[2.1] text-center font-light">
+          {renderHighlightedText(text)}
+        </p>
       </motion.div>
     );
   }
@@ -3348,7 +3300,7 @@ function ParagraphRenderer({
       className="py-4 px-6"
     >
       <p className="text-[15px] text-white/70 leading-[2] text-center font-light">
-        {text}
+        {renderHighlightedText(text)}
       </p>
     </motion.div>
   );

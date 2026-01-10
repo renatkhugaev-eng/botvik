@@ -23,6 +23,7 @@ import {
   formatPlaytime,
   type SaveMetadata,
   type InvestigationSave,
+  type SavedParagraph,
 } from "@/lib/investigation-save";
 import { getBackgroundMusic } from "@/lib/background-music";
 
@@ -329,6 +330,7 @@ export default function InvestigationPage() {
   
   // Save system state
   const [inkStateJson, setInkStateJson] = useState<string>("");
+  const [lastParagraphs, setLastParagraphs] = useState<SavedParagraph[]>([]);
   const [currentChapter, setCurrentChapter] = useState(1);
   const [playtime, setPlaytime] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -469,7 +471,8 @@ export default function InvestigationPage() {
       storyScore,
       playtime,
       [], // achievements
-      Array.from(foundClues) // foundClues
+      Array.from(foundClues), // foundClues
+      lastParagraphs // параграфы для восстановления при загрузке
     );
     
     if (result.success) {
@@ -478,7 +481,7 @@ export default function InvestigationPage() {
     
     // Brief saving indicator
     setTimeout(() => setIsSaving(false), 500);
-  }, [inkStateJson, boardState, currentChapter, storyScore, playtime, isStoryEnded, foundClues]);
+  }, [INVESTIGATION_ID, EPISODE_ID, inkStateJson, boardState, currentChapter, storyScore, playtime, isStoryEnded, foundClues, lastParagraphs]);
   
   // Auto-save every 30 seconds with proper interval (fixes race condition)
   useEffect(() => {
@@ -491,8 +494,8 @@ export default function InvestigationPage() {
     return () => clearInterval(intervalId);
   }, [inkStateJson, isStoryEnded, performAutosave]);
   
-  const handleManualSave = useCallback(() => {
-    if (!inkStateJson) return;
+  const handleManualSave = useCallback((): boolean => {
+    if (!inkStateJson) return false;
     
     setIsSaving(true);
     investigationHaptic.insight();
@@ -506,49 +509,76 @@ export default function InvestigationPage() {
       storyScore,
       playtime,
       [], // achievements
-      Array.from(foundClues) // foundClues
+      Array.from(foundClues), // foundClues
+      lastParagraphs // параграфы для восстановления при загрузке
     );
     
+    // Убираем индикатор через 500ms, но меню НЕ закрываем — 
+    // пользователь увидит новое сохранение в списке
     setTimeout(() => {
       setIsSaving(false);
-      setShowSaveMenu(false);
     }, 500);
     
     return result.success;
-  }, [inkStateJson, boardState, currentChapter, storyScore, playtime, foundClues]);
+  }, [INVESTIGATION_ID, EPISODE_ID, inkStateJson, boardState, currentChapter, storyScore, playtime, foundClues, lastParagraphs]);
   
   const handleLoadSave = useCallback((saveId: string) => {
     const result = loadFromLocalStorage(INVESTIGATION_ID, saveId);
     
     if (result.success) {
+      // Сначала сбрасываем состояние истории
+      setIsStoryEnded(false);
+      setShowEndingButton(false);
+      
+      // Восстанавливаем все данные из сохранения (с защитой от undefined)
       setLoadedSave(result.data);
-      setBoardState(result.data.boardState);
-      setStoryScore(result.data.storyScore);
-      setCurrentChapter(result.data.currentChapter);
-      setPlaytime(result.data.playtime);
-      // Восстанавливаем найденные улики
+      setBoardState(result.data.boardState || createInitialBoardState());
+      setStoryScore(result.data.storyScore || 0);
+      setCurrentChapter(result.data.currentChapter || 1);
+      setPlaytime(result.data.playtime || 0);
       setFoundClues(new Set(result.data.foundClues || []));
+      
+      // ВАЖНО: Перезагружаем историю через storyKey для применения inkState
+      setStoryKey(prev => prev + 1);
+      
       setShowSaveMenu(false);
       setShowContinuePrompt(false);
       investigationHaptic.sceneTransition();
+    } else {
+      // Ошибка загрузки — уведомляем через haptic и console
+      console.error("[Investigation] Failed to load save:", result.error);
+      investigationHaptic.timerWarning();
     }
-  }, []);
+  }, [INVESTIGATION_ID]);
   
   const handleContinueSave = useCallback(() => {
     const result = loadAutosave(INVESTIGATION_ID);
     
     if (result.success) {
+      // Сначала сбрасываем состояние истории
+      setIsStoryEnded(false);
+      setShowEndingButton(false);
+      
+      // Восстанавливаем все данные из автосохранения (с защитой от undefined)
       setLoadedSave(result.data);
-      setBoardState(result.data.boardState);
-      setStoryScore(result.data.storyScore);
-      setCurrentChapter(result.data.currentChapter);
-      setPlaytime(result.data.playtime);
-      // Восстанавливаем найденные улики
+      setBoardState(result.data.boardState || createInitialBoardState());
+      setStoryScore(result.data.storyScore || 0);
+      setCurrentChapter(result.data.currentChapter || 1);
+      setPlaytime(result.data.playtime || 0);
       setFoundClues(new Set(result.data.foundClues || []));
+      
+      // ВАЖНО: Перезагружаем историю через storyKey для применения inkState
+      setStoryKey(prev => prev + 1);
+      
       setShowContinuePrompt(false);
       investigationHaptic.sceneTransition();
+    } else {
+      // Ошибка загрузки автосохранения — начинаем новую игру
+      console.error("[Investigation] Failed to load autosave:", result.error);
+      setShowContinuePrompt(false);
+      setHasSavedGame(false);
     }
-  }, []);
+  }, [INVESTIGATION_ID]);
   
   const handleNewGame = useCallback(() => {
     clearAutosave(INVESTIGATION_ID);
@@ -578,7 +608,8 @@ export default function InvestigationPage() {
     setCurrentChapter(1);
     setLoadedSave(null);
     setInkStateJson("");
-    
+    setLastParagraphs([]);
+
     // Проверяем автосохранение для выбранного эпизода
     if (hasAutosave(episode.id)) {
       setHasSavedGame(true);
@@ -653,8 +684,9 @@ export default function InvestigationPage() {
   }, []);
   
   // Обработчик изменения состояния Ink (для сохранения)
-  const handleInkStateChange = useCallback((stateJson: string) => {
+  const handleInkStateChange = useCallback((stateJson: string, paragraphs: SavedParagraph[]) => {
     setInkStateJson(stateJson);
+    setLastParagraphs(paragraphs);
     // Автосохранение после каждого значимого действия
     lastSaveTimeRef.current = Date.now() - 25000; // Trigger save on next tick
   }, []);
@@ -848,6 +880,7 @@ export default function InvestigationPage() {
             onTagFound={handleTagFound}
             onInkStateChange={handleInkStateChange}
             initialState={loadedSave?.inkState}
+            initialParagraphs={loadedSave?.lastParagraphs}
           />
         </InkErrorBoundary>
       </div>
@@ -900,6 +933,7 @@ export default function InvestigationPage() {
               setFinalStats(null);
               setBoardState(createInitialBoardState());
               setInkStateJson("");
+              setLastParagraphs([]);
               setLoadedSave(null);
               setPlaytime(0);
               
@@ -923,6 +957,7 @@ export default function InvestigationPage() {
                 setFinalStats(null);
                 setBoardState(createInitialBoardState());
                 setInkStateJson("");
+                setLastParagraphs([]);
                 // Запуск следующего эпизода
                 handleEpisodeSelect(nextEpisode);
               }
@@ -2024,12 +2059,30 @@ function SaveMenu({
   isSaving,
 }: {
   investigationId: string;
-  onSave: () => void;
+  onSave: () => boolean;
   onLoad: (saveId: string) => void;
   onClose: () => void;
   isSaving: boolean;
 }) {
-  const saves = getManualSaves(investigationId);
+  // State для списка сохранений — обновляется после каждого сохранения
+  const [saves, setSaves] = useState<SaveMetadata[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Загрузка списка сохранений при монтировании и при refreshKey
+  useEffect(() => {
+    setSaves(getManualSaves(investigationId));
+  }, [investigationId, refreshKey]);
+  
+  // Обёртка для сохранения с обновлением списка
+  const handleSave = useCallback(() => {
+    const success = onSave();
+    if (success !== false) {
+      // Даём время на запись в localStorage
+      setTimeout(() => {
+        setRefreshKey(prev => prev + 1);
+      }, 600);
+    }
+  }, [onSave]);
 
   return (
     <motion.div
@@ -2080,7 +2133,7 @@ function SaveMenu({
           {/* New save button */}
           <motion.button
             whileTap={{ scale: 0.98 }}
-            onClick={onSave}
+            onClick={handleSave}
             disabled={isSaving}
             className="w-full py-4 rounded-xl font-bold mb-5 flex items-center justify-center gap-2 disabled:opacity-50 text-white"
             style={{

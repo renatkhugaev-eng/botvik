@@ -12,6 +12,12 @@ import type { BoardState } from "@/lib/evidence-system";
 // ТИПЫ
 // ══════════════════════════════════════════════════════════════════════════════
 
+/** Параграф истории для сохранения */
+export interface SavedParagraph {
+  text: string;
+  tags: string[];
+}
+
 export interface InvestigationSave {
   /** Уникальный ID сохранения */
   id: string;
@@ -21,6 +27,8 @@ export interface InvestigationSave {
   episodeId: number;
   /** Сериализованное состояние Ink (JSON строка) */
   inkState: string;
+  /** Последние параграфы истории (для отображения при загрузке) */
+  lastParagraphs?: SavedParagraph[];
   /** Состояние доски улик */
   boardState: BoardState;
   /** Найденные улики (ID улик из CultLore, KeyEvents, AncientArtifacts) */
@@ -200,13 +208,15 @@ export function autosave(
   storyScore: number,
   playtime: number,
   achievements: string[] = [],
-  foundClues: string[] = []
+  foundClues: string[] = [],
+  lastParagraphs: SavedParagraph[] = []
 ): SaveResult {
   const save: InvestigationSave = {
     id: AUTOSAVE_KEY,
     investigationId,
     episodeId,
     inkState,
+    lastParagraphs,
     boardState,
     achievements,
     playtime,
@@ -295,7 +305,8 @@ export function createManualSave(
   storyScore: number,
   playtime: number,
   achievements: string[] = [],
-  foundClues: string[] = []
+  foundClues: string[] = [],
+  lastParagraphs: SavedParagraph[] = []
 ): SaveResult {
   const saveId = generateSaveId();
   
@@ -304,6 +315,7 @@ export function createManualSave(
     investigationId,
     episodeId,
     inkState,
+    lastParagraphs,
     boardState,
     achievements,
     playtime,

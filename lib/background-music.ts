@@ -48,6 +48,16 @@ export const INVESTIGATION_TRACKS: MusicTrack[] = [
   // Можно добавить больше треков для разных эпизодов/настроений
 ];
 
+// Ambient слой — играет параллельно с основным треком, тише
+export const AMBIENT_TRACKS: MusicTrack[] = [
+  {
+    id: "red-forest-weather",
+    name: "Пасмурная погода",
+    src: "/audio/obemnyy-shum-pasmurnoy-pogody.mp3",
+    mood: "horror",
+  },
+];
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BACKGROUND MUSIC CLASS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -59,6 +69,12 @@ class BackgroundMusic {
   private currentTrack: MusicTrack | null = null;
   private fadeInterval: NodeJS.Timeout | null = null;
   private targetVolume: number = 0;
+  
+  // Ambient layer — параллельный звуковой слой (тише основного)
+  private ambientAudio: HTMLAudioElement | null = null;
+  private ambientTrack: MusicTrack | null = null;
+  private ambientFadeInterval: NodeJS.Timeout | null = null;
+  private ambientVolumeMultiplier: number = 0.5; // 50% от основной громкости
   
   // Callbacks
   private onStateChange?: (state: MusicState) => void;
@@ -109,6 +125,35 @@ class BackgroundMusic {
     return audio;
   }
   
+  /**
+   * Инициализация ambient слоя
+   */
+  private initAmbientAudio(track: MusicTrack): HTMLAudioElement {
+    // Очистка предыдущего
+    if (this.ambientAudio) {
+      this.ambientAudio.pause();
+      this.ambientAudio.src = "";
+      this.ambientAudio.load();
+    }
+    
+    const audio = new Audio(track.src);
+    audio.loop = true; // Ambient всегда в loop
+    audio.volume = 0;
+    audio.preload = "auto";
+    
+    audio.addEventListener("error", (e) => {
+      console.error("[BackgroundMusic] Ambient error:", e);
+    });
+    audio.addEventListener("canplaythrough", () => {
+      console.log(`[BackgroundMusic] Ambient "${track.name}" ready to play`);
+    });
+    
+    this.ambientAudio = audio;
+    this.ambientTrack = track;
+    
+    return audio;
+  }
+  
   // ─────────────────────────────────────────────────────────────────────────
   // ВОСПРОИЗВЕДЕНИЕ
   // ─────────────────────────────────────────────────────────────────────────
@@ -152,12 +197,15 @@ class BackgroundMusic {
     if (!this.audio) return false;
     
     try {
-      // Попытка воспроизведения
+      // Попытка воспроизведения основного трека
       await this.audio.play();
       this.setState("playing");
       
-      // Fade in
+      // Fade in основного трека
       this.fadeToVolume(this.config.masterVolume, this.config.fadeInDuration);
+      
+      // Запуск ambient слоя (параллельно)
+      await this.playAmbient();
       
       console.log(`[BackgroundMusic] Playing: ${targetTrack.name}`);
       return true;
@@ -170,6 +218,50 @@ class BackgroundMusic {
   }
   
   /**
+   * Запуск ambient слоя (параллельный звук)
+   */
+  private async playAmbient(track?: MusicTrack | string): Promise<boolean> {
+    // Определяем ambient трек
+    let targetTrack: MusicTrack | undefined;
+    
+    if (typeof track === "string") {
+      targetTrack = AMBIENT_TRACKS.find(t => t.id === track);
+    } else if (track) {
+      targetTrack = track;
+    } else if (this.ambientTrack) {
+      targetTrack = this.ambientTrack;
+    } else {
+      targetTrack = AMBIENT_TRACKS[0]; // Первый ambient трек по умолчанию
+    }
+    
+    if (!targetTrack) {
+      // Нет ambient треков — это нормально
+      return false;
+    }
+    
+    // Инициализация ambient
+    if (!this.ambientAudio || this.ambientTrack?.id !== targetTrack.id) {
+      this.initAmbientAudio(targetTrack);
+    }
+    
+    if (!this.ambientAudio) return false;
+    
+    try {
+      await this.ambientAudio.play();
+      
+      // Fade in ambient (тише основного)
+      const ambientVolume = this.config.masterVolume * this.ambientVolumeMultiplier;
+      this.fadeAmbientToVolume(ambientVolume, this.config.fadeInDuration);
+      
+      console.log(`[BackgroundMusic] Ambient playing: ${targetTrack.name}`);
+      return true;
+    } catch (error) {
+      console.warn("[BackgroundMusic] Ambient playback blocked:", error);
+      return false;
+    }
+  }
+  
+  /**
    * Пауза с fade out
    */
   async pause(): Promise<void> {
@@ -177,13 +269,19 @@ class BackgroundMusic {
     
     this.setState("fading");
     
-    // Fade out перед паузой
-    await this.fadeToVolume(0, this.config.fadeOutDuration);
+    // Fade out обоих слоёв параллельно
+    await Promise.all([
+      this.fadeToVolume(0, this.config.fadeOutDuration),
+      this.fadeAmbientToVolume(0, this.config.fadeOutDuration),
+    ]);
     
     if (this.audio) {
       this.audio.pause();
-      this.setState("paused");
     }
+    if (this.ambientAudio) {
+      this.ambientAudio.pause();
+    }
+    this.setState("paused");
   }
   
   /**
@@ -196,8 +294,19 @@ class BackgroundMusic {
     
     try {
       await this.audio.play();
+      
+      // Возобновляем ambient если есть
+      if (this.ambientAudio) {
+        await this.ambientAudio.play();
+      }
+      
       this.setState("playing");
       this.fadeToVolume(this.config.masterVolume, this.config.fadeInDuration);
+      
+      // Fade in ambient
+      const ambientVolume = this.config.masterVolume * this.ambientVolumeMultiplier;
+      this.fadeAmbientToVolume(ambientVolume, this.config.fadeInDuration);
+      
       return true;
     } catch (error) {
       console.warn("[BackgroundMusic] Resume blocked:", error);
@@ -209,18 +318,23 @@ class BackgroundMusic {
    * Остановка музыки
    */
   async stop(): Promise<void> {
-    if (!this.audio) return;
-    
     this.setState("fading");
     
-    // Fade out
-    await this.fadeToVolume(0, this.config.fadeOutDuration);
+    // Fade out обоих слоёв параллельно
+    await Promise.all([
+      this.audio ? this.fadeToVolume(0, this.config.fadeOutDuration) : Promise.resolve(),
+      this.ambientAudio ? this.fadeAmbientToVolume(0, this.config.fadeOutDuration) : Promise.resolve(),
+    ]);
     
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
-      this.setState("stopped");
     }
+    if (this.ambientAudio) {
+      this.ambientAudio.pause();
+      this.ambientAudio.currentTime = 0;
+    }
+    this.setState("stopped");
   }
   
   /**
@@ -248,10 +362,15 @@ class BackgroundMusic {
     if (this.audio && this.state === "playing") {
       this.audio.volume = this.config.masterVolume;
     }
+    
+    // Ambient тоже обновляем (пропорционально)
+    if (this.ambientAudio && this.state === "playing") {
+      this.ambientAudio.volume = this.config.masterVolume * this.ambientVolumeMultiplier;
+    }
   }
   
   /**
-   * Плавное изменение громкости
+   * Плавное изменение громкости основного трека
    */
   private fadeToVolume(targetVolume: number, duration: number): Promise<void> {
     return new Promise((resolve) => {
@@ -296,19 +415,70 @@ class BackgroundMusic {
   }
   
   /**
+   * Плавное изменение громкости ambient слоя
+   */
+  private fadeAmbientToVolume(targetVolume: number, duration: number): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.ambientAudio) {
+        resolve();
+        return;
+      }
+      
+      // Отмена предыдущего fade
+      if (this.ambientFadeInterval) {
+        clearInterval(this.ambientFadeInterval);
+      }
+      
+      const startVolume = this.ambientAudio.volume;
+      const volumeDiff = targetVolume - startVolume;
+      const steps = 30;
+      const stepDuration = duration / steps;
+      let currentStep = 0;
+      
+      this.ambientFadeInterval = setInterval(() => {
+        currentStep++;
+        
+        if (!this.ambientAudio || currentStep >= steps) {
+          if (this.ambientAudio) {
+            this.ambientAudio.volume = targetVolume;
+          }
+          if (this.ambientFadeInterval) {
+            clearInterval(this.ambientFadeInterval);
+            this.ambientFadeInterval = null;
+          }
+          resolve();
+          return;
+        }
+        
+        const progress = currentStep / steps;
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        this.ambientAudio.volume = startVolume + volumeDiff * easedProgress;
+      }, stepDuration);
+    });
+  }
+  
+  /**
    * Временное приглушение (для диалогов, кат-сцен)
    */
   async duck(targetVolume: number = 0.1, duration: number = 500): Promise<void> {
-    if (!this.audio || this.state !== "playing") return;
-    await this.fadeToVolume(targetVolume, duration);
+    if (this.state !== "playing") return;
+    
+    await Promise.all([
+      this.audio ? this.fadeToVolume(targetVolume, duration) : Promise.resolve(),
+      this.ambientAudio ? this.fadeAmbientToVolume(targetVolume * this.ambientVolumeMultiplier, duration) : Promise.resolve(),
+    ]);
   }
   
   /**
    * Восстановление громкости после duck
    */
   async unduck(duration: number = 500): Promise<void> {
-    if (!this.audio || this.state !== "playing") return;
-    await this.fadeToVolume(this.config.masterVolume, duration);
+    if (this.state !== "playing") return;
+    
+    await Promise.all([
+      this.audio ? this.fadeToVolume(this.config.masterVolume, duration) : Promise.resolve(),
+      this.ambientAudio ? this.fadeAmbientToVolume(this.config.masterVolume * this.ambientVolumeMultiplier, duration) : Promise.resolve(),
+    ]);
   }
   
   // ─────────────────────────────────────────────────────────────────────────
@@ -369,6 +539,11 @@ class BackgroundMusic {
       if (this.state === "playing") {
         this.audio.volume = this.config.masterVolume;
       }
+    }
+    
+    // Ambient всегда в loop, обновляем только громкость
+    if (this.ambientAudio && this.state === "playing") {
+      this.ambientAudio.volume = this.config.masterVolume * this.ambientVolumeMultiplier;
     }
   }
   
@@ -436,6 +611,9 @@ class BackgroundMusic {
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
     }
+    if (this.ambientFadeInterval) {
+      clearInterval(this.ambientFadeInterval);
+    }
     
     if (this.audio) {
       this.audio.pause();
@@ -444,8 +622,28 @@ class BackgroundMusic {
       this.audio = null;
     }
     
+    if (this.ambientAudio) {
+      this.ambientAudio.pause();
+      this.ambientAudio.src = "";
+      this.ambientAudio.load();
+      this.ambientAudio = null;
+    }
+    
     this.currentTrack = null;
+    this.ambientTrack = null;
     this.state = "stopped";
+  }
+  
+  /**
+   * Установка множителя громкости ambient слоя
+   * @param multiplier - 0-1, по умолчанию 0.5 (50% от основного)
+   */
+  setAmbientVolumeMultiplier(multiplier: number): void {
+    this.ambientVolumeMultiplier = Math.max(0, Math.min(1, multiplier));
+    
+    if (this.ambientAudio && this.state === "playing") {
+      this.ambientAudio.volume = this.config.masterVolume * this.ambientVolumeMultiplier;
+    }
   }
 }
 
