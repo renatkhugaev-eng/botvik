@@ -1723,6 +1723,504 @@ function ParagraphRenderer({
     );
   }
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🎨 ПРОФЕССИОНАЛЬНАЯ СИСТЕМА СТИЛЕЙ ПОВЕСТВОВАНИЯ
+  // Поддержка: style, intensity, effect, color
+  // Пример: # style:horror # intensity:high # effect:shake
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const styleTag = getTagValue(tags, "style");
+  const narrativeStyle = typeof styleTag === "string" ? styleTag : null;
+  
+  // Дополнительные параметры
+  const intensityTag = getTagValue(tags, "intensity");
+  const intensity = typeof intensityTag === "string" ? intensityTag : "medium";
+  
+  const effectTag = getTagValue(tags, "effect");
+  const effect = typeof effectTag === "string" ? effectTag : null;
+  
+  const colorTag = getTagValue(tags, "color");
+  const accentColor = typeof colorTag === "string" ? colorTag : null;
+  
+  // Интенсивность влияет на прозрачность и размер
+  const intensityConfig = {
+    low: { opacity: 0.5, scale: 0.98, duration: 0.4 },
+    medium: { opacity: 0.75, scale: 1, duration: 0.6 },
+    high: { opacity: 1, scale: 1.02, duration: 0.8 },
+  };
+  const intensityValues = intensityConfig[intensity as keyof typeof intensityConfig] || intensityConfig.medium;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💭 МЫСЛИ — внутренний голос героя
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "thought") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 8, filter: "blur(2px)" }}
+        animate={{ opacity: intensityValues.opacity * 0.8, y: 0, filter: "blur(0px)" }}
+        transition={{ duration: intensityValues.duration, ease: "easeOut" }}
+        className="py-5 px-6"
+      >
+        <div className="relative">
+          {/* Градиентный фон */}
+          <div className="absolute inset-0 -mx-4 -my-3 rounded-2xl bg-gradient-to-br from-slate-800/10 via-transparent to-slate-900/10" />
+          
+          {/* Декоративная линия слева */}
+          <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-white/20 via-white/10 to-transparent" />
+          
+          <p className="relative text-[15px] text-white/55 leading-[2.2] italic font-light pl-4 tracking-wide">
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🌫️ АТМОСФЕРА — описание обстановки
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "atmosphere") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: intensityValues.opacity * 0.7 }}
+        transition={{ duration: intensityValues.duration + 0.3 }}
+        className="py-6 px-5"
+      >
+        <div className="relative">
+          {/* Туманный фон */}
+          <motion.div 
+            className="absolute inset-0 -mx-6 -my-4 rounded-3xl"
+            style={{
+              background: "radial-gradient(ellipse at center, rgba(100, 116, 139, 0.08) 0%, transparent 70%)",
+            }}
+            animate={{ 
+              opacity: [0.5, 0.8, 0.5],
+              scale: [1, 1.02, 1],
+            }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+          
+          <p className="relative text-[14px] text-slate-300/50 leading-[2.3] text-center font-light tracking-wider">
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👁️ ХОРРОР — жуткий момент с эффектами
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "horror") {
+    const isHighIntensity = intensity === "high";
+    const hasShake = effect === "shake" || isHighIntensity;
+    const hasGlitch = effect === "glitch";
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ 
+          opacity: [0, intensityValues.opacity, intensityValues.opacity * 0.7, intensityValues.opacity * 0.9],
+          x: hasShake ? [0, -2, 2, -1, 1, 0] : 0,
+        }}
+        transition={{ 
+          duration: intensityValues.duration + 0.5,
+          x: hasShake ? { duration: 0.4, repeat: 2, repeatDelay: 0.5 } : {},
+        }}
+        className="py-6 px-4"
+      >
+        <div className="relative overflow-hidden">
+          {/* Пульсирующий кровавый фон */}
+          <motion.div 
+            className="absolute inset-0 -mx-2 -my-2 rounded-xl"
+            style={{
+              background: isHighIntensity 
+                ? "linear-gradient(135deg, rgba(127, 29, 29, 0.3) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(127, 29, 29, 0.2) 100%)"
+                : "linear-gradient(135deg, rgba(127, 29, 29, 0.15) 0%, transparent 50%, rgba(127, 29, 29, 0.1) 100%)",
+              boxShadow: isHighIntensity ? "inset 0 0 30px rgba(220, 38, 38, 0.2)" : "none",
+            }}
+            animate={{ 
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          
+          {/* Красная рамка */}
+          <div className={`absolute inset-0 -mx-2 -my-2 rounded-xl border ${
+            isHighIntensity ? "border-red-700/40" : "border-red-900/20"
+          }`} />
+          
+          {/* Глитч-эффект для high intensity */}
+          {hasGlitch && (
+            <motion.div
+              className="absolute inset-0 -mx-2 -my-2 rounded-xl overflow-hidden"
+              animate={{
+                clipPath: [
+                  "inset(0 0 0 0)",
+                  "inset(10% 0 85% 0)",
+                  "inset(0 0 0 0)",
+                  "inset(40% 0 50% 0)",
+                  "inset(0 0 0 0)",
+                ],
+              }}
+              transition={{ duration: 0.3, repeat: Infinity, repeatDelay: 2 }}
+            >
+              <div className="absolute inset-0 bg-red-500/10 translate-x-1" />
+            </motion.div>
+          )}
+          
+          <p className={`relative text-[15px] leading-[2] text-center font-light ${
+            isHighIntensity ? "text-red-100/90" : "text-red-200/70"
+          }`}>
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ ВАЖНЫЙ МОМЕНТ — выделенный текст
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "important") {
+    const colorClass = accentColor === "red" ? "amber" : accentColor || "amber";
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+        className="py-5 px-4"
+      >
+        <div className="relative overflow-hidden rounded-2xl">
+          {/* Градиентный фон */}
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-900/25 via-orange-950/15 to-amber-900/20" />
+          
+          {/* Светящаяся верхняя линия */}
+          <motion.div 
+            className="absolute top-0 left-0 right-0 h-[2px]"
+            style={{
+              background: "linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.6), transparent)",
+            }}
+            animate={{ 
+              opacity: [0.5, 1, 0.5],
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          
+          {/* Рамка */}
+          <div className="absolute inset-0 rounded-2xl border border-amber-500/25" />
+          
+          {/* Свечение в углу */}
+          <div className="absolute -top-10 -right-10 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
+          
+          <div className="relative px-5 py-4">
+            <p className="text-[15px] text-amber-50/95 leading-[2] font-light">
+              {text}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👻 ШЁПОТ — голоса, потусторонние звуки
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "whisper") {
+    const isHighIntensity = intensity === "high";
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ 
+          opacity: [0, 0.4, 0.25, 0.5, 0.35, 0.45],
+          scale: [0.98, 1, 0.99, 1.01, 1],
+        }}
+        transition={{ duration: 2.5, ease: "easeInOut" }}
+        className="py-7 px-6"
+      >
+        <div className="relative">
+          {/* Пульсирующий фон */}
+          <motion.div 
+            className="absolute inset-0 -mx-6 -my-4 rounded-2xl"
+            style={{
+              background: isHighIntensity 
+                ? "radial-gradient(ellipse at center, rgba(139, 92, 246, 0.15) 0%, rgba(76, 29, 149, 0.1) 50%, transparent 70%)"
+                : "radial-gradient(ellipse at center, rgba(139, 92, 246, 0.08) 0%, transparent 60%)",
+            }}
+            animate={{ 
+              opacity: [0.3, 0.7, 0.3],
+              scale: [1, 1.05, 1],
+            }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+          
+          {/* Мерцающие частицы */}
+          {isHighIntensity && (
+            <div className="absolute inset-0 overflow-hidden rounded-2xl">
+              {[...Array(5)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-1 h-1 bg-violet-400/40 rounded-full"
+                  style={{
+                    left: `${20 + i * 15}%`,
+                    top: `${30 + (i % 3) * 20}%`,
+                  }}
+                  animate={{
+                    opacity: [0, 0.8, 0],
+                    y: [-5, 5, -5],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: i * 0.3,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          
+          <p className={`relative text-[14px] leading-[2.4] text-center italic font-light tracking-[0.05em] ${
+            isHighIntensity ? "text-violet-200/60" : "text-violet-300/45"
+          }`}>
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚡ ДРАМАТИЧНЫЙ МОМЕНТ — акцент
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "dramatic") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="py-10"
+      >
+        <div className="relative text-center">
+          {/* Верхняя декоративная линия */}
+          <motion.div 
+            className="absolute left-1/2 -translate-x-1/2 -top-2 flex items-center gap-2"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: "auto", opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <div className="w-8 h-[1px] bg-gradient-to-r from-transparent to-white/25" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+            <div className="w-8 h-[1px] bg-gradient-to-l from-transparent to-white/25" />
+          </motion.div>
+          
+          <motion.p 
+            className="text-[17px] text-white/95 leading-[1.9] font-light tracking-wide px-4"
+            initial={{ letterSpacing: "0.1em" }}
+            animate={{ letterSpacing: "0.02em" }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+          >
+            {text}
+          </motion.p>
+          
+          {/* Нижняя декоративная линия */}
+          <motion.div 
+            className="absolute left-1/2 -translate-x-1/2 -bottom-2 flex items-center gap-2"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: "auto", opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <div className="w-8 h-[1px] bg-gradient-to-r from-transparent to-white/25" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+            <div className="w-8 h-[1px] bg-gradient-to-l from-transparent to-white/25" />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🎬 ДЕЙСТВИЕ — активное действие персонажа
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "action") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, x: -15 }}
+        animate={{ opacity: intensityValues.opacity, x: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="py-4 px-4"
+      >
+        <div className="relative">
+          {/* Градиентная полоса слева */}
+          <motion.div 
+            className="absolute left-0 top-0 bottom-0 w-[3px] rounded-full overflow-hidden"
+            initial={{ height: 0 }}
+            animate={{ height: "100%" }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-cyan-400/70 via-cyan-500/50 to-cyan-600/30" />
+            <motion.div 
+              className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent"
+              animate={{ y: ["-100%", "100%"] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            />
+          </motion.div>
+          
+          <p className="text-[15px] text-cyan-50/90 leading-[1.95] pl-5 font-light">
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📜 ДОКУМЕНТ — официальный текст
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "document") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="py-5 px-3"
+      >
+        <div className="relative overflow-hidden rounded-xl">
+          {/* Фон документа */}
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-800/50 to-slate-900/70" />
+          
+          {/* Текстура бумаги */}
+          <div className="absolute inset-0 opacity-5" 
+               style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\"20\" height=\"20\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Crect width=\"20\" height=\"20\" fill=\"%23fff\"/%3E%3Crect x=\"0\" y=\"0\" width=\"10\" height=\"10\" fill=\"%23000\" fill-opacity=\"0.03\"/%3E%3C/svg%3E')" }} />
+          
+          {/* Верхняя полоса "печати" */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-700/60 via-amber-600/80 to-amber-700/60" />
+          
+          {/* Рамка */}
+          <div className="absolute inset-0 rounded-xl border border-slate-600/30" />
+          
+          {/* Угловые метки */}
+          <div className="absolute top-2 left-2 w-3 h-3 border-l-2 border-t-2 border-amber-600/40" />
+          <div className="absolute top-2 right-2 w-3 h-3 border-r-2 border-t-2 border-amber-600/40" />
+          <div className="absolute bottom-2 left-2 w-3 h-3 border-l-2 border-b-2 border-amber-600/40" />
+          <div className="absolute bottom-2 right-2 w-3 h-3 border-r-2 border-b-2 border-amber-600/40" />
+          
+          <div className="relative px-5 py-4">
+            <p className="text-[13px] text-slate-200/85 leading-[1.9] font-mono tracking-wide">
+              {text}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🕰️ ФЛЭШБЕК — воспоминание
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "flashback") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, filter: "blur(8px) sepia(0.5)" }}
+        animate={{ opacity: 0.85, filter: "blur(0px) sepia(0.15)" }}
+        transition={{ duration: 1, ease: "easeOut" }}
+        className="py-6 px-5"
+      >
+        <div className="relative">
+          {/* Виньетка по краям */}
+          <div className="absolute inset-0 -mx-4 -my-3 rounded-2xl"
+               style={{
+                 background: "radial-gradient(ellipse at center, transparent 40%, rgba(120, 90, 50, 0.15) 100%)",
+               }} />
+          
+          {/* Линии плёнки */}
+          <motion.div 
+            className="absolute inset-0 -mx-4 -my-3 rounded-2xl overflow-hidden opacity-10"
+            animate={{ y: [0, -100] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          >
+            {[...Array(10)].map((_, i) => (
+              <div 
+                key={i} 
+                className="absolute left-0 right-0 h-[1px] bg-amber-200/30"
+                style={{ top: `${i * 10}%` }}
+              />
+            ))}
+          </motion.div>
+          
+          <p className="relative text-[14px] text-amber-100/60 leading-[2.2] text-center italic font-light tracking-wide">
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔮 ВИДЕНИЕ — сверхъестественный момент
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (narrativeStyle === "vision") {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 1.05 }}
+        animate={{ 
+          opacity: [0, 0.8, 0.6, 0.9, 0.7],
+          scale: [1.05, 1, 1.02, 1, 1.01],
+        }}
+        transition={{ duration: 2 }}
+        className="py-7 px-4"
+      >
+        <div className="relative overflow-hidden rounded-2xl">
+          {/* Градиентный фон видения */}
+          <motion.div 
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, rgba(30, 27, 75, 0.3) 50%, rgba(127, 29, 29, 0.2) 100%)",
+            }}
+            animate={{ 
+              background: [
+                "linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, rgba(30, 27, 75, 0.3) 50%, rgba(127, 29, 29, 0.2) 100%)",
+                "linear-gradient(135deg, rgba(127, 29, 29, 0.2) 0%, rgba(88, 28, 135, 0.3) 50%, rgba(30, 27, 75, 0.25) 100%)",
+                "linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, rgba(30, 27, 75, 0.3) 50%, rgba(127, 29, 29, 0.2) 100%)",
+              ]
+            }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
+          
+          {/* Кольца расширения */}
+          <motion.div 
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            {[...Array(3)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute rounded-full border border-violet-500/20"
+                style={{ width: "100%", height: "100%" }}
+                animate={{
+                  scale: [1, 2],
+                  opacity: [0.3, 0],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  delay: i * 1,
+                }}
+              />
+            ))}
+          </motion.div>
+          
+          <div className="relative px-5 py-5">
+            <p className="text-[15px] text-violet-100/80 leading-[2.1] text-center font-light">
+              {text}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
   // Типы контента
   const isClue = text.includes("Улика найдена") || text.includes("Улики найдены") || hasTag(tags, "clue");
   const isWarning = text.includes("⚠️") || hasTag(tags, "warning");
@@ -1766,9 +2264,6 @@ function ParagraphRenderer({
   
   // Списки (маркированные или нумерованные)
   const isList = text.includes("\n-") || text.includes("\n•") || /\n\d+[.)]/.test(text);
-  
-  // Короткий драматичный текст
-  const isShortDramatic = text.length < 40 && text.trim().endsWith(".") && !isLocation && !isDate;
   
   // Многоточие (пауза)
   const isPause = text.trim() === "..." || text.trim() === "…";
@@ -1873,26 +2368,6 @@ function ParagraphRenderer({
             {text}
           </p>
         </div>
-      </motion.div>
-    );
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // КОРОТКАЯ ДРАМАТИЧНАЯ ФРАЗА — акцент
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  const isDramaticShort = text.length < 30 && text.trim().endsWith(".") && !text.includes(",") && !isLocation;
-  if (isDramaticShort) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-        className="py-6 text-center"
-      >
-        <span className="text-base text-white/90 font-light tracking-wide">
-          {text}
-        </span>
       </motion.div>
     );
   }
@@ -2647,7 +3122,94 @@ function ParagraphRenderer({
                          lowerText.includes("глаз") || lowerText.includes("внимание");
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // ДЕЙСТВИЯ ИГРОКА — акцентированный текст
+  // 💭 ВНУТРЕННИЙ ГОЛОС — Единый стиль для всего нарратива
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Текст в кавычках «» или "" — прямые мысли
+  const isDirectThought = (text.startsWith("«") && text.endsWith("»")) || 
+                          (text.startsWith('"') && text.endsWith('"') && text.length < 200);
+  
+  // Голоса/шёпот (особый хоррор-элемент)
+  const isWhisper = text.startsWith("«...") || text.includes("...»") || 
+                    (text.includes("«") && text.includes("»") && lowerText.includes("голос"));
+  
+  // Длинный нарратив
+  const isLongNarrative = text.length > 180;
+  
+  // Короткая драматичная фраза
+  const isShortDramatic = text.length < 50 && !text.includes(",") && !isDialogueIntro;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👁️ ШЁПОТ / ГОЛОСА — хоррор-элемент
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isWhisper) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0.7, 0.5, 0.8, 0.6] }}
+        transition={{ duration: 2, ease: "easeInOut" }}
+        className="py-6 px-8"
+      >
+        <div className="relative">
+          {/* Мерцающий фон */}
+          <motion.div 
+            className="absolute inset-0 -mx-4 -my-2 rounded-xl bg-red-950/20"
+            animate={{ opacity: [0.1, 0.3, 0.1] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+          <p className="relative text-[14px] text-red-300/70 leading-[2.2] text-center italic tracking-wide">
+            {text}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💭 ПРЯМЫЕ МЫСЛИ — в кавычках
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isDirectThought) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="py-5 px-6"
+      >
+        <div className="relative text-center">
+          {/* Декоративные кавычки */}
+          <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-3xl text-white/10 font-serif">"</span>
+          <p className="text-[15px] text-white/60 leading-[2] italic font-light px-8">
+            {text.replace(/^[«"]|[»"]$/g, "")}
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚡ КОРОТКАЯ ДРАМАТИЧНАЯ ФРАЗА
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isShortDramatic) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="py-6"
+      >
+        <p className="text-[15px] text-white/80 text-center font-light tracking-wide">
+          {text}
+        </p>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🎬 ДЕЙСТВИЯ ГЕРОЯ (начинается с "Вы")
   // ═══════════════════════════════════════════════════════════════════════════
   
   if (isPlayerAction) {
@@ -2658,47 +3220,10 @@ function ParagraphRenderer({
         transition={{ duration: 0.5 }}
         className="py-4 px-5"
       >
-        <p className="text-[15px] text-white/90 leading-[1.8] text-center font-light tracking-wide">
-          {text}
-        </p>
-      </motion.div>
-    );
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ВВОДНАЯ ФРАЗА К ДИАЛОГУ — минималистичная
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  if (isDialogueIntro) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="pt-5 pb-2 px-4"
-      >
-        <p className="text-[13px] text-white/50 text-center italic">
-          {text}
-        </p>
-      </motion.div>
-    );
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ОПИСАНИЕ НАХОДКИ — карточка с иконкой
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  if (isEvidence && !isPlayerAction) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mx-4 my-3"
-      >
-        <div className="flex gap-3 px-4 py-3 rounded-xl bg-slate-800/40 border-l-2 border-slate-500/50">
-          <span className="text-slate-400 text-sm mt-0.5">📋</span>
-          <p className="text-[14px] text-slate-200 leading-[1.7]">
+        <div className="relative">
+          {/* Тонкий индикатор слева */}
+          <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-gradient-to-b from-slate-400/40 via-slate-500/20 to-transparent" />
+          <p className="text-[15px] text-white/85 leading-[1.9] pl-4 font-light">
             {text}
           </p>
         </div>
@@ -2707,18 +3232,18 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // АТМОСФЕРНОЕ ОПИСАНИЕ — курсивом, тонкое
+  // 📍 ВВОДНАЯ ФРАЗА К ДИАЛОГУ
   // ═══════════════════════════════════════════════════════════════════════════
   
-  if (isAtmosphere && !isPlayerAction && !isEvidence) {
+  if (isDialogueIntro) {
     return (
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="py-4 px-6"
+        transition={{ duration: 0.3 }}
+        className="pt-6 pb-2 px-4"
       >
-        <p className="text-[14px] text-white/60 leading-[1.9] text-center italic">
+        <p className="text-[13px] text-white/40 text-center italic tracking-wide">
           {text}
         </p>
       </motion.div>
@@ -2726,7 +3251,52 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // ПРОФЕССИОНАЛЬНОЕ НАБЛЮДЕНИЕ — с акцентом
+  // 🔍 ОПИСАНИЕ НАХОДКИ / УЛИКИ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isEvidence && !isPlayerAction) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, x: -5 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mx-4 my-4"
+      >
+        <div className="relative overflow-hidden rounded-xl bg-slate-800/30 backdrop-blur-sm border border-slate-700/30">
+          {/* Акцентная линия */}
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500/50 via-cyan-600/30 to-transparent" />
+          <div className="flex gap-3 px-5 py-4">
+            <span className="text-cyan-400/60 text-sm mt-0.5">◈</span>
+            <p className="text-[14px] text-slate-200/80 leading-[1.8] font-light">
+              {text}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🌫️ АТМОСФЕРНОЕ ОПИСАНИЕ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isAtmosphere && !isPlayerAction && !isEvidence) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.7 }}
+        className="py-5 px-8"
+      >
+        <p className="text-[14px] text-white/50 leading-[2.1] text-center italic font-light">
+          {text}
+        </p>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👁️ ПРОФЕССИОНАЛЬНОЕ НАБЛЮДЕНИЕ
   // ═══════════════════════════════════════════════════════════════════════════
   
   if (isProfessional) {
@@ -2738,8 +3308,8 @@ function ParagraphRenderer({
         className="py-4 px-5"
       >
         <div className="relative">
-          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500/60 to-transparent rounded-full" />
-          <p className="text-[14px] text-amber-100/80 leading-[1.8] pl-4">
+          <div className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full bg-gradient-to-b from-amber-500/50 to-transparent" />
+          <p className="text-[14px] text-amber-100/70 leading-[1.9] pl-4 font-light">
             {text}
           </p>
         </div>
@@ -2748,49 +3318,8 @@ function ParagraphRenderer({
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // КОРОТКИЙ ТЕКСТ — элегантно по центру
+  // 📖 ДЛИННЫЙ НАРРАТИВ
   // ═══════════════════════════════════════════════════════════════════════════
-  
-  if (text.length < 100 && !isList) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        className="py-4 px-5"
-      >
-        <p className="text-[15px] text-white/75 leading-[1.8] text-center">
-          {text}
-        </p>
-      </motion.div>
-    );
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🎬 КИНЕМАТОГРАФИЧЕСКИЙ ТЕКСТ
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  // Текст в кавычках «» или "" — внутренние мысли/цитаты
-  const isQuotedThought = (text.startsWith("«") && text.endsWith("»")) || 
-                          (text.startsWith('"') && text.endsWith('"') && text.length < 150);
-  
-  if (isQuotedThought) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.7 }}
-        className="px-10 py-5"
-      >
-        <p className="text-[14px] text-white/50 leading-[2] text-center italic font-light">
-          {text}
-        </p>
-      </motion.div>
-    );
-  }
-  
-  // Длинный атмосферный текст (больше 150 символов)
-  const isLongNarrative = text.length > 150;
   
   if (isLongNarrative) {
     return (
@@ -2798,24 +3327,27 @@ function ParagraphRenderer({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
-        className="px-6 py-5"
+        className="py-5 px-5"
       >
-        <p className="text-[15px] text-white/75 leading-[2] font-light">
+        <p className="text-[15px] text-white/70 leading-[2] font-light">
           {text}
         </p>
       </motion.div>
     );
   }
   
-  // Обычный текст — по центру, элегантно
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💫 ОБЫЧНЫЙ НАРРАТИВ — Внутренний голос
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="px-8 py-4"
+      className="py-4 px-6"
     >
-      <p className="text-[15px] text-white/80 leading-[1.9] text-center font-light">
+      <p className="text-[15px] text-white/70 leading-[2] text-center font-light">
         {text}
       </p>
     </motion.div>
