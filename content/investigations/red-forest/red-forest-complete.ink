@@ -142,6 +142,28 @@ VAR mine_left_visited = false
 VAR mine_center_visited = false
 VAR mine_right_visited = false
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// СЧЁТЧИКИ ПОСЕЩЕНИЙ ЛОКАЦИЙ (для stopping описаний)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+VAR visits_hotel_room = 0
+VAR visits_factory = 0
+VAR visits_church = 0
+VAR visits_archive = 0
+VAR visits_forest = 0
+VAR visits_caves = 0
+VAR visits_police = 0
+VAR visits_hospital = 0
+
+// Счётчики для stopping-механик персонажей и объектов
+VAR times_looked_in_mirror = 0
+VAR times_seen_cult_symbol = 0
+VAR times_talked_to_klava = 0
+VAR times_heard_voices = 0
+VAR times_met_tanya = 0
+VAR times_sensed_door = 0
+VAR times_looked_at_moon = 0
+
 // Флаг критического состояния рассудка (для отложенной проверки)
 VAR sanity_critical = false
 
@@ -155,6 +177,29 @@ VAR investigation_style = 0
 
 // Репутация в городе: слухи распространяются
 VAR city_reputation = 0  // -100 (враг) до +100 (свой)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА РЕПУТАЦИИ — ОТСЛЕЖИВАНИЕ ЕЖЕДНЕВНЫХ СОБЫТИЙ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Счётчики действий за день (сбрасываются в advance_day)
+VAR daily_aggressive_actions = 0    // Агрессивные допросы, угрозы
+VAR daily_helpful_actions = 0       // Помощь жителям, сочувствие
+VAR daily_public_breakdowns = 0     // Публичные проявления безумия
+VAR daily_cult_exposure = 0         // Публичные упоминания культа
+
+// Флаги репутационных событий (не сбрасываются)
+VAR reputation_witnessed_breakdown = false  // Кто-то видел безумие
+VAR reputation_helped_tanya = false         // Помог семье Тани
+VAR reputation_saved_someone = false        // Спас чью-то жизнь
+VAR reputation_exposed_corruption = false   // Разоблачил коррупцию
+VAR reputation_attacked_innocent = false    // Напал на невиновного
+
+// Порог для автоматического распространения слухов
+CONST AGGRESSIVE_THRESHOLD = 3
+CONST HELPFUL_THRESHOLD = 2
+CONST BREAKDOWN_THRESHOLD = 2
+CONST CULT_EXPOSURE_THRESHOLD = 3
 
 // Воспоминания Афганистана — триггеры для flashback'ов
 VAR afghan_flashbacks = 0  // счётчик просмотренных воспоминаний
@@ -420,6 +465,292 @@ VAR humanity = 50  // 0=бесчеловечный, 100=гуманист
 ~ return 3
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА INFECTION — ЭТАЛОННАЯ РЕАЛИЗАЦИЯ
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Best Practice: Infection влияет на:
+// 1. Внешний вид Сорокина (NPC замечают)
+// 2. Доступные варианты диалогов
+// 3. Реакции NPC на него
+// 4. Видения и галлюцинации
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== function get_infection_state() ===
+// Возвращает: 0=чист, 1=начало, 2=заметно, 3=сильное, 4=критическое, 5=потерян
+{ infection_level <= 0:
+    ~ return 0
+}
+{ infection_level < 20:
+    ~ return 1
+}
+{ infection_level < 40:
+    ~ return 2
+}
+{ infection_level < 60:
+    ~ return 3
+}
+{ infection_level < 80:
+    ~ return 4
+}
+~ return 5
+
+=== function is_visibly_infected() ===
+// NPC могут заметить заражение при уровне 40+
+~ return infection_level >= 40
+
+=== function is_severely_infected() ===
+// Критическое заражение — влияет на все взаимодействия
+~ return infection_level >= 70
+
+=== function get_physical_symptoms() ===
+// Физические симптомы для описания в диалогах
+// 0=нет, 1=лёгкие, 2=заметные, 3=пугающие
+{ infection_level < 30:
+    ~ return 0
+}
+{ infection_level < 50:
+    ~ return 1
+}
+{ infection_level < 70:
+    ~ return 2
+}
+~ return 3
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NPC РЕАКЦИИ НА СОСТОЯНИЕ СОРОКИНА
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Tunnel-функция: вызывается перед диалогами с ключевыми NPC
+// NPC реагируют на: sanity + infection + внешний вид
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== npc_notices_sorokin_state ===
+// Вызывать перед важными диалогами: -> npc_notices_sorokin_state ->
+
+// Проверка физических симптомов заражения
+{ get_physical_symptoms() == 1:
+    { shuffle:
+    -
+        Собеседник на мгновение задерживает взгляд на ваших руках. Они дрожат? # style:thought # intensity:low
+    -
+        — Вы бледный какой-то сегодня. Плохо спали? # style:atmosphere # intensity:low
+    -
+        Вы замечаете, как собеседник чуть отодвигается. Незаметно. Инстинктивно. # style:thought # intensity:low
+    }
+}
+
+{ get_physical_symptoms() == 2:
+    { shuffle:
+    -
+        — Товарищ следователь... Вы себя хорошо чувствуете? У вас глаза... странные. # style:atmosphere # intensity:medium
+    -
+        Собеседник смотрит на вас с плохо скрываемым беспокойством. Или страхом? # style:thought # intensity:medium
+        
+        Вы чувствуете: что-то в вашем облике изменилось. Что-то, что видят другие. # style:thought # intensity:high
+    -
+        — Может, вам к врачу надо? Вера Сергеевна хорошая, она посмотрит... # style:atmosphere # intensity:medium
+    }
+    ~ trust_vera += 2 // Люди рекомендуют Веру
+}
+
+{ get_physical_symptoms() == 3:
+    // РЕПУТАЦИЯ: очень заметные симптомы — люди видят и боятся
+    ~ track_public_breakdown()
+    
+    { shuffle:
+    -
+        Собеседник делает шаг назад. В глазах — неприкрытый страх. # style:horror # intensity:high
+        
+        — Что... что с вами? # style:atmosphere # intensity:high
+        
+        Вы не знаете. Вы боитесь узнать. # style:thought # intensity:high
+    -
+        — Господи... — шёпот. Крёстное знамение. — Они уже в вас, да? Они уже внутри... # style:horror # intensity:high
+        
+        Вы хотите возразить. Но слова не идут. Потому что, может быть, это правда. # style:thought # intensity:high
+    -
+        Человек отшатывается. Его лицо — белое как мел. # style:action # intensity:high
+        
+        — Не подходите! Не подходите ко мне! # style:atmosphere # intensity:high
+        
+        Он убегает. Вы остаётесь один. # style:dramatic # intensity:high
+        
+        Один? Или... ОНИ — с вами? # style:horror # intensity:high
+    }
+    -> lose_sanity_safe(3) ->
+}
+
+// Проверка низкого рассудка
+{ sanity < 40 && get_physical_symptoms() < 2:
+    { shuffle:
+    -
+        — Вы какой-то... рассеянный. Давно не спали? # style:atmosphere # intensity:low
+    -
+        Собеседник замечает ваш блуждающий взгляд. Вы смотрели на что-то за его спиной. Там ничего нет. Наверное. # style:thought # intensity:medium
+    }
+}
+
+{ sanity < 20:
+    // РЕПУТАЦИЯ: очень низкий рассудок — люди видят безумие
+    ~ track_public_breakdown()
+    
+    { shuffle:
+    -
+        Вы понимаете — они видят. Видят, что вы уже не совсем... здесь. # style:thought # intensity:high
+        
+        — С кем вы разговариваете? — спрашивают они. # style:atmosphere # intensity:high
+        
+        Вы не заметили, что шептали что-то. Шептали ИМ. # style:horror # intensity:high
+    -
+        Люди обходят вас стороной. Смотрят, но не приближаются. # style:atmosphere # intensity:high
+        
+        Вы — уже не один из них. # style:horror # intensity:high
+    }
+}
+
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА ОПИСАНИЯ СОСТОЯНИЯ — для внутреннего монолога Сорокина
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== describe_current_state ===
+// Внутренний монолог о текущем состоянии — вызывать при переходах между сценами
+
+{ infection_level >= 20 && infection_level < 40:
+    Что-то не так. Вы чувствуете это — внутри, глубоко. # style:thought # intensity:medium
+    
+    Головная боль, которая не проходит. Привкус меди во рту. Тени на периферии зрения. # style:atmosphere # intensity:medium
+}
+
+{ infection_level >= 40 && infection_level < 60:
+    Ваши руки. Вы смотрите на них. # style:action # intensity:medium
+    
+    Вены — темнее, чем должны быть. Почти чёрные. Или это свет такой? # style:horror # intensity:high
+    
+    Нет. Не свет. ОНИ — внутри вас. Уже внутри. # style:horror # intensity:high
+}
+
+{ infection_level >= 60 && infection_level < 80:
+    Граница размывается. # style:horror # intensity:high
+    
+    Где кончаетесь вы — и начинаются ОНИ? # style:horror # intensity:high
+    
+    Вы не уверены. Уже не уверены. # style:thought # intensity:high
+    
+    Голоса — ваши? Или их? Мысли — ваши? Или... # style:horror # intensity:high
+}
+
+{ infection_level >= 80:
+    Тело — предательское, чужое — двигается само. # style:horror # intensity:high
+    
+    Вы — пассажир в собственной голове. # style:horror # intensity:high
+    
+    ОНИ ведут. ОНИ решают. ОНИ — смотрят вашими глазами. # style:horror # intensity:high
+    
+    И где-то — глубоко, в последнем свободном уголке сознания — вы кричите. # style:horror # intensity:high
+    
+    Но никто не слышит. # style:horror # intensity:high
+}
+
+// Санирующий эффект от низкого sanity
+{ sanity < 30 && infection_level < 40:
+    Мир — нереален. Вы — нереальны. # style:horror # intensity:high
+    
+    Это сон? Кошмар? Или всё это — правда, а ваша прежняя жизнь была иллюзией? # style:thought # intensity:high
+}
+
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СПЕЦИФИЧЕСКИЕ РЕАКЦИИ КЛЮЧЕВЫХ NPC
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== klava_notices_infection ===
+// Клава — первая, кто замечает изменения
+{ infection_level >= 30 && infection_level < 50:
+    Клава смотрит на вас долго. Слишком долго. # style:atmosphere # intensity:medium
+    
+    — Товарищ следователь... Вы кушаете плохо. Бледный совсем стали. # speaker:klava
+    
+    Она крестится. Незаметно, под фартуком. Но вы видите. # style:thought # intensity:medium
+}
+{ infection_level >= 50 && infection_level < 70:
+    Клава отшатывается, когда вы входите. # style:action # intensity:high
+    
+    — Это... это не вы. — Её голос дрожит. — Это уже не вы, да? # speaker:klava # intensity:high
+    
+    Вы хотите ответить. Но она права? Вы — это ещё вы? # style:thought # intensity:high
+}
+{ infection_level >= 70:
+    Клавы нет за стойкой. # style:atmosphere # intensity:high
+    
+    Записка: "Уехала. Не ищите." # style:document # intensity:high
+    
+    Она сбежала. От вас. От того, чем вы становитесь. # style:thought # intensity:high
+}
+->->
+
+=== vera_notices_infection ===
+// Вера — врач, замечает профессионально
+{ infection_level >= 20 && infection_level < 40:
+    Вера надевает очки. Смотрит на вас — профессионально, оценивающе. # style:atmosphere # intensity:medium
+    
+    — Зрачки расширены. Тремор в руках. Когда вы последний раз спали нормально? # speaker:vera
+}
+{ infection_level >= 40 && infection_level < 60:
+    — Снимите рубашку. # speaker:vera
+    
+    Вы подчиняетесь. Она смотрит. Её лицо бледнеет. # style:action # intensity:high
+    
+    — Эти... узоры под кожей. Я такое видела только... — Она не заканчивает. # speaker:vera # intensity:high
+    
+    Вы смотрите вниз. Тёмные линии — как корни дерева — расходятся от груди. # style:horror # intensity:high
+    
+    ~ understanding_vera += 10
+}
+{ infection_level >= 60:
+    — Поздно. — Вера отступает. В её глазах — не страх. Жалость. — Для вас — уже поздно. # speaker:vera # intensity:high
+    
+    — Что вы имеете в виду? # speaker:sorokin
+    
+    — Они в вас. Глубоко. Я не могу это вылечить. Никто не может. # speaker:vera # intensity:high
+    
+    ~ sorokin_infected = true
+}
+->->
+
+=== tanya_notices_infection ===
+// Таня — реагирует эмоционально
+{ infection_level >= 30 && infection_level < 50:
+    Таня берёт вашу руку. Её пальцы — тёплые. Ваши — ледяные. # style:atmosphere # intensity:medium
+    
+    — Виктор... Ты холодный как лёд. Что происходит? # speaker:tanya # intensity:medium
+}
+{ infection_level >= 50 && infection_level < 70 && Relationships ? romantic_tanya:
+    — Я вижу. — Её голос дрожит. — Вижу, что с тобой что-то не так. # speaker:tanya # intensity:high
+    
+    Она не отпускает вашу руку. Не отступает. # style:action # intensity:high
+    
+    — Мне всё равно. Слышишь? Мне всё равно, что они с тобой сделали. Ты — это ты. Для меня — всегда ты. # speaker:tanya # intensity:high
+    
+    ~ gain_sanity(5)
+    ~ trust_tanya += 10
+}
+{ infection_level >= 70 && Relationships ? romantic_tanya:
+    Таня плачет. Молча. Слёзы текут по щекам. # style:atmosphere # intensity:high
+    
+    — Я не отдам тебя им. Слышишь? — Её голос — сталь. — Не отдам. # speaker:tanya # intensity:high
+    
+    Она целует вас. Её губы — тёплые. Живые. # style:dramatic # intensity:high
+    
+    И на секунду — одну секунду — голоса замолкают. # style:atmosphere # intensity:high
+    
+    ~ gain_sanity(10)
+}
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ФУНКЦИИ ПОДСЧЁТА УЛИК (v2.0 — синхронизация с LIST)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -470,12 +801,21 @@ VAR humanity = 50  // 0=бесчеловечный, 100=гуманист
 // ДЕДЛАЙН: прогресс луны и обратный отсчёт
 ~ advance_moon()
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА РЕПУТАЦИИ: обновление в конце дня
+// ═══════════════════════════════════════════════════════════════════════════════
+// Сначала обновляем репутацию на основе дневных действий
+~ update_daily_reputation()
+
+// Затем сбрасываем дневные счётчики
+~ reset_daily_reputation_counters()
+
 // HORROR: сброс счётчика событий нового дня
 ~ reset_daily_horror()
 
 // Сбрасываем tracking туннелей шахты для нового дня (если игрок захочет вернуться)
 ~ mine_left_visited = false
-~ mine_center_visited = false  
+~ mine_center_visited = false
 ~ mine_right_visited = false
 
 // External: уведомление и автосохранение
@@ -506,23 +846,163 @@ VAR humanity = 50  // 0=бесчеловечный, 100=гуманист
 
 === function spread_rumor(rumor) ===
 // Добавляем слух в LIST и меняем репутацию
-~ Rumors += rumor
-{ rumor == rumor_dangerous:
-    ~ city_reputation = city_reputation - 10
-}
-{ rumor == rumor_honest:
-    ~ city_reputation = city_reputation + 10
-}
-{ rumor == rumor_crazy:
-    ~ city_reputation = city_reputation - 15
-}
-{ rumor == rumor_cultist:
-    ~ city_reputation = city_reputation - 20
-}
-{ rumor == rumor_hero:
-    ~ city_reputation = city_reputation + 15
+// Слух распространяется только если его ещё нет
+{ not (Rumors ? rumor):
+    ~ Rumors += rumor
+    { rumor == rumor_dangerous:
+        ~ city_reputation = city_reputation - 10
+    }
+    { rumor == rumor_honest:
+        ~ city_reputation = city_reputation + 10
+    }
+    { rumor == rumor_crazy:
+        ~ city_reputation = city_reputation - 15
+    }
+    { rumor == rumor_cultist:
+        ~ city_reputation = city_reputation - 20
+    }
+    { rumor == rumor_hero:
+        ~ city_reputation = city_reputation + 15
+    }
 }
 ~ return true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА РЕПУТАЦИИ — ФУНКЦИИ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== function track_aggressive_action() ===
+// Вызывается при агрессивных действиях (допросы с угрозами, давление)
+~ daily_aggressive_actions = daily_aggressive_actions + 1
+~ change_style(2)
+{ daily_aggressive_actions >= AGGRESSIVE_THRESHOLD:
+    { not (Rumors ? rumor_dangerous):
+        ~ spread_rumor(rumor_dangerous)
+    }
+}
+~ return daily_aggressive_actions
+
+=== function track_helpful_action() ===
+// Вызывается при помощи жителям (сочувствие, реальная помощь)
+~ daily_helpful_actions = daily_helpful_actions + 1
+~ change_style(-2)
+{ daily_helpful_actions >= HELPFUL_THRESHOLD:
+    { not (Rumors ? rumor_honest):
+        ~ spread_rumor(rumor_honest)
+    }
+}
+~ return daily_helpful_actions
+
+=== function track_public_breakdown() ===
+// Вызывается при публичном проявлении безумия (галлюцинации при свидетелях)
+~ daily_public_breakdowns = daily_public_breakdowns + 1
+~ reputation_witnessed_breakdown = true
+{ daily_public_breakdowns >= BREAKDOWN_THRESHOLD:
+    { not (Rumors ? rumor_crazy):
+        ~ spread_rumor(rumor_crazy)
+    }
+}
+~ return daily_public_breakdowns
+
+=== function track_cult_exposure() ===
+// Вызывается при публичных расспросах о культе
+~ daily_cult_exposure = daily_cult_exposure + 1
+{ daily_cult_exposure >= CULT_EXPOSURE_THRESHOLD:
+    { not (Rumors ? rumor_cultist):
+        ~ spread_rumor(rumor_cultist)
+    }
+}
+~ return daily_cult_exposure
+
+=== function track_heroic_action() ===
+// Вызывается при героических действиях (спасение жизни)
+~ reputation_saved_someone = true
+{ not (Rumors ? rumor_hero):
+    ~ spread_rumor(rumor_hero)
+}
+~ return true
+
+=== function reset_daily_reputation_counters() ===
+// Сбрасывает дневные счётчики (вызывается в advance_day)
+~ daily_aggressive_actions = 0
+~ daily_helpful_actions = 0
+~ daily_public_breakdowns = 0
+~ daily_cult_exposure = 0
+~ return true
+
+=== function update_daily_reputation() ===
+// Автоматическое обновление репутации в конце дня на основе стиля расследования
+// Вызывается в advance_day() перед сбросом счётчиков
+
+// Агрессивный стиль накапливает плохую репутацию
+{ is_aggressive():
+    ~ city_reputation = city_reputation - 3
+}
+
+// Дипломатичный стиль улучшает репутацию
+{ is_diplomatic():
+    ~ city_reputation = city_reputation + 3
+}
+
+// Бонус за низкий уровень заражения и высокий рассудок (выглядит нормально)
+{ sanity >= 80 && infection_level <= 20:
+    ~ city_reputation = city_reputation + 2
+}
+
+// Штраф за видимые симптомы заражения
+{ infection_level >= 50:
+    ~ city_reputation = city_reputation - 5
+    { not reputation_witnessed_breakdown:
+        ~ reputation_witnessed_breakdown = true
+    }
+}
+
+// Штраф за низкий рассудок (странное поведение)
+{ sanity <= 30:
+    ~ city_reputation = city_reputation - 3
+}
+
+// Clamp репутации в пределах -100...+100
+{ city_reputation > 100:
+    ~ city_reputation = 100
+}
+{ city_reputation < -100:
+    ~ city_reputation = -100
+}
+
+~ return city_reputation
+
+=== function get_reputation_status() ===
+// Возвращает числовой статус репутации для проверок
+// -2 = враг, -1 = подозрительный, 0 = нейтральный, 1 = знакомый, 2 = свой
+{ city_reputation <= -50:
+    ~ return -2
+}
+{ city_reputation < -20:
+    ~ return -1
+}
+{ city_reputation <= 20:
+    ~ return 0
+}
+{ city_reputation < 50:
+    ~ return 1
+}
+~ return 2
+
+=== function is_reputation_enemy() ===
+~ return city_reputation <= -50
+
+=== function is_reputation_suspicious() ===
+~ return city_reputation < -20 && city_reputation > -50
+
+=== function is_reputation_neutral() ===
+~ return city_reputation >= -20 && city_reputation <= 20
+
+=== function is_reputation_friendly() ===
+~ return city_reputation > 20 && city_reputation < 50
+
+=== function is_reputation_trusted() ===
+~ return city_reputation >= 50
 
 === function has_item(item) ===
 ~ return inventory ? item
@@ -711,6 +1191,1203 @@ VAR humanity = 50  // 0=бесчеловечный, 100=гуманист
     ~ serafim_danger_level = 3
 }
 ~ return true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА STOPPING ОПИСАНИЙ ЛОКАЦИЙ
+// Каждое посещение — новое описание, отражающее изменение восприятия Сорокина
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== describe_hotel_room ===
+~ visits_hotel_room = visits_hotel_room + 1
+{ stopping:
+    - 
+        Номер двенадцать. # style:title # intensity:medium
+        
+        Тесная комната с высоким потолком. Кровать, тумбочка, шкаф. Окно с тяжёлыми шторами. Пахнет нафталином и пылью. # style:atmosphere
+        
+        Типичный советский номер. Ничего особенного. # style:thought
+    -
+        Номер двенадцать. Уже знакомый. # style:title # intensity:medium
+        
+        Странно — вы замечаете то, чего не видели раньше. Царапины на двери. Словно кто-то скрёбся изнутри. # style:atmosphere # intensity:medium
+        
+        Или это было всегда? # style:thought
+    -
+        Номер двенадцать. # style:title # intensity:high
+        
+        Обои... Вы могли поклясться, что они были другого цвета. И эти пятна — от сырости? Или от чего-то другого? # style:atmosphere # intensity:high
+        
+        Комната словно дышит. Медленно. Терпеливо. # style:horror # intensity:medium
+    -
+        Номер двенадцать. Ваша клетка. # style:title # intensity:high
+        
+        Теперь вы видите: символы. Под обоями, в щелях паркета, на изнанке штор. Они всегда были здесь. # style:horror # intensity:high
+        
+        Вы просто не смотрели. # style:thought # intensity:high
+    -
+        Номер двенадцать. # style:title # intensity:high
+        
+        Комната ждёт вас. Как старый друг. Или как паук — муху. # style:horror # intensity:high
+        
+        Стены знают ваше имя. # style:horror # intensity:high
+}
+->->
+
+=== describe_factory ===
+~ visits_factory = visits_factory + 1
+{ stopping:
+    -
+        Завод «Прометей». # style:title # intensity:medium
+        
+        Громада из бетона и ржавого металла. Трубы выбрасывают белый дым. Запах серы и машинного масла. # style:atmosphere
+        
+        Обычный советский завод. Почти. # style:thought
+    -
+        Завод «Прометей». Снова здесь. # style:title # intensity:medium
+        
+        Теперь вы замечаете: охранники следят за вами. Все. Одинаковыми глазами. # style:atmosphere # intensity:high
+        
+        И этот гул из-под земли... Машины так не звучат. # style:horror # intensity:medium
+    -
+        Завод «Прометей». # style:title # intensity:high
+        
+        Стены помнят. Каждый эксперимент. Каждый крик. Каждую жертву. # style:horror # intensity:high
+        
+        Двадцать лет они кормят то, что внизу. # style:horror # intensity:high
+    -
+        Завод «Прометей». Чрево зверя. # style:title # intensity:high
+        
+        Трубы — не трубы. Артерии. Дым — не дым. Дыхание. # style:horror # intensity:high
+        
+        Оно знает, что вы пришли. Оно ждало. # style:horror # intensity:high
+}
+->->
+
+=== describe_church ===
+~ visits_church = visits_church + 1
+{ stopping:
+    -
+        Старая церковь на окраине. # style:title # intensity:medium
+        
+        Деревянное здание, почерневшее от времени. Покосившийся крест. Заколоченные окна. # style:atmosphere
+        
+        Официально — закрыта с шестидесятых. Но внутри горит свет. # style:atmosphere # intensity:medium
+    -
+        Церковь. # style:title # intensity:medium
+        
+        Вы замечаете то, что пропустили раньше: иконы смотрят не на алтарь. Они смотрят вниз. В пол. # style:atmosphere # intensity:high
+        
+        Что там, под досками? # style:thought # intensity:high
+    -
+        Церковь. # style:title # intensity:high
+        
+        Ладан не может скрыть другой запах. Старый. Медный. Кровь? # style:horror # intensity:high
+        
+        Свечи мерцают — хотя нет сквозняка. # style:horror # intensity:medium
+    -
+        Церковь. Маска поверх бездны. # style:title # intensity:high
+        
+        Теперь вы понимаете. Серафим не молится Богу. Он сторожит. # style:horror # intensity:high
+        
+        Молитвы — не молитвы. Цепи. Замки. Печати. # style:horror # intensity:high
+}
+->->
+
+=== describe_archive ===
+~ visits_archive = visits_archive + 1
+{ stopping:
+    -
+        Городской архив. # style:title # intensity:medium
+        
+        Одноэтажное здание — бывшая школа. Пыльные коридоры, стеллажи до потолка. Запах старой бумаги. # style:atmosphere
+        
+        Мария Фёдоровна хранит больше, чем документы. Она хранит память. # style:thought
+    -
+        Архив. # style:title # intensity:medium
+        
+        Странно — некоторые папки переставлены. Кто-то был здесь после вас? # style:atmosphere # intensity:medium
+        
+        Или до вас? Всегда до вас? # style:thought # intensity:high
+    -
+        Архив. # style:title # intensity:high
+        
+        Между строк проступает правда. Имена. Даты. Закономерности. # style:atmosphere # intensity:high
+        
+        Двести сорок семь пропавших. Все — в полнолуние. Все — слышали голоса. # style:horror # intensity:high
+    -
+        Архив. Кладбище правды. # style:title # intensity:high
+        
+        Каждая папка — могила. Каждый список — реквием. # style:horror # intensity:high
+        
+        Мария Фёдоровна знала. Всегда знала. Но молчала. Как и все. # style:horror # intensity:high
+}
+->->
+
+=== describe_forest ===
+~ visits_forest = visits_forest + 1
+{ stopping:
+    -
+        Красный лес. # style:title # intensity:high
+        
+        Деревья стоят стеной. Чёрные стволы, голые ветви. Тишина — такая густая, что давит на уши. # style:atmosphere # intensity:high
+        
+        Даже птицы здесь не поют. # style:atmosphere # intensity:high
+    -
+        Красный лес. Он ждал. # style:title # intensity:high
+        
+        Тропинки... Вы могли поклясться — они были другими. Деревья сдвинулись? # style:horror # intensity:high
+        
+        Нет. Глупости. Деревья не двигаются. # style:thought # intensity:high
+        
+        Или?.. # style:horror # intensity:high
+    -
+        Красный лес. # style:title # intensity:high
+        
+        Голоса. Тихие. На самой грани слышимости. # style:horror # intensity:high
+        
+        «...идиидиидиидиидиидиди...» # style:vision # intensity:high
+        
+        Вы не оборачиваетесь. Нельзя оборачиваться. # style:horror # intensity:high
+    -
+        Красный лес. Дом. # style:title # intensity:high
+        
+        Нет. Не дом. Почему вы так подумали? # style:horror # intensity:high
+        
+        Деревья расступаются. Приглашают. Ветви — как руки. Корни — как пальцы. # style:horror # intensity:high
+        
+        «...добро пожаловать...» # style:vision # intensity:high
+}
+->->
+
+=== describe_caves ===
+~ visits_caves = visits_caves + 1
+{ stopping:
+    -
+        Пещеры. # style:title # intensity:high
+        
+        Темнота. Влажный камень. Запах земли и чего-то... сладковатого. # style:atmosphere # intensity:high
+        
+        Фонарик выхватывает из мрака древние стены. Здесь люди были тысячи лет назад. # style:atmosphere # intensity:high
+    -
+        Пещеры. # style:title # intensity:high
+        
+        Символы на стенах — они светятся? Нет. Показалось. # style:horror # intensity:high
+        
+        Хотя... фонарик был выключен. Как вы их видели? # style:horror # intensity:high
+    -
+        Пещеры. # style:title # intensity:high
+        
+        Эхо неправильное. Вы говорите «привет» — возвращается «...жди...» # style:horror # intensity:high
+        
+        Камни помнят каждый ритуал. Каждую жертву. Каждую каплю крови. # style:horror # intensity:high
+    -
+        Пещеры. Преддверие. # style:title # intensity:high
+        
+        Дверь близко. Вы чувствуете её. Пульс в камне. Дыхание из глубины. # style:horror # intensity:high
+        
+        Она знает ваше имя. Она ждёт. # style:horror # intensity:high
+        
+        Она всегда ждала. # style:vision # intensity:high
+}
+->->
+
+=== describe_police_station ===
+~ visits_police = visits_police + 1
+{ stopping:
+    -
+        Отдел милиции. # style:title # intensity:medium
+        
+        Серое здание. Облупившаяся краска. Дежурный за стеклом. Всё как везде. # style:atmosphere
+        
+        Почти. # style:thought
+    -
+        Отдел милиции. # style:title # intensity:medium
+        
+        Тишина. Слишком тихо для участка. Где задержанные? Где суета? # style:atmosphere # intensity:medium
+        
+        Милиционеры смотрят. Молча. Ждут. # style:atmosphere # intensity:high
+    -
+        Отдел милиции. # style:title # intensity:high
+        
+        Громов знает. Они все знают. И молчат. Двадцать лет молчат. # style:thought # intensity:high
+        
+        Сколько дел закрыто? Сколько «несчастных случаев»? Сколько «уехавших»? # style:thought # intensity:high
+    -
+        Отдел милиции. Логово. # style:title # intensity:high
+        
+        Не защитники — сторожа. Не закон — ритуал. # style:horror # intensity:high
+        
+        Каждый рапорт — ложь. Каждое дело — жертва. # style:horror # intensity:high
+}
+->->
+
+=== describe_hospital ===
+~ visits_hospital = visits_hospital + 1
+{ stopping:
+    -
+        Больница №1. # style:title # intensity:medium
+        
+        Жёлтый кирпич. Пустые коридоры. Запах хлорки и лекарств. # style:atmosphere
+        
+        Психиатрическое отделение — на третьем этаже. Там работает Вера. # style:atmosphere
+    -
+        Больница. # style:title # intensity:medium
+        
+        Пациенты смотрят в стены. Бормочут. Одно и то же. # style:atmosphere # intensity:high
+        
+        «...красный лес... дверь... они идут...» # style:vision # intensity:high
+    -
+        Больница. # style:title # intensity:high
+        
+        Вера показывала записи. Все пациенты — с одинаковыми симптомами. Все — работали на заводе. # style:thought # intensity:high
+        
+        Не болезнь. Заражение. # style:horror # intensity:high
+    -
+        Больница. Карантин. # style:title # intensity:high
+        
+        Здесь не лечат. Здесь прячут. Тех, кто видел слишком много. Знал слишком много. # style:horror # intensity:high
+        
+        Тех, кого не смогли убить. # style:horror # intensity:high
+}
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ЗЕРКАЛО — Прогрессирующее искажение отражения
+// Отражает изменение Сорокина под влиянием "заражения"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== look_in_mirror ===
+~ times_looked_in_mirror = times_looked_in_mirror + 1
+{ stopping:
+    -
+        Вы смотрите в зеркало. # style:action
+        
+        Ваше лицо. Усталое — три дня без нормального сна. Щетина. Тени под глазами. # style:atmosphere
+        
+        Но — ваше. Знакомое. # style:thought
+    -
+        Зеркало. # style:action
+        
+        Что-то не так. Вы не можете понять — что именно. Черты те же. Глаза те же. # style:atmosphere # intensity:medium
+        
+        Но взгляд... Когда вы научились так смотреть? Холодно. Оценивающе. Как хищник. # style:thought # intensity:high
+    -
+        Вы избегаете зеркала. Но оно — везде. В окнах. В стёклах. В чужих глазах. # style:horror # intensity:high
+        
+        Отражение двигается... неправильно. На долю секунды позже. Или раньше? # style:horror # intensity:high
+        
+        Вы моргаете. Отражение — нет. # style:horror # intensity:high
+    -
+        Зеркало. # style:action
+        
+        Вы заставляете себя посмотреть. # style:dramatic # intensity:high
+        
+        Там — вы. Но глаза... Зрачки расширены. Неестественно. Чёрные, как колодцы. # style:horror # intensity:high
+        
+        И в глубине этой черноты — красный отсвет. Как угли. Как закат над лесом. # style:horror # intensity:high
+        
+        { sanity < 50:
+            Отражение улыбается. # style:horror # intensity:high
+            
+            Вы — нет. # style:horror # intensity:high
+        }
+    -
+        Вы больше не смотрите в зеркала. # style:thought # intensity:high
+        
+        Но иногда — краем глаза — вы видите: там кто-то стоит. За вашим плечом. # style:horror # intensity:high
+        
+        Кто-то с вашим лицом. # style:horror # intensity:high
+        
+        Кто-то, кто ждёт. # style:vision # intensity:high
+        
+        «...скоро...» # style:vision # intensity:high
+        «...ты станешь нами...» # style:vision # intensity:high
+        «...ты уже становишься...» # style:vision # intensity:high
+}
+
+{ times_looked_in_mirror >= 3 && sanity >= 50:
+    -> lose_sanity_safe(2) ->
+}
+{ times_looked_in_mirror >= 4 && sanity >= 30:
+    -> lose_sanity_safe(3) ->
+}
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИМВОЛ КУЛЬТА — Прогрессирующее воздействие знака
+// Три линии к центру круга — древний символ Двери
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== see_cult_symbol ===
+~ times_seen_cult_symbol = times_seen_cult_symbol + 1
+~ KeyEvents += saw_symbol
+{ stopping:
+    -
+        Символ. # style:dramatic # intensity:medium
+        
+        Три линии, сходящиеся к центру круга. Грубо нацарапано — или нарисовано кровью? # style:atmosphere # intensity:medium
+        
+        Странный знак. Вы делаете пометку в блокноте. # style:action
+        
+        ~ cult_awareness = cult_awareness + 1
+    -
+        Снова этот символ. # style:dramatic # intensity:high
+        
+        На стене. На заборе. На обрывке газеты. # style:atmosphere # intensity:medium
+        
+        Совпадение? В этом городе слишком много совпадений. # style:thought # intensity:high
+        
+        ~ cult_awareness = cult_awareness + 2
+    -
+        Символ. Везде символ. # style:horror # intensity:high
+        
+        На дверях. На окнах. На спинах прохожих — нет, показалось. # style:horror # intensity:high
+        
+        Или не показалось? # style:thought # intensity:high
+        
+        Вы закрываете глаза — и видите его на изнанке век. Красным по чёрному. # style:horror # intensity:high
+        
+        ~ cult_awareness = cult_awareness + 3
+        -> lose_sanity_safe(2) ->
+    -
+        Вы больше не ищете символ. # style:thought # intensity:high
+        
+        Он находит вас сам. # style:horror # intensity:high
+        
+        В трещинах на асфальте. В узорах инея на стекле. В расположении звёзд. # style:horror # intensity:high
+        
+        Три линии. Центр круга. Дверь. # style:horror # intensity:high
+        
+        «...ты видишь...» # style:vision # intensity:high
+        «...теперь ты видишь...» # style:vision # intensity:high
+        
+        ~ cult_awareness = cult_awareness + 5
+        -> lose_sanity_safe(3) ->
+    -
+        Символ — это не знак. # style:horror # intensity:high
+        
+        Это карта. # style:horror # intensity:high
+        
+        Три линии — три пути. К Двери. К тому, что за ней. # style:horror # intensity:high
+        
+        Вы понимаете это теперь. Не головой — чем-то глубже. Старше. # style:horror # intensity:high
+        
+        Чем-то, что просыпается внутри вас. # style:horror # intensity:high
+        
+        «...добро пожаловать домой...» # style:vision # intensity:high
+        
+        ~ infection_level = infection_level + 5
+        -> lose_sanity_safe(5) ->
+}
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// КЛАВА — Эволюция персонажа через повторные встречи
+// От радушной хозяйки до сломленного свидетеля
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== greet_klava ===
+~ times_talked_to_klava = times_talked_to_klava + 1
+
+// ЭТАЛОН: Клава замечает заражение
+-> klava_notices_infection ->
+
+{ stopping:
+    -
+        Клава за стойкой. Как всегда — бодрая, энергичная. # style:atmosphere
+
+        — А, товарищ следователь! Как спалось? Завтрак готов — борщ, котлеты, компот. Всё свежее! # speaker:klava
+
+        Она улыбается. Искренне. Почти. # style:thought
+    -
+        Клава поднимает голову от журнала. Улыбка — но глаза настороженные. # style:atmosphere # intensity:medium
+
+        — Вы рано сегодня. Или поздно? Я уже не слежу. # speaker:klava
+
+        Она отводит взгляд. Возвращается к записям. # style:action
+        
+        — Завтрак на столе. Если что нужно — зовите. # speaker:klava
+    -
+        Клава вздрагивает, когда вы входите. # style:action # intensity:medium
+        
+        — А... Это вы. # speaker:klava
+        
+        Её руки дрожат. Она прячет их под стойку. # style:atmosphere # intensity:high
+        
+        — Товарищ Сорокин... Может, вам уехать? Пока... пока можно? # speaker:klava # intensity:high
+        
+        Она не смотрит вам в глаза. Смотрит в окно. На лес. # style:atmosphere # intensity:high
+    -
+        Клава бледная. Круги под глазами — она тоже не спит. # style:atmosphere # intensity:high
+        
+        — Они приходили. — Её голос — шёпот. — Ночью. Спрашивали про вас. # speaker:klava # intensity:high
+        
+        — Кто? # speaker:sorokin
+        
+        — Не знаю. Не видела лиц. Только... только голоса. Из темноты. # speaker:klava # intensity:high
+        
+        Она крестится. Руки трясутся. # style:action # intensity:high
+        
+        — Уезжайте. Богом прошу. Пока они не пришли за вами. Как пришли за моим Колей. За Петенькой. # speaker:klava # intensity:high
+        
+        ~ understanding_klava += 10
+    -
+        Клава сидит неподвижно. Смотрит в стену. # style:atmosphere # intensity:high
+        
+        — Клавдия Петровна? # speaker:sorokin
+        
+        Молчание. Долгое. # style:dramatic # intensity:high
+        
+        Потом — медленно — она поворачивает голову. # style:action # intensity:high
+        
+        Её глаза — пустые. Как у рыбы на прилавке. # style:horror # intensity:high
+        
+        — Они сказали... передать... # speaker:klava # intensity:high
+        
+        Голос — не её. Низкий. Многослойный. Как будто говорят несколько человек сразу. # style:horror # intensity:high
+        
+        — ...мы ждём тебя, Виктор... # speaker:klava # intensity:high
+        — ...в красном лесу... # speaker:klava # intensity:high
+        — ...дверь открыта... # speaker:klava # intensity:high
+        
+        Клава моргает. Трясёт головой. # style:action
+        
+        — Что? Простите, я... Задремала, наверное. Что вы сказали? # speaker:klava
+        
+        Она не помнит. Но вы — запомните. # style:thought # intensity:high
+        
+        -> lose_sanity_safe(5) ->
+    -
+        Клавы нет за стойкой. # style:atmosphere # intensity:high
+        
+        Записка на столе: "Уехала к сестре в Свердловск. Ключ под ковриком." # style:document
+        
+        Но вы знаете — у неё нет сестры в Свердловске. # style:thought # intensity:high
+        
+        Вы знаете, куда она ушла. # style:horror # intensity:high
+        
+        В лес. Как её муж. Как её сын. # style:horror # intensity:high
+        
+        Как все они. # style:horror # intensity:high
+}
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STOPPING: ГОЛОСА В ГОЛОВЕ — прогрессия заражения Сорокина
+// ═══════════════════════════════════════════════════════════════════════════════
+// 
+// Голоса — ключевой симптом влияния Двери. Каждый раз, когда Сорокин слышит их,
+// описание усиливается — от едва уловимого шёпота до полноценного контакта
+// с тем, что живёт по ту сторону.
+//
+// Лор: Голоса — это проекции СУЩНОСТИ, просачивающейся через Дверь.
+// Они используют знакомые голоса, чтобы завоевать доверие жертвы.
+// На поздних стадиях жертва не может отличить свои мысли от их.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== hear_the_voices ===
+~ times_heard_voices = times_heard_voices + 1
+{ stopping:
+    -
+        // СТАДИЯ 1: Первый контакт — едва заметно
+        «...» # style:whisper # intensity:low
+        
+        Что это? Вы останавливаетесь. Прислушиваетесь. # style:action
+        
+        Тишина. Ветер в ветвях? Скрип половиц? # style:atmosphere
+        
+        Нет. Что-то другое. На самой грани слуха — как будто кто-то позвал вас. Издалека. # style:thought # intensity:medium
+        
+        Показалось. Наверняка показалось. # style:thought
+        
+        ~ infection_level = infection_level + 1
+    -
+        // СТАДИЯ 2: Голоса становятся отчётливее
+        Шёпот. # style:whisper # intensity:medium
+        
+        Тихий. Неразборчивый. Но — определённо — голоса. Несколько. # style:atmosphere # intensity:medium
+        
+        Вы оглядываетесь. Никого. # style:action
+        
+        «...идёт...» # style:whisper # intensity:medium
+        «...он идёт...» # style:whisper # intensity:medium
+        
+        Кто говорит? Откуда? # style:thought # intensity:high
+        
+        Вы проверяете пульс. Нормальный. Зрение — чёткое. Контузия давно прошла. # style:thought
+        
+        Тогда почему вы слышите голоса мёртвых товарищей? # style:thought # intensity:high
+        
+        ~ infection_level = infection_level + 2
+        ~ afghan_flashbacks = afghan_flashbacks + 1
+        -> lose_sanity_safe(2) ->
+    -
+        // СТАДИЯ 3: Голоса называют имя
+        «Виктор...» # style:whisper # intensity:high
+        
+        Ваше имя. Отчётливо. # style:horror # intensity:high
+        
+        Вы замираете. Рука — на кобуре. Инстинкт. # style:action
+        
+        «...Виктор Михайлович...» # style:whisper # intensity:high
+        «...мы знаем тебя...» # style:whisper # intensity:high
+        «...давно знаем...» # style:whisper # intensity:high
+        
+        Голоса — отовсюду. Из стен. Из-под земли. Изнутри вашей головы. # style:horror # intensity:high
+        
+        Это не галлюцинация. Вы уверены. Это — контакт. # style:thought # intensity:high
+        
+        ОНИ — видят вас. ОНИ — знают вас. # style:horror # intensity:high
+        
+        { AfghanMemories ? memory_voices:
+            Как тогда, в госпитале. После контузии. Голоса мёртвых. # style:flashback # intensity:high
+            Только теперь — это не галлюцинация. Теперь — это ПРАВДА. # style:thought # intensity:high
+        }
+        
+        ~ infection_level = infection_level + 5
+        ~ cult_awareness = cult_awareness + 2
+        -> lose_sanity_safe(5) ->
+    -
+        // СТАДИЯ 4: Голоса становятся хором — десятки, сотни
+        Хор. # style:horror # intensity:high
+        
+        Десятки голосов. Сотни. Мужские, женские, детские — все сразу. # style:horror # intensity:high
+        
+        Все — ваши. # style:horror # intensity:high
+        
+        «...мы ждали...» # style:vision # intensity:high
+        «...так долго ждали...» # style:vision # intensity:high
+        «...двести сорок семь...» # style:vision # intensity:high
+        «...и ты...» # style:vision # intensity:high
+        «...двести сорок восьмой...» # style:vision # intensity:high
+        
+        Вы понимаете: это голоса пропавших. Всех, кто исчез в Красном лесу за сто лет. # style:thought # intensity:high
+        
+        Они не мертвы. # style:horror # intensity:high
+        Они — ТАМ. # style:horror # intensity:high
+        И они зовут вас присоединиться. # style:horror # intensity:high
+        
+        ~ infection_level = infection_level + 8
+        ~ cult_awareness = cult_awareness + 5
+        ~ lore_depth = lore_depth + 3
+        -> lose_sanity_safe(8) ->
+    -
+        // СТАДИЯ 5: Голоса говорят ВАШИМ голосом
+        «Ты готов.» # style:vision # intensity:high
+        
+        Это ваш голос. Вы слышите свой голос — изнутри. # style:horror # intensity:high
+        
+        Но слова — не ваши. Мысли — не ваши. # style:horror # intensity:high
+        
+        «Ты всегда был одним из нас.» # style:vision # intensity:high
+        «С Афганистана. С госпиталя. С того момента, когда ты заглянул за грань.» # style:vision # intensity:high
+        «Мы ждали, пока ты вернёшься.» # style:vision # intensity:high
+        «Красный лес — это дом.» # style:vision # intensity:high
+        «Дверь — это свобода.» # style:vision # intensity:high
+        
+        Вы хватаетесь за голову. Пытаетесь заглушить. Не можете. # style:action # intensity:high
+        
+        «Не сопротивляйся. Это бессмысленно.» # style:vision # intensity:high
+        «Ты уже почти наш.» # style:vision # intensity:high
+        
+        { sanity < 30:
+            И где-то глубоко внутри... вы понимаете, что они правы. # style:horror # intensity:high
+            
+            Вы ХОТИТЕ открыть Дверь. # style:horror # intensity:high
+            
+            ~ sorokin_infected = true
+        }
+        
+        ~ infection_level = infection_level + 12
+        ~ cult_awareness = cult_awareness + 8
+        -> lose_sanity_safe(12) ->
+    -
+        // СТАДИЯ 6 (финальная): Голоса и вы — одно целое
+        Тишина. # style:dramatic # intensity:high
+        
+        Впервые за долгое время — абсолютная тишина в голове. # style:atmosphere # intensity:high
+        
+        Вы понимаете — не потому, что голоса замолчали. # style:thought # intensity:high
+        
+        А потому, что вы больше не можете отличить их от своих мыслей. # style:horror # intensity:high
+        
+        Где заканчиваетесь вы — и начинаются они? # style:horror # intensity:high
+        
+        Граница стёрлась. # style:horror # intensity:high
+        
+        Вы — Виктор Сорокин. # style:thought # intensity:high
+        Вы — тысяча голосов. # style:horror # intensity:high
+        Вы — Дверь. # style:horror # intensity:high
+        
+        «...добро пожаловать домой...» # style:vision # intensity:high
+        
+        Это не они говорят. Это ВЫ говорите. # style:horror # intensity:high
+        
+        Теперь — это одно и то же. # style:horror # intensity:high
+        
+        ~ sorokin_infected = true
+        ~ infection_level = 100
+        -> lose_sanity_safe(20) ->
+}
+
+// Дополнительные эффекты в зависимости от контекста
+{ times_heard_voices >= 3:
+    { current_location == 1: // В лесу — голоса сильнее
+        Здесь, в лесу, они громче. Ближе. Настойчивее. # style:horror # intensity:medium
+    }
+    { current_location == 2: // В пещерах — эхо умножает их
+        В пещерах голоса отражаются от стен. Множатся. Десятки превращаются в тысячи. # style:horror # intensity:high
+    }
+    { time_of_day == 3: // Ночью — защита слабее
+        Ночью сложнее сопротивляться. Усталость. Темнота. Границы размываются. # style:thought # intensity:medium
+    }
+}
+
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STOPPING: ТАНЯ ЗОРИНА — прогрессия отношений
+// ═══════════════════════════════════════════════════════════════════════════════
+// 
+// Таня — ключевой персонаж, дочь пропавшего инженера Зорина.
+// Каждая встреча углубляет связь между ней и Сорокиным.
+// От профессиональной дистанции — к глубокой эмоциональной связи.
+//
+// Лор: Таня — единственный человек, который верит в живого отца.
+// Она выросла в тени завода, без матери, с отцом-трудоголиком.
+// Её мечта — самолёты, небо, свобода. Но она застряла здесь.
+// Сорокин — первый, кто видит в ней не "дочь пропавшего", а человека.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== see_tanya ===
+~ times_met_tanya = times_met_tanya + 1
+{ stopping:
+    -
+        // СТАДИЯ 1: Первая встреча — формальность, настороженность
+        Таня Зорина. # style:title # intensity:medium
+        
+        Двадцать три года — но выглядит старше. Усталость в каждой черте. # style:atmosphere
+        
+        Рыжие волосы — собраны небрежно, словно ей давно всё равно. Зелёные глаза — яркие, живые, несмотря на тени под ними. # style:atmosphere # intensity:medium
+        
+        Она смотрит на вас оценивающе. Холодно. # style:thought
+        
+        Ещё один следователь. Ещё одна пустая формальность. Вы читаете это в её взгляде. # style:thought # intensity:medium
+        
+        ~ understanding_tanya += 5
+    -
+        // СТАДИЯ 2: Вторая встреча — проблеск доверия
+        Таня. # style:action
+        
+        Что-то изменилось. В её взгляде — меньше холода. Больше... надежды? # style:thought # intensity:medium
+        
+        Она собрала волосы аккуратнее. Надела чистую блузку. Мелочи — но вы замечаете. # style:atmosphere
+        
+        — Вы вернулись. — Удивление в голосе. — Другие не возвращались. # speaker:tanya
+        
+        Она открывается — чуть-чуть. Как цветок после долгой зимы. # style:thought # intensity:medium
+        
+        ~ trust_tanya += 3
+        ~ understanding_tanya += 5
+    -
+        // СТАДИЯ 3: Третья встреча — эмоциональная связь
+        Таня. # style:dramatic # intensity:medium
+        
+        Её лицо светлеет, когда она видит вас. Мгновенно. Непроизвольно. # style:atmosphere # intensity:high
+        
+        Она этого не скрывает. Или не может скрыть. # style:thought
+        
+        Веснушки на её щеках — вы раньше не замечали. Или замечали, но не думали об этом. # style:thought # intensity:medium
+        
+        Почему сейчас думаете? # style:thought # intensity:high
+        
+        — Виктор Андреевич. — Её голос теплее. — Я рада, что вы пришли. # speaker:tanya
+        
+        Вы ловите себя на мысли: вам тоже приятно её видеть. # style:thought # intensity:high
+        
+        ~ trust_tanya += 5
+        ~ understanding_tanya += 10
+        ~ gain_sanity(2)
+    -
+        // СТАДИЯ 4: Четвёртая встреча — забота, беспокойство
+        Таня. # style:dramatic # intensity:high
+        
+        Она смотрит на вас — и хмурится. # style:action
+        
+        — Вы не спите. — Не вопрос. Утверждение. — Круги под глазами. Руки дрожат. Сколько часов? # speaker:tanya # intensity:medium
+        
+        Она касается вашей руки. Мимолётно. Проверяя — живой ли. # style:atmosphere # intensity:high
+        
+        — Я в порядке. # speaker:sorokin
+        
+        — Нет. — Её глаза — зелёные, глубокие — не отпускают ваш взгляд. — Но я понимаю. Вы делаете то, что должны. Как папа. # speaker:tanya # intensity:high
+        
+        Она не убирает руку. Вы не отстраняетесь. # style:action # intensity:high
+        
+        ~ trust_tanya += 5
+        ~ understanding_tanya += 10
+        ~ gain_sanity(3)
+    -
+        // СТАДИЯ 5: Пятая встреча — романтическое напряжение
+        Таня. # style:dramatic # intensity:high
+        
+        Время замедляется. # style:atmosphere # intensity:high
+        
+        Вы видите её — словно впервые. И одновременно — как будто знали всегда. # style:thought # intensity:high
+        
+        Рыжие волосы — медные в свете лампы. Веснушки — созвездия на бледной коже. Глаза — зелёные, как весенняя листва. Как надежда. # style:atmosphere # intensity:high
+        
+        — Виктор. — Она впервые без отчества. Просто — Виктор. # speaker:tanya # intensity:high
+        
+        Её голос — тихий. Интимный. Только для вас. # style:thought # intensity:high
+        
+        Вы понимаете: между вами что-то есть. Что-то, чего не было в начале. Что выросло из страха, из надежды, из общих бессонных ночей. # style:thought # intensity:high
+        
+        Это неправильно? Посреди расследования, посреди ужаса? # style:thought # intensity:high
+        
+        Или — наоборот — это единственное правильное в этом безумии? # style:thought # intensity:high
+        
+        { not (Relationships ? romantic_tanya) && trust_tanya >= 60:
+            ~ Relationships += romantic_tanya
+        }
+        
+        ~ trust_tanya += 8
+        ~ understanding_tanya += 15
+        ~ gain_sanity(5)
+    -
+        // СТАДИЯ 6: Шестая встреча — глубокая связь, любовь
+        Таня. # style:dramatic # intensity:high
+        
+        Одно слово. Одно имя. # style:thought # intensity:high
+        
+        Но в нём — всё. # style:thought # intensity:high
+        
+        Она не говорит. Просто подходит. Обнимает. Крепко. Молча. # style:action # intensity:high
+        
+        Вы чувствуете её дыхание. Её сердцебиение — быстрое, как у испуганной птицы. # style:atmosphere # intensity:high
+        
+        — Я боюсь за тебя, — шепчет она. — Каждую ночь. Каждый час. # speaker:tanya # intensity:high
+        
+        — Я вернусь. — Вы не знаете, правда ли это. Но говорите. — Обещаю. # speaker:sorokin # intensity:high
+        
+        Она поднимает лицо. Её глаза — влажные. Но не от слёз. От чего-то глубже. # style:atmosphere # intensity:high
+        
+        — Я знаю, — говорит она. — Я верю тебе. Как никому раньше. # speaker:tanya # intensity:high
+        
+        { Relationships ? romantic_tanya:
+            И вы понимаете: что бы ни случилось в пещерах, в лесу, у Двери — вы будете бороться. За неё. За вас обоих. # style:thought # intensity:high
+            
+            Любовь — странная вещь. Она нашла вас в самом тёмном месте. # style:thought # intensity:high
+            
+            ~ gain_sanity(8)
+        }
+        
+        ~ trust_tanya += 10
+        ~ understanding_tanya += 20
+    -
+        // СТАДИЯ 7 (финальная): После всего — вы и она
+        Таня. # style:dramatic # intensity:high
+        
+        Вам не нужны слова. # style:thought # intensity:high
+        
+        Вы прошли через ад вместе. Видели то, что не должен видеть человек. Потеряли — и нашли. # style:thought # intensity:high
+        
+        Она знает вас. Вы знаете её. Полностью. Без масок. # style:thought # intensity:high
+        
+        Её рука — в вашей. Тёплая. Живая. Настоящая. # style:atmosphere # intensity:high
+        
+        Это — якорь. Это — то, что держит вас в реальности, когда голоса зовут, когда Дверь манит. # style:thought # intensity:high
+        
+        — Что бы ни случилось, — говорит она, — мы вместе. # speaker:tanya # intensity:high
+        
+        — Вместе, — повторяете вы. # speaker:sorokin # intensity:high
+        
+        И впервые за долгое время — верите в это. # style:thought # intensity:high
+        
+        ~ gain_sanity(10)
+}
+
+// ЭТАЛОН: Таня замечает заражение — реагирует эмоционально
+{ times_met_tanya >= 2:
+    -> tanya_notices_infection ->
+}
+
+// Дополнительные реакции в зависимости от контекста
+{ times_met_tanya >= 3:
+    { tanya_danger_level >= 2:
+        Но сейчас — страх за неё. Они знают о ней. Следят. # style:thought # intensity:high
+        Вы не можете её потерять. Не можете. # style:thought # intensity:high
+    }
+    { sanity < 40:
+        Она — единственное светлое пятно в этом кошмаре. # style:thought # intensity:medium
+        Держитесь за неё. Не отпускайте. # style:thought # intensity:high
+    }
+}
+
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STOPPING: ДВЕРЬ — прогрессия ощущения межпространственного разрыва
+// ═══════════════════════════════════════════════════════════════════════════════
+// 
+// Дверь — центральный артефакт истории. Разрыв между мирами.
+// Открыта древним племенем Кра-Сыл тысячи лет назад.
+// Советские учёные нашли её в 1950-х. Проект "Эхо" — попытка контакта.
+// Сущность ждёт по ту сторону. Жертвы — топливо для открытия.
+//
+// Лор: Дверь — не физический объект. Это состояние пространства.
+// Она существует везде — где достаточно крови, боли, безумия.
+// В полнолуние гравитационные силы истончают барьер.
+// Тот, кто чувствует Дверь — уже частично по ту сторону.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== sense_the_door ===
+~ times_sensed_door = times_sensed_door + 1
+{ stopping:
+    -
+        // СТАДИЯ 1: Первое ощущение — что-то не так с пространством
+        Что-то... # style:thought # intensity:medium
+        
+        Вы останавливаетесь. Прислушиваетесь — но не к звукам. К чему-то другому. # style:action
+        
+        Воздух — плотнее. Как будто атмосфера сгустилась. Как перед грозой, но без грозы. # style:atmosphere # intensity:medium
+        
+        Стены — ближе? Потолок — ниже? Вы точно помните, что комната была больше. # style:thought # intensity:medium
+        
+        Показалось. Наверняка показалось. # style:thought
+        
+        ~ cult_awareness += 1
+    -
+        // СТАДИЯ 2: Ощущение границы — тонкой плёнки между мирами
+        Граница. # style:dramatic # intensity:medium
+        
+        Вы чувствуете её. Здесь. Рядом. # style:thought # intensity:high
+        
+        Как будто реальность — тонкая ткань, и где-то рядом — прореха. Место, где ткань истончилась до прозрачности. # style:atmosphere # intensity:high
+        
+        Вы протягиваете руку. Машинально. Касаетесь стены. # style:action
+        
+        Холод. Неправильный холод. Не температура — что-то глубже. Как будто стена — тоньше, чем должна быть. # style:horror # intensity:high
+        
+        «...здесь...» — шёпот? Или мысль? # style:whisper # intensity:medium
+        
+        ~ cult_awareness += 2
+        ~ infection_level += 2
+        -> lose_sanity_safe(2) ->
+    -
+        // СТАДИЯ 3: Видение Двери — проблеск
+        Вспышка. # style:horror # intensity:high # effect:glitch
+        
+        На долю секунды — вы ВИДИТЕ. # style:horror # intensity:high
+        
+        Дверь. # style:horror # intensity:high
+        
+        Не деревянная. Не металлическая. Дверь из НИЧЕГО. Прямоугольник абсолютной тьмы посреди реальности. # style:horror # intensity:high
+        
+        По её краям — красное свечение. Как угли. Как закат над лесом. # style:horror # intensity:high
+        
+        Она пульсирует. Дышит. ЖИВАЯ. # style:horror # intensity:high
+        
+        Вы моргаете — и Двери нет. Только стена. Только обои. Только нормальность. # style:atmosphere # intensity:medium
+        
+        Но вы знаете: она была там. И она — везде. # style:thought # intensity:high
+        
+        { not (CultLore ? lore_door_nature):
+            ~ CultLore += lore_door_nature
+        }
+        ~ cult_awareness += 4
+        ~ infection_level += 4
+        -> lose_sanity_safe(5) ->
+    -
+        // СТАДИЯ 4: Зов Двери — она хочет вас
+        Зов. # style:dramatic # intensity:high
+        
+        Вы чувствуете его. В груди. В голове. В костях. # style:horror # intensity:high
+        
+        Дверь — зовёт. # style:horror # intensity:high
+        
+        Не словами. Не голосом. Притяжением. Как магнит тянет железо. Как бездна тянет того, кто стоит на краю. # style:atmosphere # intensity:high
+        
+        «...приди...» # style:vision # intensity:high
+        «...открой...» # style:vision # intensity:high
+        «...освободи...» # style:vision # intensity:high
+        
+        Ваши ноги двигаются сами. Шаг. Ещё шаг. К чему? Куда? # style:action # intensity:high
+        
+        Вы останавливаетесь. Усилием воли. Кулаки сжаты так, что ногти впиваются в ладони. # style:action # intensity:high
+        
+        Дверь — ждёт. Терпеливо. У неё — вечность. # style:horror # intensity:high
+        
+        ~ cult_awareness += 5
+        ~ infection_level += 6
+        -> lose_sanity_safe(7) ->
+    -
+        // СТАДИЯ 5: Пульс Двери — вы связаны
+        Пульс. # style:horror # intensity:high # effect:shake
+        
+        Вы чувствуете его. Синхронно с вашим сердцем. # style:horror # intensity:high
+        
+        Дверь дышит — вы дышите. Дверь пульсирует — ваше сердце бьётся в такт. # style:horror # intensity:high
+        
+        Вы — часть её. Она — часть вас. # style:horror # intensity:high
+        
+        «...мы одно...» # style:vision # intensity:high
+        «...ты — ключ...» # style:vision # intensity:high
+        «...ты — замок...» # style:vision # intensity:high
+        «...ты — дверь...» # style:vision # intensity:high
+        
+        Границы размываются. Где заканчивается Сорокин — и начинается Дверь? # style:thought # intensity:high
+        
+        { sanity < 40:
+            Вы больше не уверены. Может, границы никогда не было. # style:horror # intensity:high
+            
+            Может, вы всегда были здесь. По ту сторону. # style:horror # intensity:high
+        }
+        
+        ~ sorokin_infected = true
+        ~ cult_awareness += 7
+        ~ infection_level += 10
+        -> lose_sanity_safe(10) ->
+    -
+        // СТАДИЯ 6: Дверь открывается — вы видите ТУ СТОРОНУ
+        Открытие. # style:horror # intensity:high # effect:glitch
+        
+        Дверь — перед вами. Всегда была. Везде была. # style:horror # intensity:high
+        
+        И она — открывается. # style:horror # intensity:high # effect:shake
+        
+        Медленно. Скрип — не звук. Ощущение. Реальность ТРЕСКАЕТСЯ. # style:horror # intensity:high
+        
+        За Дверью — # style:dramatic # intensity:high
+        
+        Темнота. Но не пустая. НАСЕЛЁННАЯ. # style:horror # intensity:high
+        
+        Глаза. Тысячи глаз. Миллионы. Все — смотрят на вас. # style:horror # intensity:high
+        
+        И в центре — ОНО. # style:horror # intensity:high
+        
+        Форма без формы. Тело без тела. ПРИСУТСТВИЕ. # style:horror # intensity:high
+        
+        Оно — улыбается. Вы не видите улыбки — ЧУВСТВУЕТЕ. # style:horror # intensity:high
+        
+        «...наконец...» # style:vision # intensity:high
+        «...мы ждали так долго...» # style:vision # intensity:high
+        «...добро пожаловать домой, Виктор...» # style:vision # intensity:high
+        
+        { not (CultLore ? lore_entity_truth):
+            ~ CultLore += lore_entity_truth
+        }
+        ~ infection_level = 100
+        ~ cult_awareness += 10
+        -> lose_sanity_safe(15) ->
+    -
+        // СТАДИЯ 7 (финальная): Вы и Дверь — одно
+        ... # style:dramatic # intensity:high
+        
+        Тишина. # style:atmosphere # intensity:high
+        
+        Вы больше не чувствуете Дверь. # style:thought # intensity:high
+        
+        Потому что вы — и есть Дверь. # style:horror # intensity:high
+        
+        Граница между вами и ТЕМ, что по ту сторону — исчезла. Растворилась. Никогда не существовала. # style:horror # intensity:high
+        
+        Вы — здесь. # style:thought # intensity:high
+        Вы — там. # style:horror # intensity:high
+        Вы — проход между мирами. # style:horror # intensity:high
+        
+        «Открой нас», — говорит голос. Ваш голос. ИХ голос. Один голос. # style:vision # intensity:high
+        
+        «Впусти нас в мир». # style:vision # intensity:high
+        
+        И где-то — далеко — в остатках того, кто был Виктором Сорокиным — # style:thought # intensity:high
+        
+        Выбор. # style:dramatic # intensity:high
+        
+        Последний выбор. # style:dramatic # intensity:high
+}
+
+// Контекстные эффекты
+{ times_sensed_door >= 3:
+    { current_location == 2: // В пещерах — Дверь ближе всего
+        Здесь — эпицентр. Здесь Дверь тоньше всего. # style:horror # intensity:high
+        Вы чувствуете: ещё шаг — и провалитесь. # style:horror # intensity:high
+    }
+    { days_remaining <= 1: // Полнолуние близко
+        Полнолуние. Барьер истончается. Дверь приоткрывается. # style:horror # intensity:high
+        Времени нет. # style:horror # intensity:high
+    }
+}
+
+->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STOPPING: ЛУНА — обратный отсчёт до полнолуния
+// ═══════════════════════════════════════════════════════════════════════════════
+// 
+// Луна — визуальный дедлайн истории. Каждую ночь она растёт.
+// К полнолунию 19 ноября — Дверь откроется полностью.
+// Культ готовится. Время — главный враг Сорокина.
+//
+// Лор: Древние племена знали — луна связана с Дверью.
+// Гравитационное воздействие? Или что-то более древнее?
+// В полнолуние барьер между мирами тоньше всего.
+// НЕЧТО просачивается. Голоса сильнее. Видения ярче.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== look_at_moon ===
+~ times_looked_at_moon = times_looked_at_moon + 1
+{ stopping:
+    -
+        // НОЧЬ 1: Тонкий серп — начало
+        Луна. # style:atmosphere # intensity:low
+        
+        Тонкий серп над верхушками сосен. Едва заметный в ночном небе. # style:atmosphere
+        
+        Обычная луна. Ничего особенного. # style:thought
+        
+        Но что-то... Вы не можете отвести взгляд. Как будто она — смотрит на вас. # style:thought # intensity:medium
+        
+        Глупости. Луна не может смотреть. # style:thought
+        
+        Или может? # style:thought # intensity:medium
+        
+        ~ knows_deadline = true
+    -
+        // НОЧЬ 2: Растущая луна — предчувствие
+        Луна растёт. # style:atmosphere # intensity:medium
+        
+        Уже почти половина. Желтоватая, с оранжевым оттенком. Как старая кость. # style:atmosphere # intensity:medium
+        
+        Вы смотрите на неё — и чувствуете... обратный отсчёт. # style:thought # intensity:medium
+        
+        Как будто где-то тикают невидимые часы. Как будто время — утекает. # style:thought # intensity:high
+        
+        { ritual_countdown >= 3:
+            Три дня. Три дня до полнолуния. # style:thought # intensity:high
+            
+            Откуда вы это знаете? Вы не астроном. Но — знаете. # style:thought # intensity:high
+        }
+        
+        ~ cult_awareness += 1
+    -
+        // НОЧЬ 3: Почти полная — тревога нарастает
+        Луна — огромная. # style:dramatic # intensity:high
+        
+        Почти полная. Висит над городом как гигантский глаз. # style:atmosphere # intensity:high
+        
+        Её свет — неправильный. Слишком яркий. Слишком белый. Пробивает даже сквозь тучи. # style:atmosphere # intensity:high
+        
+        Тени длиннее. Чернее. В них — движение? # style:horror # intensity:medium
+        
+        Вы вздрагиваете. Отворачиваетесь от окна. # style:action
+        
+        Но ощущение — остаётся. Луна смотрит. Даже когда вы не смотрите на неё. # style:horror # intensity:high
+        
+        { ritual_countdown == 2:
+            Два дня. # style:thought # intensity:high
+            
+            Голоса по ночам — громче. Сны — ярче. Дверь — ближе. # style:thought # intensity:high
+        }
+        
+        ~ cult_awareness += 2
+        -> lose_sanity_safe(2) ->
+    -
+        // НОЧЬ 4: Канун полнолуния — луна кровавая
+        Луна... # style:horror # intensity:high # effect:glitch
+        
+        Она — КРАСНАЯ. # style:horror # intensity:high
+        
+        Не оранжевая. Не розовая. КРАСНАЯ. Цвета артериальной крови. Цвета закатного леса. # style:horror # intensity:high
+        
+        Огромная. Ближе, чем должна быть. Заполняет полнеба. # style:horror # intensity:high
+        
+        Вы видите — или вам кажется? — узоры на её поверхности. Не кратеры. СИМВОЛЫ. Те самые. Три линии к центру. # style:horror # intensity:high # effect:shake
+        
+        «...завтра...» # style:vision # intensity:high
+        «...завтра мы встретимся...» # style:vision # intensity:high
+        «...завтра Дверь откроется...» # style:vision # intensity:high
+        
+        { ritual_countdown == 1:
+            Последняя ночь. Завтра — полнолуние. Завтра — всё решится. # style:thought # intensity:high
+            
+            Вы готовы? # style:thought # intensity:high
+            
+            Никто не готов. # style:horror # intensity:high
+        }
+        
+        ~ cult_awareness += 4
+        ~ infection_level += 3
+        -> lose_sanity_safe(5) ->
+    -
+        // НОЧЬ 5: ПОЛНОЛУНИЕ — апокалипсис
+        ПОЛНОЛУНИЕ. # style:horror # intensity:high # effect:shake
+        
+        Вы не можете не смотреть. # style:action # intensity:high
+        
+        Луна — не луна. # style:horror # intensity:high
+        
+        ГЛАЗ. # style:horror # intensity:high # effect:glitch
+        
+        Огромный. Багровый. С чёрным зрачком посередине — дырой в НИЧТО. # style:horror # intensity:high
+        
+        Он смотрит на вас. На город. На лес. На пещеры. # style:horror # intensity:high
+        
+        Он видит ВСЁ. # style:horror # intensity:high
+        
+        «...ВРЕМЯ ПРИШЛО...» # style:vision # intensity:high # effect:shake
+        «...ДВЕРЬ ОТКРЫТА...» # style:vision # intensity:high
+        «...МЫ ИДЁМ...» # style:vision # intensity:high
+        
+        Под луной — город. Красный. Залитый багровым светом, как кровью. # style:horror # intensity:high
+        
+        Люди на улицах — замерли. Смотрят вверх. Все — разом. Как один организм. # style:horror # intensity:high
+        
+        { sanity < 40:
+            И вы понимаете: они — уже не люди. # style:horror # intensity:high
+            
+            Они — марионетки. Куклы. ОНО уже здесь. # style:horror # intensity:high
+        }
+        
+        ~ cult_awareness += 8
+        ~ infection_level += 8
+        -> lose_sanity_safe(10) ->
+    -
+        // После полнолуния — если выжили
+        Луна заходит. # style:atmosphere # intensity:high
+        
+        Медленно. Неохотно. # style:atmosphere # intensity:medium
+        
+        Её свет бледнеет. Из багрового — в розовый. Из розового — в белый. # style:atmosphere
+        
+        Рассвет. Вы выжили. # style:dramatic # intensity:high
+        
+        { sanity >= 30:
+            Город просыпается. Люди — живые. Настоящие. # style:atmosphere # intensity:medium
+            
+            Кошмар закончился? Или только начинается? # style:thought # intensity:high
+        - else:
+            Но луна вернётся. Всегда возвращается. # style:horror # intensity:high
+            
+            Через месяц. Через год. Через вечность. # style:horror # intensity:high
+            
+            И она — запомнила вас. # style:horror # intensity:high
+        }
+}
+
+// Контекстные эффекты
+{ times_looked_at_moon >= 3:
+    { infection_level >= 50:
+        Луна тянет. Зовёт. Как будто между вами — нить. # style:horror # intensity:medium
+        Вы — часть цикла. Часть её власти. # style:horror # intensity:high
+    }
+    { sanity < 50:
+        Вы боитесь луны. Закрываете шторы. Не выходите ночью. # style:thought # intensity:medium
+        Но она находит вас. Всегда находит. # style:horror # intensity:high
+    }
+}
+
+->->
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // СИСТЕМА СЛУЧАЙНЫХ HORROR-СОБЫТИЙ (v2.0 — с настоящим RANDOM)
@@ -1760,46 +3437,35 @@ VAR current_location = 0
 === deadline_reminder ===
 # mood: tension
 
+// Прогрессия ощущения луны — каждую ночь новая стадия
+-> look_at_moon ->
+
 { ritual_countdown == 4:
-    Луна за окном — тонкий серп. Едва видна за облаками.
-    
-    Четыре дня до полнолуния.
+    Четыре дня до полнолуния. # style:thought # intensity:medium
 }
 { ritual_countdown == 3:
-    Луна — уже половина. Желтоватая, нездоровая на вид.
-    
-    Три дня.
+    Три дня. # style:thought # intensity:medium
     
     { knows_deadline:
-        Три дня до ритуала. Времени всё меньше.
+        Три дня до ритуала. Времени всё меньше. # style:thought # intensity:high
     }
 }
 { ritual_countdown == 2:
-    Луна — почти полная. Её свет пробивается даже сквозь тучи.
-    
-    Два дня.
+    Два дня. # style:thought # intensity:high
     
     { knows_deadline:
-        Два дня. Вы чувствуете — что-то нарастает. Напряжение в воздухе. Тревога жителей.
+        Два дня. Вы чувствуете — что-то нарастает. Напряжение в воздухе. # style:thought # intensity:high
     }
 }
 { ritual_countdown == 1:
-    Луна — огромная, красноватая. Словно налитая кровью.
-    
-    Завтра.
+    Завтра. # style:dramatic # intensity:high
     
     { knows_deadline:
-        Завтра полнолуние. Завтра — ритуал. Если не остановить...
-        
-        -> lose_sanity_safe(5) ->
+        Завтра полнолуние. Завтра — ритуал. Если не остановить... # style:thought # intensity:high
     }
 }
 { ritual_countdown == 0:
-    ПОЛНОЛУНИЕ.
-    
-    Луна висит над городом — огромная, багровая, неправильная.
-    
-    Время вышло.
+    ВРЕМЯ ВЫШЛО. # style:horror # intensity:high
 }
 
 ->->
@@ -2007,6 +3673,9 @@ VAR current_location = 0
 === scene_lore_door_nature ===
 # mood: cosmic_horror
 # type: lore
+
+// Ощущение Двери при чтении о ней
+-> sense_the_door ->
 
 ПРИРОДА ДВЕРИ — ТЕОРИИ
 
@@ -2330,19 +3999,190 @@ VAR current_location = 0
 
 Две женщины у колонки набирают воду. Замолкают, когда вы проходите мимо.
 
-{ city_reputation < -20:
+// РАСШИРЕННАЯ СИСТЕМА РЕПУТАЦИИ: разные реакции горожан
+{ city_reputation <= -50:
+    // ВРАГ — город ненавидит следователя
+    "...это он... тот самый... говорят, человека избил на допросе..."
+    "...московская сволочь... сам бы пропал, никто бы не искал..."
+    
+    Одна из женщин демонстративно плюёт в вашу сторону.
+    
+    -> lose_sanity_safe(1) ->
+}
+{ city_reputation < -20 && city_reputation > -50:
+    // ПОДОЗРИТЕЛЬНЫЙ — боятся и избегают
     "...это он... московский... говорят, людей сажает ни за что..."
+    "...Клава говорила — странный... глаза бегают..."
+    
+    Они ускоряют шаг, не оглядываясь.
 }
 { city_reputation >= -20 && city_reputation <= 20:
+    // НЕЙТРАЛЬНЫЙ — любопытство и осторожность
     "...следователь... зачем приехал?.. что ему надо?.."
+    "...пропавших ищет, говорят... может, хоть правду узнаем..."
 }
-{ city_reputation > 20:
+{ city_reputation > 20 && city_reputation < 50:
+    // ДРУЖЕЛЮБНЫЙ — симпатия и готовность помочь
     "...ищет пропавших... может, хоть что-то найдёт..."
+    "...Таня с ним говорила... говорит — порядочный человек..."
+    
+    Одна из женщин кивает вам. Почти приветливо.
+}
+{ city_reputation >= 50:
+    // СВОЙ — полное доверие
+    "...это он... тот следователь... говорят, Тане помогает..."
+    "...слышала, Зорина ищет... настоящий человек, не то что наши..."
+    
+    — Товарищ! — окликает одна из женщин. — Если что узнаете — скажите людям, ладно? Мы все... мы все тут боимся. # speaker:stranger
+    
+    Искренность в её голосе — неожиданная. И ценная.
 }
 
-Вы делаете вид, что не слышите.
+Вы делаете вид, что не слышите. Или — слышите?
 
 ->->
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СИСТЕМА РЕПУТАЦИИ: СОБЫТИЯ В ГОРОДЕ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== reputation_event_warning ===
+// Вызывается при очень низкой репутации — город враждебен
+# mood: tense
+
+{ city_reputation <= -50:
+    Вы чувствуете это — как холод на затылке. Как взгляды, которые не видишь, но знаешь.
+    
+    Город — против вас.
+    
+    На стене дома — надпись мелом: "МОСКВА, УЕЗЖАЙ".
+    
+    Кто-то написал это ночью. Для вас.
+    
+    * [Стереть надпись]
+        Вы стираете надпись рукавом. Мел размазывается по кирпичу.
+        
+        За спиной — смешок. Кто-то видел.
+        
+        ~ city_reputation = city_reputation - 2
+        ->->
+    
+    * [Игнорировать]
+        Пусть. Вы не за этим приехали.
+        
+        Но что-то в груди — сжимается. Одиночество здесь — другое. Опасное.
+        ->->
+    
+    * { is_diplomatic() } [Заговорить с прохожими]
+        — Простите, вы не видели, кто это написал? # speaker:sorokin
+        
+        Прохожий — пожилой мужчина — останавливается. Смотрит на вас. В глазах — не страх. Жалость?
+        
+        — Уезжайте, товарищ. Пока можете. Этот город... он не любит чужих. И тех, кто задаёт вопросы. # speaker:stranger
+        
+        ~ track_helpful_action()
+        ~ city_reputation = city_reputation + 3
+        ->->
+}
+->->
+
+=== reputation_event_help ===
+// Вызывается при высокой репутации — кто-то хочет помочь
+# mood: mystery
+
+{ city_reputation >= 50:
+    Старушка в платке догоняет вас у магазина.
+    
+    — Товарищ следователь! Подождите! # speaker:stranger
+    
+    Она оглядывается — проверяет, не видит ли кто.
+    
+    — Я... я знаю кое-что. О пропавших. — Её голос дрожит. — Мой внук... он видел. В лесу. Людей в капюшонах. Они пели что-то. Странное. # speaker:stranger
+    
+    * [Расспросить подробнее]
+        — Когда это было? Где именно? # speaker:sorokin
+        
+        — Три недели назад. У Чёрного Камня. Он... он больше не ходит в лес. Боится. # speaker:stranger
+        
+        Чёрный Камень. Ещё одно название. Ещё одна зацепка.
+        
+        ~ cult_awareness = cult_awareness + 3
+        ~ track_cult_exposure()
+        ->->
+    
+    * [Поблагодарить и уйти]
+        — Спасибо. Я проверю.
+        
+        Она кивает. Уходит быстро, не оглядываясь.
+        
+        ~ track_helpful_action()
+        ->->
+}
+->->
+
+=== reputation_event_threat ===
+// Вызывается при низкой репутации и высоком cult_awareness — предупреждение от культа
+# mood: horror
+
+{ city_reputation < -20 && cult_awareness >= 15:
+    Записка. Под дверью номера. Без конверта.
+    
+    Красные буквы. Неровный почерк.
+    
+    "ТЫ СЛИШКОМ МНОГО ЗНАЕШЬ. УЕЗЖАЙ ИЛИ СТАНЕШЬ ОДНИМ ИЗ НИХ."
+    
+    Внизу — символ. Тот же. Красный.
+    
+    * [Сохранить записку как улику]
+        { not (CluesC ? cult_symbol):
+            ~ CluesC += cult_symbol
+            ~ sync_evidence_count()
+            # clue
+            Улика найдена: угрожающая записка с символом культа
+        }
+        
+        Они следят за вами. Они знают, что вы знаете.
+        
+        Но это — доказательство. Они существуют.
+        
+        ~ cult_awareness = cult_awareness + 5
+        ~ track_cult_exposure()
+        ->->
+    
+    * [Уничтожить записку]
+        Вы рвёте бумагу на мелкие куски. Смываете в унитаз.
+        
+        Паранойя? Или разумная предосторожность?
+        
+        Они знают, где вы живёте. Это — факт.
+        
+        -> lose_sanity_safe(2) ->
+        ->->
+}
+->->
+
+=== function reputation_check_information() ===
+// Проверка репутации перед получением информации от NPC
+// Возвращает модификатор готовности делиться информацией
+
+{ city_reputation >= 50:
+    // Высокая репутация — люди охотно делятся
+    ~ return 3
+}
+{ city_reputation > 20:
+    // Хорошая репутация — люди готовы говорить
+    ~ return 2
+}
+{ city_reputation >= -20:
+    // Нейтральная репутация — стандартно
+    ~ return 1
+}
+{ city_reputation > -50:
+    // Плохая репутация — люди неохотно говорят
+    ~ return 0
+}
+// Очень плохая репутация — люди отказываются говорить
+~ return -1
 
 === encounter_helpful ===
 # mood: neutral
@@ -2579,6 +4419,8 @@ VAR current_location = 0
 
 # mood: mystery
 
+~ track_cult_exposure()  // РЕПУТАЦИЯ: расспросы о секретной экспедиции
+
 — Экспедиция? Какая экспедиция? # speaker:stranger
 
 — Восемьсот девяностый год. Географическое общество. # speaker:sorokin
@@ -2635,6 +4477,8 @@ VAR current_location = 0
 
 # mood: dark
 
+~ track_cult_exposure()  // РЕПУТАЦИЯ: публичные расспросы о массовых исчезновениях
+
 — Пропавшие? — Мария Фёдоровна вздыхает. — Молодой человек, если бы вы знали, сколько людей пропало в этом городе... # speaker:stranger
 
 Она достаёт толстую тетрадь. Самодельную, в клеёнчатой обложке. # style:action
@@ -2687,6 +4531,8 @@ VAR current_location = 0
 === archive_legends ===
 
 # mood: mystery
+
+~ track_cult_exposure()  // РЕПУТАЦИЯ: публичные расспросы о древних легендах
 
 — Легенды? — Мария Фёдоровна усмехается. — Здесь всё — легенда. Весь город. # speaker:stranger
 
@@ -2845,14 +4691,16 @@ VAR current_location = 0
 
 * [Жёсткий допрос — давить на подозреваемого]
     ~ change_style(5)
+    ~ track_aggressive_action()  // РЕПУТАЦИЯ: агрессия замечена
     Вы повышаете голос. Наклоняетесь вперёд. Глаза в глаза.
-    
+
     "Я знаю, что вы лжёте. И вы знаете, что я знаю. Давайте не будем тратить время."
-    
+
     ->->
 
 * [Дипломатия — расположить к себе]
     ~ change_style(-5)
+    ~ track_helpful_action()  // РЕПУТАЦИЯ: дружелюбие замечено
     Вы улыбаетесь. Предлагаете сигарету.
     
     "Послушайте, я понимаю — вы боитесь. Но я здесь не для того, чтобы кого-то наказывать. Я ищу правду. Помогите мне — и я помогу вам."
@@ -2970,324 +4818,393 @@ VAR current_location = 0
 # mood: investigation
 # ui: journal
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📋 ЖУРНАЛ СЛЕДОВАТЕЛЯ — ГЛАВНЫЙ ЭКРАН
+// ═══════════════════════════════════════════════════════════════════════════════
+
 ЖУРНАЛ СЛЕДОВАТЕЛЯ
 
-День {current_day} из 5. {time_of_day == 0:Утро}{time_of_day == 1:День}{time_of_day == 2:Вечер}{time_of_day == 3:Ночь}.
+ДЕНЬ {current_day}/5 • {time_of_day == 0:Утро}{time_of_day == 1:День}{time_of_day == 2:Вечер}{time_of_day == 3:Ночь}
 
-Собрано улик: {count_all_clues()}
-Рассудок: {sanity}%
-Репутация в городе: {city_reputation}
+🧠 Рассудок: {sanity}% • ☣️ Заражение: {infection_level}%
+🔍 Улик: {count_all_clues()} • 📊 Осведомлённость: {cult_awareness}%
 
-* [Просмотреть улики]
+// ═══ РЕПУТАЦИЯ ═══
+🏘️ РЕПУТАЦИЯ: {city_reputation <= -50:ВРАГ}{city_reputation < -20 && city_reputation > -50:Подозрительный}{city_reputation >= -20 && city_reputation <= 20:Нейтральная}{city_reputation > 20 && city_reputation < 50:Дружелюбная}{city_reputation >= 50:СВОЙ} ({city_reputation})
+
+// ═══ СЛУХИ ═══
+{ LIST_COUNT(Rumors) > 0:
+    💬 СЛУХИ О ВАС:
+    { Rumors ? rumor_dangerous: • 🔴 "Опасный, может посадить" }
+    { Rumors ? rumor_honest: • 🟢 "Честный, ищет правду" }
+    { Rumors ? rumor_crazy: • 🟡 "Сумасшедший" }
+    { Rumors ? rumor_cultist: • 🟣 "Связан с теми из леса" }
+    { Rumors ? rumor_hero: • 🔵 "Герой, спас человека" }
+}
+
+// ═══ СТИЛЬ РАССЛЕДОВАНИЯ ═══
+🎯 СТИЛЬ: {is_aggressive():Агрессивный}{is_diplomatic():Дипломатичный}{not is_aggressive() && not is_diplomatic():Сбалансированный}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+* [📁 Улики ({count_all_clues()})]
     -> journal_clues
 
-* [Просмотреть контакты]
+* [👥 Контакты]
     -> journal_contacts
 
-* [Мои теории]
+* [💭 Теории]
     -> journal_theories
 
-* [Связи между уликами]
+* [🔗 Связи улик]
     -> journal_clue_combinations
 
-* [Закрыть журнал]
+* [✖️ Закрыть]
     -> ep1_night_choice
 
 === journal_clues ===
-СОБРАННЫЕ УЛИКИ:
+# mood: investigation
+# ui: journal
 
-{ CluesA ? missing_list:
-    ◆ Список пропавших — 7 человек за 2 года
+📁 СОБРАННЫЕ УЛИКИ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══ КАТЕГОРИЯ A: ДОКУМЕНТЫ МИЛИЦИИ ═══
+{ CluesA ? missing_list || CluesA ? false_reports || CluesA ? witness_conflict:
+    🚔 МАТЕРИАЛЫ МИЛИЦИИ:
+    { CluesA ? missing_list: • 📋 Список пропавших — 7 человек за 2 года }
+    { CluesA ? false_reports: • 📝 Ложные рапорты — милиция скрывает информацию }
+    { CluesA ? witness_conflict: • ❓ Противоречия показаний — свидетели лгут или...? }
 }
-{ CluesA ? false_reports:
-    ◆ Ложные рапорты — милиция скрывает информацию
+
+// ═══ КАТЕГОРИЯ B: СЕКРЕТНЫЙ ПРОЕКТ ═══
+{ CluesB ? echo_docs || CluesB ? experiment_records || CluesB ? underground_map || CluesB ? access_pass:
+    🔬 ПРОЕКТ "ЭХО":
+    { CluesB ? echo_docs: • 📂 Документы проекта — секретные эксперименты }
+    { CluesB ? experiment_records: • 🧪 Записи экспериментов — опыты на людях }
+    { CluesB ? underground_map: • 🗺️ Карта подземелий — сеть туннелей под городом }
+    { CluesB ? access_pass: • 🔑 Пропуск доступа — ключ к секретным зонам }
 }
-{ CluesA ? witness_conflict:
-    ◆ Противоречия в показаниях — свидетели лгут или?..
+
+// ═══ КАТЕГОРИЯ C: КУЛЬТ ═══
+{ CluesC ? cult_symbol || CluesC ? chernov_diary || CluesC ? ritual_photos:
+    🕯️ КУЛЬТ:
+    { CluesC ? cult_symbol: • ⭕ Культовые символы — древние знаки }
+    { CluesC ? chernov_diary: • 📖 Дневник Чернова — ключ к разгадке }
+    { CluesC ? ritual_photos: • 📷 Ритуальные фото — доказательство культа }
 }
-{ CluesB ? echo_docs:
-    ◆ Документы "Проекта Эхо" — секретные эксперименты
-}
-{ CluesB ? experiment_records:
-    ◆ Записи экспериментов — опыты на людях
-}
-{ CluesB ? underground_map:
-    ◆ Карта подземелий — под городом сеть туннелей
-}
-{ CluesC ? cult_symbol:
-    ◆ Культовые символы — древние знаки
-}
-{ CluesC ? chernov_diary:
-    ◆ Дневник Чернова — ключ к разгадке
-}
-{ CluesC ? ritual_photos:
-    ◆ Ритуальные фотографии — доказательство культа
-}
+
+// ═══ КАТЕГОРИЯ D: ИСТОРИЯ ═══
 { CluesD ? expedition_1890:
-    ◆ Записи экспедиции 1890 — история началась давно
+    📜 ИСТОРИЯ:
+    { CluesD ? expedition_1890: • 🗿 Экспедиция 1890 — история началась давно }
 }
 
+// ═══ КАТЕГОРИЯ E: ПОКАЗАНИЯ ═══
+{ CluesE ? fyodor_map || CluesE ? vera_research || CluesE ? gromov_confession:
+    🗣️ ПОКАЗАНИЯ:
+    { CluesE ? fyodor_map: • 🗺️ Карта Фёдора — тайные ходы }
+    { CluesE ? vera_research: • 🔬 Исследования Веры — медицинские данные }
+    { CluesE ? gromov_confession: • 💔 Признание Громова — его жена пропала }
+}
+
+// ═══ ПУСТО ═══
 { count_all_clues() == 0:
-    Пока ничего не найдено. Нужно искать.
+    🔍 Пока ничего не найдено. Продолжайте расследование.
 }
 
--> investigator_journal
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+* [← Назад к журналу]
+    -> investigator_journal
 
 === journal_contacts ===
-КОНТАКТЫ:
+# mood: investigation
+# ui: journal
 
+👥 КОНТАКТЫ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══ ГРОМОВ ═══
 { MetCharacters ? gromov:
-    ◆ Майор Громов — начальник милиции
-    { trust_gromov >= 60: [Доверяет вам] }
-    { trust_gromov < 30: [Враждебен] }
-}
-{ MetCharacters ? tanya:
-    ◆ Таня Зорина — дочь пропавшего
-    { trust_tanya >= 60: [Близкие отношения] }
-}
-{ MetCharacters ? vera:
-    ◆ Вера — загадочная женщина
-    { trust_vera >= 60: [Доверяет вам] }
-}
-{ MetCharacters ? serafim:
-    ◆ Серафим — местный "юродивый"
-    { trust_serafim >= 60: [Считает вас другом] }
-}
-{ MetCharacters ? fyodor:
-    ◆ Фёдор — информатор
-    { KeyEvents ? found_fyodor_body: [МЁРТВ] }
-    { trust_fyodor >= 60: [Союзник] }
+    👮 СТЕПАН ГРОМОВ — Майор милиции
+    { trust_gromov >= 60: • 💚 Отношения: ДОВЕРИЕ }
+    { trust_gromov >= 30 && trust_gromov < 60: • 💛 Отношения: Нейтральные }
+    { trust_gromov < 30 && trust_gromov >= 0: • 🟠 Отношения: Напряжённые }
+    { trust_gromov < 0: • ❤️‍🔥 Отношения: ВРАЖДЕБНОСТЬ }
+    { gromov_is_ally: • ⭐ Союзник в расследовании }
 }
 
--> investigator_journal
+// ═══ ТАНЯ ═══
+{ MetCharacters ? tanya:
+    👩 ТАНЯ ЗОРИНА — Дочь пропавшего
+    { Relationships ? romantic_tanya: • 💕 Отношения: РОМАНТИЧЕСКИЕ }
+    { not (Relationships ? romantic_tanya) && trust_tanya >= 60: • 💚 Отношения: БЛИЗКИЕ }
+    { not (Relationships ? romantic_tanya) && trust_tanya >= 30 && trust_tanya < 60: • 💛 Отношения: Дружеские }
+    { not (Relationships ? romantic_tanya) && trust_tanya < 30: • 🟠 Отношения: Формальные }
+    { reputation_helped_tanya: • ⭐ Вы спасли ей жизнь }
+}
+
+// ═══ ВЕРА ═══
+{ MetCharacters ? vera:
+    👩‍⚕️ ВЕРА ХОЛОДОВА — Психиатр
+    { trust_vera >= 60: • 💚 Отношения: ДОВЕРИЕ }
+    { trust_vera >= 30 && trust_vera < 60: • 💛 Отношения: Профессиональные }
+    { trust_vera < 30: • 🟠 Отношения: Осторожные }
+    { CharacterSecrets ? vera_past: • 📖 Знаете её историю }
+}
+
+// ═══ СЕРАФИМ ═══
+{ MetCharacters ? serafim:
+    ⛪ ОТЕЦ СЕРАФИМ — Священник
+    { trust_serafim >= 60: • 💚 Отношения: ДРУГ }
+    { trust_serafim >= 30 && trust_serafim < 60: • 💛 Отношения: Уважительные }
+    { trust_serafim < 30: • 🟠 Отношения: Настороженные }
+    { KeyEvents ? serafim_kidnapped: • ❌ ПОХИЩЕН }
+}
+
+// ═══ ФЁДОР ═══
+{ MetCharacters ? fyodor:
+    🧔 ФЁДОР — Отшельник
+    { KeyEvents ? found_fyodor_body: • ☠️ МЁРТВ }
+    { not (KeyEvents ? found_fyodor_body) && Relationships ? trusted_fyodor: • 💚 Отношения: СОЮЗНИК }
+    { not (KeyEvents ? found_fyodor_body) && trust_fyodor >= 30 && not (Relationships ? trusted_fyodor): • 💛 Отношения: Доверительные }
+    { not (KeyEvents ? found_fyodor_body) && trust_fyodor < 30: • 🟠 Отношения: Пугливый }
+    { reputation_saved_someone: • ⭐ Вы спасли ему жизнь }
+}
+
+// ═══ АСТАХОВ ═══
+{ MetCharacters ? astahov:
+    🕵️ ПОЛКОВНИК АСТАХОВ — КГБ
+    { trust_astahov >= 0: • 🟠 Отношения: Напряжённые }
+    { trust_astahov < 0: • ❤️‍🔥 Отношения: ВРАЖДЕБНЫЕ }
+    { trust_astahov < -10: • ⚠️ Следит за вами }
+}
+
+// ═══ ПУСТО ═══
+{ not (MetCharacters ? gromov) && not (MetCharacters ? tanya) && not (MetCharacters ? vera):
+    👤 Контактов пока нет. Знакомьтесь с жителями города.
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+* [← Назад к журналу]
+    -> investigator_journal
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ФАЗА 3: КОМБИНАЦИИ УЛИК
 // ═══════════════════════════════════════════════════════════════════════════════
 
 === journal_clue_combinations ===
-СВЯЗИ МЕЖДУ УЛИКАМИ:
+# mood: investigation
+# ui: journal
 
-// Проверяем возможные комбинации
+🔗 СВЯЗИ УЛИК
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══ ДОСТУПНЫЕ КОМБИНАЦИИ ═══
 { can_combine_clues(combo_witnesses) && not (ClueCombinations ? combo_witnesses):
-    ★ МОЖНО ОБЪЕДИНИТЬ: Противоречия свидетелей + Ложные рапорты
-    → Раскрыть заговор молчания
+    ⭐ НОВАЯ СВЯЗЬ: Противоречия + Рапорты → Заговор молчания
     
-    * [Объединить улики]
+    * [🔓 Объединить]
         ~ combine_clues(combo_witnesses)
+        
+        # style:important # intensity:high
         
         Вы сопоставляете показания свидетелей с официальными рапортами.
         
-        Картина проясняется: они ВСЕ лгут. Не потому что преступники — потому что боятся. Кто-то заставляет весь город молчать.
+        Картина проясняется: они ВСЕ лгут. Не потому что преступники — потому что боятся.
         
-        Но кто имеет такую власть?
-        
-        ~ boost_theory(4, 15)  // Заговор
+        ~ boost_theory(4, 15)
         ~ personal_vendetta = personal_vendetta + 10
         
         # insight
-        СВЯЗЬ ОБНАРУЖЕНА: Заговор молчания охватывает весь город
+        💡 СВЯЗЬ ОБНАРУЖЕНА: Заговор молчания охватывает весь город
         
         -> journal_clue_combinations
     
-    * [Не сейчас]
+    * [Позже]
         -> journal_clue_combinations
 }
 
 { can_combine_clues(combo_project) && not (ClueCombinations ? combo_project):
-    ★ МОЖНО ОБЪЕДИНИТЬ: Документы "Эхо" + Записи экспериментов
-    → Понять масштаб проекта
+    ⭐ НОВАЯ СВЯЗЬ: Документы "Эхо" + Записи → Масштаб проекта
     
-    * [Объединить улики]
+    * [🔓 Объединить]
         ~ combine_clues(combo_project)
         
-        Вы раскладываете документы на столе. Сопоставляете даты, имена, результаты.
+        # style:important # intensity:high
         
-        Проект "Эхо" — не просто эксперименты. Это попытка установить контакт с чем-то... нечеловеческим. И они преуспели.
+        Проект "Эхо" — не просто эксперименты. Это попытка установить контакт с чем-то... нечеловеческим.
         
-        Двадцать лет. Сотни жертв. Всё ради одной цели — открыть Дверь.
-        
-        ~ boost_theory(5, 15)  // Культ
+        ~ boost_theory(5, 15)
         ~ cult_awareness = cult_awareness + 5
         
         # insight
-        СВЯЗЬ ОБНАРУЖЕНА: Проект "Эхо" — попытка контакта с потусторонним
+        💡 СВЯЗЬ ОБНАРУЖЕНА: Проект "Эхо" — попытка контакта с потусторонним
         
         -> journal_clue_combinations
     
-    * [Не сейчас]
+    * [Позже]
         -> journal_clue_combinations
 }
 
 { can_combine_clues(combo_cult_history) && not (ClueCombinations ? combo_cult_history):
-    ★ МОЖНО ОБЪЕДИНИТЬ: Символы культа + Записи экспедиции 1890
-    → Раскрыть древнюю историю культа
+    ⭐ НОВАЯ СВЯЗЬ: Символы + Экспедиция 1890 → Древняя история
     
-    * [Объединить улики]
+    * [🔓 Объединить]
         ~ combine_clues(combo_cult_history)
+        
+        # style:important # intensity:high
         
         Символы — одинаковые. В пещерах, на стенах, в старых записях.
         
-        Этому культу — тысячи лет. Он был здесь задолго до города, до завода, до всего. Советские учёные не создали его — они просто нашли.
+        Этому культу — тысячи лет. Советские учёные просто нашли его. И разбудили.
         
-        И разбудили.
-        
-        ~ boost_theory(5, 20)  // Культ — сильный буст!
+        ~ boost_theory(5, 20)
         ~ cult_awareness = cult_awareness + 8
         ~ lore_depth = lore_depth + 5
         
         # insight
-        СВЯЗЬ ОБНАРУЖЕНА: Культ существует тысячи лет
+        💡 СВЯЗЬ ОБНАРУЖЕНА: Культ существует тысячи лет
         
         -> journal_clue_combinations
     
-    * [Не сейчас]
+    * [Позже]
         -> journal_clue_combinations
 }
 
 { can_combine_clues(combo_victims) && not (ClueCombinations ? combo_victims):
-    ★ МОЖНО ОБЪЕДИНИТЬ: Список пропавших + Ритуальные фотографии
-    → Установить личную связь
+    ⭐ НОВАЯ СВЯЗЬ: Список пропавших + Ритуальные фото → Судьба жертв
     
-    * [Объединить улики]
+    * [🔓 Объединить]
         ~ combine_clues(combo_victims)
+        
+        # style:dramatic # intensity:high
         
         Вы сопоставляете имена из списка с лицами на фотографиях.
         
         { knows_vanished_comrade:
             Сергей. Ваш товарищ по Афгану. Он — на одной из фотографий. В белой мантии. Среди жертв.
-            
-            Они забрали его. Превратили в часть ритуала.
-            
             ~ personal_vendetta = personal_vendetta + 30
             -> lose_sanity_safe(5) ->
         - else:
             Лица. Имена. Судьбы. Каждый из них был кем-то — мужем, отцом, сыном.
-            
-            Теперь — просто жертвы.
-            
             ~ personal_vendetta = personal_vendetta + 15
         }
         
-        Это должно закончиться. Сегодня.
-        
         # insight
-        СВЯЗЬ ОБНАРУЖЕНА: Пропавшие — жертвы ритуалов
+        💡 СВЯЗЬ ОБНАРУЖЕНА: Пропавшие — жертвы ритуалов
         
         -> journal_clue_combinations
     
-    * [Не сейчас]
+    * [Позже]
         -> journal_clue_combinations
 }
 
-// Показываем уже найденные комбинации
-{ ClueCombinations ? combo_witnesses:
-    ✓ Заговор молчания — раскрыт
-}
-{ ClueCombinations ? combo_project:
-    ✓ Масштаб проекта "Эхо" — раскрыт
-}
-{ ClueCombinations ? combo_cult_history:
-    ✓ Древняя история культа — раскрыта
-}
-{ ClueCombinations ? combo_victims:
-    ✓ Судьба жертв — установлена
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══ РАСКРЫТЫЕ СВЯЗИ ═══
+{ LIST_COUNT(ClueCombinations) > 0:
+    ✅ РАСКРЫТЫЕ СВЯЗИ:
+    { ClueCombinations ? combo_witnesses: • ✓ Заговор молчания }
+    { ClueCombinations ? combo_project: • ✓ Масштаб "Проекта Эхо" }
+    { ClueCombinations ? combo_cult_history: • ✓ Древняя история культа }
+    { ClueCombinations ? combo_victims: • ✓ Судьба жертв }
 }
 
-// Если нет доступных комбинаций
+// ═══ НЕТ КОМБИНАЦИЙ ═══
 { not can_combine_clues(combo_witnesses) && not can_combine_clues(combo_project) && not can_combine_clues(combo_cult_history) && not can_combine_clues(combo_victims):
     { LIST_COUNT(ClueCombinations) == 0:
-        Пока недостаточно улик для установления связей.
-        Нужно собрать больше информации.
+        🔍 Недостаточно улик. Соберите больше информации.
     - else:
-        Все возможные связи уже установлены.
+        ✅ Все связи установлены. Отличная работа!
     }
 }
 
-* [Вернуться]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+* [← Назад к журналу]
     -> investigator_journal
 
 === journal_theories ===
-МОИ ВЕРСИИ РАССЛЕДОВАНИЯ:
+# mood: investigation
+# ui: journal
 
-// Показываем активные версии с процентом уверенности
+💭 ВЕРСИИ РАССЛЕДОВАНИЯ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══ ЛОЖНЫЕ ВЕРСИИ (ОПРОВЕРЖИМЫЕ) ═══
 { theory_chemical > 0:
     { chemical_debunked:
-        ✗ Химическое отравление — ОПРОВЕРГНУТО
+        ❌ ОПРОВЕРГНУТО: Химическое отравление
     - else:
-        ◆ Химическое отравление (уверенность: {theory_chemical}%)
-        { theory_chemical >= 50:
-            → Завод выбрасывает токсины, вызывающие галлюцинации
-        }
+        🧪 Химическое отравление — Уверенность: {theory_chemical}%
     }
 }
 
 { theory_gromov > 0:
     { gromov_debunked:
-        ✗ Громов — убийца — ОПРОВЕРГНУТО (он ищет дочь)
+        ❌ ОПРОВЕРГНУТО: Громов — убийца
     - else:
-        ◆ Громов — серийный убийца (уверенность: {theory_gromov}%)
-        { theory_gromov >= 50:
-            → Он знает местность, имеет власть, странно себя ведёт
-        }
+        👮 Громов — серийный убийца — Уверенность: {theory_gromov}%
     }
 }
 
 { theory_serafim > 0:
     { serafim_debunked:
-        ✗ Серафим — сектант — ОПРОВЕРГНУТО (он борется с культом)
+        ❌ ОПРОВЕРГНУТО: Серафим — сектант
     - else:
-        ◆ Серафим — безумный проповедник (уверенность: {theory_serafim}%)
-        { theory_serafim >= 50:
-            → Религиозный фанатик, манипулирует паствой
-        }
+        ⛪ Серафим — фанатик — Уверенность: {theory_serafim}%
     }
 }
 
+// ═══ ИСТИННЫЕ ВЕРСИИ ═══
 { theory_conspiracy > 0:
-    ◆ Государственный заговор (уверенность: {theory_conspiracy}%)
-    { theory_conspiracy >= 50:
-        → Секретные эксперименты, которые скрывают любой ценой
-    }
+    🏛️ Государственный заговор — Уверенность: {theory_conspiracy}%
 }
 
 { theory_cult > 0 || cult_awareness >= 10:
-    ◆ Тайный культ (уверенность: {theory_cult > cult_awareness: {theory_cult}|{cult_awareness * 2}}%)
-    { cult_awareness >= 15:
-        → Исчезновения — жертвоприношения для древнего ритуала
-    }
+    🕯️ ТАЙНЫЙ КУЛЬТ — Осведомлённость: {cult_awareness}%
+    { cult_awareness >= 30: ★ ОСНОВНАЯ ВЕРСИЯ — Исчезновения = жертвоприношения }
 }
 
-// Подсказка о прогрессе
-{ theories_debunked == 0 && theory_chemical + theory_gromov + theory_serafim == 0:
-    Пока недостаточно данных для версий. Нужно собрать больше информации.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══ СТАТИСТИКА ═══
+{ theories_debunked >= 1:
+    📊 Опровергнуто версий: {theories_debunked}
+    { theories_debunked >= 3: 💡 Истина где-то рядом... }
 }
 
-{ theories_debunked >= 2:
-    
-    Опровергнуто версий: {theories_debunked}
-    Истина где-то рядом...
-}
-
-// Дедлайн
+// ═══ ВАЖНЫЕ СОБЫТИЯ ═══
 { knows_deadline:
-    
-    ⚠ ПОЛНОЛУНИЕ ЧЕРЕЗ {ritual_countdown} {ritual_countdown == 1: ДЕНЬ|ДНЯ/ДНЕЙ}
+    ⏰ ДЕДЛАЙН: Полнолуние через {ritual_countdown} {ritual_countdown == 1: день|дня}
+    { ritual_countdown <= 2: ❗ ВРЕМЯ НА ИСХОДЕ! }
 }
 
-// Личная связь
 { knows_vanished_comrade:
-    
-    ★ ЛИЧНОЕ: Сергей Коршунов — мой товарищ из Афганистана — среди пропавших.
+    ⭐ ЛИЧНОЕ: Сергей Коршунов — мой товарищ из Афганистана — среди пропавших
 }
 
-// Заражение
 { sorokin_infected:
-    
-    ⚠ Я начинаю видеть... то же, что они. Уровень заражения: {infection_level}%
+    ☣️ ЗАРАЖЕНИЕ: Я начинаю видеть ТО ЖЕ, что они. Уровень: {infection_level}%
+    { infection_level >= 50: ⚠️ КРИТИЧЕСКИЙ УРОВЕНЬ }
 }
 
--> investigator_journal
+// ═══ ПУСТО ═══
+{ theories_debunked == 0 && theory_chemical + theory_gromov + theory_serafim == 0 && cult_awareness < 10:
+    🔍 Недостаточно данных. Соберите больше информации.
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+* [← Назад к журналу]
+    -> investigator_journal
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ЭПИЗОД 1: ПРИБЫТИЕ
@@ -3420,10 +5337,11 @@ VAR current_location = 0
 
 * [Показать власть — потребовать уважения]
     — Я буду ждать в тепле, — говорите вы холодно. — Проводите меня в здание КПП. # speaker:sorokin
-    
+
     ~ change_style(5)
+    ~ track_aggressive_action()  // РЕПУТАЦИЯ: демонстрация власти
     ~ city_reputation = city_reputation - 5
-    
+
     Офицер открывает рот, чтобы возразить, но что-то в вашем взгляде останавливает его. # style:thought # intensity:low
     
     — Как скажете, товарищ следователь. # speaker:officer
@@ -3526,9 +5444,10 @@ VAR current_location = 0
 
 * [Надавить — "Вы что-то скрываете"]
     — Я вижу, когда люди врут, — говорите вы холодно. — Двадцать лет практики. Так что — "но"? # speaker:sorokin
-    
+
     ~ change_style(5)
-    
+    ~ track_aggressive_action()  // РЕПУТАЦИЯ: давление на офицера
+
     Офицер бледнеет. # style:action
     
     — Я... После этих исчезновений... Степан Петрович изменился. Стал... замкнутым. Нервным. Иногда уезжает ночью. Никому не говорит — куда. # speaker:officer
@@ -3712,11 +5631,11 @@ VAR current_location = 0
     — Есть кто? # speaker:sorokin
     
     Тишина. # style:dramatic # intensity:medium
-    
+
     Потом — шаги. Скрип двери в конце коридора. # style:atmosphere # intensity:low
-    
+
     — Товарищ Сорокин? Сюда. Майор ждёт. # speaker:stranger
-    
+
     -> ep1_meet_gromov
 
 === ep1_meet_gromov ===
@@ -3754,6 +5673,13 @@ VAR current_location = 0
 Вы садитесь. Стул скрипит под вами. # style:action
 
 Громов смотрит. Оценивает. Вы делаете то же самое. # style:action # intensity:medium
+
+// ЭТАЛОН: Громов замечает состояние Сорокина
+{ infection_level >= 40:
+    Его глаза сужаются. Он видит что-то в вас — и это ему не нравится. # style:thought # intensity:medium
+    
+    — Вы уже начали видеть, да? — Тихо, почти шёпотом. — Они и вас нашли. # speaker:gromov # intensity:high
+}
 
 Этот человек — не дурак. Это первое, что вы понимаете. Несмотря на всё — на водку, на затхлый кабинет, на провинциальную глушь — он не дурак. # style:thought # intensity:high
 
@@ -3845,6 +5771,7 @@ VAR current_location = 0
     -> ep1_gromov_silence
 
 * [Спросить о других пропавших]
+    ~ track_cult_exposure()  // РЕПУТАЦИЯ: публичные расспросы о массовых исчезновениях
     — Зорин — не первый. # speaker:sorokin
     
     Громов замирает. Стакан в его руке дрожит — еле заметно. # style:action
@@ -4427,21 +6354,35 @@ VAR current_location = 0
 * [Настоять]
     — Клавдия Петровна. — Вы говорите мягко, но твёрдо. — Это важно. Очень важно. Всё, что вы знаете. # speaker:sorokin
     
+    ~ track_aggressive_action()  // РЕПУТАЦИЯ: давление на свидетеля
+    
     Она смотрит на вас. Колеблется. # style:thought # intensity:medium
     
-    — Не здесь. — Её голос — еле слышный. — Завтра. В ресторане. В обед. Там... там народу много, безопаснее. # speaker:klava
-    
-    Безопаснее? От чего? # style:thought # intensity:high
-    
-    Но вы не спрашиваете. Не сейчас. # style:thought # intensity:low
-    
-    ~ cult_awareness = cult_awareness + 1
-    
-    — Хорошо. Завтра в обед. # speaker:sorokin
-    
-    Клава кивает. Быстро. Нервно. # style:action
-    
-    — А пока — отдыхайте. И... — Она понижает голос ещё сильнее. — Не гуляйте ночью. Не выходите из гостиницы. До утра. # speaker:klava
+    // РЕПУТАЦИЯ влияет на готовность говорить
+    { city_reputation >= -10:
+        — Не здесь. — Её голос — еле слышный. — Завтра. В ресторане. В обед. Там... там народу много, безопаснее. # speaker:klava
+        
+        Безопаснее? От чего? # style:thought # intensity:high
+        
+        Но вы не спрашиваете. Не сейчас. # style:thought # intensity:low
+        
+        ~ cult_awareness = cult_awareness + 1
+        
+        — Хорошо. Завтра в обед. # speaker:sorokin
+        
+        Клава кивает. Быстро. Нервно. # style:action
+        
+        — А пока — отдыхайте. И... — Она понижает голос ещё сильнее. — Не гуляйте ночью. Не выходите из гостиницы. До утра. # speaker:klava
+    - else:
+        // Плохая репутация — Клава боится говорить
+        — Я... я ничего больше не знаю, товарищ следователь. — Её голос дрожит. — Устала я. Поздно уже. # speaker:klava
+        
+        Она врёт. Но страх в её глазах — настоящий. Страх перед вами.
+        
+        Слухи распространяются быстро в маленьком городе.
+        
+        — Третий этаж, налево. Спокойной ночи. # speaker:klava
+    }
     
     Второй раз за день вам говорят это. "Не гуляйте ночью". # style:thought # intensity:high
     
@@ -4452,9 +6393,20 @@ VAR current_location = 0
 * [Не давить]
     — Спасибо, Клавдия Петровна. Приму к сведению. # speaker:sorokin
     
+    ~ track_helpful_action()  // РЕПУТАЦИЯ: дипломатичный подход
+    
     Клава кивает. С облегчением. # style:action
     
     — Вот и хорошо. Вот и хорошо. — Она протягивает ключ. — Третий этаж, налево по коридору. Если что нужно — звоните вниз, трубка на тумбочке. # speaker:klava
+    
+    // РЕПУТАЦИЯ: дружелюбный подход может открыть двери позже
+    { city_reputation >= 5:
+        Она смотрит вам вслед. И — неожиданно, шёпотом: # style:atmosphere
+        
+        — Товарищ следователь? Спасибо. Что не давите. Здесь... здесь все давят. # speaker:klava
+        
+        ~ city_reputation = city_reputation + 3
+    }
     
     Она отворачивается. Возвращается к своему журналу. # style:action
     
@@ -4525,7 +6477,8 @@ VAR current_location = 0
         Но... # style:dramatic # intensity:medium
         
         ~ KeyEvents += heard_voices
-        -> lose_sanity_safe(3) ->
+        
+        -> hear_the_voices ->
         
         Вы точно слышали. Голоса. Оттуда — со стороны леса. # style:thought # intensity:high
         
@@ -4556,6 +6509,9 @@ VAR current_location = 0
 На столе — папка с делом. Десять страниц. Всё, что дал Громов. # style:atmosphere # intensity:low
 
 За окном — темнота. И где-то там — город. Завод. Лес. # style:atmosphere # intensity:medium
+
+// Первый взгляд на луну — начало обратного отсчёта
+-> look_at_moon ->
 
 И... что-то ещё? # style:thought # intensity:medium
 
@@ -4673,23 +6629,24 @@ VAR current_location = 0
     Тайник? # style:thought # intensity:high
     
     { has_item(item_lockpick):
-        * [Вскрыть тайник]
-            Отвёрткой вы поддеваете доску. # style:action
-            
-            Внутри — пусто. Но на стенках — следы. Кто-то хранил здесь что-то. Недавно. # style:thought # intensity:medium
-            
-            И записка. Клочок бумаги с единственным словом: # style:dramatic # intensity:high
-            
-            «БЕГИ» # style:horror # intensity:high # effect:glitch
-            
-            -> lose_sanity_safe(3) ->
-            
-            -> ep1_night_choice
-    }
-    
-    * [Оставить на потом]
+        -> ep1_open_cache
+    - else:
         Нужен инструмент. И осторожность. # style:thought # intensity:low
         -> ep1_night_choice
+    }
+
+=== ep1_open_cache ===
+Отвёрткой вы поддеваете доску. # style:action
+
+Внутри — пусто. Но на стенках — следы. Кто-то хранил здесь что-то. Недавно. # style:thought # intensity:medium
+
+И записка. Клочок бумаги с единственным словом: # style:dramatic # intensity:high
+
+«БЕГИ» # style:horror # intensity:high # effect:glitch
+
+-> lose_sanity_safe(3) ->
+
+-> ep1_night_choice
 
 * [Хватит — это паранойя]
     Вы следователь, а не домушник. Достаточно. # style:thought # intensity:low
@@ -5622,8 +7579,8 @@ VAR current_location = 0
     
     Где-то — еле слышно — смех? Или плач? # style:whisper # intensity:high
     
-    -> lose_sanity_safe(5) ->
     ~ KeyEvents += heard_voices
+    -> hear_the_voices ->
     
     -> ep1_forest_retreat
 
@@ -5651,12 +7608,14 @@ VAR current_location = 0
 Зовёт. # style:whisper # intensity:high
 
 { sanity < 70:
+    -> hear_the_voices ->
+
     Вы не оглядываетесь. Всю дорогу до гостиницы — не оглядываетесь. # style:thought # intensity:high
-    
+
     Потому что боитесь. Боитесь увидеть то, что идёт за вами. # style:thought # intensity:high
-    
+
     Или — боитесь убедиться, что там никого нет? Что всё это — в вашей голове? # style:thought # intensity:high
-    
+
     Что страшнее? # style:thought # intensity:high
 }
 
@@ -5703,15 +7662,7 @@ VAR current_location = 0
 }
 
 { KeyEvents ? saw_symbol:
-    Красный символ. Круг. Три линии к центру. # style:horror # intensity:medium
-    
-    Он — перед глазами. Даже когда закрываете веки. # style:horror # intensity:high
-    
-    Вы где-то его видели. Раньше. Давно. Но где? # style:thought # intensity:high
-    
-    Афганистан? Нет. До этого. В детстве? # style:thought # intensity:medium
-    
-    Не помните. # style:thought # intensity:low
+    -> see_cult_symbol ->
 }
 
 За окном — тишина. Абсолютная. # style:atmosphere # intensity:high
@@ -5888,11 +7839,9 @@ VAR current_location = 0
     
     Ноги — на ледяной пол. Вы морщитесь.
     
-    Умывальник в углу. Холодная вода — как пощёчина. Вы смотрите в зеркало.
+    Умывальник в углу. Холодная вода — как пощёчина.
     
-    Лицо — осунувшееся. Под глазами — тёмные круги. Трёхдневная щетина — седеет у висков.
-    
-    Сорок два года. Выглядите на все пятьдесят.
+    -> look_in_mirror ->
     
     — Товарищ Сорокин? — Снова Клава. — Каша стынет! # speaker:klava
     
@@ -5912,15 +7861,13 @@ VAR current_location = 0
 
 Клава ставит перед вами тарелку. Гречневая каша с маслом. Стакан чая. Хлеб с маслом.
 
-— Кушайте, товарищ следователь. Силы нужны. # speaker:klava
-
-Она смотрит — изучающе. Оценивает.
+-> greet_klava ->
 
 — Плохо спали? Бледный вы какой-то. # speaker:klava
 
 — Нормально. — Вы берёте ложку. — Спасибо за завтрак. # speaker:sorokin
 
-Каша — горячая, вкусная. Вы едите молча. Думаете.
+Каша — горячая, вкусная. Вы едите молча. Думаете. # style:atmosphere
 
 В блокноте — план:
 1. Допросить свидетелей — Иванова и Кузнецову.
@@ -6018,6 +7965,9 @@ VAR current_location = 0
 
 Завод "Прометей". Таня Зорина. # style:title # intensity:medium
 
+// Прогрессия отношений с Таней — краткая версия
+-> see_tanya ->
+
 — Вы следователь? Я знала, что вы придёте. # speaker:tanya
 
 Она коротко рассказывает о странном поведении отца перед исчезновением.
@@ -6075,6 +8025,9 @@ VAR current_location = 0
 Коридоры завода — длинные, серые, пропахшие машинным маслом и чем-то кислым. Химикаты? Трубы под потолком гудят. Где-то вдалеке — ритмичный стук машин. # style:atmosphere # intensity:medium
 
 Комната 214. Дверь приоткрыта. # style:title # intensity:medium
+
+// Прогрессия отношений с Таней — первая встреча
+-> see_tanya ->
 
 За столом — молодая женщина. Двадцать три года — написано в деле, но выглядит старше. Рыжие волосы собраны в небрежный пучок. Веснушки на бледном лице. Тёмные круги под глазами — она не спит. Давно не спит. # style:atmosphere # intensity:medium
 
@@ -6401,7 +8354,7 @@ VAR current_location = 0
 
 # mood: mystery
 
-Церковь на окраине. # style:title # intensity:medium
+-> describe_church ->
 
 Белые стены, покосившийся купол. Официально — закрыта с шестидесятых. Но кто-то явно поддерживает её в порядке. # style:atmosphere
 
@@ -6410,6 +8363,13 @@ VAR current_location = 0
 Дверь открывается раньше, чем вы успеваете постучать.
 
 Старик. Белая борода до груди. Ясные голубые глаза — слишком ясные для человека его возраста. Как будто внутри горит огонь.
+
+// ЭТАЛОН: Серафим видит духовное состояние
+{ infection_level >= 30:
+    Его глаза сужаются. Он видит что-то — в вас, сквозь вас. # style:atmosphere # intensity:medium
+    
+    — На вас уже лежит их тень. — Шёпот. — Но ещё не поздно. Ещё нет. # speaker:serafim # intensity:high
+}
 
 — Я ждал вас. # speaker:serafim
 
@@ -6646,6 +8606,9 @@ VAR current_location = 0
 
 Таня уже здесь. В тени. Её дыхание — белым паром в холодном воздухе.
 
+// Прогрессия отношений с Таней — вечерняя встреча
+-> see_tanya ->
+
 Когда она видит вас — что-то меняется в её лице. Напряжение? Облегчение?
 
 — Вы пришли. — Она делает шаг навстречу. — Я не была уверена... # speaker:tanya
@@ -6873,6 +8836,9 @@ VAR current_location = 0
 
 Номер 12. Полночь. # style:title # intensity:medium
 
+// Луна в окне — напоминание о дедлайне
+-> look_at_moon ->
+
 Вы сидите на кровати. Перед вами — блокнот, записи, улики. # style:atmosphere
 
 { evidence_collected >= 5:
@@ -6906,6 +8872,23 @@ VAR current_location = 0
 Дней осталось: {days_remaining} # style:important
 Собрано улик: {count_all_clues()} # style:important
 
+// СИСТЕМА РЕПУТАЦИИ: итог дня
+{ city_reputation <= -20:
+    Репутация в городе: ПЛОХАЯ ({city_reputation}) # style:important
+    Горожане начинают избегать вас...
+}
+{ city_reputation > -20 && city_reputation <= 20:
+    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
+}
+{ city_reputation > 20:
+    Репутация в городе: ХОРОШАЯ ({city_reputation}) # style:important
+    Некоторые жители готовы помочь.
+}
+
+{ LIST_COUNT(Rumors) > 0:
+    Слухи о вас: {LIST_COUNT(Rumors)} # style:important
+}
+
 * [Продолжить...]
     -> episode2_intro
 
@@ -6927,7 +8910,10 @@ VAR current_location = 0
 
 День второй # style:subtitle
 
-...
+-> describe_hotel_room ->
+
+// ЭТАЛОН: Описание текущего состояния заражения
+-> describe_current_state ->
 
 Три часа ночи.
 
@@ -6939,11 +8925,13 @@ VAR current_location = 0
 
 { KeyEvents ? heard_voices:
     Голоса вернулись.
-    
+
     Не во сне — наяву. Тихие, на грани слуха. Как будто кто-то стоит за дверью и шепчет сквозь щель.
-    
+
+    -> hear_the_voices ->
+
     Вы напрягаете слух.
-    
+
     «...приходи...»
     «...мы ждём...»
     «...красный лес зовёт...»
@@ -6989,19 +8977,15 @@ VAR current_location = 0
 
 Снег. Опять снег. Крупные хлопья падают медленно, беззвучно. За ночь намело сугробы.
 
-Вы умываетесь ледяной водой. Смотрите в зеркало.
+Вы умываетесь ледяной водой.
 
-Лицо — незнакомое. Серое, осунувшееся. Под глазами — круги, как синяки. Щетина отросла, колется под пальцами.
+-> look_in_mirror ->
 
-Вы выглядите как человек, который не спал неделю.
-
-Прошёл один день.
+Прошёл один день. # style:thought # intensity:medium
 
 Стук в дверь.
 
-— Товарищ следователь! Завтрак готов! # speaker:klava
-
-Клава. Бодрая, как всегда. Как будто в этом городе можно быть бодрым. # style:thought
+-> greet_klava ->
 
 Вы одеваетесь. Проверяете пистолет — на месте. Документы — в кармане. # style:action
 
@@ -7375,6 +9359,9 @@ VAR current_location = 0
 
 === ep2_vera_syndrome ===
 
+// ЭТАЛОН: Вера — врач, замечает симптомы профессионально
+-> vera_notices_infection ->
+
 — За последние пять лет — двадцать три случая. Одинаковые галлюцинации. Красный лес. Фигуры в капюшонах. Голоса. # speaker:vera
 
 — Диагноз? # speaker:sorokin
@@ -7462,10 +9449,11 @@ VAR current_location = 0
     -> ep2_vera_loss
 
 * [Не настаивать]
+    ~ track_helpful_action()  // РЕПУТАЦИЯ: уважение к чувствам Веры
     — Если не хотите — не рассказывайте. # speaker:sorokin
-    
+
     — Нет. — Она качает головой. — Вы должны знать. Если хотите понять этот город — должны знать. # speaker:vera
-    
+
     -> ep2_vera_loss
 
 === ep2_vera_loss ===
@@ -7968,7 +9956,7 @@ VAR current_location = 0
 
 # mood: tense
 
-Завод "Прометей". # style:title # intensity:medium
+-> describe_factory ->
 
 Вы идёте к проходной. # style:atmosphere
 
@@ -8152,9 +10140,28 @@ VAR current_location = 0
 
 КОНЕЦ ЭПИЗОДА 2 # style:title # intensity:medium
 
+~ sync_evidence_count()
+
 Ваш рассудок: {sanity}/100 # style:important
 Дней осталось: {days_remaining} # style:important
 Собрано улик: {count_all_clues()} # style:important
+
+// СИСТЕМА РЕПУТАЦИИ: итог дня
+{ city_reputation <= -30:
+    Репутация в городе: ОЧЕНЬ ПЛОХАЯ ({city_reputation}) # style:important
+    Двери закрываются перед вами. Свидетели молчат.
+}
+{ city_reputation > -30 && city_reputation <= -10:
+    Репутация в городе: ПЛОХАЯ ({city_reputation}) # style:important
+    Слухи ползут по городу...
+}
+{ city_reputation > -10 && city_reputation <= 20:
+    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
+}
+{ city_reputation > 20:
+    Репутация в городе: ХОРОШАЯ ({city_reputation}) # style:important
+    Город начинает вам доверять.
+}
 
 * [Продолжить...]
     ~ advance_day()
@@ -8177,7 +10184,10 @@ VAR current_location = 0
 
 День третий # style:subtitle
 
-... # style:atmosphere # intensity:low
+-> describe_hotel_room ->
+
+// ЭТАЛОН: Описание текущего состояния заражения
+-> describe_current_state ->
 
 Вы просыпаетесь — резко, как от удара. # style:dramatic # intensity:high
 
@@ -8188,10 +10198,12 @@ VAR current_location = 0
 Который час? Часы на тумбочке показывают пять утра. За окном — ещё темно. Но не совсем — на востоке, над лесом — бледная полоска рассвета. # style:atmosphere
 
 { sanity < 50:
+    -> hear_the_voices ->
+
     Голоса. # style:horror # intensity:high
-    
+
     Они были здесь. Всю ночь. Шептали, бормотали, звали. # style:horror # intensity:high
-    
+
     «...приди к нам...» # style:vision # intensity:high
     «...дверь ждёт...» # style:vision # intensity:high
     «...ты наш... ты всегда был наш...» # style:vision # intensity:high
@@ -8237,13 +10249,9 @@ VAR current_location = 0
     Может, он поможет?
 }
 
-Вы встаёте. Умываетесь ледяной водой. Смотрите в зеркало.
+Вы встаёте. Умываетесь ледяной водой.
 
-Лицо — чужое. Осунувшееся, серое. Глаза — красные, воспалённые. Под ними — тёмные полукружья, как синяки.
-
-Вы выглядите... больным. Или сумасшедшим.
-
-А может — и тем, и другим.
+-> look_in_mirror ->
 
 За окном — город просыпается. Дым из труб. Редкие фигуры на улицах. Всё как обычно.
 
@@ -8397,7 +10405,7 @@ VAR current_location = 0
 
 Внутри — темно. Запах машинного масла и чего-то... сладковатого.
 
-На стене — тот самый символ. Красный круг, три линии.
+-> see_cult_symbol ->
 
 { not (CluesC ? cult_symbol):
     ~ CluesC += cult_symbol
@@ -8406,12 +10414,6 @@ VAR current_location = 0
     
     # clue
     Улика найдена: символ на складе
-}
-
-~ cult_awareness = cult_awareness + 2
-
-{ not (KeyEvents ? saw_symbol):
-    ~ KeyEvents += saw_symbol
 }
 
 * [Идти дальше]
@@ -8516,6 +10518,9 @@ VAR current_location = 0
 === ep3_call_tanya ===
 
 Таня приходит через час. # style:action
+
+// Прогрессия отношений с Таней — она пришла на помощь
+-> see_tanya ->
 
 — Вы уверены? # speaker:tanya
 
@@ -8869,6 +10874,8 @@ VAR current_location = 0
 — Вы... спасли мне жизнь. # speaker:tanya
 
 ~ trust_tanya = trust_tanya + 10
+~ track_heroic_action()  // РЕПУТАЦИЯ: спас жизнь — герой!
+~ reputation_helped_tanya = true
 
 -> ep3_escape_together
 
@@ -8891,6 +10898,9 @@ VAR current_location = 0
 — Они... они меня узнали... — Он кашляет. — Двадцать лет прятался... а они... # speaker:fyodor
 
 * [Помочь ему выбраться]
+    ~ track_heroic_action()  // РЕПУТАЦИЯ: спасение жизни Фёдора!
+    ~ reputation_saved_someone = true
+    
     Вы поднимаете его на плечо. # style:action
     
     — Держись. # speaker:sorokin
@@ -8900,6 +10910,7 @@ VAR current_location = 0
     -> ep3_escape_with_fyodor
 
 * [Оставить и бежать]
+    ~ track_aggressive_action()  // РЕПУТАЦИЯ: бросил человека умирать
     — Прости. # speaker:sorokin
     
     — Нет... не... — Но вы уже бежите. # speaker:fyodor
@@ -9137,6 +11148,9 @@ VAR current_location = 0
     Таня споткнулась!
     
     * * [Помочь ей]
+        ~ track_heroic_action()  // РЕПУТАЦИЯ: рискнул жизнью ради Тани!
+        ~ reputation_helped_tanya = true
+        
         Вы возвращаетесь. Поднимаете её.
         
         Они догоняют.
@@ -9319,6 +11333,9 @@ VAR current_location = 0
 // HORROR: Ещё одно событие при продвижении
 -> check_for_horror_event ->
 
+// Голоса в пещерах — эхо умножает их
+-> hear_the_voices ->
+
 Коридор расширяется. Вы встаёте. Отряхиваетесь. # style:action
 
 И — # style:dramatic # intensity:high
@@ -9326,6 +11343,9 @@ VAR current_location = 0
 Фонарик выхватывает... зал. # style:dramatic # intensity:high
 
 Огромный. Свод теряется в темноте. Стены — покрыты рисунками, символами, надписями. Некоторые — древние, выцарапанные на камне. Другие — свежие, нарисованные краской. # style:atmosphere # intensity:high
+
+// Дверь — здесь. Эпицентр. Точка истончения реальности.
+-> sense_the_door ->
 
 В центре зала — алтарь. # style:horror # intensity:high
 
@@ -9474,6 +11494,29 @@ VAR current_location = 0
 Дней осталось: {days_remaining} # style:important
 Собрано улик: {count_all_clues()} # style:important
 
+// СИСТЕМА РЕПУТАЦИИ: итог дня
+{ city_reputation <= -40:
+    Репутация в городе: ВРАГ ({city_reputation}) # style:important
+    Город ненавидит вас. Это опасно.
+}
+{ city_reputation > -40 && city_reputation <= -10:
+    Репутация в городе: ПЛОХАЯ ({city_reputation}) # style:important
+}
+{ city_reputation > -10 && city_reputation <= 30:
+    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
+}
+{ city_reputation > 30:
+    Репутация в городе: ХОРОШАЯ ({city_reputation}) # style:important
+    Союзники найдены. Город на вашей стороне.
+}
+
+{ reputation_helped_tanya:
+    ★ Таня благодарна вам. Это может спасти жизни.
+}
+{ reputation_saved_someone:
+    ★ Вы спасли чью-то жизнь. Город это помнит.
+}
+
 * [Продолжить...]
     ~ advance_day()
     -> episode4_intro
@@ -9495,11 +11538,18 @@ VAR current_location = 0
 
 День четвёртый # style:subtitle
 
+-> describe_hotel_room ->
+
+// ЭТАЛОН: Описание текущего состояния заражения
+-> describe_current_state ->
+
 { sanity < 40:
+    -> hear_the_voices ->
+
     Грань между реальностью и видениями стирается. # style:horror # intensity:high
-    
+
     Голоса — постоянны. Неразличимы от мыслей. # style:horror # intensity:high
-    
+
     Вы уже не уверены, что реально. # style:horror # intensity:high
 }
 
@@ -9769,8 +11819,9 @@ VAR current_location = 0
     -> ep4_gromov_react
 
 * [Давить]
+    ~ track_aggressive_action()  // РЕПУТАЦИЯ: давление на Громова
     — Неважно. Важно — что вы сделаете сейчас. # speaker:sorokin
-    
+
     -> ep4_gromov_react
 
 === ep4_gromov_react ===
@@ -9784,6 +11835,7 @@ VAR current_location = 0
 — Я... — Он колеблется. # speaker:gromov
 
 * [Вы тоже жертва]
+    ~ track_helpful_action()  // РЕПУТАЦИЯ: сочувствие и понимание
     — Степан Петрович. Вы не убийца. Вы — жертва. Как и все здесь. # speaker:sorokin
     
     Громов опускает голову. # style:action
@@ -10104,7 +12156,10 @@ VAR current_location = 0
 
 { trust_tanya >= 50:
     Таня приходит. # style:action
-    
+
+    // Прогрессия отношений с Таней — последний вечер
+    -> see_tanya ->
+
     — Я не могу усидеть дома. # speaker:tanya
     
     Вы сидите вместе. Молча. # style:atmosphere # intensity:medium
@@ -10266,9 +12321,42 @@ VAR current_location = 0
 
 КОНЕЦ ЭПИЗОДА 4 # style:title # intensity:medium
 
+~ sync_evidence_count()
+
 Ваш рассудок: {sanity}/100 # style:important
 Дней осталось: {days_remaining} # style:important
 Собрано улик: {count_all_clues()} # style:important
+
+// СИСТЕМА РЕПУТАЦИИ: финальный итог перед развязкой
+{ city_reputation <= -50:
+    Репутация в городе: ВРАГ НАРОДА ({city_reputation}) # style:important
+    Город против вас. Завтра вы будете один против всех.
+}
+{ city_reputation > -50 && city_reputation <= 0:
+    Репутация в городе: ПОДОЗРИТЕЛЬНЫЙ ({city_reputation}) # style:important
+    Мало кто готов помочь.
+}
+{ city_reputation > 0 && city_reputation <= 40:
+    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
+    У вас есть шанс.
+}
+{ city_reputation > 40:
+    Репутация в городе: СВОЙ ({city_reputation}) # style:important
+    Город — на вашей стороне. Это может всё изменить.
+}
+
+// Итоговые слухи
+{ Rumors ? rumor_hero:
+    ★ О вас говорят как о герое. Люди готовы помочь.
+}
+{ Rumors ? rumor_crazy:
+    ⚠ Вас считают сумасшедшим. Это усложнит финал.
+}
+{ Rumors ? rumor_cultist:
+    ⚠ Вас подозревают в связях с культом. Опасно.
+}
+
+ЗАВТРА — ПОЛНОЛУНИЕ. # style:title # intensity:high
 
 * [Продолжить...]
     ~ advance_day()
@@ -10291,6 +12379,9 @@ VAR current_location = 0
 ~ advance_moon()
 ~ ritual_countdown = 0
 ~ knows_deadline = true
+
+// ПОЛНОЛУНИЕ — кульминация лунного цикла
+-> look_at_moon ->
 
 ... # style:atmosphere # intensity:low
 
@@ -10406,12 +12497,15 @@ VAR current_location = 0
 }
 
 { Relationships ? romantic_tanya:
+    // Прогрессия отношений с Таней — финальная миссия
+    -> see_tanya ->
+
     Таня — рядом. Бледная, но решительная. В руке — фонарик. Под пальто — что-то угловатое. Оружие?
-    
+
     — Я готова, — говорит она. Голос не дрожит. # speaker:tanya
-    
+
     — Держись рядом. Не отставай. # speaker:sorokin
-    
+
     — Обещаю. # speaker:tanya
 }
 
@@ -10452,6 +12546,9 @@ VAR current_location = 0
 ~ MetCharacters += chernov
 
 # mood: horror
+
+// Дверь — на грани открытия. Полнолуние. Ритуал.
+-> sense_the_door ->
 
 Пещера.
 

@@ -320,6 +320,9 @@ export default function InvestigationPage() {
   const [storyScore, setStoryScore] = useState(0);
   const [storyKey, setStoryKey] = useState(0); // Ключ для перезагрузки истории
   const [foundClues, setFoundClues] = useState<Set<string>>(new Set()); // Найденные улики
+  const [currentSanity, setCurrentSanity] = useState(100); // Текущий рассудок
+  const [currentInfection, setCurrentInfection] = useState(0); // Текущее заражение
+  const [currentReputation, setCurrentReputation] = useState(0); // Репутация города
   const [showCluesModal, setShowCluesModal] = useState(false); // Модальное окно улик
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
   const evidenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -644,6 +647,7 @@ export default function InvestigationPage() {
     humanity: number;
     theoriesDebunked: number;
     endingName: string;
+    cityReputation: number;
   } | null>(null);
   
   const handleStoryEnd = useCallback((state: InkState) => {
@@ -666,6 +670,7 @@ export default function InvestigationPage() {
       humanity: (vars.humanity as number) || 50,
       theoriesDebunked: (vars.theories_debunked as number) || 0,
       endingName,
+      cityReputation: (vars.city_reputation as number) || 0,
     });
     
     // НЕ показываем финальный экран сразу — даём прочитать текст концовки
@@ -696,6 +701,17 @@ export default function InvestigationPage() {
       setStoryScore(value);
     }
     
+    // Отслеживаем sanity, infection и reputation для индикаторов в хедере
+    if (name === "sanity" && typeof value === "number") {
+      setCurrentSanity(value);
+    }
+    if (name === "infection_level" && typeof value === "number") {
+      setCurrentInfection(value);
+    }
+    if (name === "city_reputation" && typeof value === "number") {
+      setCurrentReputation(value);
+    }
+
     // Отслеживаем улики из Ink LIST переменных
     if (name === "CultLore" || name === "KeyEvents" || name === "AncientArtifacts") {
       let items: string[] = [];
@@ -854,6 +870,9 @@ export default function InvestigationPage() {
         onCluesClick={() => setShowCluesModal(true)}
         isMusicPlaying={isMusicPlaying}
         onMusicToggle={toggleMusic}
+        sanity={currentSanity}
+        infection={currentInfection}
+        reputation={currentReputation}
       />
 
       {/* Контент — только История */}
@@ -1305,6 +1324,9 @@ function Header({
   onCluesClick,
   isMusicPlaying,
   onMusicToggle,
+  sanity = 100,
+  infection = 0,
+  reputation = 0,
 }: {
   foundCluesCount: number;
   playtime: number;
@@ -1315,7 +1337,41 @@ function Header({
   onCluesClick: () => void;
   isMusicPlaying: boolean;
   onMusicToggle: () => void;
+  sanity?: number;
+  infection?: number;
+  reputation?: number;
 }) {
+  // Цвета индикаторов
+  const sanityColor = sanity >= 70 ? "from-cyan-400 to-blue-500" 
+    : sanity >= 40 ? "from-blue-400 to-indigo-500"
+    : sanity >= 20 ? "from-purple-500 to-red-500"
+    : "from-red-500 to-red-700";
+  
+  const infectionColor = infection <= 20 ? "from-slate-400 to-slate-500"
+    : infection <= 50 ? "from-violet-400 to-purple-500"
+    : infection <= 70 ? "from-purple-500 to-red-500"
+    : "from-red-500 to-red-700";
+  
+  // Цвет репутации: от красного (враг) до зелёного (доверие)
+  const reputationColor = reputation >= 50 ? "from-emerald-400 to-green-500"
+    : reputation >= 20 ? "from-green-400 to-emerald-500"
+    : reputation >= -20 ? "from-slate-400 to-slate-500"
+    : reputation >= -50 ? "from-orange-400 to-red-500"
+    : "from-red-500 to-red-700";
+  
+  // Иконка репутации
+  const reputationIcon = reputation >= 50 ? "★" 
+    : reputation >= 20 ? "☆"
+    : reputation >= -20 ? "◇"
+    : reputation >= -50 ? "▽"
+    : "✕";
+  
+  // Подсказка для репутации
+  const reputationLabel = reputation >= 50 ? "Доверие"
+    : reputation >= 20 ? "Симпатия"
+    : reputation >= -20 ? "Нейтрально"
+    : reputation >= -50 ? "Подозрение"
+    : "Враг";
 
   return (
     <div className="sticky top-0 z-40 px-3 pt-2 space-y-2">
@@ -1488,8 +1544,68 @@ function Header({
         </div>
       </div>
 
-      {/* Название расследования — отдельный glass блок по центру */}
-      <div className="flex justify-center">
+      {/* Вторая строка — Название расследования по центру */}
+      <div className="relative flex justify-center">
+        {/* Индикаторы САНИТИ, ЗАРАЖЕНИЯ и РЕПУТАЦИИ — абсолютно слева */}
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col justify-center gap-0.5">
+          {/* Санити — верхняя линия */}
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 text-[9px] text-center ${sanity < 30 ? "text-red-400" : "text-cyan-400/60"}`}>◆</span>
+            <div className="w-12 h-1 rounded-full bg-black/30 overflow-hidden">
+              <motion.div
+                className={`h-full bg-gradient-to-r ${sanityColor} rounded-full`}
+                initial={{ width: 0 }}
+                animate={{ width: `${sanity}%` }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+            <span className={`w-5 text-[9px] font-mono text-right tabular-nums ${sanity < 30 ? "text-red-400" : "text-white/40"}`}>{sanity}</span>
+          </div>
+
+          {/* Заражение — средняя линия */}
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 text-[9px] text-center ${infection > 50 ? "text-red-400" : "text-violet-400/60"}`}>●</span>
+            <div className="w-12 h-1 rounded-full bg-black/30 overflow-hidden">
+              <motion.div
+                className={`h-full bg-gradient-to-r ${infectionColor} rounded-full`}
+                initial={{ width: 0 }}
+                animate={{ width: `${infection}%` }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+            <span className={`w-5 text-[9px] font-mono text-right tabular-nums ${infection > 50 ? "text-red-400" : "text-white/40"}`}>{infection}</span>
+          </div>
+
+          {/* Репутация города — нижняя линия */}
+          <div className="flex items-center gap-1.5" title={`Репутация: ${reputationLabel}`}>
+            <span className={`w-2 text-[9px] text-center ${
+              reputation >= 20 ? "text-emerald-400/60" 
+              : reputation <= -20 ? "text-red-400" 
+              : "text-slate-400/60"
+            }`}>{reputationIcon}</span>
+            <div className="w-12 h-1 rounded-full bg-black/30 overflow-hidden relative">
+              {/* Центральная метка для нуля */}
+              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 -translate-x-1/2" />
+              {/* Бар репутации — от центра */}
+              <motion.div
+                className={`absolute h-full bg-gradient-to-r ${reputationColor} rounded-full`}
+                initial={{ width: 0 }}
+                animate={{ 
+                  width: `${Math.abs(reputation) / 2}%`,
+                  left: reputation >= 0 ? '50%' : `${50 - Math.abs(reputation) / 2}%`,
+                }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+            <span className={`w-5 text-[9px] font-mono text-right tabular-nums ${
+              reputation >= 20 ? "text-emerald-400" 
+              : reputation <= -20 ? "text-red-400" 
+              : "text-white/40"
+            }`}>{reputation > 0 ? `+${reputation}` : reputation}</span>
+          </div>
+        </div>
+        
+        {/* Название расследования — glass блок по центру */}
         <div className="
           relative overflow-hidden
           px-7 py-3
@@ -1534,6 +1650,7 @@ type FinalStats = {
   humanity: number;
   theoriesDebunked: number;
   endingName: string;
+  cityReputation: number;
 } | null;
 
 // Данные о всех возможных концовках для мотивации перепрохождения
@@ -1807,6 +1924,46 @@ function FinalScreen({
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(finalStats.humanity, 100)}%` }}
                         transition={{ duration: 1, delay: 0.3 }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Репутация города */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-white/60 flex items-center gap-1">
+                        🏘️ Репутация в городе
+                      </span>
+                      <span className={`text-xs font-medium ${
+                        finalStats.cityReputation >= 20 ? "text-emerald-400" 
+                        : finalStats.cityReputation <= -20 ? "text-red-400" 
+                        : "text-slate-400"
+                      }`}>
+                        {finalStats.cityReputation > 0 ? `+${finalStats.cityReputation}` : finalStats.cityReputation}
+                        <span className="text-white/40 ml-1">
+                          ({finalStats.cityReputation >= 50 ? "Доверие" 
+                            : finalStats.cityReputation >= 20 ? "Симпатия"
+                            : finalStats.cityReputation >= -20 ? "Нейтрально"
+                            : finalStats.cityReputation >= -50 ? "Подозрение"
+                            : "Враг"})
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden relative">
+                      {/* Центральная метка */}
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/30 -translate-x-1/2 z-10" />
+                      <motion.div 
+                        className={`absolute h-full rounded-full ${
+                          finalStats.cityReputation >= 20 ? "bg-emerald-500" 
+                          : finalStats.cityReputation <= -20 ? "bg-red-500" 
+                          : "bg-slate-500"
+                        }`}
+                        initial={{ width: 0 }}
+                        animate={{ 
+                          width: `${Math.min(Math.abs(finalStats.cityReputation), 100) / 2}%`,
+                          left: finalStats.cityReputation >= 0 ? '50%' : `${50 - Math.min(Math.abs(finalStats.cityReputation), 100) / 2}%`,
+                        }}
+                        transition={{ duration: 1, delay: 0.4 }}
                       />
                     </div>
                   </div>

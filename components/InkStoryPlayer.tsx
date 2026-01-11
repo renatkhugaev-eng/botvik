@@ -147,6 +147,7 @@ export function InkStoryPlayer({
   const [interrogationState, setInterrogationState] = useState<InterrogationState | null>(null);
   const [tacticalHint, setTacticalHint] = useState<string>("");
   const [isVisionActive, setIsVisionActive] = useState(false);
+  const [isJournalMode, setIsJournalMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevVarsRef = useRef<Record<string, unknown>>({});
   const visionTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -209,12 +210,22 @@ export function InkStoryPlayer({
 
   const processGlobalTags = useCallback(
     (tags: string[]) => {
+      // UI Mode - journal mode для красивого дневника
+      const uiMode = getTagValue(tags, "ui");
+      const uiModeValue = typeof uiMode === "string" ? uiMode.trim() : uiMode;
+      if (uiModeValue === "journal") {
+        setIsJournalMode(true);
+      } else {
+        // Сбрасываем режим журнала если тег отсутствует или другой
+        setIsJournalMode(false);
+      }
+      
       // Mood - с haptic feedback для драматических моментов
       const mood = getTagValue(tags, "mood");
       if (mood && typeof mood === "string") {
         const prevMood = currentMood;
         setCurrentMood(mood as MoodType);
-        
+
         // Haptic feedback при смене настроения
         if (prevMood !== mood) {
           if (mood === "horror" || mood === "pressure") {
@@ -536,6 +547,7 @@ export function InkStoryPlayer({
         <MoodIndicator mood={currentMood} />
       </AnimatePresence>
       
+      
       {/* Индикатор ВИДЕНИЯ — horror события */}
       <AnimatePresence>
         {isVisionActive && (
@@ -654,6 +666,7 @@ export function InkStoryPlayer({
                   tags={paragraph.tags}
                   mood={currentMood}
                   isAnimated={shouldAnimate}
+                  isJournalMode={isJournalMode}
                 />
               </motion.div>
             );
@@ -1068,6 +1081,28 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
     gender: "male",
   },
   
+  deputy: {
+    name: "Заместитель Громова",
+    shortName: "Заместитель",
+    role: "Помощник начальника милиции",
+    avatar: {
+      emoji: "ЗГ",
+      bgGradient: "from-slate-600 via-slate-700 to-slate-800",
+      ringColor: "ring-slate-500/50",
+      shadowColor: "shadow-slate-600/40",
+      isInitials: true,
+      imageSrc: "/avatars/deputy.webp",
+    },
+    bubble: {
+      bgGradient: "from-slate-800/70 to-slate-900/70",
+      borderColor: "border-slate-500/40",
+      textColor: "text-slate-100",
+    },
+    nameColor: "text-slate-400",
+    statusIndicator: "online",
+    gender: "male",
+  },
+  
   vera: {
     name: "Вера Холодова",
     shortName: "Вера",
@@ -1473,6 +1508,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-slate-500/50",
       shadowColor: "shadow-slate-600/40",
       isInitials: false,
+      imageSrc: "/avatars/stranger.webp",
     },
     bubble: {
       bgGradient: "from-slate-800/70 to-slate-900/70",
@@ -1761,25 +1797,1051 @@ function ChatMessage({
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// 📋 ЖУРНАЛ СЛЕДОВАТЕЛЯ — ВИЗУАЛЬНЫЕ КОМПОНЕНТЫ
+// ══════════════════════════════════════════════════════════════════════════════
+
+function JournalRenderer({ text, tags }: { text: string; tags: string[] }) {
+  const blockType = getTagValue(tags, "block");
+  const block = typeof blockType === "string" ? blockType : null;
+
+  // Парсим текст для извлечения данных
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🚫 СКРЫВАЕМ НЕНУЖНЫЕ СТРОКИ
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("Улик") && text.includes("Осведомл")) {
+    return null;
+  }
+  if (text.includes("Пора записать первые впечатления")) {
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📋 ЗАГОЛОВОК ЖУРНАЛА — DETECTIVE DOSSIER 2025 + BLOOD
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("ЖУРНАЛ СЛЕДОВАТЕЛЯ") || block === "header") {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="mb-6 relative"
+      >
+        {/* Blood splatter accent */}
+        <div className="absolute -top-2 -right-1 w-8 h-8 opacity-20">
+          <svg viewBox="0 0 100 100" className="w-full h-full text-red-600">
+            <circle cx="50" cy="50" r="20" fill="currentColor" />
+            <circle cx="75" cy="30" r="8" fill="currentColor" />
+            <circle cx="25" cy="70" r="6" fill="currentColor" />
+            <ellipse cx="60" cy="80" rx="10" ry="15" fill="currentColor" />
+          </svg>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <motion.p 
+            className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase font-medium"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            Секретно • Дело №1991-RF
+          </motion.p>
+          <motion.h2 
+            className="text-2xl font-light text-stone-100 tracking-[0.15em]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            ЖУРНАЛ СЛЕДОВАТЕЛЯ
+          </motion.h2>
+          <motion.div 
+            className="flex items-center justify-center gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-red-900/50" />
+            <span className="text-red-800/60 text-xs">◆</span>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-red-900/50" />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📁 ЗАГОЛОВОК: СОБРАННЫЕ УЛИКИ — ЕДИНЫЙ СТИЛЬ DOSSIER
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("СОБРАННЫЕ УЛИКИ") || text.includes("📁 УЛИКИ")) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="mb-6 relative"
+      >
+        {/* Blood splatter accent */}
+        <div className="absolute -top-2 -right-1 w-8 h-8 opacity-20">
+          <svg viewBox="0 0 100 100" className="w-full h-full text-red-600">
+            <circle cx="50" cy="50" r="20" fill="currentColor" />
+            <circle cx="75" cy="30" r="8" fill="currentColor" />
+            <circle cx="25" cy="70" r="6" fill="currentColor" />
+          </svg>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <motion.p 
+            className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase font-medium"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            Раздел дела • Вещдоки
+          </motion.p>
+          <motion.h2 
+            className="text-2xl font-light text-stone-100 tracking-[0.15em]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            СОБРАННЫЕ УЛИКИ
+          </motion.h2>
+          <motion.div 
+            className="flex items-center justify-center gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-red-900/50" />
+            <span className="text-red-800/60 text-xs">📁</span>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-red-900/50" />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👥 ЗАГОЛОВОК: КОНТАКТЫ — ЕДИНЫЙ СТИЛЬ DOSSIER
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text === "👥 КОНТАКТЫ" || (text.includes("КОНТАКТЫ") && !text.includes("пока нет"))) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="mb-6 relative"
+      >
+        {/* Blood splatter accent */}
+        <div className="absolute -top-2 -right-1 w-8 h-8 opacity-20">
+          <svg viewBox="0 0 100 100" className="w-full h-full text-red-600">
+            <circle cx="50" cy="50" r="20" fill="currentColor" />
+            <circle cx="75" cy="30" r="8" fill="currentColor" />
+          </svg>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <motion.p 
+            className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase font-medium"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            Раздел дела • Информаторы
+          </motion.p>
+          <motion.h2 
+            className="text-2xl font-light text-stone-100 tracking-[0.15em]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            КОНТАКТЫ
+          </motion.h2>
+          <motion.div 
+            className="flex items-center justify-center gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-red-900/50" />
+            <span className="text-red-800/60 text-xs">👥</span>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-red-900/50" />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💭 ЗАГОЛОВОК: ВЕРСИИ РАССЛЕДОВАНИЯ — ЕДИНЫЙ СТИЛЬ DOSSIER
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("ВЕРСИИ РАССЛЕДОВАНИЯ") || text === "💭 ТЕОРИИ") {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="mb-6 relative"
+      >
+        {/* Blood splatter accent */}
+        <div className="absolute -top-2 -right-1 w-8 h-8 opacity-20">
+          <svg viewBox="0 0 100 100" className="w-full h-full text-red-600">
+            <circle cx="50" cy="50" r="20" fill="currentColor" />
+            <circle cx="25" cy="70" r="6" fill="currentColor" />
+            <ellipse cx="60" cy="80" rx="10" ry="15" fill="currentColor" />
+          </svg>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <motion.p 
+            className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase font-medium"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            Раздел дела • Гипотезы
+          </motion.p>
+          <motion.h2 
+            className="text-2xl font-light text-stone-100 tracking-[0.15em]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            ВЕРСИИ РАССЛЕДОВАНИЯ
+          </motion.h2>
+          <motion.div 
+            className="flex items-center justify-center gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-red-900/50" />
+            <span className="text-red-800/60 text-xs">💭</span>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-red-900/50" />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔗 ЗАГОЛОВОК: СВЯЗИ УЛИК — ЕДИНЫЙ СТИЛЬ DOSSIER
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("СВЯЗИ УЛИК") || text === "🔗 СВЯЗИ") {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="mb-6 relative"
+      >
+        {/* Blood splatter accent */}
+        <div className="absolute -top-2 -right-1 w-8 h-8 opacity-20">
+          <svg viewBox="0 0 100 100" className="w-full h-full text-red-600">
+            <circle cx="50" cy="50" r="20" fill="currentColor" />
+            <circle cx="75" cy="30" r="8" fill="currentColor" />
+          </svg>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <motion.p 
+            className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase font-medium"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            Раздел дела • Комбинации
+          </motion.p>
+          <motion.h2 
+            className="text-2xl font-light text-stone-100 tracking-[0.15em]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            СВЯЗИ УЛИК
+          </motion.h2>
+          <motion.div 
+            className="flex items-center justify-center gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-red-900/50" />
+            <span className="text-red-800/60 text-xs">🔗</span>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-red-900/50" />
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🚔🔬🕯️📜🗣️ КАТЕГОРИИ УЛИК — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.match(/^(🚔|🔬|🕯️|📜|🗣️)\s+(МАТЕРИАЛЫ МИЛИЦИИ|ПРОЕКТ|КУЛЬТ|ИСТОРИЯ|ПОКАЗАНИЯ)/)) {
+    const categoryMatch = text.match(/^(🚔|🔬|🕯️|📜|🗣️)\s+(.+?):/);
+    const emoji = categoryMatch?.[1] || "📁";
+    const categoryName = categoryMatch?.[2] || text;
+    
+    const categoryColors: Record<string, string> = {
+      "🚔": "text-blue-400",
+      "🔬": "text-emerald-400",
+      "🕯️": "text-violet-400",
+      "📜": "text-amber-400",
+      "🗣️": "text-rose-400",
+    };
+    
+    const textColor = categoryColors[emoji] || "text-stone-400";
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-3 mt-5"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base">{emoji}</span>
+          <span className={`text-xs font-medium uppercase tracking-[0.15em] ${textColor}`}>
+            {categoryName}
+          </span>
+          <div className="flex-1 h-px bg-stone-800 ml-2" />
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⏰ ДЕНЬ И ВРЕМЯ — DETECTIVE TIMELINE 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("ДЕНЬ") && text.includes("/") || block === "day") {
+    const dayMatch = text.match(/ДЕНЬ\s*(\d+)\/(\d+)/i) || text.match(/День\s*(\d+)\s*из\s*(\d+)/i);
+    const timeMatch = text.match(/(Утро|День|Вечер|Ночь)/i);
+    const currentDay = dayMatch ? parseInt(dayMatch[1]) : 1;
+    const totalDays = dayMatch ? parseInt(dayMatch[2]) : 5;
+    const timeName = timeMatch?.[1] || "День";
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-5"
+      >
+        <div className="relative">
+          {/* Blood drip decoration */}
+          <div className="absolute -left-2 top-0 w-1 h-4 bg-gradient-to-b from-red-800/40 to-transparent rounded-full" />
+          
+          {/* Timeline bar */}
+          <div className="flex items-center gap-1 mb-3">
+            {Array.from({ length: totalDays }).map((_, i) => (
+              <div key={i} className="flex-1 flex items-center">
+                <motion.div 
+                  className={`h-1.5 flex-1 rounded-full ${i < currentDay ? "bg-gradient-to-r from-amber-600 to-red-700/80" : "bg-stone-800"}`}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: i * 0.1, duration: 0.3 }}
+                />
+                {i < totalDays - 1 && <div className="w-1" />}
+              </div>
+            ))}
+          </div>
+          
+          {/* Info row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-stone-800/80 flex items-center justify-center">
+                <span className="text-base">📅</span>
+              </div>
+              <div>
+                <p className="text-xs text-stone-500 uppercase tracking-wider">День расследования</p>
+                <p className="text-lg font-semibold text-stone-200">{currentDay} <span className="text-stone-600 font-normal">из {totalDays}</span></p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-stone-500 uppercase tracking-wider">Время</p>
+              <p className="text-sm text-stone-300">{timeName}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📊 БЛОК СТАТИСТИКИ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("Рассудок") && text.includes("Заражение") || block === "stats") {
+    const sanityMatch = text.match(/Рассудок[:\s]*(\d+)/i);
+    const infectionMatch = text.match(/Заражение[:\s]*(\d+)/i);
+    const cluesMatch = text.match(/Улик[:\s]*(\d+)/i);
+    const awarenessMatch = text.match(/Осведомлённость[:\s]*(\d+)/i);
+
+    const sanity = sanityMatch ? parseInt(sanityMatch[1]) : 75;
+    const infection = infectionMatch ? parseInt(infectionMatch[1]) : 0;
+    const clues = cluesMatch ? parseInt(cluesMatch[1]) : 0;
+    const awareness = awarenessMatch ? parseInt(awarenessMatch[1]) : 0;
+
+    const CircularProgress = ({ value, color, label, icon }: { value: number; color: string; label: string; icon: string }) => {
+      const circumference = 2 * Math.PI * 18;
+      const strokeDashoffset = circumference - (value / 100) * circumference;
+      
+      return (
+        <div className="flex flex-col items-center">
+          <div className="relative w-14 h-14">
+            <svg className="w-14 h-14 -rotate-90" viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="3" className="text-stone-800" />
+              <motion.circle 
+                cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="3" 
+                className={color}
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                initial={{ strokeDashoffset: circumference }}
+                animate={{ strokeDashoffset }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-lg">{icon}</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-stone-500 mt-1.5 uppercase tracking-wider">{label}</p>
+          <p className="text-sm font-semibold text-stone-300">{value}%</p>
+        </div>
+      );
+    };
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-5"
+      >
+        {/* Status header with blood accent */}
+        <div className="flex items-center gap-2 mb-4 relative">
+          <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-red-900/30" />
+          <span className="text-[10px] text-stone-600 uppercase tracking-[0.2em]">Состояние агента</span>
+          <div className="h-px flex-1 bg-gradient-to-l from-stone-800 to-red-900/30" />
+          {/* Small blood drop */}
+          <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-2 bg-red-800/40 rounded-full" />
+        </div>
+        
+        {/* Circular stats */}
+        <div className="flex justify-around mb-4">
+          <CircularProgress 
+            value={sanity} 
+            color={sanity > 50 ? "text-teal-400" : sanity > 25 ? "text-yellow-400" : "text-red-400"} 
+            label="Рассудок" 
+            icon="🧠" 
+          />
+          <CircularProgress 
+            value={infection} 
+            color={infection < 30 ? "text-stone-500" : infection < 60 ? "text-violet-400" : "text-red-400"} 
+            label="Заражение" 
+            icon="☣️" 
+          />
+          <CircularProgress 
+            value={awareness} 
+            color="text-purple-400" 
+            label="Осведомл." 
+            icon="👁️" 
+          />
+        </div>
+
+        {/* Clues counter */}
+        <div className="flex items-center justify-center gap-3 py-2 border-t border-stone-800">
+          <span className="text-lg">🔍</span>
+          <span className="text-xs text-stone-500 uppercase tracking-wider">Собрано улик:</span>
+          <span className="text-lg font-bold text-amber-400">{clues}</span>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🏘️ БЛОК РЕПУТАЦИИ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("РЕПУТАЦИЯ") || block === "reputation") {
+    const valueMatch = text.match(/([+-]?\d+)/);
+    const value = valueMatch ? parseInt(valueMatch[1]) : 0;
+    
+    const getStatus = (val: number) => {
+      if (val >= 50) return { text: "СОЮЗНИК", color: "text-emerald-400", bg: "bg-emerald-500" };
+      if (val >= 20) return { text: "Доверяют", color: "text-green-400", bg: "bg-green-500" };
+      if (val <= -50) return { text: "ВРАГ", color: "text-red-400", bg: "bg-red-500" };
+      if (val <= -20) return { text: "Подозревают", color: "text-orange-400", bg: "bg-orange-500" };
+      return { text: "Нейтрально", color: "text-stone-400", bg: "bg-stone-500" };
+    };
+    
+    const status = getStatus(value);
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-5"
+      >
+        <div className={`border rounded-lg overflow-hidden ${value <= -20 ? "border-red-900/50" : "border-stone-800"}`}>
+          {/* Header */}
+          <div className={`flex items-center justify-between px-3 py-2 border-b ${value <= -20 ? "bg-red-950/30 border-red-900/30" : "bg-stone-900/50 border-stone-800"}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-base">🏘️</span>
+              <span className="text-xs text-stone-400 uppercase tracking-wider">Репутация в городе</span>
+            </div>
+            <span className={`text-xs font-bold ${status.color}`}>{status.text}</span>
+          </div>
+          
+          {/* Content */}
+          <div className="p-3">
+            <div className="flex items-center gap-4">
+              <span className={`text-2xl font-bold tabular-nums ${status.color}`}>
+                {value > 0 ? `+${value}` : value}
+              </span>
+              <div className="flex-1">
+                <div className="h-2 rounded-full bg-stone-800 relative overflow-hidden">
+                  <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-stone-600 -translate-x-1/2 z-10" />
+                  <motion.div 
+                    className={`absolute h-full rounded-full ${status.bg}`}
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: `${Math.min(Math.abs(value), 100) / 2}%`,
+                      left: value >= 0 ? '50%' : undefined,
+                      right: value < 0 ? '50%' : undefined,
+                    }}
+                    transition={{ duration: 0.6 }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1 px-0.5">
+                  <span className="text-[9px] text-red-500/50">−100</span>
+                  <span className="text-[9px] text-stone-600">0</span>
+                  <span className="text-[9px] text-emerald-500/50">+100</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💬 БЛОК СЛУХОВ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("СЛУХИ") || block === "rumors") {
+    const rumorLines = lines.filter(l => l.includes("🔴") || l.includes("🟢") || l.includes("🟡") || l.includes("🟣") || l.includes("🔵") || l.includes('"'));
+    
+    if (rumorLines.length === 0) return null;
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-5"
+      >
+        <div className="border border-stone-800 rounded-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 bg-stone-900/50 border-b border-stone-800">
+            <span className="text-base">💬</span>
+            <span className="text-xs text-stone-400 uppercase tracking-wider">Городские слухи</span>
+          </div>
+          <div className="p-2 space-y-1">
+            {rumorLines.map((rumor, i) => {
+              const isPositive = rumor.includes("🟢") || rumor.includes("🔵");
+              const isNegative = rumor.includes("🔴") || rumor.includes("🟣");
+              
+              return (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded ${
+                    isPositive ? "text-green-400" : 
+                    isNegative ? "text-red-400" : 
+                    "text-stone-500"
+                  }`}
+                >
+                  <span className={`w-1 h-1 rounded-full ${
+                    isPositive ? "bg-green-500" : isNegative ? "bg-red-500" : "bg-stone-600"
+                  }`} />
+                  <span>{rumor.replace(/[🔴🟢🟡🟣🔵•]/g, "").trim()}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚖️ СТИЛЬ РАССЛЕДОВАНИЯ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("СТИЛЬ") || block === "style") {
+    const isAggressive = text.includes("АГРЕССИВНЫЙ") || text.includes("Агрессивный");
+    const isDiplomatic = text.includes("ДИПЛОМАТИЧНЫЙ") || text.includes("Дипломатичный");
+    
+    const config = isAggressive 
+      ? { emoji: "⚔️", name: "Агрессивный", color: "text-red-400", border: "border-red-900/50" }
+      : isDiplomatic 
+      ? { emoji: "🤝", name: "Дипломатичный", color: "text-blue-400", border: "border-blue-900/50" }
+      : { emoji: "⚖️", name: "Сбалансированный", color: "text-stone-400", border: "border-stone-700" };
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-5"
+      >
+        <div className={`flex items-center justify-between px-4 py-3 border ${config.border} rounded-lg bg-stone-900/30 relative overflow-hidden`}>
+          {/* Blood stain in corner */}
+          <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-red-900/20 rounded-full blur-sm" />
+          
+          <div className="flex items-center gap-3 relative">
+            <span className="text-xl">{config.emoji}</span>
+            <div>
+              <p className="text-[10px] text-stone-600 uppercase tracking-[0.15em]">Метод допроса</p>
+              <p className={`text-sm font-medium ${config.color}`}>{config.name}</p>
+            </div>
+          </div>
+          <div className="w-2 h-2 rounded-full bg-red-800/60 animate-pulse" />
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══ РАЗДЕЛИТЕЛЬ ═══
+  if (text.includes("━━━") || block === "divider") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.5 }}
+        className="my-4"
+      >
+        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📋 ОТДЕЛЬНАЯ УЛИКА — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (block === "clue" || text.match(/^•\s*[📋📝❓📂🧪🗺️⭕📖📷🗿📜🗣️🔑💔]/)) {
+    const emoji = text.match(/[📋📝❓📂🧪🗺️⭕📖📷🗿📜🗣️🔑💔]/u)?.[0] || "📋";
+    const cleanText = text.replace(/^•\s*/, "").replace(/[📋📝❓📂🧪🗺️⭕📖📷🗿📜🗣️🔑💔]\s*/u, "").trim();
+    
+    // Разделяем название и описание по " — "
+    const parts = cleanText.split(" — ");
+    const title = parts[0];
+    const description = parts[1] || "";
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -5 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="mb-2"
+      >
+        <div className="relative pl-4 py-2 border-l-2 border-stone-700 hover:border-amber-600/50 transition-colors">
+          {/* Blood stain on some items - based on title hash */}
+          {title.length % 3 === 0 && (
+            <div className="absolute -left-1 top-1 w-2 h-2 bg-red-800/30 rounded-full" />
+          )}
+          
+          <div className="flex items-start gap-3">
+            <span className="text-base flex-shrink-0">{emoji}</span>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-medium text-stone-200">{title}</h4>
+              {description && (
+                <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">{description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👤 КАРТОЧКА ПЕРСОНАЖА — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (block === "contact" || text.match(/^(👮|👩|👩‍⚕️|⛪|🧔|🕵️|👤)\s+[А-ЯЁ]+/)) {
+    const emojiMatch = text.match(/^(👮|👩|👩‍⚕️|⛪|🧔|🕵️|👤)/);
+    const emoji = emojiMatch?.[0] || "👤";
+    
+    // Парсим имя и должность
+    const nameMatch = text.match(/^(?:👮|👩|👩‍⚕️|⛪|🧔|🕵️|👤)\s+([А-ЯЁ][А-ЯЁа-яё\s]+?)(?:\s*—\s*(.+))?$/);
+    const name = nameMatch?.[1]?.trim() || text.replace(/^[^\s]+\s*/, "").split("—")[0].trim();
+    const role = nameMatch?.[2]?.trim() || "";
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-0"
+        data-contact-card="true"
+      >
+        <div className="relative border border-stone-800 rounded-t-lg overflow-hidden">
+          {/* Top accent line */}
+          <div className="h-0.5 bg-gradient-to-r from-red-900/50 via-stone-700 to-stone-800" />
+          
+          <div className="p-3 bg-stone-900/30">
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-stone-800 flex items-center justify-center border border-stone-700">
+                <span className="text-2xl">{emoji}</span>
+              </div>
+              
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <h4 className="text-base font-medium text-stone-200">{name}</h4>
+                {role && (
+                  <p className="text-[11px] text-stone-500 mt-0.5">{role}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💚💛🟠❤️‍🔥 СТАТУС ОТНОШЕНИЙ — DETECTIVE DOSSIER 2025 (часть карточки)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.match(/^•\s*(💚|💛|🟠|❤️‍🔥|💕|⭐|📖|❌|☠️|⚠️)/)) {
+    const statusEmoji = text.match(/^•\s*(💚|💛|🟠|❤️‍🔥|💕|⭐|📖|❌|☠️|⚠️)/)?.[1] || "💛";
+    const statusText = text.replace(/^•\s*[^\s]+\s*/, "").trim();
+    
+    // Определяем цвет и статус
+    const statusConfig: Record<string, { color: string; bgColor: string; borderColor: string; label: string }> = {
+      "💚": { color: "text-green-400", bgColor: "bg-green-950/30", borderColor: "border-green-800/50", label: "Доверие" },
+      "💛": { color: "text-yellow-400", bgColor: "bg-yellow-950/30", borderColor: "border-yellow-800/50", label: "Нейтрально" },
+      "🟠": { color: "text-orange-400", bgColor: "bg-orange-950/30", borderColor: "border-orange-800/50", label: "Настороженность" },
+      "❤️‍🔥": { color: "text-red-400", bgColor: "bg-red-950/30", borderColor: "border-red-800/50", label: "Враждебность" },
+      "💕": { color: "text-pink-400", bgColor: "bg-pink-950/30", borderColor: "border-pink-800/50", label: "Симпатия" },
+      "⭐": { color: "text-amber-400", bgColor: "bg-amber-950/30", borderColor: "border-amber-800/50", label: "Особый" },
+      "📖": { color: "text-purple-400", bgColor: "bg-purple-950/30", borderColor: "border-purple-800/50", label: "Информатор" },
+      "❌": { color: "text-red-500", bgColor: "bg-red-950/40", borderColor: "border-red-800/50", label: "Разрыв" },
+      "☠️": { color: "text-stone-500", bgColor: "bg-stone-900/50", borderColor: "border-stone-700/50", label: "Мёртв" },
+      "⚠️": { color: "text-orange-500", bgColor: "bg-orange-950/30", borderColor: "border-orange-800/50", label: "Опасен" },
+    };
+    
+    const config = statusConfig[statusEmoji] || statusConfig["💛"];
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="mb-4"
+      >
+        <div className={`border border-t-0 border-stone-800 rounded-b-lg overflow-hidden ${config.bgColor}`}>
+          <div className="px-3 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">{statusEmoji}</span>
+              <span className={`text-sm font-medium ${config.color}`}>{statusText}</span>
+            </div>
+            <div className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${config.borderColor} border ${config.color}`}>
+              {config.label}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💭 ТЕОРИЯ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (block === "theory" || text.includes("Уверенность:") || text.includes("Осведомлённость:") || text.match(/^(🧪|👮|⛪|🏛️|🕯️|❌)/)) {
+    const confidenceMatch = text.match(/(\d+)%/);
+    const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 50;
+    const isDebunked = text.includes("ОПРОВЕРГНУТО") || text.startsWith("❌");
+    const isMainTheory = text.includes("ОСНОВНАЯ ВЕРСИЯ") || text.includes("★");
+    const isCult = text.includes("КУЛЬТ") || text.includes("🕯️");
+    
+    // Парсим эмодзи и название
+    const emojiMatch = text.match(/^(🧪|👮|⛪|🏛️|🕯️|❌)/);
+    const emoji = emojiMatch?.[1] || "💭";
+    const cleanText = text.replace(/^(🧪|👮|⛪|🏛️|🕯️|❌)\s*/, "").replace(/—\s*Уверенность:.*$/, "").replace(/—\s*Осведомлённость:.*$/, "").trim();
+    
+    // Определяем цвет
+    const getTheoryColor = () => {
+      if (isDebunked) return { border: "border-stone-800", text: "text-stone-500", bar: "bg-stone-700" };
+      if (isMainTheory || isCult) return { border: "border-red-900/50", text: "text-red-300", bar: "bg-red-600" };
+      if (emoji === "🏛️") return { border: "border-blue-900/50", text: "text-blue-300", bar: "bg-blue-600" };
+      return { border: "border-purple-900/50", text: "text-purple-300", bar: "bg-purple-600" };
+    };
+    
+    const colors = getTheoryColor();
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-3"
+      >
+        <div className={`relative border ${colors.border} rounded-lg overflow-hidden ${isDebunked ? "opacity-50" : ""}`}>
+          {/* Blood accent for cult theory */}
+          {isCult && !isDebunked && (
+            <div className="absolute -top-1 -right-1 w-3 h-4 bg-red-800/40 rounded-full blur-[2px]" />
+          )}
+          
+          <div className="p-3 bg-stone-900/20">
+            <div className="flex items-start gap-3">
+              <span className={`text-xl ${isDebunked ? "grayscale" : ""}`}>{emoji}</span>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  {isDebunked && (
+                    <span className="text-[10px] font-medium text-red-500 uppercase tracking-wider">✕ Опровергнуто</span>
+                  )}
+                  {isMainTheory && !isDebunked && (
+                    <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">★ Основная</span>
+                  )}
+                </div>
+                
+                <h4 className={`text-sm font-medium ${colors.text} ${isDebunked ? "line-through" : ""}`}>
+                  {cleanText}
+                </h4>
+                
+                {/* Confidence bar */}
+                {!isDebunked && confidence > 0 && (
+                  <div className="mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1 rounded-full bg-stone-800 overflow-hidden">
+                        <motion.div 
+                          className={`h-full rounded-full ${colors.bar}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${confidence}%` }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
+                        />
+                      </div>
+                      <span className="text-xs text-stone-500 tabular-nums">{confidence}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ НОВАЯ СВЯЗЬ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("НОВАЯ СВЯЗЬ") || text.includes("⭐")) {
+    const connectionMatch = text.match(/⭐\s*НОВАЯ СВЯЗЬ:\s*(.+)/);
+    const connectionText = connectionMatch?.[1] || text.replace("⭐", "").replace("НОВАЯ СВЯЗЬ:", "").trim();
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-3"
+      >
+        <div className="relative border border-amber-800/50 rounded-lg overflow-hidden bg-amber-950/20">
+          {/* Connection indicator */}
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-red-600" />
+          
+          <div className="pl-4 pr-3 py-2.5">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-amber-400 text-sm">⭐</span>
+              <span className="text-[10px] font-medium text-amber-500 uppercase tracking-wider">Новая связь</span>
+            </div>
+            <p className="text-sm text-stone-200">{connectionText}</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⏰ ДЕДЛАЙН — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("ДЕДЛАЙН") || text.includes("⏰") || text.includes("❗ ВРЕМЯ")) {
+    const isUrgent = text.includes("❗") || text.includes("ВРЕМЯ НА ИСХОДЕ");
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-3"
+      >
+        <div className={`relative border rounded-lg overflow-hidden ${isUrgent ? "border-red-800/60 bg-red-950/30" : "border-orange-900/50 bg-orange-950/20"}`}>
+          {/* Urgent blood accent */}
+          {isUrgent && (
+            <div className="absolute -top-1 right-3 w-2 h-3 bg-red-700/50 rounded-full" />
+          )}
+          
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <span className={`text-lg ${isUrgent ? "animate-pulse" : ""}`}>{isUrgent ? "⚠️" : "⏰"}</span>
+            <div>
+              <span className={`text-[10px] font-medium uppercase tracking-wider ${isUrgent ? "text-red-500" : "text-orange-500"}`}>
+                {isUrgent ? "Критично" : "Дедлайн"}
+              </span>
+              <p className={`text-sm ${isUrgent ? "text-red-300" : "text-orange-300"}`}>
+                {text.replace(/[⏰❗]/g, "").replace("ДЕДЛАЙН", "").replace("ВРЕМЯ", "").trim()}
+              </p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ ЛИЧНОЕ / ЗАРАЖЕНИЕ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("ЛИЧНОЕ:") || text.includes("ЗАРАЖЕНИЕ:")) {
+    const isInfection = text.includes("ЗАРАЖЕНИЕ");
+    const emoji = isInfection ? "☣️" : "⭐";
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-3"
+      >
+        <div className={`relative border rounded-lg overflow-hidden ${isInfection ? "border-violet-900/50 bg-violet-950/20" : "border-amber-900/50 bg-amber-950/20"}`}>
+          {/* Blood/infection accent */}
+          {isInfection && (
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-red-600" />
+          )}
+          
+          <div className={`px-3 py-2.5 ${isInfection ? "pl-4" : ""}`}>
+            <div className="flex items-start gap-2">
+              <span className="text-base">{emoji}</span>
+              <div>
+                <span className={`text-[10px] font-medium uppercase tracking-wider ${isInfection ? "text-violet-500" : "text-amber-500"}`}>
+                  {isInfection ? "Заражение" : "Личное"}
+                </span>
+                <p className={`text-sm ${isInfection ? "text-violet-300" : "text-amber-300"} mt-0.5`}>
+                  {text.replace(/☣️|⭐/g, "").replace(/ЛИЧНОЕ:|ЗАРАЖЕНИЕ:/g, "").trim()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📊 СТАТИСТИКА — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("Опровергнуто версий") || text.includes("📊")) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-3"
+      >
+        <div className="flex items-center gap-2 px-2 py-1.5 text-stone-500">
+          <span className="text-sm">📊</span>
+          <span className="text-xs">{text.replace("📊", "").trim()}</span>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💡 ПОДСКАЗКА — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("💡") || text.includes("Истина где-то рядом")) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="mb-3"
+      >
+        <div className="flex items-center gap-2 px-3 py-2 border-l-2 border-amber-600/40">
+          <span className="text-sm">💡</span>
+          <span className="text-xs text-amber-400/70 italic">{text.replace("💡", "").trim()}</span>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔍 ПУСТОЕ СОСТОЯНИЕ — DETECTIVE DOSSIER 2025
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (text.includes("Пока ничего не найдено") || text.includes("Контактов пока нет") || text.includes("Недостаточно данных") || text.includes("👤 Контактов")) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-4"
+      >
+        <div className="py-6 text-center border border-dashed border-stone-800 rounded-lg">
+          <span className="text-2xl opacity-30">🔍</span>
+          <p className="text-xs text-stone-600 mt-2">{text.replace(/🔍|👤/g, "").trim()}</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEFAULT — обычный текст журнала
+  // ═══════════════════════════════════════════════════════════════════════════
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="mb-1.5"
+    >
+      <p className="text-sm text-stone-400 whitespace-pre-line leading-relaxed">{text}</p>
+    </motion.div>
+  );
+}
+
 function ParagraphRenderer({
   text,
   tags,
   mood,
   isAnimated = false,
+  isJournalMode = false,
 }: {
   text: string;
   tags: string[];
   mood: MoodType;
   isAnimated?: boolean;
+  isJournalMode?: boolean;
 }) {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 📋 ЖУРНАЛ СЛЕДОВАТЕЛЯ — ПРИОРИТЕТ ЕСЛИ ВКЛЮЧЁН РЕЖИМ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isJournalMode) {
+    return <JournalRenderer text={text} tags={tags} />;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ОПРЕДЕЛЕНИЕ ТИПА КОНТЕНТА
   // ═══════════════════════════════════════════════════════════════════════════
-  
+
   const speakerTag = getTagValue(tags, "speaker");
   const speaker = typeof speakerTag === "string" ? speakerTag : null;
   const config = speaker ? SPEAKER_CONFIG[speaker] : null;
-  
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ЧАТ-СООБЩЕНИЯ — ПРИОРИТЕТ НАД ВСЕМ! (должно быть в самом начале)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1804,7 +2866,7 @@ function ParagraphRenderer({
   // Поддержка: style, intensity, effect, color
   // Пример: # style:horror # intensity:high # effect:shake
   // ═══════════════════════════════════════════════════════════════════════════
-  
+
   const styleTag = getTagValue(tags, "style");
   const narrativeStyle = typeof styleTag === "string" ? styleTag : null;
   

@@ -35,6 +35,7 @@ export type InkState = {
   tags: string[];
   // Новые поля для Red Forest
   sanity?: number;
+  infectionLevel?: number;
   daysRemaining?: number;
   chapter?: number;
 };
@@ -57,6 +58,7 @@ export type ExternalFunctionHandler = (...args: unknown[]) => unknown;
 export const RED_FOREST_VARIABLES = [
   // Основные
   "sanity",
+  "infection_level",
   "days_remaining",
   "current_day",
   "chapter",
@@ -303,6 +305,9 @@ export class InkRunner {
    */
   continue(): InkState {
     this.collectedParagraphs = [];
+    
+    // Храним теги от пустых строк чтобы не терять их
+    let pendingTags: string[] = [];
 
     // Продолжаем пока можем
     while (this.story.canContinue) {
@@ -310,11 +315,22 @@ export class InkRunner {
       const tags = this.story.currentTags || [];
 
       if (text && text.trim()) {
+        // Добавляем параграф с тегами (включая накопленные от пустых строк)
         this.collectedParagraphs.push({
           text: text.trim(),
-          tags: [...tags],
+          tags: [...pendingTags, ...tags],
         });
+        pendingTags = []; // Сбрасываем накопленные теги
+      } else if (tags.length > 0) {
+        // Сохраняем теги от пустых строк для следующего параграфа
+        pendingTags.push(...tags);
       }
+    }
+    
+    // Если остались теги без текста, добавляем их к последнему параграфу
+    if (pendingTags.length > 0 && this.collectedParagraphs.length > 0) {
+      const lastParagraph = this.collectedParagraphs[this.collectedParagraphs.length - 1];
+      lastParagraph.tags = [...lastParagraph.tags, ...pendingTags];
     }
 
     return this.getState();
@@ -356,6 +372,7 @@ export class InkRunner {
       tags: [...new Set([...allTags, ...globalTags])],
       // Red Forest специфичные поля
       sanity: variables.sanity as number | undefined,
+      infectionLevel: variables.infection_level as number | undefined,
       daysRemaining: variables.days_remaining as number | undefined,
       chapter: variables.chapter as number | undefined,
     };
@@ -428,7 +445,12 @@ export class InkRunner {
    * Сохранить состояние
    */
   saveState(): string {
-    return this.story.state.toJson();
+    try {
+      return this.story.state.toJson();
+    } catch (error) {
+      console.warn("[InkRunner] Failed to save state, returning empty state:", error);
+      return "{}";
+    }
   }
 
   /**
