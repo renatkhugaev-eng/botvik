@@ -294,11 +294,154 @@ const ARTIFACTS_INFO: Record<string, ClueInfo> = {
   // artifact_original_map — не используется в истории
 };
 
+// PhysicalClues — вещественные улики из CluesA-E (Ink LIST)
+const PHYSICAL_CLUES_INFO: Record<string, ClueInfo> = {
+  // CluesA
+  missing_list: {
+    name: "Список пропавших",
+    description: "Официальный список пропавших жителей. Имена вычеркнуты, но можно разобрать даты исчезновений.",
+    category: "evidence",
+    icon: "📋",
+    importance: "major",
+  },
+  false_reports: {
+    name: "Ложные рапорты",
+    description: "Документы с фальсифицированными данными о расследованиях. Кто-то системно скрывает правду.",
+    category: "evidence",
+    icon: "📝",
+    importance: "major",
+  },
+  witness_conflict: {
+    name: "Противоречия свидетелей",
+    description: "Показания свидетелей не сходятся. Либо они лгут, либо что-то влияет на их память.",
+    category: "evidence",
+    icon: "❓",
+    importance: "minor",
+  },
+  // CluesB
+  echo_docs: {
+    name: "Документы Проекта Эхо",
+    description: "Секретные документы о советских экспериментах. Упоминания 'контакта' и 'открытия двери'.",
+    category: "evidence",
+    icon: "📂",
+    importance: "critical",
+  },
+  experiment_records: {
+    name: "Записи экспериментов",
+    description: "Лабораторные журналы с результатами опытов. Многие страницы вырваны или зачёркнуты.",
+    category: "evidence",
+    icon: "🧪",
+    importance: "major",
+  },
+  underground_map: {
+    name: "Карта подземелий",
+    description: "Схема туннелей под городом. Некоторые проходы отмечены красным — 'не входить'.",
+    category: "evidence",
+    icon: "🗺️",
+    importance: "critical",
+  },
+  access_pass: {
+    name: "Пропуск доступа",
+    description: "Старый служебный пропуск. Открывает двери, которые официально не существуют.",
+    category: "evidence",
+    icon: "🔑",
+    importance: "major",
+  },
+  // CluesC
+  cult_symbol: {
+    name: "Символ культа",
+    description: "Спираль с тремя лучами. Древний знак, который встречается повсюду.",
+    category: "evidence",
+    icon: "⭕",
+    importance: "major",
+  },
+  chernov_diary: {
+    name: "Дневник Чернова",
+    description: "Личные записи главы культа. Безумие или откровение? Грань размыта.",
+    category: "evidence",
+    icon: "📖",
+    importance: "critical",
+  },
+  ritual_photos: {
+    name: "Фото ритуалов",
+    description: "Снимки тайных церемоний. Лица участников скрыты масками.",
+    category: "evidence",
+    icon: "📷",
+    importance: "critical",
+  },
+  insider_testimony: {
+    name: "Показания инсайдера",
+    description: "Записанные показания бывшего члена культа. Он знает слишком много.",
+    category: "evidence",
+    icon: "🗣️",
+    importance: "critical",
+  },
+  // CluesD
+  expedition_1890: {
+    name: "Экспедиция 1890",
+    description: "Материалы о первой научной экспедиции. Они что-то нашли в лесу.",
+    category: "evidence",
+    icon: "📜",
+    importance: "major",
+  },
+  serafim_legends: {
+    name: "Легенды Серафима",
+    description: "Записи старого священника о местных преданиях. Правда скрыта в мифах.",
+    category: "evidence",
+    icon: "⛪",
+    importance: "major",
+  },
+  church_symbols: {
+    name: "Символы в церкви",
+    description: "Древние знаки, скрытые под слоем краски в старой церкви.",
+    category: "evidence",
+    icon: "✝️",
+    importance: "minor",
+  },
+  // CluesE
+  klava_testimony: {
+    name: "Показания Клавы",
+    description: "Буфетчица видела и слышала многое. Её память — кладезь информации.",
+    category: "evidence",
+    icon: "👩‍🍳",
+    importance: "major",
+  },
+  fyodor_map: {
+    name: "Карта Фёдора",
+    description: "Охотник знает лес лучше всех. Его карта показывает тайные тропы.",
+    category: "evidence",
+    icon: "🗺️",
+    importance: "major",
+  },
+  gromov_confession: {
+    name: "Признание Громова",
+    description: "Майор наконец заговорил. Его показания меняют всё.",
+    category: "evidence",
+    icon: "👮",
+    importance: "critical",
+  },
+  vera_research: {
+    name: "Исследования Веры",
+    description: "Научные записи молодого врача. Она близка к разгадке болезни.",
+    category: "evidence",
+    icon: "🔬",
+    importance: "major",
+  },
+  old_photos: {
+    name: "Старые фотографии",
+    description: "Снимки 50-летней давности. На них — знакомые лица в непривычных обстоятельствах.",
+    category: "evidence",
+    icon: "📷",
+    importance: "minor",
+  },
+};
+
 // Объединённый справочник всех улик
 const ALL_CLUES_INFO: Record<string, ClueInfo> = {
   ...CULT_LORE_INFO,
   ...KEY_EVENTS_INFO,
   ...ARTIFACTS_INFO,
+  ...PHYSICAL_CLUES_INFO,
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -323,7 +466,14 @@ export default function InvestigationPage() {
   const [currentSanity, setCurrentSanity] = useState(100); // Текущий рассудок
   const [currentInfection, setCurrentInfection] = useState(0); // Текущее заражение
   const [currentReputation, setCurrentReputation] = useState(0); // Репутация города
-  const [showCluesModal, setShowCluesModal] = useState(false); // Модальное окно улик
+  const [showJournalModal, setShowJournalModal] = useState(false); // Модальное окно журнала
+  // Дополнительные переменные для журнала
+  const [currentDay, setCurrentDay] = useState(1);
+  const [timeOfDay, setTimeOfDay] = useState(0); // 0=Утро, 1=День, 2=Вечер, 3=Ночь
+  const [cultAwareness, setCultAwareness] = useState(0);
+  const [investigationStyle, setInvestigationStyle] = useState("balanced"); // aggressive, diplomatic, balanced
+  const [metCharacters, setMetCharacters] = useState<Set<string>>(new Set());
+  const [inventory, setInventory] = useState<Set<string>>(new Set(["item_flashlight", "item_gun", "item_notebook"])); // Начальный инвентарь
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
   const evidenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -711,9 +861,99 @@ export default function InvestigationPage() {
     if (name === "city_reputation" && typeof value === "number") {
       setCurrentReputation(value);
     }
+    
+    // Дополнительные переменные для журнала
+    if (name === "current_day" && typeof value === "number") {
+      setCurrentDay(value);
+    }
+    if (name === "time_of_day" && typeof value === "number") {
+      setTimeOfDay(value);
+    }
+    if (name === "cult_awareness" && typeof value === "number") {
+      setCultAwareness(value);
+    }
+    if (name === "investigation_style" && typeof value === "number") {
+      // Положительные = aggressive, отрицательные = diplomatic, около 0 = balanced
+      if (value >= 10) {
+        setInvestigationStyle("aggressive");
+      } else if (value <= -10) {
+        setInvestigationStyle("diplomatic");
+      } else {
+        setInvestigationStyle("balanced");
+      }
+    }
+    
+    // Отслеживаем встреченных персонажей через LIST MetCharacters
+    if (name === "MetCharacters") {
+      let items: string[] = [];
+      if (typeof value === "string") {
+        items = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      } else if (value && typeof value === "object") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inkList = value as any;
+        if (typeof inkList.toString === "function") {
+          const str = String(inkList);
+          if (str && str !== "[object Object]") {
+            items = str.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          }
+        }
+        // Способ 2: проверяем _items
+        if (items.length === 0 && inkList._items && typeof inkList._items === "object") {
+          items = Object.keys(inkList._items).map(key => {
+            const parts = key.split(".");
+            return parts[parts.length - 1];
+          });
+        }
+      }
+      if (items.length > 0) {
+        setMetCharacters(new Set(items.map(item => item.includes(".") ? item.split(".").pop()! : item)));
+      }
+    }
+    
+    // Fallback: отслеживаем отдельные флаги met_* (на случай если LIST не работает)
+    if (name.startsWith("met_") && value === true) {
+      const charName = name.replace("met_", "");
+      setMetCharacters(prev => {
+        const newSet = new Set(prev);
+        newSet.add(charName);
+        return newSet;
+      });
+    }
+
+    // Отслеживаем инвентарь
+    if (name === "inventory") {
+      let items: string[] = [];
+      if (typeof value === "string") {
+        items = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      } else if (value && typeof value === "object") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inkList = value as any;
+        if (typeof inkList.toString === "function") {
+          const str = String(inkList);
+          if (str && str !== "[object Object]") {
+            items = str.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          }
+        }
+        // Также проверяем keys для InkList
+        if (items.length === 0 && inkList.entries) {
+          try {
+            for (const [key] of inkList.entries()) {
+              if (typeof key === "string") items.push(key);
+            }
+          } catch { /* ignore */ }
+        }
+      }
+      if (items.length > 0) {
+        setInventory(new Set(items.map(item => item.includes(".") ? item.split(".").pop()! : item)));
+      } else {
+        // Пустой инвентарь
+        setInventory(new Set());
+      }
+    }
 
     // Отслеживаем улики из Ink LIST переменных
-    if (name === "CultLore" || name === "KeyEvents" || name === "AncientArtifacts") {
+    if (name === "CultLore" || name === "KeyEvents" || name === "AncientArtifacts" || 
+        name === "CluesA" || name === "CluesB" || name === "CluesC" || name === "CluesD" || name === "CluesE") {
       let items: string[] = [];
       
       // InkList может приходить в разных форматах
@@ -867,7 +1107,7 @@ export default function InvestigationPage() {
         episodeNum={currentChapter}
         onBack={handleBackToEpisodes}
         onSaveClick={() => setShowSaveMenu(true)}
-        onCluesClick={() => setShowCluesModal(true)}
+        onCluesClick={() => setShowJournalModal(true)}
         isMusicPlaying={isMusicPlaying}
         onMusicToggle={toggleMusic}
         sanity={currentSanity}
@@ -1007,12 +1247,21 @@ export default function InvestigationPage() {
         )}
       </AnimatePresence>
       
-      {/* Модальное окно улик */}
+      {/* Модальное окно журнала */}
       <AnimatePresence>
-        {showCluesModal && (
-          <CluesModal
+        {showJournalModal && (
+          <JournalModal
             foundClues={foundClues}
-            onClose={() => setShowCluesModal(false)}
+            metCharacters={metCharacters}
+            inventory={inventory}
+            sanity={currentSanity}
+            infection={currentInfection}
+            reputation={currentReputation}
+            currentDay={currentDay}
+            timeOfDay={timeOfDay}
+            cultAwareness={cultAwareness}
+            investigationStyle={investigationStyle}
+            onClose={() => setShowJournalModal(false)}
           />
         )}
       </AnimatePresence>
@@ -1055,43 +1304,151 @@ export default function InvestigationPage() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// МОДАЛЬНОЕ ОКНО УЛИК
+// ЖУРНАЛ СЛЕДОВАТЕЛЯ — Detective Dossier 2025
 // ══════════════════════════════════════════════════════════════════════════════
 
-function CluesModal({
+// Информация о персонажах
+const CHARACTERS_INFO: Record<string, { name: string; role: string; emoji: string }> = {
+  gromov: { name: "Степан Громов", role: "Майор милиции", emoji: "👮" },
+  vera: { name: "Вера Климова", role: "Молодой врач", emoji: "👩‍⚕️" },
+  serafim: { name: "Отец Серафим", role: "Священник", emoji: "⛪" },
+  tanya: { name: "Таня", role: "Официантка", emoji: "👩" },
+  astahov: { name: "Астахов", role: "Глава администрации", emoji: "🏛️" },
+  chernov: { name: "Чернов", role: "Лидер культа", emoji: "🕵️" },
+  klava: { name: "Клава", role: "Буфетчица", emoji: "👩‍🍳" },
+  fyodor: { name: "Фёдор", role: "Охотник", emoji: "🧔" },
+};
+
+// Информация о предметах инвентаря
+const INVENTORY_INFO: Record<string, { name: string; description: string; icon: string; category: "tool" | "consumable" | "document" }> = {
+  item_flashlight: {
+    name: "Фонарик",
+    description: "Карманный фонарик. Незаменим в тёмных местах.",
+    icon: "🔦",
+    category: "tool",
+  },
+  item_gun: {
+    name: "Табельное оружие",
+    description: "Пистолет Макарова. Последний аргумент следователя.",
+    icon: "🔫",
+    category: "tool",
+  },
+  item_notebook: {
+    name: "Блокнот",
+    description: "Записная книжка с заметками по делу.",
+    icon: "📓",
+    category: "document",
+  },
+  item_camera: {
+    name: "Фотоаппарат",
+    description: "Для фиксации улик и вещественных доказательств.",
+    icon: "📷",
+    category: "tool",
+  },
+  item_lockpick: {
+    name: "Набор отмычек",
+    description: "Старые, потёртые, но рабочие. От Фёдора.",
+    icon: "🔧",
+    category: "tool",
+  },
+  item_vodka: {
+    name: "Бутылка водки",
+    description: "\"Столичная\". Иногда язык развязывается только так.",
+    icon: "🍾",
+    category: "consumable",
+  },
+  item_medicine: {
+    name: "Успокоительное",
+    description: "Седативное от Веры. Восстанавливает рассудок.",
+    icon: "💊",
+    category: "consumable",
+  },
+};
+
+function JournalModal({
   foundClues,
+  metCharacters,
+  inventory,
+  sanity,
+  infection,
+  reputation,
+  currentDay,
+  timeOfDay,
+  cultAwareness,
+  investigationStyle,
   onClose,
 }: {
   foundClues: Set<string>;
+  metCharacters: Set<string>;
+  inventory: Set<string>;
+  sanity: number;
+  infection: number;
+  reputation: number;
+  currentDay: number;
+  timeOfDay: number;
+  cultAwareness: number;
+  investigationStyle: string;
   onClose: () => void;
 }) {
-  const [selectedClue, setSelectedClue] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<"all" | "lore" | "event" | "artifact">("all");
+  const [activeTab, setActiveTab] = useState<"main" | "clues" | "contacts" | "theories" | "inventory">("main");
+
+  const timeNames = ["Утро", "День", "Вечер", "Ночь"];
+  const totalDays = 5;
 
   // Группируем улики по категориям
   const cluesByCategory = {
-    lore: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "lore"),
+    evidence: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "evidence"),
     event: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "event"),
+    lore: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "lore"),
     artifact: Array.from(foundClues).filter(id => ALL_CLUES_INFO[id]?.category === "artifact"),
   };
 
-  const filteredClues = activeCategory === "all" 
-    ? Array.from(foundClues).filter(id => ALL_CLUES_INFO[id])
-    : cluesByCategory[activeCategory];
-
-  const selectedClueInfo = selectedClue ? ALL_CLUES_INFO[selectedClue] : null;
-
-  const categoryLabels = {
-    all: { label: "Все", icon: "📋" },
-    lore: { label: "Знания", icon: "📜" },
-    event: { label: "События", icon: "⚡" },
-    artifact: { label: "Артефакты", icon: "🏺" },
+  const getReputationStatus = (val: number) => {
+    if (val >= 50) return { text: "СОЮЗНИК", color: "text-emerald-400" };
+    if (val >= 20) return { text: "Доверяют", color: "text-green-400" };
+    if (val <= -50) return { text: "ВРАГ", color: "text-red-400" };
+    if (val <= -20) return { text: "Подозревают", color: "text-orange-400" };
+    return { text: "Нейтрально", color: "text-stone-400" };
   };
 
-  const importanceColors = {
-    minor: "border-white/20 bg-white/5",
-    major: "border-amber-400/30 bg-amber-500/10",
-    critical: "border-red-400/30 bg-red-500/10",
+  const repStatus = getReputationStatus(reputation);
+
+  const styleConfig = {
+    aggressive: { emoji: "⚔️", name: "Агрессивный", color: "text-red-400" },
+    diplomatic: { emoji: "🤝", name: "Дипломатичный", color: "text-blue-400" },
+    balanced: { emoji: "⚖️", name: "Сбалансированный", color: "text-stone-400" },
+  };
+
+  const style = styleConfig[investigationStyle as keyof typeof styleConfig] || styleConfig.balanced;
+
+  // Circular Progress component
+  const CircularProgress = ({ value, color, label, icon }: { value: number; color: string; label: string; icon: string }) => {
+    const circumference = 2 * Math.PI * 18;
+    const strokeDashoffset = circumference - (value / 100) * circumference;
+    
+    return (
+      <div className="flex flex-col items-center">
+        <div className="relative w-14 h-14">
+          <svg className="w-14 h-14 -rotate-90" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="3" className="text-stone-800" />
+            <motion.circle 
+              cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="3" 
+              className={color}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-lg">{icon}</span>
+          </div>
+        </div>
+        <p className="text-[10px] text-stone-500 mt-1.5 uppercase tracking-wider">{label}</p>
+        <p className="text-sm font-semibold text-stone-300">{value}%</p>
+      </div>
+    );
   };
 
   return (
@@ -1099,210 +1456,602 @@ function CluesModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
       
       {/* Modal */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        initial={{ y: 50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 50, opacity: 0 }}
         className="
-          relative w-full max-w-lg max-h-[85vh]
-          rounded-3xl overflow-hidden
-          bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a]
-          border border-white/10
-          shadow-[0_24px_64px_rgba(0,0,0,0.5)]
+          relative w-full max-w-md h-[90vh] sm:h-[85vh] sm:max-h-[700px]
+          rounded-t-3xl sm:rounded-3xl overflow-hidden
+          bg-gradient-to-b from-stone-900 to-stone-950
+          border border-stone-800
           flex flex-col
         "
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🔍</span>
-              <div>
-                <h2 className="text-lg font-bold text-white">Досье расследования</h2>
-                <p className="text-xs text-white/50">Найдено улик: {foundClues.size}</p>
+        {/* Header — Detective Dossier Style */}
+        <div className="px-4 py-4 border-b border-stone-800 relative">
+          {/* Blood splatter */}
+          <div className="absolute -top-2 right-8 w-6 h-6 opacity-20">
+            <svg viewBox="0 0 100 100" className="w-full h-full text-red-600">
+              <circle cx="50" cy="50" r="20" fill="currentColor" />
+              <circle cx="75" cy="30" r="8" fill="currentColor" />
+            </svg>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Agent Photo */}
+            <div className="relative flex-shrink-0">
+              <div className="w-16 h-20 rounded border border-stone-700/50 overflow-hidden bg-stone-900 shadow-lg">
+                <img 
+                  src="/avatars/sorokin.webp" 
+                  alt="Сорокин А.В."
+                  className="w-full h-full object-cover grayscale-[20%] contrast-[1.1]"
+                />
+              </div>
+              {/* Clip effect */}
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-stone-600 rounded-sm shadow" />
+              {/* Stamp corner */}
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-red-900/40 flex items-center justify-center bg-stone-950/80">
+                <span className="text-[6px] text-red-700/70 font-bold">СКР</span>
               </div>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={onClose}
-              className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20"
-            >
-              ✕
-            </motion.button>
+            
+            {/* Agent Info */}
+            <div className="flex-1 text-left space-y-0.5">
+              <p className="text-[9px] tracking-[0.3em] text-red-700/50 uppercase">
+                Секретно • Дело №1991-RF
+              </p>
+              <h2 className="text-lg font-light text-stone-100 tracking-wide">
+                СОРОКИН А.В.
+              </h2>
+              <p className="text-[10px] text-stone-500 font-light">
+                Следователь по особо важным делам
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="h-px flex-1 bg-gradient-to-r from-red-900/30 to-transparent" />
+                <span className="text-red-800/40 text-[8px]">◆</span>
+              </div>
+            </div>
           </div>
+          
+          {/* Close button */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={onClose}
+            className="absolute right-4 top-4 w-8 h-8 rounded-lg bg-stone-800/50 flex items-center justify-center text-stone-500 hover:bg-stone-800"
+          >
+            ✕
+          </motion.button>
+        </div>
 
-          {/* Category tabs */}
-          <div className="flex gap-2 mt-4">
-            {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`
-                  px-3 py-1.5 rounded-lg text-xs font-medium
-                  flex items-center gap-1.5
-                  transition-all
-                  ${activeCategory === cat 
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-400/20" 
-                    : "bg-white/5 text-white/50 border border-white/5 hover:bg-white/10"
-                  }
-                `}
-              >
-                <span>{categoryLabels[cat].icon}</span>
-                <span>{categoryLabels[cat].label}</span>
-                {cat !== "all" && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded bg-black/30 text-[10px]">
-                    {cluesByCategory[cat].length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-stone-800 overflow-x-auto">
+          {[
+            { id: "main", label: "Обзор", icon: "📋" },
+            { id: "inventory", label: "Снаряжение", icon: "🎒", count: inventory.size },
+            { id: "clues", label: "Улики", icon: "🔍", count: foundClues.size },
+            { id: "contacts", label: "Контакты", icon: "👥", count: metCharacters.size },
+            { id: "theories", label: "Версии", icon: "💭" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              className={`
+                flex-1 px-2 py-2.5 text-xs font-medium
+                flex items-center justify-center gap-1
+                transition-all border-b-2
+                ${activeTab === tab.id 
+                  ? "text-amber-400 border-amber-500 bg-amber-500/5" 
+                  : "text-stone-500 border-transparent hover:text-stone-300"
+                }
+              `}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded bg-stone-800 text-[10px]">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden flex">
-          {/* Clue list */}
-          <div className="w-1/2 border-r border-white/10 overflow-y-auto">
-            {filteredClues.length === 0 ? (
-              <div className="p-6 text-center text-white/40">
-                <span className="text-3xl mb-2 block">🔎</span>
-                <p className="text-sm">Улики не найдены</p>
-                <p className="text-xs mt-1">Исследуйте историю, чтобы обнаружить их</p>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          
+          {/* ═══ MAIN TAB ═══ */}
+          {activeTab === "main" && (
+            <>
+              {/* Day & Time */}
+              <div className="relative">
+                <div className="absolute -left-2 top-0 w-1 h-4 bg-gradient-to-b from-red-800/40 to-transparent rounded-full" />
+                <div className="flex items-center gap-1 mb-3">
+                  {Array.from({ length: totalDays }).map((_, i) => (
+                    <motion.div 
+                      key={i}
+                      className={`h-1.5 flex-1 rounded-full ${i < currentDay ? "bg-gradient-to-r from-amber-600 to-red-700/80" : "bg-stone-800"}`}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ delay: i * 0.1, duration: 0.3 }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-stone-800/80 flex items-center justify-center">
+                      <span className="text-base">📅</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-stone-500 uppercase tracking-wider">День расследования</p>
+                      <p className="text-lg font-semibold text-stone-200">{currentDay} <span className="text-stone-600 font-normal">из {totalDays}</span></p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-stone-500 uppercase tracking-wider">Время</p>
+                    <p className="text-sm text-stone-300">{timeNames[timeOfDay] || "День"}</p>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="p-2 space-y-1">
-                {filteredClues.map((clueId) => {
-                  const info = ALL_CLUES_INFO[clueId];
-                  if (!info) return null;
-                  
-                  return (
-                    <motion.button
-                      key={clueId}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        investigationHaptic.evidenceSelect();
-                        setSelectedClue(clueId);
-                      }}
-                      className={`
-                        w-full p-3 rounded-xl text-left
-                        border transition-all
-                        ${selectedClue === clueId 
-                          ? "bg-amber-500/20 border-amber-400/30" 
-                          : `${importanceColors[info.importance]} hover:bg-white/10`
-                        }
-                      `}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <span className="text-lg">{info.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-white/90 truncate">
-                            {info.name}
+
+              {/* Stats */}
+              <div>
+                <div className="flex items-center gap-2 mb-4 relative">
+                  <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-red-900/30" />
+                  <span className="text-[10px] text-stone-600 uppercase tracking-[0.2em]">Состояние агента</span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-stone-800 to-red-900/30" />
+                  <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-2 bg-red-800/40 rounded-full" />
+                </div>
+                <div className="flex justify-around mb-4">
+                  <CircularProgress 
+                    value={sanity} 
+                    color={sanity > 50 ? "text-teal-400" : sanity > 25 ? "text-yellow-400" : "text-red-400"} 
+                    label="Рассудок" 
+                    icon="🧠" 
+                  />
+                  <CircularProgress 
+                    value={infection} 
+                    color={infection < 30 ? "text-stone-500" : infection < 60 ? "text-violet-400" : "text-red-400"} 
+                    label="Заражение" 
+                    icon="☣️" 
+                  />
+                  <CircularProgress 
+                    value={cultAwareness} 
+                    color="text-purple-400" 
+                    label="Осведомл." 
+                    icon="👁️" 
+                  />
+                </div>
+                <div className="flex items-center justify-center gap-3 py-2 border-t border-stone-800">
+                  <span className="text-lg">🔍</span>
+                  <span className="text-xs text-stone-500 uppercase tracking-wider">Собрано улик:</span>
+                  <span className="text-lg font-bold text-amber-400">{foundClues.size}</span>
+                </div>
+              </div>
+
+              {/* Reputation */}
+              <div className={`border rounded-lg overflow-hidden ${reputation <= -20 ? "border-red-900/50" : "border-stone-800"}`}>
+                <div className={`flex items-center justify-between px-3 py-2 border-b ${reputation <= -20 ? "bg-red-950/30 border-red-900/30" : "bg-stone-900/50 border-stone-800"}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏘️</span>
+                    <span className="text-xs text-stone-400 uppercase tracking-wider">Репутация в городе</span>
+                  </div>
+                  <span className={`text-xs font-bold ${repStatus.color}`}>{repStatus.text}</span>
+                </div>
+                <div className="p-3">
+                  <div className="flex items-center gap-4">
+                    <span className={`text-2xl font-bold tabular-nums ${repStatus.color}`}>
+                      {reputation > 0 ? `+${reputation}` : reputation}
+                    </span>
+                    <div className="flex-1">
+                      <div className="h-2 rounded-full bg-stone-800 relative overflow-hidden">
+                        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-stone-600 -translate-x-1/2 z-10" />
+                        <motion.div 
+                          className={`absolute h-full rounded-full ${reputation >= 0 ? "bg-green-500" : "bg-red-500"}`}
+                          initial={{ width: 0 }}
+                          animate={{ 
+                            width: `${Math.min(Math.abs(reputation), 100) / 2}%`,
+                            left: reputation >= 0 ? '50%' : undefined,
+                            right: reputation < 0 ? '50%' : undefined,
+                          }}
+                          transition={{ duration: 0.6 }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1 px-0.5">
+                        <span className="text-[9px] text-red-500/50">−100</span>
+                        <span className="text-[9px] text-stone-600">0</span>
+                        <span className="text-[9px] text-emerald-500/50">+100</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Investigation Style */}
+              <div className="flex items-center justify-between px-4 py-3 border border-stone-800 rounded-lg bg-stone-900/30">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">{style.emoji}</span>
+                  <div>
+                    <p className="text-[10px] text-stone-600 uppercase tracking-[0.15em]">Метод допроса</p>
+                    <p className={`text-sm font-medium ${style.color}`}>{style.name}</p>
+                  </div>
+                </div>
+                <div className="w-2 h-2 rounded-full bg-red-800/60 animate-pulse" />
+              </div>
+            </>
+          )}
+
+          {/* ═══ INVENTORY TAB ═══ */}
+          {activeTab === "inventory" && (
+            <>
+              <div className="text-center space-y-2 mb-4">
+                <p className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase">Личные вещи • Снаряжение</p>
+                <h3 className="text-xl font-light text-stone-100 tracking-[0.15em]">ИНВЕНТАРЬ АГЕНТА</h3>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-px w-8 bg-gradient-to-r from-transparent to-red-900/50" />
+                  <span className="text-red-800/60 text-xs">🎒</span>
+                  <div className="h-px w-8 bg-gradient-to-l from-transparent to-red-900/50" />
+                </div>
+              </div>
+
+              {inventory.size === 0 ? (
+                <div className="py-8 text-center border border-dashed border-stone-800 rounded-lg">
+                  <span className="text-2xl opacity-30">🎒</span>
+                  <p className="mt-2 text-sm text-stone-600">Инвентарь пуст</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Инструменты */}
+                  {Array.from(inventory).filter(id => INVENTORY_INFO[id]?.category === "tool").length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-stone-500 uppercase tracking-wider">
+                        <span>🔧</span>
+                        <span>Инструменты</span>
+                        <div className="flex-1 h-px bg-stone-800" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Array.from(inventory)
+                          .filter(id => INVENTORY_INFO[id]?.category === "tool")
+                          .map(itemId => {
+                            const item = INVENTORY_INFO[itemId];
+                            if (!item) return null;
+                            return (
+                              <div
+                                key={itemId}
+                                className="relative p-3 rounded-lg border border-stone-800 bg-stone-900/50 hover:bg-stone-800/50 transition-colors"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xl">{item.icon}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-stone-200 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-stone-500 line-clamp-2">{item.description}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Расходники */}
+                  {Array.from(inventory).filter(id => INVENTORY_INFO[id]?.category === "consumable").length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-stone-500 uppercase tracking-wider">
+                        <span>💊</span>
+                        <span>Расходные материалы</span>
+                        <div className="flex-1 h-px bg-stone-800" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Array.from(inventory)
+                          .filter(id => INVENTORY_INFO[id]?.category === "consumable")
+                          .map(itemId => {
+                            const item = INVENTORY_INFO[itemId];
+                            if (!item) return null;
+                            return (
+                              <div
+                                key={itemId}
+                                className="relative p-3 rounded-lg border border-amber-900/30 bg-amber-950/20 hover:bg-amber-900/20 transition-colors"
+                              >
+                                <div className="absolute top-1 right-1">
+                                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-800/40 text-amber-400">Можно использовать</span>
+                                </div>
+                                <div className="flex items-start gap-2 mt-3">
+                                  <span className="text-xl">{item.icon}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-amber-200 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-stone-500 line-clamp-2">{item.description}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Документы */}
+                  {Array.from(inventory).filter(id => INVENTORY_INFO[id]?.category === "document").length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-stone-500 uppercase tracking-wider">
+                        <span>📄</span>
+                        <span>Документы</span>
+                        <div className="flex-1 h-px bg-stone-800" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Array.from(inventory)
+                          .filter(id => INVENTORY_INFO[id]?.category === "document")
+                          .map(itemId => {
+                            const item = INVENTORY_INFO[itemId];
+                            if (!item) return null;
+                            return (
+                              <div
+                                key={itemId}
+                                className="relative p-3 rounded-lg border border-stone-700 bg-stone-900/50 hover:bg-stone-800/50 transition-colors"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xl">{item.icon}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-stone-300 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-stone-500 line-clamp-2">{item.description}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Подсказка */}
+              <div className="mt-4 p-3 rounded-lg border border-stone-800/50 bg-stone-900/30">
+                <p className="text-[10px] text-stone-500 text-center">
+                  💡 Предметы можно использовать в диалогах и при исследовании локаций
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ═══ CLUES TAB ═══ */}
+          {activeTab === "clues" && (
+            <>
+              <div className="text-center space-y-2 mb-4">
+                <p className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase">Раздел дела • Вещдоки</p>
+                <h3 className="text-xl font-light text-stone-100 tracking-[0.15em]">СОБРАННЫЕ УЛИКИ</h3>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-px w-8 bg-gradient-to-r from-transparent to-red-900/50" />
+                  <span className="text-red-800/60 text-xs">📁</span>
+                  <div className="h-px w-8 bg-gradient-to-l from-transparent to-red-900/50" />
+                </div>
+              </div>
+
+              {foundClues.size === 0 ? (
+                <div className="py-8 text-center border border-dashed border-stone-800 rounded-lg">
+                  <span className="text-2xl opacity-30">🔍</span>
+                  <p className="text-xs text-stone-600 mt-2">Пока ничего не найдено</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Evidence */}
+                  {cluesByCategory.evidence.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-2 mt-4">
+                        <span className="text-base">🔍</span>
+                        <span className="text-xs font-medium uppercase tracking-[0.15em] text-amber-400">Вещдоки</span>
+                        <div className="flex-1 h-px bg-stone-800 ml-2" />
+                      </div>
+                      {cluesByCategory.evidence.map(id => {
+                        const info = ALL_CLUES_INFO[id];
+                        if (!info) return null;
+                        return (
+                          <div key={id} className="pl-4 py-2 border-l-2 border-stone-700">
+                            <div className="flex items-start gap-3">
+                              <span className="text-base">{info.icon}</span>
+                              <div>
+                                <h4 className="text-sm font-medium text-stone-200">{info.name}</h4>
+                                <p className="text-xs text-stone-500 mt-0.5">{info.description.slice(0, 80)}...</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-[10px] text-white/40 mt-0.5">
-                            {info.importance === "critical" && "🔴 Критическая улика"}
-                            {info.importance === "major" && "🟡 Важная улика"}
-                            {info.importance === "minor" && "⚪ Улика"}
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Events */}
+                  {cluesByCategory.event.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-2 mt-4">
+                        <span className="text-base">⚡</span>
+                        <span className="text-xs font-medium uppercase tracking-[0.15em] text-blue-400">События</span>
+                        <div className="flex-1 h-px bg-stone-800 ml-2" />
+                      </div>
+                      {cluesByCategory.event.map(id => {
+                        const info = ALL_CLUES_INFO[id];
+                        if (!info) return null;
+                        return (
+                          <div key={id} className="pl-4 py-2 border-l-2 border-stone-700">
+                            <div className="flex items-start gap-3">
+                              <span className="text-base">{info.icon}</span>
+                              <div>
+                                <h4 className="text-sm font-medium text-stone-200">{info.name}</h4>
+                                <p className="text-xs text-stone-500 mt-0.5">{info.description.slice(0, 80)}...</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Lore */}
+                  {cluesByCategory.lore.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-2 mt-4">
+                        <span className="text-base">📜</span>
+                        <span className="text-xs font-medium uppercase tracking-[0.15em] text-violet-400">Знания</span>
+                        <div className="flex-1 h-px bg-stone-800 ml-2" />
+                      </div>
+                      {cluesByCategory.lore.map(id => {
+                        const info = ALL_CLUES_INFO[id];
+                        if (!info) return null;
+                        return (
+                          <div key={id} className="pl-4 py-2 border-l-2 border-stone-700">
+                            <div className="flex items-start gap-3">
+                              <span className="text-base">{info.icon}</span>
+                              <div>
+                                <h4 className="text-sm font-medium text-stone-200">{info.name}</h4>
+                                <p className="text-xs text-stone-500 mt-0.5">{info.description.slice(0, 80)}...</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ═══ CONTACTS TAB ═══ */}
+          {activeTab === "contacts" && (
+            <>
+              <div className="text-center space-y-2 mb-4">
+                <p className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase">Раздел дела • Информаторы</p>
+                <h3 className="text-xl font-light text-stone-100 tracking-[0.15em]">КОНТАКТЫ</h3>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-px w-8 bg-gradient-to-r from-transparent to-red-900/50" />
+                  <span className="text-red-800/60 text-xs">👥</span>
+                  <div className="h-px w-8 bg-gradient-to-l from-transparent to-red-900/50" />
+                </div>
+              </div>
+
+              {metCharacters.size === 0 ? (
+                <div className="py-8 text-center border border-dashed border-stone-800 rounded-lg">
+                  <span className="text-2xl opacity-30">👤</span>
+                  <p className="text-xs text-stone-600 mt-2">Контактов пока нет</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {Array.from(metCharacters).map(charId => {
+                    const char = CHARACTERS_INFO[charId];
+                    if (!char) return null;
+                    return (
+                      <div key={charId} className="border border-stone-800 rounded-lg overflow-hidden">
+                        <div className="h-0.5 bg-gradient-to-r from-red-900/50 via-stone-700 to-stone-800" />
+                        <div className="p-3 bg-stone-900/30">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-lg bg-stone-800 flex items-center justify-center">
+                              <span className="text-2xl">{char.emoji}</span>
+                            </div>
+                            <div>
+                              <h4 className="text-base font-medium text-stone-200">{char.name}</h4>
+                              <p className="text-xs text-stone-500">{char.role}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </motion.button>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ═══ THEORIES TAB ═══ */}
+          {activeTab === "theories" && (
+            <>
+              <div className="text-center space-y-2 mb-4">
+                <p className="text-[10px] tracking-[0.4em] text-red-700/60 uppercase">Раздел дела • Гипотезы</p>
+                <h3 className="text-xl font-light text-stone-100 tracking-[0.15em]">ВЕРСИИ РАССЛЕДОВАНИЯ</h3>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-px w-8 bg-gradient-to-r from-transparent to-red-900/50" />
+                  <span className="text-red-800/60 text-xs">💭</span>
+                  <div className="h-px w-8 bg-gradient-to-l from-transparent to-red-900/50" />
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Clue details */}
-          <div className="w-1/2 p-4 overflow-y-auto">
-            {selectedClueInfo ? (
-              <motion.div
-                key={selectedClue}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-4"
-              >
-                {/* Icon & name */}
-                <div className="text-center">
-                  <div className="
-                    w-16 h-16 mx-auto mb-3
-                    rounded-2xl
-                    bg-gradient-to-br from-amber-500/20 to-orange-500/10
-                    border border-amber-400/20
-                    flex items-center justify-center
-                    text-3xl
-                  ">
-                    {selectedClueInfo.icon}
+              <div className="space-y-3">
+                {/* Main theory based on cult awareness */}
+                {cultAwareness >= 30 && (
+                  <div className="border border-red-900/50 rounded-lg overflow-hidden">
+                    <div className="absolute -top-1 -right-1 w-3 h-4 bg-red-800/40 rounded-full blur-[2px]" />
+                    <div className="p-3 bg-stone-900/20">
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl">🕯️</span>
+                        <div className="flex-1">
+                          <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">★ Основная</span>
+                          <h4 className="text-sm font-medium text-red-300 mt-1">Культ Красного Леса</h4>
+                          <div className="mt-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1 rounded-full bg-stone-800 overflow-hidden">
+                                <motion.div 
+                                  className="h-full rounded-full bg-red-600"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${cultAwareness}%` }}
+                                  transition={{ duration: 0.6 }}
+                                />
+                              </div>
+                              <span className="text-xs text-stone-500 tabular-nums">{cultAwareness}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-bold text-white">
-                    {selectedClueInfo.name}
-                  </h3>
-                  <div className={`
-                    inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px]
-                    ${selectedClueInfo.importance === "critical" 
-                      ? "bg-red-500/20 text-red-300" 
-                      : selectedClueInfo.importance === "major"
-                        ? "bg-amber-500/20 text-amber-300"
-                        : "bg-white/10 text-white/50"
-                    }
-                  `}>
-                    {selectedClueInfo.importance === "critical" && "Критическая улика"}
-                    {selectedClueInfo.importance === "major" && "Важная улика"}
-                    {selectedClueInfo.importance === "minor" && "Улика"}
+                )}
+
+                {/* Other theories */}
+                <div className="border border-stone-800 rounded-lg overflow-hidden">
+                  <div className="p-3 bg-stone-900/20">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl">🧪</span>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-purple-300">Химическое отравление</h4>
+                        <p className="text-xs text-stone-500 mt-1">Возможно, причина в загрязнении воды или воздуха</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Description */}
-                <div className="
-                  p-4 rounded-xl
-                  bg-white/[0.03]
-                  border border-white/[0.08]
-                ">
-                  <p className="text-sm text-white/80 leading-relaxed">
-                    {selectedClueInfo.description}
-                  </p>
+                <div className="border border-stone-800 rounded-lg overflow-hidden">
+                  <div className="p-3 bg-stone-900/20">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl">🏛️</span>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-blue-300">Правительственный заговор</h4>
+                        <p className="text-xs text-stone-500 mt-1">Власти скрывают правду о происходящем</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Category badge */}
-                <div className="flex justify-center">
-                  <span className={`
-                    px-3 py-1 rounded-full text-xs
-                    ${selectedClueInfo.category === "lore" && "bg-violet-500/20 text-violet-300"}
-                    ${selectedClueInfo.category === "event" && "bg-blue-500/20 text-blue-300"}
-                    ${selectedClueInfo.category === "artifact" && "bg-emerald-500/20 text-emerald-300"}
-                  `}>
-                    {selectedClueInfo.category === "lore" && "📜 Знания о культе"}
-                    {selectedClueInfo.category === "event" && "⚡ Событие расследования"}
-                    {selectedClueInfo.category === "artifact" && "🏺 Древний артефакт"}
-                  </span>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-white/30">
-                <span className="text-4xl mb-3">👈</span>
-                <p className="text-sm">Выберите улику</p>
-                <p className="text-xs mt-1">для просмотра деталей</p>
+                {cultAwareness < 30 && (
+                  <div className="py-4 text-center text-stone-600 text-xs">
+                    💡 Собирайте больше улик, чтобы раскрыть истину
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-white/10 bg-black/20">
-          <div className="flex items-center justify-between text-xs text-white/40">
-            <span>
-              {cluesByCategory.lore.length} знаний • {cluesByCategory.event.length} событий • {cluesByCategory.artifact.length} артефактов
-            </span>
-            <span className="text-amber-400/60">
-              {Math.round((foundClues.size / Object.keys(ALL_CLUES_INFO).length) * 100)}% найдено
-            </span>
+        <div className="px-4 py-3 border-t border-stone-800 bg-stone-950">
+          <div className="flex items-center justify-between text-xs text-stone-500">
+            <span>День {currentDay} • {timeNames[timeOfDay] || "День"}</span>
+            <span className="text-amber-500/60">{foundClues.size} улик найдено</span>
           </div>
         </div>
       </motion.div>
@@ -1374,7 +2123,7 @@ function Header({
     : "Враг";
 
   return (
-    <div className="sticky top-0 z-40 px-3 pt-2 space-y-2">
+    <div className="sticky top-0 z-40 px-4 pt-2 space-y-2">
       {/* Верхняя панель — управление */}
       <div className="
         relative overflow-hidden
@@ -1391,7 +2140,7 @@ function Header({
         {/* Нижняя тень для объёма */}
         <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-black/20 to-transparent" />
         
-        <div className="relative flex items-center justify-between px-3 py-2.5">
+        <div className="relative flex items-center justify-between px-4 py-2.5">
           
           {/* Левая часть — Назад + Глава */}
           <div className="flex items-center gap-2">
@@ -1515,7 +2264,7 @@ function Header({
               <span className="relative z-10">💾</span>
             </motion.button>
             
-            {/* Кнопка улик */}
+            {/* Кнопка журнала */}
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => {
@@ -1526,18 +2275,18 @@ function Header({
                 relative overflow-hidden
                 h-10 px-3
                 rounded-xl 
-                bg-amber-500/[0.08]
+                bg-red-500/[0.08]
                 backdrop-blur-xl
-                border border-amber-400/[0.12]
-                shadow-[inset_0_1px_0_rgba(251,191,36,0.1)]
+                border border-red-400/[0.15]
+                shadow-[inset_0_1px_0_rgba(239,68,68,0.1)]
                 flex items-center gap-2
-                text-sm font-semibold text-amber-200/90
-                hover:bg-amber-500/[0.12]
+                text-sm font-semibold text-red-200/90
+                hover:bg-red-500/[0.12]
                 transition-all
               "
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/[0.06] via-transparent to-transparent" />
-              <span className="relative">🔍</span>
+              <div className="absolute inset-0 bg-gradient-to-br from-red-400/[0.06] via-transparent to-transparent" />
+              <span className="relative">📋</span>
               <span className="relative tabular-nums">{foundCluesCount}</span>
             </motion.button>
           </div>
@@ -1654,15 +2403,16 @@ type FinalStats = {
 } | null;
 
 // Данные о всех возможных концовках для мотивации перепрохождения
+// СИНХРОНИЗИРОВАНО С INK: madness, truth, hero, sacrifice, rebirth, escape, redemption, fyodor
 const ALL_ENDINGS = [
-  { id: "escape_tanya", name: "Побег с Таней", icon: "💕", rarity: "Редкая" },
-  { id: "escape_alone", name: "Одинокое спасение", icon: "🏃", rarity: "Обычная" },
-  { id: "ritual_stop", name: "Остановить ритуал", icon: "🛑", rarity: "Героическая" },
-  { id: "ritual_join", name: "Принять Красную луну", icon: "🌑", rarity: "Тёмная" },
-  { id: "sacrifice", name: "Жертва ради других", icon: "⚰️", rarity: "Трагическая" },
+  { id: "truth", name: "Правда наружу", icon: "📜", rarity: "Истинная" },
+  { id: "hero", name: "Тихий герой", icon: "🦸", rarity: "Героическая" },
+  { id: "sacrifice", name: "Жертва", icon: "⚰️", rarity: "Трагическая" },
+  { id: "rebirth", name: "Перерождение", icon: "🔥", rarity: "Тёмная" },
+  { id: "escape", name: "Побег", icon: "🚪", rarity: "Обычная" },
+  { id: "redemption", name: "Искупление", icon: "🕊️", rarity: "Редкая" },
   { id: "madness", name: "Безумие", icon: "🌀", rarity: "Скрытая" },
-  { id: "betrayal", name: "Предательство", icon: "🗡️", rarity: "Тёмная" },
-  { id: "truth", name: "Раскрыть правду", icon: "📜", rarity: "Истинная" },
+  { id: "fyodor", name: "Искупление Фёдора", icon: "🚷", rarity: "Секретная" },
 ];
 
 function FinalScreen({
@@ -1771,6 +2521,47 @@ function FinalScreen({
         gradient: "from-cyan-500 to-blue-600",
         glow: "rgba(6, 182, 212, 0.4)",
         textColor: "text-cyan-400",
+      },
+      // === КОНЦОВКИ ИЗ INK (добавлены при аудите) ===
+      hero: {
+        icon: "🦸",
+        title: "Тихий герой",
+        subtitle: "Вы спасли невинных, оставшись в тени.",
+        gradient: "from-blue-500 to-indigo-600",
+        glow: "rgba(59, 130, 246, 0.4)",
+        textColor: "text-blue-400",
+      },
+      rebirth: {
+        icon: "🔥",
+        title: "Перерождение",
+        subtitle: "Из пепла рождается новое начало.",
+        gradient: "from-orange-500 to-red-600",
+        glow: "rgba(249, 115, 22, 0.4)",
+        textColor: "text-orange-400",
+      },
+      escape: {
+        icon: "🚪",
+        title: "Побег",
+        subtitle: "Вы вырвались из когтей Красного леса.",
+        gradient: "from-teal-500 to-emerald-600",
+        glow: "rgba(20, 184, 166, 0.4)",
+        textColor: "text-teal-400",
+      },
+      redemption: {
+        icon: "🕊️",
+        title: "Искупление",
+        subtitle: "Прошлые грехи искуплены ценой страданий.",
+        gradient: "from-amber-400 to-yellow-500",
+        glow: "rgba(251, 191, 36, 0.4)",
+        textColor: "text-amber-400",
+      },
+      fyodor: {
+        icon: "🚷",
+        title: "Искупление Фёдора",
+        subtitle: "Секретная концовка: охотник закрыл Дверь навсегда.",
+        gradient: "from-stone-500 to-zinc-700",
+        glow: "rgba(168, 162, 158, 0.4)",
+        textColor: "text-stone-400",
       },
     };
     
@@ -2419,7 +3210,7 @@ function EpisodeSelectScreen({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className="px-4 pt-8 pb-6 text-center"
+        className="px-4 pt-6 pb-6 text-center"
       >
         {/* Icon with glow effect */}
         <div className="relative inline-block mb-5">
@@ -2445,7 +3236,7 @@ function EpisodeSelectScreen({
       {/* ═══════════════════════════════════════════════════════════════════
           EPISODES LIST — Cards with glassmorphism
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="px-4 pb-8 space-y-4">
+      <div className="px-4 pb-6 space-y-4">
         {episodes.map((episode, index) => {
           const colors = EPISODE_GRADIENTS[episode.episodeNum] || EPISODE_GRADIENTS[1];
           
@@ -2566,7 +3357,7 @@ function EpisodeSelectScreen({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="px-4 pb-8 text-center"
+        className="px-4 pb-6 text-center"
       >
         <p className="text-xs text-white/25">
           Основано на реальных событиях.

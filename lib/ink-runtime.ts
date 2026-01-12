@@ -62,24 +62,35 @@ export const RED_FOREST_VARIABLES = [
   "days_remaining",
   "current_day",
   "chapter",
-  
+  "time_of_day",  // 0=Утро, 1=День, 2=Вечер, 3=Ночь
+
   // Доверие
   "trust_gromov",
   "trust_vera",
   "trust_serafim",
   "trust_tanya",
   "trust_astahov",
-  
+  "trust_fyodor",
+
   // Прогресс
   "evidence_collected",
   "cult_awareness",
-  
+  "investigation_style",  // 0=balanced, 1=aggressive, 2=diplomatic
+  "city_reputation",  // -100 до +100
+
   // Улики и знания (LIST переменные)
   "CultLore",
   "KeyEvents",
   "AncientArtifacts",
   "Relationships",
-  
+  "CluesA",
+  "CluesB",
+  "CluesC",
+  "CluesD",
+  "CluesE",
+  "MetCharacters",
+  "inventory",  // Инвентарь игрока
+
   // Флаги встреч
   "met_gromov",
   "met_vera",
@@ -88,7 +99,7 @@ export const RED_FOREST_VARIABLES = [
   "met_astahov",
   "met_klava",
   "met_chernov",
-  
+
   // Флаги событий
   "saw_symbol",
   "heard_voices",

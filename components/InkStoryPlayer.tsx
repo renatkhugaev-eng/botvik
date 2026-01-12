@@ -636,7 +636,7 @@ export function InkStoryPlayer({
       <div
         ref={scrollRef}
         onClick={handleTapToContinue}
-        className={`flex-1 overflow-y-auto p-4 space-y-3 cursor-pointer ${
+        className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 cursor-pointer ${
           imagePosition === "background" && currentImage ? "relative" : ""
         }`}
         style={
@@ -722,7 +722,7 @@ export function InkStoryPlayer({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 15 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="relative px-4 pt-4 pb-6"
+            className="relative px-4 pt-4 pb-4"
           >
             {/* Тонкий разделитель */}
             <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -1693,7 +1693,7 @@ function ChatMessage({
   }, [isProtagonist, text.length, shouldAnimate]);
   
   return (
-    <div className={`flex items-end gap-3 mb-4 px-3 ${isProtagonist ? "flex-row-reverse" : "flex-row"}`}>
+    <div className={`flex items-end gap-3 mb-4 ${isProtagonist ? "flex-row-reverse" : "flex-row"}`}>
       {/* Аватар — только для не-протагониста */}
       {!isProtagonist && (
         <div className="flex-shrink-0 mb-5">
@@ -3485,7 +3485,7 @@ function ParagraphRenderer({
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-4 my-6"
+        className="my-6"
       >
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800/90 via-slate-900/90 to-black/90 border border-white/10 shadow-2xl">
           {/* Декоративный фон */}
@@ -3604,7 +3604,7 @@ function ParagraphRenderer({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mx-4 my-6"
+        className="my-6"
       >
         <div className={`
           px-4 py-4 rounded-xl border
@@ -3644,7 +3644,7 @@ function ParagraphRenderer({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1 }}
-        className="mx-4 my-10"
+        className="my-10"
       >
         {/* Основной контейнер с градиентом */}
         <div className="relative overflow-hidden rounded-3xl">
@@ -3787,7 +3787,7 @@ function ParagraphRenderer({
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="mx-6 my-2"
+        className="my-2"
       >
         <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
           {/* Градиентный акцент слева */}
@@ -3828,7 +3828,7 @@ function ParagraphRenderer({
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="mx-4 my-4"
+        className="my-4"
       >
         <div className="px-4 py-3 rounded-xl bg-white/5 border border-white/10">
           <p className="text-[13px] text-white/60 leading-relaxed whitespace-pre-line">
@@ -3848,7 +3848,7 @@ function ParagraphRenderer({
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="mx-4 my-4"
+        className="my-4"
       >
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
           <span className="text-lg">⚠️</span>
@@ -3899,7 +3899,7 @@ function ParagraphRenderer({
       <motion.div 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-3 my-5"
+        className="my-5"
       >
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-850 to-slate-900 border border-slate-600/40 shadow-2xl">
           {/* Декоративный элемент "папка" */}
@@ -4330,7 +4330,7 @@ function ParagraphRenderer({
         initial={{ opacity: 0, x: -5 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4 }}
-        className="mx-4 my-4"
+        className="my-4"
       >
         <div className="relative overflow-hidden rounded-xl bg-slate-800/30 backdrop-blur-sm border border-slate-700/30">
           {/* Акцентная линия */}
