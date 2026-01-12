@@ -78,7 +78,7 @@ const CLUE_TAG_TO_EVIDENCE_ID: Record<string, string> = {};
 interface ClueInfo {
   name: string;
   description: string;
-  category: "lore" | "event" | "artifact";
+  category: "lore" | "event" | "artifact" | "evidence";
   icon: string;
   importance: "minor" | "major" | "critical";
 }
