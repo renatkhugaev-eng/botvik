@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { investigationHaptic } from "@/lib/haptic";
-import { InkStoryPlayer } from "@/components/InkStoryPlayer";
+import { InkStoryPlayer, type InkStoryPlayerHandle } from "@/components/InkStoryPlayer";
 import { DocumentViewer, DOCUMENTS, type InvestigationDocument, type DocumentHighlight } from "@/components/DocumentViewer";
 import type { InkState } from "@/lib/ink-runtime";
 import type { BoardState } from "@/lib/evidence-system";
@@ -475,6 +476,7 @@ export default function InvestigationPage() {
   const [metCharacters, setMetCharacters] = useState<Set<string>>(new Set());
   const [inventory, setInventory] = useState<Set<string>>(new Set(["item_flashlight", "item_gun", "item_notebook"])); // Начальный инвентарь
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
+  const [itemUseNotification, setItemUseNotification] = useState<{ message: string; icon: string } | null>(null);
   const evidenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Derived values
@@ -499,6 +501,7 @@ export default function InvestigationPage() {
   const [isMusicMuted, setIsMusicMuted] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.3);
   const musicInitializedRef = useRef(false);
+  const inkStoryRef = useRef<InkStoryPlayerHandle>(null);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -1009,6 +1012,66 @@ export default function InvestigationPage() {
     }
   }, []);
 
+  // Обработчик использования предметов из инвентаря
+  const handleUseItem = useCallback((itemId: string) => {
+    if (!inventory.has(itemId)) return;
+    
+    // Эффекты использования предметов
+    if (itemId === "item_vodka") {
+      // Водка: +10 к репутации
+      const newReputation = Math.min(currentReputation + 10, 100);
+      setCurrentReputation(newReputation);
+      
+      // Полная синхронизация с ink story
+      if (inkStoryRef.current) {
+        inkStoryRef.current.setVariable("city_reputation", newReputation);
+        // Удаляем предмет из инвентаря в ink
+        try {
+          inkStoryRef.current.callFunction("remove_item", "item_vodka");
+        } catch {
+          console.log("[Inventory] Removed item_vodka from UI (ink sync skipped)");
+        }
+      }
+      
+      setInventory(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+      setItemUseNotification({
+        message: "Выпито за здоровье местных. Репутация +10",
+        icon: "🍾"
+      });
+      setTimeout(() => setItemUseNotification(null), 3000);
+    } else if (itemId === "item_medicine") {
+      // Лекарство: +15 рассудка
+      const newSanity = Math.min(currentSanity + 15, 100);
+      setCurrentSanity(newSanity);
+      
+      // Полная синхронизация с ink story
+      if (inkStoryRef.current) {
+        inkStoryRef.current.setVariable("sanity", newSanity);
+        // Удаляем предмет из инвентаря в ink
+        try {
+          inkStoryRef.current.callFunction("remove_item", "item_medicine");
+        } catch {
+          console.log("[Inventory] Removed item_medicine from UI (ink sync skipped)");
+        }
+      }
+      
+      setInventory(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+      setItemUseNotification({
+        message: "Успокоительное подействовало. Рассудок +15",
+        icon: "💊"
+      });
+      setTimeout(() => setItemUseNotification(null), 3000);
+    }
+  }, [inventory, currentReputation, currentSanity]);
+
   const handleTagFound = useCallback(
     (tag: string, value: string | boolean) => {
       // Обрабатываем теги улик (для будущих историй с доской улик)
@@ -1132,6 +1195,7 @@ export default function InvestigationPage() {
           }}
         >
           <InkStoryPlayer
+            ref={inkStoryRef}
             key={`story-${selectedEpisode?.id}-${storyKey}`}
             storyJson={storyJson}
             onEnd={handleStoryEnd}
@@ -1262,7 +1326,25 @@ export default function InvestigationPage() {
             cultAwareness={cultAwareness}
             investigationStyle={investigationStyle}
             onClose={() => setShowJournalModal(false)}
+            onUseItem={handleUseItem}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Уведомление об использовании предмета */}
+      <AnimatePresence>
+        {itemUseNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl bg-gradient-to-r from-amber-900/90 to-stone-900/90 border border-amber-700/50 shadow-xl backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{itemUseNotification.icon}</span>
+              <span className="text-sm text-amber-100 font-medium">{itemUseNotification.message}</span>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1320,7 +1402,7 @@ const CHARACTERS_INFO: Record<string, { name: string; role: string; emoji: strin
 };
 
 // Информация о предметах инвентаря
-const INVENTORY_INFO: Record<string, { name: string; description: string; icon: string; category: "tool" | "consumable" | "document" }> = {
+const INVENTORY_INFO: Record<string, { name: string; description: string; icon: string; category: "tool" | "consumable" | "document"; imageSrc?: string }> = {
   item_flashlight: {
     name: "Фонарик",
     description: "Карманный фонарик. Незаменим в тёмных местах.",
@@ -1356,12 +1438,14 @@ const INVENTORY_INFO: Record<string, { name: string; description: string; icon: 
     description: "\"Столичная\". Иногда язык развязывается только так.",
     icon: "🍾",
     category: "consumable",
+    imageSrc: "/avatars/vodka.png",
   },
   item_medicine: {
     name: "Успокоительное",
     description: "Седативное от Веры. Восстанавливает рассудок.",
     icon: "💊",
     category: "consumable",
+    imageSrc: "/avatars/lekarstvo.jpg",
   },
 };
 
@@ -1377,6 +1461,7 @@ function JournalModal({
   cultAwareness,
   investigationStyle,
   onClose,
+  onUseItem,
 }: {
   foundClues: Set<string>;
   metCharacters: Set<string>;
@@ -1389,6 +1474,7 @@ function JournalModal({
   cultAwareness: number;
   investigationStyle: string;
   onClose: () => void;
+  onUseItem?: (itemId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"main" | "clues" | "contacts" | "theories" | "inventory">("main");
 
@@ -1750,7 +1836,7 @@ function JournalModal({
                         <span>Расходные материалы</span>
                         <div className="flex-1 h-px bg-stone-800" />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 gap-2">
                         {Array.from(inventory)
                           .filter(id => INVENTORY_INFO[id]?.category === "consumable")
                           .map(itemId => {
@@ -1759,17 +1845,34 @@ function JournalModal({
                             return (
                               <div
                                 key={itemId}
-                                className="relative p-3 rounded-lg border border-amber-900/30 bg-amber-950/20 hover:bg-amber-900/20 transition-colors"
+                                className="relative p-3 rounded-lg border border-amber-900/30 bg-amber-950/20"
                               >
-                                <div className="absolute top-1 right-1">
-                                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-800/40 text-amber-400">Можно использовать</span>
-                                </div>
-                                <div className="flex items-start gap-2 mt-3">
-                                  <span className="text-xl">{item.icon}</span>
+                                <div className="flex items-start gap-3">
+                                  {item.imageSrc ? (
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-amber-900/30 flex-shrink-0">
+                                      <Image
+                                        src={item.imageSrc}
+                                        alt={item.name}
+                                        width={48}
+                                        height={48}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <span className="text-2xl">{item.icon}</span>
+                                  )}
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-amber-200 truncate">{item.name}</p>
-                                    <p className="text-[10px] text-stone-500 line-clamp-2">{item.description}</p>
+                                    <p className="text-sm font-medium text-amber-200">{item.name}</p>
+                                    <p className="text-[10px] text-stone-500 mt-0.5">{item.description}</p>
                                   </div>
+                                  {onUseItem && (
+                                    <button
+                                      onClick={() => onUseItem(itemId)}
+                                      className="px-3 py-1.5 rounded-lg bg-amber-700/50 hover:bg-amber-600/60 border border-amber-600/40 text-amber-200 text-xs font-medium transition-all hover:scale-105 active:scale-95"
+                                    >
+                                      Использовать
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );

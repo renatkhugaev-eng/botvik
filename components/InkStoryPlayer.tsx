@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import {
@@ -45,6 +45,13 @@ type InkStoryPlayerProps = {
   className?: string;
 };
 
+/** Методы, доступные через ref */
+export type InkStoryPlayerHandle = {
+  setVariable: (name: string, value: string | number | boolean) => void;
+  getVariable: (name: string) => unknown;
+  callFunction: (functionName: string, ...args: (string | number | boolean)[]) => unknown;
+};
+
 type MoodType = "normal" | "dark" | "tense" | "horror" | "hope" | "mystery" | "investigation" | "conflict" | "stakeout" | "pressure" | "discovery" | "crossroads" | "professional" | "suspicion" | "revelation" | "shock" | "tension" | "cosmic_horror" | "neutral" | "emotional" | "action" | "bittersweet";
 
 type ImagePosition = "top" | "background" | "inline";
@@ -60,7 +67,7 @@ const CHARACTER_PORTRAITS: Record<string, { name: string; image: string; color: 
 // ОСНОВНОЙ КОМПОНЕНТ
 // ══════════════════════════════════════════════════════════════════════════════
 
-export function InkStoryPlayer({
+export const InkStoryPlayer = forwardRef<InkStoryPlayerHandle, InkStoryPlayerProps>(function InkStoryPlayer({
   storyJson,
   onEnd,
   onVariableChange,
@@ -69,7 +76,7 @@ export function InkStoryPlayer({
   initialState,
   initialParagraphs,
   className = "",
-}: InkStoryPlayerProps) {
+}, ref) {
   // ══════════════════════════════════════════════════════════════════════════
   // EXTERNAL FUNCTION CALLBACKS — Связь Ink с JavaScript
   // ══════════════════════════════════════════════════════════════════════════
@@ -133,6 +140,20 @@ export function InkStoryPlayer({
   };
 
   const [runner] = useState(() => new InkRunner(storyJson, externalCallbacks));
+  
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    setVariable: (name: string, value: string | number | boolean) => {
+      runner.setVariable(name, value);
+    },
+    getVariable: (name: string) => {
+      return runner.getVariable(name);
+    },
+    callFunction: (functionName: string, ...args: (string | number | boolean)[]) => {
+      return runner.callFunction(functionName, ...args);
+    },
+  }), [runner]);
+  
   const [state, setState] = useState<InkState | null>(null);
   const [displayedParagraphs, setDisplayedParagraphs] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -798,7 +819,7 @@ export function InkStoryPlayer({
       )}
     </div>
   );
-}
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ
@@ -1179,6 +1200,7 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       ringColor: "ring-gray-500/50",
       shadowColor: "shadow-gray-600/40",
       isInitials: true,
+      imageSrc: "/avatars/astahov.jpg",
     },
     bubble: {
       bgGradient: "from-gray-800/80 to-gray-900/80",
@@ -1499,16 +1521,16 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
   },
   
   stranger: {
-    name: "Незнакомец",
-    shortName: "",
-    role: "",
+    name: "Архивариус",
+    shortName: "Мария",
+    role: "Работница архива",
     avatar: {
       emoji: "👤",
       bgGradient: "from-slate-600 via-slate-700 to-slate-800",
       ringColor: "ring-slate-500/50",
       shadowColor: "shadow-slate-600/40",
       isInitials: false,
-      imageSrc: "/avatars/stranger.webp",
+      imageSrc: "/avatars/arhivarius.jpg",
     },
     bubble: {
       bgGradient: "from-slate-800/70 to-slate-900/70",
@@ -3307,7 +3329,8 @@ function ParagraphRenderer({
                          text.includes("Соответствует описанию") || text.includes("Интеллигентный вид");
   const isNegativeFact = text.includes("НЕ совпадает") || text.includes("Не соответствует") || 
                          text.includes("не совпадает") || text.includes("не соответствует");
-  const isQuestionFact = text.trim().endsWith("?") && text.length < 60 && 
+  // isQuestionFact теперь требует isJournalMode — иначе обычные вопросы в сюжете стилизуются как "неизвестные факты"
+  const isQuestionFact = isJournalMode && text.trim().endsWith("?") && text.length < 60 && 
                          !text.startsWith("—") && !text.startsWith("–") && !text.startsWith("- ");
   const isNeutralFact = (text.includes("данных") || text.includes("Никаких")) && text.length < 40;
   

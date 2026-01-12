@@ -8934,33 +8934,39 @@ VAR current_location = 0
 
 ... # style:atmosphere
 
-КОНЕЦ ЭПИЗОДА 1 # style:title # intensity:high
-
 ~ advance_day()
 ~ sync_evidence_count()
 
-Ваш рассудок: {sanity}/100 # style:important
-Дней осталось: {days_remaining} # style:important
-Собрано улик: {count_all_clues()} # style:important
+// ═══════════════════════════════════════════════════════════════════════════════
+// СЮЖЕТНЫЙ ПЕРЕХОД К ЭПИЗОДУ 2
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// СИСТЕМА РЕПУТАЦИИ: итог дня
-{ city_reputation <= -20:
-    Репутация в городе: ПЛОХАЯ ({city_reputation}) # style:important
-    Горожане начинают избегать вас...
+Вы засыпаете под шёпот ветра за окном. # style:atmosphere # intensity:medium
+
+{ sanity < 60:
+    Сны приходят рваные, тревожные. Красные деревья. Глаза в темноте. # style:horror # intensity:medium
 }
-{ city_reputation > -20 && city_reputation <= 20:
-    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
+
+{ KeyEvents ? heard_voices:
+    Голоса не умолкают даже во сне. Они зовут. Ждут. # style:whisper # intensity:high
+}
+
+Где-то в городе — за закрытыми дверями, в тени старых домов — люди шепчутся о новом следователе из Москвы. # style:atmosphere # intensity:low
+
+{ city_reputation <= -20:
+    «Опасный», — говорят одни. «Не наш», — соглашаются другие. # style:whisper
 }
 { city_reputation > 20:
-    Репутация в городе: ХОРОШАЯ ({city_reputation}) # style:important
-    Некоторые жители готовы помочь.
+    «Может, он и правда поможет», — надеется кто-то. # style:whisper
 }
 
-{ LIST_COUNT(Rumors) > 0:
-    Слухи о вас: {LIST_COUNT(Rumors)} # style:important
-}
+А в Красном лесу — там, где не ступает нога человека — что-то древнее чувствует ваше присутствие. # style:horror # intensity:high
 
-* [Продолжить...]
+И улыбается. # style:horror # intensity:high
+
+... # style:dramatic
+
+* [Следующий день...]
     -> episode2_intro
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -10418,32 +10424,37 @@ VAR current_location = 0
 
 За окном — первый свет. # style:atmosphere # intensity:low
 
-КОНЕЦ ЭПИЗОДА 2 # style:title # intensity:medium
-
 ~ sync_evidence_count()
 
-Ваш рассудок: {sanity}/100 # style:important
-Дней осталось: {days_remaining} # style:important
-Собрано улик: {count_all_clues()} # style:important
+// ═══════════════════════════════════════════════════════════════════════════════
+// СЮЖЕТНЫЙ ПЕРЕХОД К ЭПИЗОДУ 3
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// СИСТЕМА РЕПУТАЦИИ: итог дня
-{ city_reputation <= -30:
-    Репутация в городе: ОЧЕНЬ ПЛОХАЯ ({city_reputation}) # style:important
-    Двери закрываются перед вами. Свидетели молчат.
-}
-{ city_reputation > -30 && city_reputation <= -10:
-    Репутация в городе: ПЛОХАЯ ({city_reputation}) # style:important
-    Слухи ползут по городу...
-}
-{ city_reputation > -10 && city_reputation <= 20:
-    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
-}
-{ city_reputation > 20:
-    Репутация в городе: ХОРОШАЯ ({city_reputation}) # style:important
-    Город начинает вам доверять.
+Серое утро. Снег за окном — как пепел после пожара. # style:atmosphere # intensity:medium
+
+{ infection_level >= 20:
+    Ваши руки дрожат. Не от холода. От чего-то внутри. # style:thought # intensity:medium
 }
 
-* [Продолжить...]
+Вы знаете больше, чем вчера. Но каждый ответ рождает десять новых вопросов. # style:thought
+
+{ MetCharacters ? vera:
+    Вера говорила о «синдроме Красного леса». О людях, которые видят то, чего нет. # style:thought # intensity:medium
+    
+    Или — видят то, что ЕСТЬ? # style:horror # intensity:high
+}
+
+{ MetCharacters ? fyodor:
+    Фёдор предупреждал: не ходите на завод ночью. # style:thought
+    
+    Но именно туда ведут все нити. # style:thought # intensity:medium
+}
+
+Завод «Прометей» — сердце этого города. И, возможно, источник всего зла. # style:important # intensity:high
+
+Пора узнать правду. # style:dramatic # intensity:high
+
+* [Третий день...]
     ~ advance_day()
     -> episode3_intro
 
@@ -11804,38 +11815,41 @@ VAR current_location = 0
     «...ты будешь с нами...» # style:vision # intensity:high
 }
 
-КОНЕЦ ЭПИЗОДА 3 # style:title # intensity:medium
-
 ~ sync_evidence_count()
 
-Ваш рассудок: {sanity}/100 # style:important
-Дней осталось: {days_remaining} # style:important
-Собрано улик: {count_all_clues()} # style:important
+// ═══════════════════════════════════════════════════════════════════════════════
+// СЮЖЕТНЫЙ ПЕРЕХОД К ЭПИЗОДУ 4
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// СИСТЕМА РЕПУТАЦИИ: итог дня
-{ city_reputation <= -40:
-    Репутация в городе: ВРАГ ({city_reputation}) # style:important
-    Город ненавидит вас. Это опасно.
-}
-{ city_reputation > -40 && city_reputation <= -10:
-    Репутация в городе: ПЛОХАЯ ({city_reputation}) # style:important
-}
-{ city_reputation > -10 && city_reputation <= 30:
-    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
-}
-{ city_reputation > 30:
-    Репутация в городе: ХОРОШАЯ ({city_reputation}) # style:important
-    Союзники найдены. Город на вашей стороне.
+Ночь опускается на город как чёрный саван. # style:atmosphere # intensity:high
+
+{ infection_level >= 40:
+    Вы чувствуете ЕЁ. Дверь. Где-то глубоко под землёй она пульсирует, как второе сердце. # style:horror # intensity:high
+    
+    Или это ваше сердце бьётся в унисон с ней? # style:thought # intensity:high
 }
 
-{ reputation_helped_tanya:
-    ★ Таня благодарна вам. Это может спасти жизни.
-}
-{ reputation_saved_someone:
-    ★ Вы спасли чью-то жизнь. Город это помнит.
+{ cult_awareness >= 30:
+    Теперь вы понимаете: это не просто культ. Не просто секта безумцев. # style:thought # intensity:medium
+    
+    Это — нечто древнее. Нечто, что существовало здесь задолго до города. До людей. До самой истории. # style:horror # intensity:high
 }
 
-* [Продолжить...]
+{ MetCharacters ? chernov:
+    Чернов. Академик, превратившийся в жреца. Учёный, поверивший в невозможное. # style:thought
+    
+    Что он нашёл там, в темноте? Что пообещало ему вернуть мёртвую жену? # style:thought # intensity:medium
+}
+
+Луна за окном почти полная. Завтра — предпоследний день. # style:important # intensity:high
+
+Послезавтра — полнолуние. # style:horror # intensity:high
+
+{ knows_deadline:
+    И Дверь откроется. # style:horror # intensity:high
+}
+
+* [Четвёртый день...]
     ~ advance_day()
     -> episode4_intro
 
@@ -12637,46 +12651,53 @@ VAR current_location = 0
 
 Или убить. # style:dramatic # intensity:high
 
-КОНЕЦ ЭПИЗОДА 4 # style:title # intensity:medium
-
 ~ sync_evidence_count()
 
-Ваш рассудок: {sanity}/100 # style:important
-Дней осталось: {days_remaining} # style:important
-Собрано улик: {count_all_clues()} # style:important
+// ═══════════════════════════════════════════════════════════════════════════════
+// СЮЖЕТНЫЙ ПЕРЕХОД К ФИНАЛУ
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// СИСТЕМА РЕПУТАЦИИ: финальный итог перед развязкой
-{ city_reputation <= -50:
-    Репутация в городе: ВРАГ НАРОДА ({city_reputation}) # style:important
-    Город против вас. Завтра вы будете один против всех.
-}
-{ city_reputation > -50 && city_reputation <= 0:
-    Репутация в городе: ПОДОЗРИТЕЛЬНЫЙ ({city_reputation}) # style:important
-    Мало кто готов помочь.
-}
-{ city_reputation > 0 && city_reputation <= 40:
-    Репутация в городе: НЕЙТРАЛЬНАЯ ({city_reputation}) # style:important
-    У вас есть шанс.
-}
-{ city_reputation > 40:
-    Репутация в городе: СВОЙ ({city_reputation}) # style:important
-    Город — на вашей стороне. Это может всё изменить.
+За четыре дня вы узнали правду. Страшную. Невозможную. Неизбежную. # style:thought # intensity:high
+
+{ cult_awareness >= 50:
+    Культ. Дверь. Сущность за ней. # style:horror # intensity:high
+    
+    Всё это — реально. # style:horror # intensity:high
 }
 
-// Итоговые слухи
-{ Rumors ? rumor_hero:
-    ★ О вас говорят как о герое. Люди готовы помочь.
-}
-{ Rumors ? rumor_crazy:
-    ⚠ Вас считают сумасшедшим. Это усложнит финал.
-}
-{ Rumors ? rumor_cultist:
-    ⚠ Вас подозревают в связях с культом. Опасно.
+{ infection_level >= 50:
+    И часть этого — теперь внутри вас. Голоса. Видения. Зов, которому всё труднее сопротивляться. # style:horror # intensity:high
 }
 
-ЗАВТРА — ПОЛНОЛУНИЕ. # style:title # intensity:high
+{ Relationships ? romantic_tanya:
+    Таня. Её лицо — последнее, о чём вы думаете перед сном. # style:thought # intensity:medium
+    
+    Вы должны защитить её. Любой ценой. # style:dramatic # intensity:high
+}
 
-* [Продолжить...]
+{ chosen_ally == 2:
+    Фёдор готов идти с вами. Старый охотник знает лес. Знает пещеры. Знает врага. # style:thought
+}
+
+{ chosen_ally == 3:
+    Серафим молится за вас. Его вера — ваш щит. Или последняя надежда. # style:thought
+}
+
+{ city_reputation >= 40:
+    Город верит вам. Впервые за двадцать лет люди готовы противостоять тьме. # style:important
+}
+
+{ city_reputation <= -40:
+    Вы один. Против города. Против культа. Против того, что ждёт в Красном лесу. # style:dramatic # intensity:high
+}
+
+Вы выходите из гостиницы. # style:action
+
+Последний рассвет. # style:atmosphere # intensity:high
+
+Последний шанс. # style:dramatic # intensity:high
+
+* [В Красный лес...]
     ~ advance_day()
     -> episode5_intro
 

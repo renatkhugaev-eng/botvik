@@ -453,6 +453,24 @@ export class InkRunner {
   }
 
   /**
+   * Вызвать функцию ink (например, remove_item)
+   */
+  callFunction(functionName: string, ...args: (string | number | boolean)[]): unknown {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const story = this.story as any;
+      if (typeof story.EvaluateFunction === "function") {
+        return story.EvaluateFunction(functionName, args);
+      }
+      console.warn(`EvaluateFunction not available`);
+      return undefined;
+    } catch (e) {
+      console.warn(`Cannot call function ${functionName}:`, e);
+      return undefined;
+    }
+  }
+
+  /**
    * Сохранить состояние
    */
   saveState(): string {
