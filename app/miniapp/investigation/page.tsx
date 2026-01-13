@@ -480,6 +480,14 @@ export default function InvestigationPage() {
   const [nightmaresWon, setNightmaresWon] = useState(0);
   const [nightmaresLost, setNightmaresLost] = useState(0);
   const [interludeNightmare1Played, setInterludeNightmare1Played] = useState(false);
+  // Квесты рынка
+  const [questMashaDocuments, setQuestMashaDocuments] = useState(false);
+  const [questMashaDocumentsDone, setQuestMashaDocumentsDone] = useState(false);
+  const [questLyudaMedicine, setQuestLyudaMedicine] = useState(false);
+  const [questLyudaMedicineDone, setQuestLyudaMedicineDone] = useState(false);
+  const [questGrishaViolin, setQuestGrishaViolin] = useState(false);
+  const [questGrishaViolinDone, setQuestGrishaViolinDone] = useState(false);
+  const [questKolkaWarning, setQuestKolkaWarning] = useState(false);
   const [metCharacters, setMetCharacters] = useState<Set<string>>(new Set());
   const [inventory, setInventory] = useState<Set<string>>(new Set(["item_flashlight", "item_gun", "item_notebook"])); // Начальный инвентарь
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
@@ -1059,6 +1067,31 @@ export default function InvestigationPage() {
     if (name === "interlude_nightmare_1_played" && typeof value === "boolean") {
       setInterludeNightmare1Played(value);
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Отслеживаем квесты рынка
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (name === "quest_masha_documents" && typeof value === "boolean") {
+      setQuestMashaDocuments(value);
+    }
+    if (name === "quest_masha_documents_done" && typeof value === "boolean") {
+      setQuestMashaDocumentsDone(value);
+    }
+    if (name === "quest_lyuda_medicine" && typeof value === "boolean") {
+      setQuestLyudaMedicine(value);
+    }
+    if (name === "quest_lyuda_medicine_done" && typeof value === "boolean") {
+      setQuestLyudaMedicineDone(value);
+    }
+    if (name === "quest_grisha_violin" && typeof value === "boolean") {
+      setQuestGrishaViolin(value);
+    }
+    if (name === "quest_grisha_violin_done" && typeof value === "boolean") {
+      setQuestGrishaViolinDone(value);
+    }
+    if (name === "quest_kolka_warning" && typeof value === "boolean") {
+      setQuestKolkaWarning(value);
+    }
   }, []);
 
   // Обработчик использования предметов из инвентаря
@@ -1074,12 +1107,8 @@ export default function InvestigationPage() {
       // Полная синхронизация с ink story
       if (inkStoryRef.current) {
         inkStoryRef.current.setVariable("city_reputation", newReputation);
-        // Удаляем предмет из инвентаря в ink
-        try {
-          inkStoryRef.current.callFunction("remove_item", "item_vodka");
-        } catch {
-          console.log("[Inventory] Removed item_vodka from UI (ink sync skipped)");
-        }
+        // Устанавливаем флаг что самогон выпит (для синхронизации с Ink)
+        inkStoryRef.current.setVariable("samogon_consumed", true);
       }
       
       setInventory(prev => {
@@ -1100,12 +1129,8 @@ export default function InvestigationPage() {
       // Полная синхронизация с ink story
       if (inkStoryRef.current) {
         inkStoryRef.current.setVariable("sanity", newSanity);
-        // Удаляем предмет из инвентаря в ink
-        try {
-          inkStoryRef.current.callFunction("remove_item", "item_medicine");
-        } catch {
-          console.log("[Inventory] Removed item_medicine from UI (ink sync skipped)");
-        }
+        // Устанавливаем флаг что лекарство использовано
+        inkStoryRef.current.setVariable("medicine_used", true);
       }
       
       setInventory(prev => {
@@ -1380,6 +1405,13 @@ export default function InvestigationPage() {
             nightmaresWon={nightmaresWon}
             nightmaresLost={nightmaresLost}
             interludeNightmare1Played={interludeNightmare1Played}
+            questMashaDocuments={questMashaDocuments}
+            questMashaDocumentsDone={questMashaDocumentsDone}
+            questLyudaMedicine={questLyudaMedicine}
+            questLyudaMedicineDone={questLyudaMedicineDone}
+            questGrishaViolin={questGrishaViolin}
+            questGrishaViolinDone={questGrishaViolinDone}
+            questKolkaWarning={questKolkaWarning}
             onClose={() => setShowJournalModal(false)}
             onUseItem={handleUseItem}
           />
@@ -1521,6 +1553,13 @@ function JournalModal({
   nightmaresWon,
   nightmaresLost,
   interludeNightmare1Played,
+  questMashaDocuments,
+  questMashaDocumentsDone,
+  questLyudaMedicine,
+  questLyudaMedicineDone,
+  questGrishaViolin,
+  questGrishaViolinDone,
+  questKolkaWarning,
   onClose,
   onUseItem,
 }: {
@@ -1540,6 +1579,13 @@ function JournalModal({
   nightmaresWon: number;
   nightmaresLost: number;
   interludeNightmare1Played: boolean;
+  questMashaDocuments: boolean;
+  questMashaDocumentsDone: boolean;
+  questLyudaMedicine: boolean;
+  questLyudaMedicineDone: boolean;
+  questGrishaViolin: boolean;
+  questGrishaViolinDone: boolean;
+  questKolkaWarning: boolean;
   onClose: () => void;
   onUseItem?: (itemId: string) => void;
 }) {
@@ -1692,7 +1738,11 @@ function JournalModal({
             { id: "inventory", label: "Снаряжение", icon: "🎒", count: inventory.size },
             { id: "clues", label: "Улики", icon: "🔍", count: foundClues.size },
             { id: "contacts", label: "Контакты", icon: "👥", count: metCharacters.size },
-            { id: "sidequests", label: "Квесты", icon: "📜", count: activeSidequests.size > 0 ? activeSidequests.size : undefined },
+            { id: "sidequests", label: "Квесты", icon: "📜", count: (() => {
+              const marketQuestCount = [questMashaDocuments, questLyudaMedicine, questGrishaViolin, questKolkaWarning].filter(Boolean).length;
+              const total = activeSidequests.size + marketQuestCount;
+              return total > 0 ? total : undefined;
+            })() },
             { id: "theories", label: "Версии", icon: "💭" },
           ].map((tab) => (
             <button
@@ -2449,12 +2499,133 @@ function JournalModal({
                   );
                 })()}
 
+                {/* ═══ КВЕСТЫ РЫНКА — Документы Маши ═══ */}
+                {(questMashaDocuments || questMashaDocumentsDone) && (
+                  <div className={`relative rounded-xl overflow-hidden ${questMashaDocumentsDone ? 'bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20' : 'bg-gradient-to-br from-amber-950/40 via-stone-950 to-amber-950/20'}`}>
+                    <div className={`absolute inset-0 rounded-xl border ${questMashaDocumentsDone ? 'border-emerald-700/30' : 'border-amber-700/30'}`} />
+                    <div className="relative p-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${questMashaDocumentsDone ? 'bg-emerald-900/50' : 'bg-amber-900/50'}`}>
+                          <span className="text-lg">📜</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-medium text-stone-200">Документы Виктора Морозова</h4>
+                            {questMashaDocumentsDone && <span className="text-emerald-400 text-xs">✓</span>}
+                          </div>
+                          <p className="text-xs text-stone-400 mb-2">
+                            {questMashaDocumentsDone 
+                              ? "Документы найдены и переданы тёте Маше" 
+                              : "Найти спрятанные документы мужа тёти Маши"}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                            <span>👤 Тётя Маша</span>
+                            <span>•</span>
+                            <span>🛒 Рынок</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ═══ КВЕСТЫ РЫНКА — Лекарство для Люды ═══ */}
+                {(questLyudaMedicine || questLyudaMedicineDone) && (
+                  <div className={`relative rounded-xl overflow-hidden ${questLyudaMedicineDone ? 'bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20' : 'bg-gradient-to-br from-pink-950/40 via-stone-950 to-pink-950/20'}`}>
+                    <div className={`absolute inset-0 rounded-xl border ${questLyudaMedicineDone ? 'border-emerald-700/30' : 'border-pink-700/30'}`} />
+                    <div className="relative p-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${questLyudaMedicineDone ? 'bg-emerald-900/50' : 'bg-pink-900/50'}`}>
+                          <span className="text-lg">💊</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-medium text-stone-200">Лекарство для мамы Люды</h4>
+                            {questLyudaMedicineDone && <span className="text-emerald-400 text-xs">✓</span>}
+                          </div>
+                          <p className="text-xs text-stone-400 mb-2">
+                            {questLyudaMedicineDone 
+                              ? "Церебролизин передан Люде" 
+                              : "Достать Церебролизин (больница или Вера)"}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                            <span>👤 Люда</span>
+                            <span>•</span>
+                            <span>🛒 Рынок</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ═══ КВЕСТЫ РЫНКА — Скрипка Гриши ═══ */}
+                {(questGrishaViolin || questGrishaViolinDone) && (
+                  <div className={`relative rounded-xl overflow-hidden ${questGrishaViolinDone ? 'bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20' : 'bg-gradient-to-br from-violet-950/40 via-stone-950 to-violet-950/20'}`}>
+                    <div className={`absolute inset-0 rounded-xl border ${questGrishaViolinDone ? 'border-emerald-700/30' : 'border-violet-700/30'}`} />
+                    <div className="relative p-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${questGrishaViolinDone ? 'bg-emerald-900/50' : 'bg-violet-900/50'}`}>
+                          <span className="text-lg">🎻</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-medium text-stone-200">Скрипка Гриши</h4>
+                            {questGrishaViolinDone && <span className="text-emerald-400 text-xs">✓</span>}
+                          </div>
+                          <p className="text-xs text-stone-400 mb-2">
+                            {questGrishaViolinDone 
+                              ? "Скрипка возвращена владельцу" 
+                              : "Найти скрипку (комиссионка или дом Астахова)"}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                            <span>👤 Гриша</span>
+                            <span>•</span>
+                            <span>🛒 Рынок</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ═══ КВЕСТЫ РЫНКА — Тайна озера (Колька) ═══ */}
+                {questKolkaWarning && (
+                  <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-cyan-950/40 via-stone-950 to-cyan-950/20">
+                    <div className="absolute inset-0 rounded-xl border border-cyan-700/30" />
+                    <div className="relative p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cyan-900/50">
+                          <span className="text-lg">🌊</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-medium text-stone-200">Тайна озера</h4>
+                          </div>
+                          <p className="text-xs text-stone-400 mb-2">
+                            Колька предупредил об опасности и предложил показать озеро ночью
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
+                            <span>👤 Колька-рыбак</span>
+                            <span>•</span>
+                            <span>🛒 Рынок</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* ═══ ПУСТОЕ СОСТОЯНИЕ — Современный дизайн ═══ */}
-                {!activeSidequests.has("sq_letters_started") && 
-                 !activeSidequests.has("sq_letters_trusted") && 
-                 !activeSidequests.has("sq_letters_ignored") && 
-                 !activeSidequests.has("sq_letters_solved") && 
-                 !interludeNightmare1Played && (
+                {!activeSidequests.has("sq_letters_started") &&
+                 !activeSidequests.has("sq_letters_trusted") &&
+                 !activeSidequests.has("sq_letters_ignored") &&
+                 !activeSidequests.has("sq_letters_solved") &&
+                 !interludeNightmare1Played &&
+                 !questMashaDocuments && !questMashaDocumentsDone &&
+                 !questLyudaMedicine && !questLyudaMedicineDone &&
+                 !questGrishaViolin && !questGrishaViolinDone &&
+                 !questKolkaWarning && (
                   <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-stone-900/40 via-stone-950 to-stone-900/20">
                     <div className="absolute inset-0 rounded-xl border border-stone-700/30 border-dashed" />
                     <div className="py-10 px-6 text-center">
@@ -2467,7 +2638,7 @@ function JournalModal({
                       </p>
                       <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-stone-700">
                         <span>💡</span>
-                        <span>Проверяйте почту и следите за снами</span>
+                        <span>Общайтесь с NPC на рынке</span>
                       </div>
                     </div>
                   </div>

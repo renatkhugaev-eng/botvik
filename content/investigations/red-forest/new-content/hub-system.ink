@@ -16,7 +16,11 @@
 
 { current_day == 5:
     19 НОЯБРЯ 1986 ГОДА # style:title
-    Первый день расширенного расследования # style:subtitle
+    
+    { not extended_intro_played:
+        ~ extended_intro_played = true
+        -> day5_intro
+    }
 }
 { current_day == 6:
     20 НОЯБРЯ 1986 ГОДА # style:title
@@ -521,6 +525,66 @@
 ~ infection_level += 10
 
 -> extended_day_hub
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ДЕНЬ 5: ВСТУПЛЕНИЕ В СВОБОДНЫЙ РЕЖИМ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+=== day5_intro ===
+
+# mood: transition
+# chapter: 5
+
+19 НОЯБРЯ 1986 ГОДА # style:title # intensity:high
+
+День пятый # style:subtitle
+
+-> describe_hotel_room ->
+
+Утро. За окном — серое небо Черноозёрска. # style:atmosphere
+
+Четыре дня расследования. Четыре дня, которые перевернули всё. # style:thought
+
+{ evidence_collected >= 5:
+    У вас уже достаточно улик, чтобы понять: это не просто исчезновение. Это — заговор. Культ. Тридцать лет молчания. # style:thought # intensity:medium
+}
+
+{ sanity < 60:
+    И голоса... Они стали частью вас. Иногда вы уже не уверены — это ваши мысли или... их. # style:horror # intensity:medium
+}
+
+Вы раскладываете карту города на столе. # style:action
+
+Черноозёрск больше, чем казалось в первый день. # style:thought
+
+Рынок. Школа. Старое кладбище. Заброшенная шахта. Лесопилка. Радиовышка. # style:important
+
+Места, где живут истории. Люди, которых вы ещё не встретили. Тайны, которые город хранит. # style:thought # intensity:medium
+
+{ MetCharacters ? tanya:
+    Таня упоминала, что на рынке торгует дед Митяй — он знает всех и каждого. # style:thought
+}
+
+{ MetCharacters ? vera:
+    Вера говорила о старом кладбище — там похоронены первые жертвы. # style:thought
+}
+
+{ MetCharacters ? fyodor:
+    Фёдор предупреждал о лесопилке — культисты собираются там по ночам. # style:thought
+}
+
+Полнолуние — через десять дней. 29 ноября. # style:important # intensity:high
+
+Времени достаточно. Но расслабляться нельзя. # style:thought
+
+* [Изучить город — время действовать]
+    Вы встаёте из-за стола. День начинается. # style:action
+    -> extended_day_hub
+
+* [Сначала — в журнал (проверить улики)]
+    ~ journal_return_point = 5
+    -> investigator_journal
 
 
 === finale_preparation ===

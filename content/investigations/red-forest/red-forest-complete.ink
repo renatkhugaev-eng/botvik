@@ -240,6 +240,9 @@ LIST Inventory = item_flashlight, item_gun, item_notebook, item_camera, item_loc
 // Начальный инвентарь
 VAR inventory = (item_flashlight, item_gun, item_notebook)
 
+// Флаги использования предметов через React UI
+VAR medicine_used = false
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // СИСТЕМА РАСКРЫТИЯ ПЕРСОНАЖЕЙ (ГЛУБОКИЙ ЛОР)
 // ═══════════════════════════════════════════════════════════════════════════════
