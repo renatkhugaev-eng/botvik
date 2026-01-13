@@ -168,6 +168,7 @@ export const InkStoryPlayer = forwardRef<InkStoryPlayerHandle, InkStoryPlayerPro
   const [interrogationState, setInterrogationState] = useState<InterrogationState | null>(null);
   const [tacticalHint, setTacticalHint] = useState<string>("");
   const [isVisionActive, setIsVisionActive] = useState(false);
+  const [visionType, setVisionType] = useState<"prophetic" | "false" | "memory" | "warning" | null>(null);
   const [isJournalMode, setIsJournalMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevVarsRef = useRef<Record<string, unknown>>({});
@@ -295,17 +296,47 @@ export const InkStoryPlayer = forwardRef<InkStoryPlayerHandle, InkStoryPlayerPro
       }
 
       // ═══ HAPTIC для специальных тегов ═══
-      
+
       // Clue discovered
       if (hasTag(tags, "clue")) {
         investigationHaptic.clueDiscovered();
       }
-      
+
+      // Sidequest update
+      if (hasTag(tags, "sidequest")) {
+        investigationHaptic.insight();
+      }
+
+      // Quest accepted
+      if (hasTag(tags, "quest")) {
+        investigationHaptic.clueDiscovered();
+      }
+
+      // Nightmare result
+      if (hasTag(tags, "nightmare")) {
+        investigationHaptic.dramaticMoment();
+      }
+
+      // Interlude start
+      if (hasTag(tags, "interlude")) {
+        investigationHaptic.sceneTransition();
+      }
+
+      // Conflict of interest
+      if (hasTag(tags, "conflict")) {
+        investigationHaptic.timerWarning();
+      }
+
+      // Point of no return
+      if (hasTag(tags, "point_of_no_return")) {
+        investigationHaptic.dramaticMoment();
+      }
+
       // Suspect revealed
       if (hasTag(tags, "suspect_revealed") || hasTag(tags, "new_suspect")) {
         investigationHaptic.suspectRevealed();
       }
-      
+
       // Important moment
       if (hasTag(tags, "important") || hasTag(tags, "revelation")) {
         investigationHaptic.dramaticMoment();
@@ -318,16 +349,46 @@ export const InkStoryPlayer = forwardRef<InkStoryPlayerHandle, InkStoryPlayerPro
       
       // ═══ ВИДЕНИЯ / HORROR СОБЫТИЯ ═══
       const eventType = getTagValue(tags, "type");
-      if (eventType === "vision") {
+      const visionTag = getTagValue(tags, "vision");
+      
+      // Обработка нового формата видений (# vision:prophetic, # vision:false)
+      if (visionTag) {
         setIsVisionActive(true);
-        investigationHaptic.dramaticMoment();
+        const vType = typeof visionTag === "string" ? visionTag as "prophetic" | "false" | "memory" | "warning" : "prophetic";
+        setVisionType(vType);
+        
+        // Разный haptic для разных типов видений
+        if (vType === "prophetic") {
+          investigationHaptic.insight();
+        } else if (vType === "memory") {
+          investigationHaptic.suspense();
+        } else {
+          investigationHaptic.dramaticMoment();
+        }
+        
         // Очищаем предыдущий таймер если есть
         if (visionTimerRef.current) {
           clearTimeout(visionTimerRef.current);
         }
-        // Автоматически скрываем индикатор через 8 секунд
+        // Время отображения зависит от типа
+        const duration = vType === "prophetic" ? 10000 : vType === "memory" ? 12000 : 6000;
         visionTimerRef.current = setTimeout(() => {
           setIsVisionActive(false);
+          setVisionType(null);
+          visionTimerRef.current = null;
+        }, duration);
+      }
+      // Старый формат (# type:vision) для обратной совместимости
+      else if (eventType === "vision") {
+        setIsVisionActive(true);
+        setVisionType(null);
+        investigationHaptic.dramaticMoment();
+        if (visionTimerRef.current) {
+          clearTimeout(visionTimerRef.current);
+        }
+        visionTimerRef.current = setTimeout(() => {
+          setIsVisionActive(false);
+          setVisionType(null);
           visionTimerRef.current = null;
         }, 8000);
       }
@@ -576,15 +637,37 @@ export const InkStoryPlayer = forwardRef<InkStoryPlayerHandle, InkStoryPlayerPro
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute top-2 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full 
-                       bg-red-900/80 border border-red-500/50 backdrop-blur-sm
-                       flex items-center gap-2 shadow-lg shadow-red-900/50"
+            className={`absolute top-2 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full
+                       backdrop-blur-sm flex items-center gap-2 shadow-lg
+                       ${visionType === "prophetic" 
+                         ? "bg-violet-900/80 border border-violet-500/50 shadow-violet-900/50" 
+                         : visionType === "memory"
+                         ? "bg-amber-900/80 border border-amber-500/50 shadow-amber-900/50"
+                         : visionType === "warning"
+                         ? "bg-yellow-900/80 border border-yellow-500/50 shadow-yellow-900/50"
+                         : "bg-red-900/80 border border-red-500/50 shadow-red-900/50"
+                       }`}
           >
-            <span className="text-lg animate-pulse">👁️</span>
-            <span className="text-red-200 text-sm font-medium tracking-wider uppercase">
-              Видение
+            <span className="text-lg animate-pulse">
+              {visionType === "prophetic" ? "🔮" : visionType === "memory" ? "💭" : visionType === "warning" ? "⚠️" : "👁️"}
             </span>
-            <span className="text-lg animate-pulse">👁️</span>
+            <span className={`text-sm font-medium tracking-wider uppercase
+                           ${visionType === "prophetic" 
+                             ? "text-violet-200" 
+                             : visionType === "memory"
+                             ? "text-amber-200"
+                             : visionType === "warning"
+                             ? "text-yellow-200"
+                             : "text-red-200"
+                           }`}>
+              {visionType === "prophetic" ? "Пророчество" 
+               : visionType === "memory" ? "Воспоминание" 
+               : visionType === "warning" ? "Предчувствие"
+               : "Видение"}
+            </span>
+            <span className="text-lg animate-pulse">
+              {visionType === "prophetic" ? "🔮" : visionType === "memory" ? "💭" : visionType === "warning" ? "⚠️" : "👁️"}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1521,16 +1604,15 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
   },
   
   stranger: {
-    name: "Архивариус",
-    shortName: "Мария",
-    role: "Работница архива",
+    name: "Незнакомец",
+    shortName: "???",
+    role: "Неизвестный",
     avatar: {
       emoji: "👤",
       bgGradient: "from-slate-600 via-slate-700 to-slate-800",
       ringColor: "ring-slate-500/50",
       shadowColor: "shadow-slate-600/40",
       isInitials: false,
-      imageSrc: "/avatars/arhivarius.jpg",
     },
     bubble: {
       bgGradient: "from-slate-800/70 to-slate-900/70",
@@ -1540,6 +1622,116 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
     nameColor: "text-slate-400",
     statusIndicator: "none",
     gender: "male",
+  },
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ВТОРОСТЕПЕННЫЕ ПЕРСОНАЖИ
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  guard: {
+    name: "Охранник",
+    shortName: "Охранник",
+    role: "Сотрудник проходной",
+    avatar: {
+      emoji: "🛡️",
+      bgGradient: "from-zinc-600 via-zinc-700 to-zinc-800",
+      ringColor: "ring-zinc-500/50",
+      shadowColor: "shadow-zinc-600/40",
+      isInitials: false,
+    },
+    bubble: {
+      bgGradient: "from-zinc-800/70 to-zinc-900/70",
+      borderColor: "border-zinc-600/40",
+      textColor: "text-zinc-100",
+    },
+    nameColor: "text-zinc-400",
+    statusIndicator: "none",
+    gender: "male",
+  },
+  
+  escort: {
+    name: "Сопровождающий",
+    shortName: "???",
+    role: "Человек в штатском",
+    avatar: {
+      emoji: "🕴️",
+      bgGradient: "from-neutral-700 via-neutral-800 to-neutral-900",
+      ringColor: "ring-neutral-500/50",
+      shadowColor: "shadow-neutral-600/40",
+      isInitials: false,
+    },
+    bubble: {
+      bgGradient: "from-neutral-800/70 to-neutral-900/70",
+      borderColor: "border-neutral-600/40",
+      textColor: "text-neutral-100",
+    },
+    nameColor: "text-neutral-400",
+    statusIndicator: "none",
+    gender: "male",
+  },
+  
+  archivist: {
+    name: "Архивариус",
+    shortName: "Мария",
+    role: "Работница архива",
+    avatar: {
+      emoji: "📚",
+      bgGradient: "from-amber-700 via-amber-800 to-amber-900",
+      ringColor: "ring-amber-500/50",
+      shadowColor: "shadow-amber-600/40",
+      isInitials: false,
+      imageSrc: "/avatars/arhivarius.jpg",
+    },
+    bubble: {
+      bgGradient: "from-amber-900/70 to-amber-950/70",
+      borderColor: "border-amber-600/40",
+      textColor: "text-amber-100",
+    },
+    nameColor: "text-amber-400",
+    statusIndicator: "none",
+    gender: "female",
+  },
+  
+  witness: {
+    name: "Свидетель",
+    shortName: "???",
+    role: "Местный житель",
+    avatar: {
+      emoji: "👁️",
+      bgGradient: "from-stone-600 via-stone-700 to-stone-800",
+      ringColor: "ring-stone-500/50",
+      shadowColor: "shadow-stone-600/40",
+      isInitials: false,
+    },
+    bubble: {
+      bgGradient: "from-stone-800/70 to-stone-900/70",
+      borderColor: "border-stone-600/40",
+      textColor: "text-stone-100",
+    },
+    nameColor: "text-stone-400",
+    statusIndicator: "none",
+    gender: "female",
+  },
+  
+  librarian: {
+    name: "Библиотекарша",
+    shortName: "???",
+    role: "Сотрудница библиотеки",
+    avatar: {
+      emoji: "📖",
+      bgGradient: "from-rose-700 via-rose-800 to-rose-900",
+      ringColor: "ring-rose-500/50",
+      shadowColor: "shadow-rose-600/40",
+      isInitials: false,
+    },
+    bubble: {
+      bgGradient: "from-rose-900/70 to-rose-950/70",
+      borderColor: "border-rose-600/40",
+      textColor: "text-rose-100",
+    },
+    nameColor: "text-rose-400",
+    statusIndicator: "none",
+    gender: "female",
   },
 };
 
@@ -3314,13 +3506,21 @@ function ParagraphRenderer({
   }
   
   // Типы контента
-  const isClue = text.includes("Улика найдена") || text.includes("Улики найдены") || hasTag(tags, "clue");
+  const isClue = text.includes("Улика найдена") || text.includes("Улики найдены") || text.includes("ЭКСКЛЮЗИВНАЯ УЛИКА") || hasTag(tags, "clue");
   const isWarning = text.includes("⚠️") || hasTag(tags, "warning");
   const isConsequence = text.includes("ПОСЛЕДСТВИЕ") || text.includes("✅") || text.includes("💀");
   const isImportant = hasTag(tags, "important");
   const isEnding = (text.includes("ЭПИЗОД") && text.includes("ЗАВЕРШЁН")) || text.includes("КОНЕЦ ЭПИЗОДА");
   const isEpisodeStat = text.includes("Ваш рассудок:") || text.includes("Дней осталось:") || text.includes("Собрано улик:");
   const isStats = (text.includes("Ваш счёт:") || text.includes("Объективность:")) && !isEnding && !isEpisodeStat;
+  
+  // Новые типы контента для расширения
+  const isSidequest = text.includes("ПОБОЧНОЕ РАССЛЕДОВАНИЕ") || hasTag(tags, "sidequest");
+  const isQuest = text.includes("Принято:") || text.includes("ЗАДАНИЕ ВЫПОЛНЕНО") || text.includes("ЗАДАНИЕ ПРИНЯТО") || hasTag(tags, "quest");
+  const isNightmare = hasTag(tags, "nightmare");
+  const isInterlude = text.includes("ИНТЕРЛЮДИЯ") || hasTag(tags, "interlude");
+  const isConflict = text.includes("КОНФЛИКТ ИНТЕРЕСОВ") || hasTag(tags, "conflict");
+  const isVision = text.includes("ВИДЕНИЕ:") || hasTag(tags, "vision:prophetic");
   
   // Блокнот следователя
   const isNotebookHeader = /^[А-ЯЁ]+:$/.test(text.trim()); // "КРАВЧЕНКО:", "НЕИЗВЕСТНЫЙ:"
@@ -3593,9 +3793,13 @@ function ParagraphRenderer({
   // ═══════════════════════════════════════════════════════════════════════════
   
   if (isClue) {
+    const isExclusive = text.includes("ЭКСКЛЮЗИВНАЯ УЛИКА") || text.includes("СКРЫТЫЙ ПУТЬ");
     const clueText = text
       .replace(/Улика найдена:\s*/i, "")
       .replace(/Улики найдены:\s*/i, "")
+      .replace(/ЭКСКЛЮЗИВНАЯ УЛИКА:\s*/i, "")
+      .replace(/СКРЫТЫЙ ПУТЬ:\s*/i, "")
+      .replace(/ВИДЕНИЕ:\s*/i, "")
       .trim();
     
     return (
@@ -3605,11 +3809,184 @@ function ParagraphRenderer({
         transition={{ duration: 0.2 }}
         className="flex justify-center my-3 px-4"
       >
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
-          <span className="text-xs">🔍</span>
-          <span className="text-[11px] text-emerald-400 font-medium">
+        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border
+          ${isExclusive 
+            ? "bg-amber-500/20 border-amber-500/40" 
+            : isVision
+            ? "bg-violet-500/20 border-violet-500/40"
+            : "bg-emerald-500/15 border-emerald-500/25"
+          }`}>
+          <span className="text-xs">{isExclusive ? "⭐" : isVision ? "🔮" : "🔍"}</span>
+          <span className={`text-[11px] font-medium
+            ${isExclusive ? "text-amber-400" : isVision ? "text-violet-400" : "text-emerald-400"}
+          `}>
             {clueText}
           </span>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ПОБОЧНОЕ РАССЛЕДОВАНИЕ — специальный блок
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isSidequest) {
+    const questText = text
+      .replace(/ПОБОЧНОЕ РАССЛЕДОВАНИЕ[:\s]*/i, "")
+      .replace(/завершено[:\s]*/i, "")
+      .trim();
+    const isCompleted = text.toLowerCase().includes("завершено");
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex justify-center my-4 px-4"
+      >
+        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border
+          ${isCompleted 
+            ? "bg-green-500/15 border-green-500/30" 
+            : "bg-indigo-500/15 border-indigo-500/30"
+          }`}>
+          <span className="text-sm">{isCompleted ? "✅" : "📋"}</span>
+          <div className="flex flex-col">
+            <span className={`text-[10px] uppercase tracking-wider font-bold
+              ${isCompleted ? "text-green-400" : "text-indigo-400"}
+            `}>
+              {isCompleted ? "Побочное расследование завершено" : "Побочное расследование"}
+            </span>
+            <span className="text-[12px] text-gray-300 mt-0.5">
+              {questText}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КВЕСТ/ЗАДАНИЕ — принято задание
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isQuest) {
+    const isCompleted = text.includes("ВЫПОЛНЕНО");
+    const questText = text
+      .replace(/Принято:\s*/i, "")
+      .replace(/ЗАДАНИЕ ВЫПОЛНЕНО:\s*/i, "")
+      .replace(/ЗАДАНИЕ ПРИНЯТО:\s*/i, "")
+      .trim();
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex justify-center my-3 px-4"
+      >
+        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border
+          ${isCompleted 
+            ? "bg-green-500/15 border-green-500/30" 
+            : "bg-cyan-500/15 border-cyan-500/30"
+          }`}>
+          <span className="text-sm">{isCompleted ? "✅" : "📝"}</span>
+          <div className="flex flex-col">
+            <span className={`text-[10px] uppercase tracking-wider font-bold
+              ${isCompleted ? "text-green-400" : "text-cyan-400"}
+            `}>
+              {isCompleted ? "Задание выполнено" : "Задание принято"}
+            </span>
+            <span className="text-[12px] text-gray-300 mt-0.5">
+              {questText}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КОШМАР — результат ночного кошмара
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isNightmare) {
+    const isWin = text.includes("+") || text.includes("победили");
+    const nightmareText = text.trim();
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="flex justify-center my-4 px-4"
+      >
+        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border
+          ${isWin 
+            ? "bg-violet-500/20 border-violet-500/40" 
+            : "bg-red-500/20 border-red-500/40"
+          }`}>
+          <span className="text-sm">{isWin ? "🌙" : "😱"}</span>
+          <span className={`text-[12px] font-medium
+            ${isWin ? "text-violet-300" : "text-red-300"}
+          `}>
+            {nightmareText}
+          </span>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ИНТЕРЛЮДИЯ — заголовок интерлюдии
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isInterlude && text.includes("ИНТЕРЛЮДИЯ")) {
+    const interludeText = text.replace(/ИНТЕРЛЮДИЯ:\s*/i, "").trim();
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="my-8"
+      >
+        <div className="text-center">
+          <span className="text-[10px] uppercase tracking-[0.3em] text-violet-400/80 font-medium">
+            — Интерлюдия —
+          </span>
+          <h2 className="text-2xl font-serif text-violet-200 mt-2">
+            {interludeText}
+          </h2>
+        </div>
+      </motion.div>
+    );
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КОНФЛИКТ ИНТЕРЕСОВ — предупреждение о последствиях
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isConflict) {
+    const conflictText = text.replace(/КОНФЛИКТ ИНТЕРЕСОВ:\s*/i, "").trim();
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="flex justify-center my-4 px-4"
+      >
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500/15 border border-orange-500/30">
+          <span className="text-sm">⚖️</span>
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-orange-400">
+              Конфликт интересов
+            </span>
+            <span className="text-[12px] text-gray-300 mt-0.5">
+              {conflictText}
+            </span>
+          </div>
         </div>
       </motion.div>
     );
