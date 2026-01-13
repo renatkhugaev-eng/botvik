@@ -113,14 +113,10 @@ class BackgroundMusic {
    * Требует user gesture для автозапуска на мобильных
    */
   private initAudio(track: MusicTrack): HTMLAudioElement {
-    // Очистка предыдущего - ВАЖНО: удаляем listeners перед очисткой src
+    // Очистка предыдущего - просто останавливаем, новый элемент заменит старый
     if (this.audio) {
-      // Удаляем обработчики чтобы не получить ложные ошибки
-      this.audio.onended = null;
-      this.audio.onerror = null;
       this.audio.pause();
       this.audio.src = "";
-      // НЕ вызываем load() - это триггерит загрузку пустого URL
     }
     
     if (!track?.src) {
@@ -135,12 +131,12 @@ class BackgroundMusic {
     audio.volume = 0; // Начинаем с нуля для fade in
     audio.preload = "auto";
     
-    // Event listeners (используем свойства вместо addEventListener для легкой очистки)
-    audio.onended = this.handleTrackEnd.bind(this);
-    audio.onerror = this.handleError.bind(this);
-    audio.oncanplaythrough = () => {
+    // Event listeners
+    audio.addEventListener("ended", this.handleTrackEnd.bind(this));
+    audio.addEventListener("error", this.handleError.bind(this));
+    audio.addEventListener("canplaythrough", () => {
       console.log(`[BackgroundMusic] Track "${track.name}" ready to play`);
-    };
+    });
     
     this.audio = audio;
     this.currentTrack = track;
@@ -152,13 +148,10 @@ class BackgroundMusic {
    * Инициализация ambient слоя
    */
   private initAmbientAudio(track: MusicTrack): HTMLAudioElement {
-    // Очистка предыдущего - удаляем listeners перед очисткой
+    // Очистка предыдущего
     if (this.ambientAudio) {
-      this.ambientAudio.onerror = null;
-      this.ambientAudio.oncanplaythrough = null;
       this.ambientAudio.pause();
       this.ambientAudio.src = "";
-      // НЕ вызываем load()
     }
     
     if (!track?.src) {
@@ -173,13 +166,13 @@ class BackgroundMusic {
     audio.volume = 0;
     audio.preload = "auto";
     
-    audio.onerror = (e) => {
+    audio.addEventListener("error", (e) => {
       const target = e.target as HTMLAudioElement | null;
       console.error("[BackgroundMusic] Ambient error:", target?.error?.code, target?.src);
-    };
-    audio.oncanplaythrough = () => {
+    });
+    audio.addEventListener("canplaythrough", () => {
       console.log(`[BackgroundMusic] Ambient "${track.name}" ready to play`);
-    };
+    });
     
     this.ambientAudio = audio;
     this.ambientTrack = track;
@@ -706,18 +699,12 @@ class BackgroundMusic {
     }
     
     if (this.audio) {
-      // Удаляем listeners перед очисткой
-      this.audio.onended = null;
-      this.audio.onerror = null;
-      this.audio.oncanplaythrough = null;
       this.audio.pause();
       this.audio.src = "";
       this.audio = null;
     }
     
     if (this.ambientAudio) {
-      this.ambientAudio.onerror = null;
-      this.ambientAudio.oncanplaythrough = null;
       this.ambientAudio.pause();
       this.ambientAudio.src = "";
       this.ambientAudio = null;
