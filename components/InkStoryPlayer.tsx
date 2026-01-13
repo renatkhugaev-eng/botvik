@@ -1194,8 +1194,8 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
       bgGradient: "from-slate-600 via-slate-700 to-slate-800",
       ringColor: "ring-slate-500/50",
       shadowColor: "shadow-slate-600/40",
-      isInitials: true,
-      imageSrc: "/avatars/deputy.webp",
+      isInitials: false,
+      imageSrc: "/avatars/stranger.webp",
     },
     bubble: {
       bgGradient: "from-slate-800/70 to-slate-900/70",

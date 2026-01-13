@@ -6197,7 +6197,7 @@ VAR journal_return_point = 0
 
     Потом — шаги. Скрип двери в конце коридора. # style:atmosphere # intensity:low
 
-    — Товарищ Сорокин? Сюда. Майор ждёт. # speaker:stranger
+    — Товарищ Сорокин? Сюда. Майор ждёт. # speaker:deputy
 
     -> ep1_meet_gromov
 
