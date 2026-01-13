@@ -473,6 +473,13 @@ export default function InvestigationPage() {
   const [timeOfDay, setTimeOfDay] = useState(0); // 0=Утро, 1=День, 2=Вечер, 3=Ночь
   const [cultAwareness, setCultAwareness] = useState(0);
   const [investigationStyle, setInvestigationStyle] = useState("balanced"); // aggressive, diplomatic, balanced
+  // Побочные квесты
+  const [activeSidequests, setActiveSidequests] = useState<Set<string>>(new Set());
+  const [lettersReceived, setLettersReceived] = useState(0);
+  const [letterAuthorKnown, setLetterAuthorKnown] = useState(false);
+  const [nightmaresWon, setNightmaresWon] = useState(0);
+  const [nightmaresLost, setNightmaresLost] = useState(0);
+  const [interludeNightmare1Played, setInterludeNightmare1Played] = useState(false);
   const [metCharacters, setMetCharacters] = useState<Set<string>>(new Set());
   const [inventory, setInventory] = useState<Set<string>>(new Set(["item_flashlight", "item_gun", "item_notebook"])); // Начальный инвентарь
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
@@ -1010,6 +1017,48 @@ export default function InvestigationPage() {
         });
       }
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Отслеживаем побочные квесты
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (name === "active_sidequests") {
+      let items: string[] = [];
+      if (typeof value === "string") {
+        items = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      } else if (value && typeof value === "object") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inkList = value as any;
+        if (typeof inkList.toString === "function") {
+          const str = String(inkList);
+          if (str && str !== "[object Object]") {
+            items = str.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          }
+        }
+        if (items.length === 0 && inkList._items && typeof inkList._items === "object") {
+          items = Object.keys(inkList._items).map(key => {
+            const parts = key.split(".");
+            return parts[parts.length - 1];
+          });
+        }
+      }
+      setActiveSidequests(new Set(items.map(item => item.includes(".") ? item.split(".").pop()! : item)));
+    }
+    
+    if (name === "letters_received" && typeof value === "number") {
+      setLettersReceived(value);
+    }
+    if (name === "letter_author_known" && typeof value === "boolean") {
+      setLetterAuthorKnown(value);
+    }
+    if (name === "nightmares_won" && typeof value === "number") {
+      setNightmaresWon(value);
+    }
+    if (name === "nightmares_lost" && typeof value === "number") {
+      setNightmaresLost(value);
+    }
+    if (name === "interlude_nightmare_1_played" && typeof value === "boolean") {
+      setInterludeNightmare1Played(value);
+    }
   }, []);
 
   // Обработчик использования предметов из инвентаря
@@ -1325,6 +1374,12 @@ export default function InvestigationPage() {
             timeOfDay={timeOfDay}
             cultAwareness={cultAwareness}
             investigationStyle={investigationStyle}
+            activeSidequests={activeSidequests}
+            lettersReceived={lettersReceived}
+            letterAuthorKnown={letterAuthorKnown}
+            nightmaresWon={nightmaresWon}
+            nightmaresLost={nightmaresLost}
+            interludeNightmare1Played={interludeNightmare1Played}
             onClose={() => setShowJournalModal(false)}
             onUseItem={handleUseItem}
           />
@@ -1460,6 +1515,12 @@ function JournalModal({
   timeOfDay,
   cultAwareness,
   investigationStyle,
+  activeSidequests,
+  lettersReceived,
+  letterAuthorKnown,
+  nightmaresWon,
+  nightmaresLost,
+  interludeNightmare1Played,
   onClose,
   onUseItem,
 }: {
@@ -1473,10 +1534,16 @@ function JournalModal({
   timeOfDay: number;
   cultAwareness: number;
   investigationStyle: string;
+  activeSidequests: Set<string>;
+  lettersReceived: number;
+  letterAuthorKnown: boolean;
+  nightmaresWon: number;
+  nightmaresLost: number;
+  interludeNightmare1Played: boolean;
   onClose: () => void;
   onUseItem?: (itemId: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"main" | "clues" | "contacts" | "theories" | "inventory">("main");
+  const [activeTab, setActiveTab] = useState<"main" | "clues" | "contacts" | "theories" | "inventory" | "sidequests">("main");
 
   const timeNames = ["Утро", "День", "Вечер", "Ночь"];
   const totalDays = 5;
@@ -1625,6 +1692,7 @@ function JournalModal({
             { id: "inventory", label: "Снаряжение", icon: "🎒", count: inventory.size },
             { id: "clues", label: "Улики", icon: "🔍", count: foundClues.size },
             { id: "contacts", label: "Контакты", icon: "👥", count: metCharacters.size },
+            { id: "sidequests", label: "Квесты", icon: "📜", count: activeSidequests.size > 0 ? activeSidequests.size : undefined },
             { id: "theories", label: "Версии", icon: "💭" },
           ].map((tab) => (
             <button
@@ -2073,6 +2141,341 @@ function JournalModal({
           )}
 
           {/* ═══ THEORIES TAB ═══ */}
+          {/* Вкладка побочных квестов */}
+          {activeTab === "sidequests" && (
+            <>
+              <div className="text-center space-y-2 mb-5">
+                <p className="text-[10px] tracking-[0.4em] text-amber-700/60 uppercase">Дополнительные линии</p>
+                <h3 className="text-xl font-light text-stone-100 tracking-[0.15em]">ПОБОЧНЫЕ ЗАДАНИЯ</h3>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-px w-12 bg-gradient-to-r from-transparent via-amber-900/50 to-amber-700/30" />
+                  <span className="text-amber-600/80 text-xs">⚜</span>
+                  <div className="h-px w-12 bg-gradient-to-l from-transparent via-amber-900/50 to-amber-700/30" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* ═══ АНОНИМНЫЕ ПИСЬМА — Современная карточка ═══ */}
+                {(activeSidequests.has("sq_letters_started") || activeSidequests.has("sq_letters_trusted") || 
+                  activeSidequests.has("sq_letters_ignored") || activeSidequests.has("sq_letters_solved")) && (() => {
+                  const isSolved = activeSidequests.has("sq_letters_solved");
+                  const isTrusted = activeSidequests.has("sq_letters_trusted");
+                  const isIgnored = activeSidequests.has("sq_letters_ignored");
+                  const isStarted = activeSidequests.has("sq_letters_started");
+                  
+                  // Прогресс квеста: started=1, trusted/ignored=2, solved=3
+                  const progress = isSolved ? 100 : (isTrusted || isIgnored) ? 66 : isStarted ? 33 : 0;
+                  const currentStep = isSolved ? 3 : (isTrusted || isIgnored) ? 2 : 1;
+                  
+                  return (
+                    <div className={`relative rounded-xl overflow-hidden ${
+                      isSolved ? "bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20" :
+                      isIgnored ? "bg-gradient-to-br from-stone-900/60 via-stone-950 to-stone-900/40" :
+                      "bg-gradient-to-br from-indigo-950/40 via-stone-950 to-violet-950/20"
+                    }`}>
+                      {/* Свечение по краю */}
+                      <div className={`absolute inset-0 rounded-xl border ${
+                        isSolved ? "border-emerald-500/30" :
+                        isIgnored ? "border-stone-600/30" :
+                        "border-indigo-500/30"
+                      }`} />
+                      
+                      {/* Декоративная линия сверху */}
+                      <div className={`h-1 ${
+                        isSolved ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" :
+                        isIgnored ? "bg-gradient-to-r from-stone-600 via-stone-500 to-stone-600" :
+                        "bg-gradient-to-r from-indigo-600 via-violet-400 to-indigo-600"
+                      }`} />
+                      
+                      <div className="p-4">
+                        {/* Заголовок */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              isSolved ? "bg-emerald-900/50" :
+                              isIgnored ? "bg-stone-800/50" :
+                              "bg-indigo-900/50"
+                            }`}>
+                              <span className="text-xl">
+                                {isSolved ? "📬" : isIgnored ? "🚫" : "✉️"}
+                              </span>
+                            </div>
+                            <div>
+                              <h4 className={`font-medium ${
+                                isSolved ? "text-emerald-200" :
+                                isIgnored ? "text-stone-400" :
+                                "text-indigo-200"
+                              }`}>Анонимные письма</h4>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Побочный квест • {isSolved ? "Завершён" : isIgnored ? "Отклонён" : "В процессе"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider ${
+                            isSolved ? "bg-emerald-500/20 text-emerald-400" :
+                            isIgnored ? "bg-stone-500/20 text-stone-400" :
+                            "bg-indigo-500/20 text-indigo-400"
+                          }`}>
+                            {isSolved ? "✓ Раскрыт" : isIgnored ? "✗ Закрыт" : `Этап ${currentStep}/3`}
+                          </div>
+                        </div>
+                        
+                        {/* Прогресс-бар */}
+                        <div className="mb-4">
+                          <div className="h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isSolved ? "bg-gradient-to-r from-emerald-600 to-emerald-400" :
+                                isIgnored ? "bg-gradient-to-r from-stone-600 to-stone-500" :
+                                "bg-gradient-to-r from-indigo-600 to-violet-500"
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between mt-1.5 text-[9px] text-stone-600">
+                            <span>Получение</span>
+                            <span>Решение</span>
+                            <span>Раскрытие</span>
+                          </div>
+                        </div>
+                        
+                        {/* Описание и статус */}
+                        <div className={`p-3 rounded-lg mb-3 ${
+                          isSolved ? "bg-emerald-950/30" :
+                          isIgnored ? "bg-stone-900/30" :
+                          "bg-indigo-950/30"
+                        }`}>
+                          <p className="text-xs text-stone-300 leading-relaxed">
+                            {isSolved 
+                              ? "Тайный информатор раскрыт. Николай Семёнович — бывший член культа, потерявший сына в ритуале 1983 года. Его показания бесценны для расследования."
+                              : isTrusted
+                              ? "Решено довериться анониму. Согласно последнему письму — вечером у старой шахты состоится встреча. Нужно быть осторожным."
+                              : isIgnored
+                              ? "Письма признаны провокацией. Возможно, важная информация была упущена, но безопасность прежде всего."
+                              : "Получено таинственное письмо без подписи. Аноним предупреждает об опасности и обещает помочь. Доверять ли ему?"
+                            }
+                          </p>
+                        </div>
+                        
+                        {/* Детали квеста */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className={isSolved || lettersReceived >= 1 ? "text-emerald-400" : "text-stone-600"}>
+                              {isSolved || lettersReceived >= 1 ? "●" : "○"}
+                            </span>
+                            <span className={isSolved || lettersReceived >= 1 ? "text-stone-300" : "text-stone-600"}>
+                              Получить первое письмо
+                            </span>
+                            {lettersReceived >= 1 && <span className="text-[9px] text-emerald-500/70 ml-auto">✓</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className={lettersReceived >= 2 ? "text-emerald-400" : "text-stone-600"}>
+                              {lettersReceived >= 2 ? "●" : "○"}
+                            </span>
+                            <span className={lettersReceived >= 2 ? "text-stone-300" : "text-stone-600"}>
+                              Получить второе письмо ({lettersReceived}/2)
+                            </span>
+                            {lettersReceived >= 2 && <span className="text-[9px] text-emerald-500/70 ml-auto">✓</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className={isTrusted || isIgnored || isSolved ? "text-emerald-400" : "text-stone-600"}>
+                              {isTrusted || isIgnored || isSolved ? "●" : "○"}
+                            </span>
+                            <span className={isTrusted || isIgnored || isSolved ? "text-stone-300" : "text-stone-600"}>
+                              Принять решение о доверии
+                            </span>
+                            {(isTrusted || isIgnored || isSolved) && (
+                              <span className={`text-[9px] ml-auto ${isTrusted || isSolved ? "text-emerald-500/70" : "text-red-500/70"}`}>
+                                {isTrusted || isSolved ? "Доверился" : "Отказал"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className={isSolved ? "text-emerald-400" : "text-stone-600"}>
+                              {isSolved ? "●" : "○"}
+                            </span>
+                            <span className={isSolved ? "text-stone-300" : "text-stone-600"}>
+                              Узнать личность информатора
+                            </span>
+                            {isSolved && <span className="text-[9px] text-amber-500/70 ml-auto">Н. Семёнович</span>}
+                          </div>
+                        </div>
+                        
+                        {/* Награда */}
+                        {isSolved && (
+                          <div className="mt-3 pt-3 border-t border-emerald-900/30 flex items-center gap-2">
+                            <span className="text-amber-400">⭐</span>
+                            <span className="text-[10px] text-amber-300/80">Получен эксклюзивный источник информации о культе</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ═══ НОЧНЫЕ КОШМАРЫ — Современная карточка ═══ */}
+                {interludeNightmare1Played && (() => {
+                  const totalNightmares = nightmaresWon + nightmaresLost;
+                  const isVictorious = nightmaresWon > 0;
+                  const progress = Math.min((totalNightmares / 3) * 100, 100);
+                  
+                  return (
+                    <div className={`relative rounded-xl overflow-hidden ${
+                      isVictorious 
+                        ? "bg-gradient-to-br from-violet-950/40 via-stone-950 to-purple-950/20"
+                        : "bg-gradient-to-br from-red-950/40 via-stone-950 to-rose-950/20"
+                    }`}>
+                      {/* Свечение по краю */}
+                      <div className={`absolute inset-0 rounded-xl border ${
+                        isVictorious ? "border-violet-500/30" : "border-red-500/30"
+                      }`} />
+                      
+                      {/* Декоративная линия сверху */}
+                      <div className={`h-1 ${
+                        isVictorious 
+                          ? "bg-gradient-to-r from-violet-600 via-purple-400 to-violet-600"
+                          : "bg-gradient-to-r from-red-600 via-rose-400 to-red-600"
+                      }`} />
+                      
+                      <div className="p-4">
+                        {/* Заголовок */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center relative ${
+                              isVictorious ? "bg-violet-900/50" : "bg-red-900/50"
+                            }`}>
+                              <span className="text-xl">{isVictorious ? "🌙" : "💀"}</span>
+                              {/* Пульсация для активного квеста */}
+                              {totalNightmares < 3 && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                              )}
+                            </div>
+                            <div>
+                              <h4 className={`font-medium ${isVictorious ? "text-violet-200" : "text-red-200"}`}>
+                                Ночные кошмары
+                              </h4>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Интерлюдия • {totalNightmares >= 3 ? "Завершено" : "Активно"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider ${
+                              isVictorious ? "bg-violet-500/20 text-violet-400" : "bg-red-500/20 text-red-400"
+                            }`}>
+                              {totalNightmares}/3 ночей
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Визуализация ночей */}
+                        <div className="flex gap-2 mb-4">
+                          {[1, 2, 3].map((night) => {
+                            const isPlayed = night <= totalNightmares;
+                            const wasWon = night <= nightmaresWon;
+                            return (
+                              <div 
+                                key={night}
+                                className={`flex-1 h-12 rounded-lg flex flex-col items-center justify-center transition-all ${
+                                  isPlayed 
+                                    ? wasWon 
+                                      ? "bg-gradient-to-b from-violet-800/40 to-violet-900/60 border border-violet-500/30"
+                                      : "bg-gradient-to-b from-red-800/40 to-red-900/60 border border-red-500/30"
+                                    : "bg-stone-900/30 border border-stone-800/50 border-dashed"
+                                }`}
+                              >
+                                <span className="text-sm">
+                                  {isPlayed ? (wasWon ? "✨" : "💔") : "🌑"}
+                                </span>
+                                <span className={`text-[9px] mt-0.5 ${
+                                  isPlayed 
+                                    ? wasWon ? "text-violet-400" : "text-red-400"
+                                    : "text-stone-600"
+                                }`}>
+                                  {isPlayed ? (wasWon ? "Победа" : "Побег") : `Ночь ${night}`}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Описание */}
+                        <div className={`p-3 rounded-lg mb-3 ${
+                          isVictorious ? "bg-violet-950/30" : "bg-red-950/30"
+                        }`}>
+                          <p className="text-xs text-stone-300 leading-relaxed">
+                            {isVictorious 
+                              ? "Вы преодолели страх и увидели сквозь завесу кошмара. Образы из прошлого — афганские воспоминания — переплелись с видениями алтаря в пещерах. Теперь вы знаете: лес показывает правду тем, кто не отворачивается."
+                              : "Кошмар оказался слишком силён. Вы бежали от образов прошлого, но они преследуют вас наяву. Возможно, в следующий раз удастся посмотреть страху в глаза."
+                            }
+                          </p>
+                        </div>
+                        
+                        {/* Статистика */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className={`p-2 rounded-lg text-center ${
+                            isVictorious ? "bg-violet-900/20" : "bg-stone-900/30"
+                          }`}>
+                            <div className={`text-lg font-bold ${isVictorious ? "text-violet-300" : "text-stone-400"}`}>
+                              {nightmaresWon}
+                            </div>
+                            <div className="text-[9px] text-stone-500 uppercase tracking-wider">Побед</div>
+                          </div>
+                          <div className={`p-2 rounded-lg text-center ${
+                            nightmaresLost > 0 ? "bg-red-900/20" : "bg-stone-900/30"
+                          }`}>
+                            <div className={`text-lg font-bold ${nightmaresLost > 0 ? "text-red-300" : "text-stone-400"}`}>
+                              {nightmaresLost}
+                            </div>
+                            <div className="text-[9px] text-stone-500 uppercase tracking-wider">Побегов</div>
+                          </div>
+                        </div>
+                        
+                        {/* Бонусы */}
+                        {isVictorious && (
+                          <div className="mt-3 pt-3 border-t border-violet-900/30 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-400 text-sm">⭐</span>
+                              <span className="text-[10px] text-amber-300/80">Видение: алтарь в глубине пещер</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-violet-400 text-sm">👁</span>
+                              <span className="text-[10px] text-violet-300/80">Записано пророческое видение</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ═══ ПУСТОЕ СОСТОЯНИЕ — Современный дизайн ═══ */}
+                {!activeSidequests.has("sq_letters_started") && 
+                 !activeSidequests.has("sq_letters_trusted") && 
+                 !activeSidequests.has("sq_letters_ignored") && 
+                 !activeSidequests.has("sq_letters_solved") && 
+                 !interludeNightmare1Played && (
+                  <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-stone-900/40 via-stone-950 to-stone-900/20">
+                    <div className="absolute inset-0 rounded-xl border border-stone-700/30 border-dashed" />
+                    <div className="py-10 px-6 text-center">
+                      <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-stone-800/50 flex items-center justify-center">
+                        <span className="text-2xl opacity-50">🔍</span>
+                      </div>
+                      <h4 className="text-sm font-medium text-stone-400 mb-2">Побочных заданий пока нет</h4>
+                      <p className="text-xs text-stone-600 max-w-[200px] mx-auto leading-relaxed">
+                        Исследуйте Черноозёрск внимательнее — не все важные зацепки лежат на поверхности
+                      </p>
+                      <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-stone-700">
+                        <span>💡</span>
+                        <span>Проверяйте почту и следите за снами</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {activeTab === "theories" && (
             <>
               <div className="text-center space-y-2 mb-4">

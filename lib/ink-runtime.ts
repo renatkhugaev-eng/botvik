@@ -136,6 +136,17 @@ export const RED_FOREST_VARIABLES = [
   "ending_sacrifice_unlocked",
   "ending_rebirth_unlocked",
   "ending_escape_unlocked",
+  
+  // Побочные квесты
+  "active_sidequests",
+  "letters_received",
+  "letters_followed",
+  "letter_author_known",
+  "nightmares_won",
+  "nightmares_lost",
+  "interlude_nightmare_1_played",
+  "interlude_nightmare_2_played",
+  "interlude_nightmare_3_played",
 ] as const;
 
 // ══════════════════════════════════════════════════════════════════════════════

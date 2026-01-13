@@ -87,7 +87,8 @@ export const InkStoryPlayer = forwardRef<InkStoryPlayerHandle, InkStoryPlayerPro
     },
     onStopSound: (soundId: string) => {
       const music = getBackgroundMusic();
-      music.stop();
+      // Восстанавливаем предыдущий трек при выходе из локации
+      music.stopAndRestorePrevious();
     },
     onTriggerHaptic: (hapticType: string) => {
       // Маппинг типов haptic из Ink на реальные функции

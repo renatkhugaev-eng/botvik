@@ -51,6 +51,12 @@ export const INVESTIGATION_TRACKS: MusicTrack[] = [
     src: "/audio/follows-dark-ambient-194926.mp3", // TODO: Заменить на отдельный трек madness
     mood: "horror",
   },
+  {
+    id: "market-ambient",
+    name: "Рынок — Атмосфера провинции",
+    src: "/audio/market-ambient.mp3",
+    mood: "calm",
+  },
   // Можно добавить больше треков для разных эпизодов/настроений
 ];
 
@@ -73,6 +79,7 @@ class BackgroundMusic {
   private config: MusicConfig;
   private state: MusicState = "stopped";
   private currentTrack: MusicTrack | null = null;
+  private previousTrack: MusicTrack | null = null;  // Для восстановления при выходе из локации
   private fadeInterval: NodeJS.Timeout | null = null;
   private targetVolume: number = 0;
   
@@ -106,24 +113,34 @@ class BackgroundMusic {
    * Требует user gesture для автозапуска на мобильных
    */
   private initAudio(track: MusicTrack): HTMLAudioElement {
-    // Очистка предыдущего
+    // Очистка предыдущего - ВАЖНО: удаляем listeners перед очисткой src
     if (this.audio) {
+      // Удаляем обработчики чтобы не получить ложные ошибки
+      this.audio.onended = null;
+      this.audio.onerror = null;
       this.audio.pause();
       this.audio.src = "";
-      this.audio.load();
+      // НЕ вызываем load() - это триггерит загрузку пустого URL
     }
+    
+    if (!track?.src) {
+      console.error("[BackgroundMusic] ОШИБКА: track.src пустой или undefined!");
+      throw new Error("Track source is empty");
+    }
+    
+    console.log(`[BackgroundMusic] Инициализация трека: ${track.name} (${track.src})`);
     
     const audio = new Audio(track.src);
     audio.loop = this.config.loop;
     audio.volume = 0; // Начинаем с нуля для fade in
     audio.preload = "auto";
     
-    // Event listeners
-    audio.addEventListener("ended", this.handleTrackEnd.bind(this));
-    audio.addEventListener("error", this.handleError.bind(this));
-    audio.addEventListener("canplaythrough", () => {
+    // Event listeners (используем свойства вместо addEventListener для легкой очистки)
+    audio.onended = this.handleTrackEnd.bind(this);
+    audio.onerror = this.handleError.bind(this);
+    audio.oncanplaythrough = () => {
       console.log(`[BackgroundMusic] Track "${track.name}" ready to play`);
-    });
+    };
     
     this.audio = audio;
     this.currentTrack = track;
@@ -135,24 +152,34 @@ class BackgroundMusic {
    * Инициализация ambient слоя
    */
   private initAmbientAudio(track: MusicTrack): HTMLAudioElement {
-    // Очистка предыдущего
+    // Очистка предыдущего - удаляем listeners перед очисткой
     if (this.ambientAudio) {
+      this.ambientAudio.onerror = null;
+      this.ambientAudio.oncanplaythrough = null;
       this.ambientAudio.pause();
       this.ambientAudio.src = "";
-      this.ambientAudio.load();
+      // НЕ вызываем load()
     }
+    
+    if (!track?.src) {
+      console.error("[BackgroundMusic] ОШИБКА: ambient track.src пустой!");
+      throw new Error("Ambient track source is empty");
+    }
+    
+    console.log(`[BackgroundMusic] Инициализация ambient: ${track.name} (${track.src})`);
     
     const audio = new Audio(track.src);
     audio.loop = true; // Ambient всегда в loop
     audio.volume = 0;
     audio.preload = "auto";
     
-    audio.addEventListener("error", (e) => {
-      console.error("[BackgroundMusic] Ambient error:", e);
-    });
-    audio.addEventListener("canplaythrough", () => {
+    audio.onerror = (e) => {
+      const target = e.target as HTMLAudioElement | null;
+      console.error("[BackgroundMusic] Ambient error:", target?.error?.code, target?.src);
+    };
+    audio.oncanplaythrough = () => {
       console.log(`[BackgroundMusic] Ambient "${track.name}" ready to play`);
-    });
+    };
     
     this.ambientAudio = audio;
     this.ambientTrack = track;
@@ -186,13 +213,19 @@ class BackgroundMusic {
     }
     
     if (!targetTrack) {
-      console.warn("[BackgroundMusic] No track to play");
+      console.warn("[BackgroundMusic] Трек не найден:", track);
       return false;
     }
     
     // Если уже играет этот трек — ничего не делаем
     if (this.state === "playing" && this.currentTrack?.id === targetTrack.id) {
       return true;
+    }
+    
+    // Сохраняем предыдущий трек для восстановления
+    if (this.currentTrack && this.currentTrack.id !== targetTrack.id) {
+      this.previousTrack = this.currentTrack;
+      console.log(`[BackgroundMusic] Сохранён предыдущий трек: ${this.previousTrack.name}`);
     }
     
     // Инициализация или смена трека
@@ -341,6 +374,30 @@ class BackgroundMusic {
       this.ambientAudio.currentTime = 0;
     }
     this.setState("stopped");
+  }
+  
+  /**
+   * Остановка текущего трека и восстановление предыдущего
+   * Используется при выходе из локаций со своей музыкой
+   */
+  async stopAndRestorePrevious(): Promise<boolean> {
+    // Fade out текущего трека
+    if (this.audio && this.state === "playing") {
+      await this.fadeToVolume(0, this.config.fadeOutDuration);
+      this.audio.pause();
+    }
+    
+    // Восстанавливаем предыдущий трек
+    if (this.previousTrack) {
+      console.log(`[BackgroundMusic] Восстановление трека: ${this.previousTrack.name}`);
+      const trackToRestore = this.previousTrack;
+      this.previousTrack = null; // Очищаем чтобы не зациклиться
+      return await this.play(trackToRestore);
+    } else {
+      // Если предыдущего нет — играем основной ambient
+      console.log("[BackgroundMusic] Нет предыдущего трека, играем основной ambient");
+      return await this.play("red-forest-ambient");
+    }
   }
   
   /**
@@ -502,7 +559,34 @@ class BackgroundMusic {
   }
   
   private handleError(e: Event): void {
-    console.error("[BackgroundMusic] Error:", e);
+    // Получаем детали ошибки из HTMLMediaElement
+    const target = e.target as HTMLAudioElement | null;
+    const error = target?.error;
+    
+    console.error("[BackgroundMusic] Audio Error Details:", {
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      audioSrc: target?.src,
+      networkState: target?.networkState,  // 0=EMPTY, 1=IDLE, 2=LOADING, 3=NO_SOURCE
+      readyState: target?.readyState,      // 0=HAVE_NOTHING, 1=HAVE_METADATA, etc.
+    });
+    
+    // Детальные сообщения об ошибках
+    switch (error?.code) {
+      case 1: // MEDIA_ERR_ABORTED
+        console.error("[BackgroundMusic] Загрузка прервана пользователем");
+        break;
+      case 2: // MEDIA_ERR_NETWORK
+        console.error("[BackgroundMusic] Сетевая ошибка при загрузке");
+        break;
+      case 3: // MEDIA_ERR_DECODE
+        console.error("[BackgroundMusic] Ошибка декодирования аудио");
+        break;
+      case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+        console.error("[BackgroundMusic] Формат не поддерживается или файл не найден:", target?.src);
+        break;
+    }
+    
     this.setState("stopped");
   }
   
@@ -622,16 +706,20 @@ class BackgroundMusic {
     }
     
     if (this.audio) {
+      // Удаляем listeners перед очисткой
+      this.audio.onended = null;
+      this.audio.onerror = null;
+      this.audio.oncanplaythrough = null;
       this.audio.pause();
       this.audio.src = "";
-      this.audio.load();
       this.audio = null;
     }
     
     if (this.ambientAudio) {
+      this.ambientAudio.onerror = null;
+      this.ambientAudio.oncanplaythrough = null;
       this.ambientAudio.pause();
       this.ambientAudio.src = "";
-      this.ambientAudio.load();
       this.ambientAudio = null;
     }
     
