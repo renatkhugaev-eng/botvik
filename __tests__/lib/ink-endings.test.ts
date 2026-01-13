@@ -25,11 +25,12 @@ function getAllText(state: InkState): string {
 }
 
 describe('Red Forest Endings', () => {
-  let storyJson: string;
+  let storyJson: object;
   
   beforeAll(() => {
-    // Загружаем историю один раз
-    storyJson = fs.readFileSync(STORY_PATH, 'utf-8');
+    // Загружаем историю один раз и парсим JSON
+    const jsonString = fs.readFileSync(STORY_PATH, 'utf-8');
+    storyJson = JSON.parse(jsonString);
   });
   
   // ═══════════════════════════════════════════════════════════════════════════
