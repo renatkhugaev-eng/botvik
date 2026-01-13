@@ -1693,27 +1693,6 @@ const SPEAKER_CONFIG: Record<string, CharacterConfig> = {
     gender: "female",
   },
   
-  witness: {
-    name: "Свидетель",
-    shortName: "???",
-    role: "Местный житель",
-    avatar: {
-      emoji: "👁️",
-      bgGradient: "from-stone-600 via-stone-700 to-stone-800",
-      ringColor: "ring-stone-500/50",
-      shadowColor: "shadow-stone-600/40",
-      isInitials: false,
-    },
-    bubble: {
-      bgGradient: "from-stone-800/70 to-stone-900/70",
-      borderColor: "border-stone-600/40",
-      textColor: "text-stone-100",
-    },
-    nameColor: "text-stone-400",
-    statusIndicator: "none",
-    gender: "female",
-  },
-  
   librarian: {
     name: "Библиотекарша",
     shortName: "???",
