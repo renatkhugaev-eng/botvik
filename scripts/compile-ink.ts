@@ -14,14 +14,15 @@ import * as fs from "fs";
 import * as path from "path";
 
 // inkjs/full включает компилятор
-import { Compiler } from "inkjs/full";
+import { Compiler, CompilerOptions } from "inkjs/full";
+import { IFileHandler } from "inkjs/compiler/FileHandler/IFileHandler";
 
 const INVESTIGATIONS_DIR = path.join(process.cwd(), "content", "investigations");
 
 /**
  * Анализирует синтаксис Ink файла перед компиляцией
  */
-function analyzeSyntax(inkSource: string): string[] {
+function analyzeSyntax(inkSource: string, inkPath: string): string[] {
   const errors: string[] = [];
   const lines = inkSource.split('\n');
   
@@ -30,7 +31,30 @@ function analyzeSyntax(inkSource: string): string[] {
   const definedStitches = new Map<string, Set<string>>();
   let currentKnot = "";
   
-  // Первый проход: собираем определения
+  // Проверяем INCLUDE директивы и собираем knots из включаемых файлов
+  const inkDir = path.dirname(inkPath);
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    const includeMatch = trimmed.match(/^INCLUDE\s+(.+)$/);
+    if (includeMatch) {
+      const includePath = path.join(inkDir, includeMatch[1].trim());
+      if (fs.existsSync(includePath)) {
+        try {
+          const includeSource = fs.readFileSync(includePath, "utf-8");
+          const includeLines = includeSource.split('\n');
+          includeLines.forEach((incLine) => {
+            const incTrimmed = incLine.trim();
+            const knotMatch = incTrimmed.match(/^===\s*(\w+)(?:\s*\([^)]*\))?\s*===?\s*$/);
+            if (knotMatch) {
+              definedKnots.add(knotMatch[1]);
+            }
+          });
+        } catch { /* ignore */ }
+      }
+    }
+  });
+  
+  // Первый проход: собираем определения из основного файла
   lines.forEach((line, i) => {
     const trimmed = line.trim();
     
@@ -159,7 +183,7 @@ async function compileInkFile(inkPath: string): Promise<void> {
   const warnings: string[] = [];
 
   // Сначала проведём собственный анализ синтаксиса
-  const syntaxErrors = analyzeSyntax(inkSource);
+  const syntaxErrors = analyzeSyntax(inkSource, inkPath);
   if (syntaxErrors.length > 0) {
     console.log("\n❌ Синтаксические ошибки:");
     syntaxErrors.forEach((e) => console.log(`   ${e}`));
@@ -167,8 +191,21 @@ async function compileInkFile(inkPath: string): Promise<void> {
   }
 
   try {
-    // Компилируем с обработкой ошибок
-    const compiler = new Compiler(inkSource, {
+    // Создаём FileHandler для обработки INCLUDE директив
+    const inkDir = path.dirname(inkPath);
+    const fileHandler: IFileHandler = {
+      ResolveInkFilename: (filename: string): string => {
+        return path.join(inkDir, filename);
+      },
+      LoadInkFileContents: (filename: string): string => {
+        const fullPath = path.isAbsolute(filename) ? filename : path.join(inkDir, filename);
+        return fs.readFileSync(fullPath, "utf-8");
+      }
+    };
+
+    // Компилируем с обработкой ошибок и FileHandler
+    const compilerOptions: CompilerOptions = {
+      sourceFilename: inkPath,
       errorHandler: (message: string, errorType: number) => {
         // errorType: 0 = Author, 1 = Warning, 2 = Error
         if (errorType === 2) {
@@ -178,8 +215,11 @@ async function compileInkFile(inkPath: string): Promise<void> {
         } else {
           warnings.push(`[Author] ${message}`);
         }
-      }
-    });
+      },
+      fileHandler: fileHandler
+    };
+    
+    const compiler = new Compiler(inkSource, compilerOptions);
     
     let story;
     try {

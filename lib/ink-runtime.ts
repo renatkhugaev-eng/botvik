@@ -147,6 +147,68 @@ export const RED_FOREST_VARIABLES = [
   "interlude_nightmare_1_played",
   "interlude_nightmare_2_played",
   "interlude_nightmare_3_played",
+  
+  // Квесты рынка
+  "quest_masha_documents",
+  "quest_masha_documents_done",
+  "quest_lyuda_medicine",
+  "quest_lyuda_medicine_done",
+  "quest_grisha_violin",
+  "quest_grisha_violin_done",
+  "quest_kolka_warning",
+  
+  // Прогресс квестов рынка (промежуточные этапы)
+  "viktor_documents_location_known",
+  "viktor_documents_found",
+  "grisha_violin_found",
+  
+  // Эксклюзивные улики от NPC (требуют высокое доверие)
+  "obtained_exclusive_clues",
+  
+  // Доверие NPC рынка
+  "trust_market_semyon",
+  "trust_market_zina",
+  "trust_market_mityai",
+  "trust_market_lyuda",
+  "trust_market_masha",
+  "trust_market_kolka",
+  "trust_market_grisha",
+  
+  // Благодарность города
+  "city_gratitude",
+  
+  // Флаги встреч с NPC рынка
+  "met_semyon",
+  "met_baba_zina",
+  "met_ded_mityai",
+  "met_lyuda",
+  "met_tetya_masha",
+  "met_kolka",
+  "met_grisha",
+  
+  // Понимание персонажей (0-100)
+  "understanding_gromov",
+  "understanding_vera",
+  "understanding_serafim",
+  "understanding_tanya",
+  "understanding_klava",
+  "understanding_fyodor",
+  "understanding_chernov",
+  "understanding_astahov",
+  
+  // Уровень опасности для персонажей (0-3)
+  "tanya_danger_level",
+  "vera_danger_level",
+  "serafim_danger_level",
+  
+  // Отношения (LIST)
+  "Relationships",
+  
+  // Флаги рассказанных секретов
+  "told_gromov_about_vera",
+  "told_vera_about_cult",
+  "told_tanya_about_danger",
+  "told_serafim_about_chernov",
 ] as const;
 
 // ══════════════════════════════════════════════════════════════════════════════

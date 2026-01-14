@@ -399,6 +399,13 @@ const PHYSICAL_CLUES_INFO: Record<string, ClueInfo> = {
     icon: "✝️",
     importance: "minor",
   },
+  old_mine_secret: {
+    name: "Тайна старой шахты",
+    description: "Шахтёры нашли древние ходы под землёй. Ходы, которые существовали задолго до появления города.",
+    category: "evidence",
+    icon: "⛏️",
+    importance: "major",
+  },
   // CluesE
   klava_testimony: {
     name: "Показания Клавы",
@@ -434,6 +441,95 @@ const PHYSICAL_CLUES_INFO: Record<string, ClueInfo> = {
     category: "evidence",
     icon: "📷",
     importance: "minor",
+  },
+  zorin_warning_letters: {
+    name: "Письма-предупреждения Зорина",
+    description: "Анонимные письма, которые получал Зорин перед исчезновением. Кто-то пытался его предупредить.",
+    category: "evidence",
+    icon: "✉️",
+    importance: "major",
+  },
+  zorin_night_photos: {
+    name: "Ночные фото Зорина",
+    description: "Снимки ритуалов в лесу, сделанные Зориным. Размытые фигуры в капюшонах вокруг костра.",
+    category: "evidence",
+    icon: "📸",
+    importance: "critical",
+  },
+  zorin_hidden_notes: {
+    name: "Тайные записи Зорина",
+    description: "Скрытая тетрадь о подземельях завода. Зорин нашёл вход в катакомбы культа.",
+    category: "evidence",
+    icon: "📓",
+    importance: "critical",
+  },
+};
+
+// Эксклюзивные улики от NPC (требуют высокое доверие)
+type ExclusiveClueInfo = {
+  name: string;
+  description: string;
+  source: string;
+  sourceIcon: string;
+  trustRequired: number;
+  icon: string;
+  reward: string;
+};
+
+const EXCLUSIVE_CLUES_INFO: Record<string, ExclusiveClueInfo> = {
+  excl_gromov_key: {
+    name: "Ключ от архива милиции",
+    description: "Секретный архив с 47 закрытыми делами за последние 40 лет. Паттерн ясен: все исчезновения происходят перед полнолунием.",
+    source: "Громов",
+    sourceIcon: "👮",
+    trustRequired: 70,
+    icon: "🔑",
+    reward: "+5 cult_awareness, +10 lore_depth",
+  },
+  excl_vera_medcards: {
+    name: "Медкарты проекта «Эхо»",
+    description: "Секретные медицинские карты тех, кто работал в закрытом отделе. Включая тех, кого официально не существует. Доказательства экспериментов над людьми.",
+    source: "Вера",
+    sourceIcon: "👩‍⚕️",
+    trustRequired: 60,
+    icon: "🏥",
+    reward: "+3 cult_awareness, +5 lore_depth",
+  },
+  excl_serafim_catacombs: {
+    name: "Карта катакомб",
+    description: "Древние ходы под церковью, которые ведут глубже, чем кто-либо думал. Серафим хранил эту тайну десятилетиями.",
+    source: "Серафим",
+    sourceIcon: "⛪",
+    trustRequired: 50,
+    icon: "🗺️",
+    reward: "Секретный путь в пещеры",
+  },
+  excl_tanya_diary: {
+    name: "Дневник Зорина",
+    description: "Личный дневник пропавшего инженера, который Таня хранила в тайне. Имена членов культа, схемы ритуалов, последние записи перед исчезновением.",
+    source: "Таня",
+    sourceIcon: "👩",
+    trustRequired: 70,
+    icon: "📓",
+    reward: "Имена членов культа",
+  },
+  excl_fyodor_safe_path: {
+    name: "Безопасный путь",
+    description: "Фёдор двадцать лет изучал лес и пещеры. Он знает каждую ловушку, каждый пост охраны. Этот путь — ваш единственный шанс войти незамеченным.",
+    source: "Фёдор",
+    sourceIcon: "🏕️",
+    trustRequired: 50,
+    icon: "🛤️",
+    reward: "Обход ловушек и охраны",
+  },
+  excl_chernov_letters: {
+    name: "Письма Чернова",
+    description: "Переписка академика Чернова с Зориным. Раскрывает связь главного учёного с культом и его истинные мотивы.",
+    source: "Особые условия",
+    sourceIcon: "📜",
+    trustRequired: 0,
+    icon: "✉️",
+    reward: "Полная история Чернова",
   },
 };
 
@@ -488,6 +584,66 @@ export default function InvestigationPage() {
   const [questGrishaViolin, setQuestGrishaViolin] = useState(false);
   const [questGrishaViolinDone, setQuestGrishaViolinDone] = useState(false);
   const [questKolkaWarning, setQuestKolkaWarning] = useState(false);
+  // Прогресс квестов рынка (промежуточные этапы)
+  const [viktorDocumentsLocationKnown, setViktorDocumentsLocationKnown] = useState(false);
+  const [viktorDocumentsFound, setViktorDocumentsFound] = useState(false);
+  const [grishaViolinFound, setGrishaViolinFound] = useState(false);
+  // Эксклюзивные улики от NPC (требуют высокое доверие)
+  const [exclusiveClues, setExclusiveClues] = useState<Set<string>>(new Set());
+  
+  // Доверие основных персонажей (0-100)
+  const [trustGromov, setTrustGromov] = useState(25);
+  const [trustVera, setTrustVera] = useState(30);
+  const [trustSerafim, setTrustSerafim] = useState(40);
+  const [trustTanya, setTrustTanya] = useState(40);
+  const [trustAstahov, setTrustAstahov] = useState(0);
+  const [trustFyodor, setTrustFyodor] = useState(20);
+  
+  // Доверие NPC рынка (0-100)
+  const [trustMarketSemyon, setTrustMarketSemyon] = useState(0);
+  const [trustMarketZina, setTrustMarketZina] = useState(0);
+  const [trustMarketMityai, setTrustMarketMityai] = useState(0);
+  const [trustMarketLyuda, setTrustMarketLyuda] = useState(0);
+  const [trustMarketMasha, setTrustMarketMasha] = useState(0);
+  const [trustMarketKolka, setTrustMarketKolka] = useState(0);
+  const [trustMarketGrisha, setTrustMarketGrisha] = useState(0);
+  
+  // Благодарность города (влияет на репутацию)
+  const [cityGratitude, setCityGratitude] = useState(0);
+  
+  // Флаги встреч с NPC рынка
+  const [metMarketSemyon, setMetMarketSemyon] = useState(false);
+  const [metMarketZina, setMetMarketZina] = useState(false);
+  const [metMarketMityai, setMetMarketMityai] = useState(false);
+  const [metMarketLyuda, setMetMarketLyuda] = useState(false);
+  const [metMarketMasha, setMetMarketMasha] = useState(false);
+  const [metMarketKolka, setMetMarketKolka] = useState(false);
+  const [metMarketGrisha, setMetMarketGrisha] = useState(false);
+  
+  // Понимание персонажей (0-100)
+  const [understandingGromov, setUnderstandingGromov] = useState(0);
+  const [understandingVera, setUnderstandingVera] = useState(0);
+  const [understandingSerafim, setUnderstandingSerafim] = useState(0);
+  const [understandingTanya, setUnderstandingTanya] = useState(0);
+  const [understandingKlava, setUnderstandingKlava] = useState(0);
+  const [understandingFyodor, setUnderstandingFyodor] = useState(0);
+  const [understandingChernov, setUnderstandingChernov] = useState(0);
+  const [understandingAstahov, setUnderstandingAstahov] = useState(0);
+  
+  // Уровень опасности для персонажей (0-3)
+  const [tanyaDangerLevel, setTanyaDangerLevel] = useState(0);
+  const [veraDangerLevel, setVeraDangerLevel] = useState(0);
+  const [serafimDangerLevel, setSerafimDangerLevel] = useState(0);
+  
+  // Отношения (особые статусы)
+  const [relationships, setRelationships] = useState<Set<string>>(new Set());
+  
+  // Флаги рассказанных секретов
+  const [toldGromovAboutVera, setToldGromovAboutVera] = useState(false);
+  const [toldVeraAboutCult, setToldVeraAboutCult] = useState(false);
+  const [toldTanyaAboutDanger, setToldTanyaAboutDanger] = useState(false);
+  const [toldSerafimAboutChernov, setToldSerafimAboutChernov] = useState(false);
+
   const [metCharacters, setMetCharacters] = useState<Set<string>>(new Set());
   const [inventory, setInventory] = useState<Set<string>>(new Set(["item_flashlight", "item_gun", "item_notebook"])); // Начальный инвентарь
   const [currentDocument, setCurrentDocument] = useState<InvestigationDocument | null>(null);
@@ -1055,8 +1211,8 @@ export default function InvestigationPage() {
     if (name === "letters_received" && typeof value === "number") {
       setLettersReceived(value);
     }
-    if (name === "letter_author_known" && typeof value === "boolean") {
-      setLetterAuthorKnown(value);
+    if (name === "letter_author_known") {
+      setLetterAuthorKnown(Boolean(value));
     }
     if (name === "nightmares_won" && typeof value === "number") {
       setNightmaresWon(value);
@@ -1064,33 +1220,226 @@ export default function InvestigationPage() {
     if (name === "nightmares_lost" && typeof value === "number") {
       setNightmaresLost(value);
     }
-    if (name === "interlude_nightmare_1_played" && typeof value === "boolean") {
-      setInterludeNightmare1Played(value);
+    if (name === "interlude_nightmare_1_played") {
+      setInterludeNightmare1Played(Boolean(value));
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
     // Отслеживаем квесты рынка
+    // Ink может возвращать boolean (true/false) или number (0/1), проверяем оба
     // ═══════════════════════════════════════════════════════════════════════════
-    if (name === "quest_masha_documents" && typeof value === "boolean") {
-      setQuestMashaDocuments(value);
+    if (name === "quest_masha_documents") {
+      setQuestMashaDocuments(Boolean(value));
     }
-    if (name === "quest_masha_documents_done" && typeof value === "boolean") {
-      setQuestMashaDocumentsDone(value);
+    if (name === "quest_masha_documents_done") {
+      setQuestMashaDocumentsDone(Boolean(value));
     }
-    if (name === "quest_lyuda_medicine" && typeof value === "boolean") {
-      setQuestLyudaMedicine(value);
+    if (name === "quest_lyuda_medicine") {
+      setQuestLyudaMedicine(Boolean(value));
     }
-    if (name === "quest_lyuda_medicine_done" && typeof value === "boolean") {
-      setQuestLyudaMedicineDone(value);
+    if (name === "quest_lyuda_medicine_done") {
+      setQuestLyudaMedicineDone(Boolean(value));
     }
-    if (name === "quest_grisha_violin" && typeof value === "boolean") {
-      setQuestGrishaViolin(value);
+    if (name === "quest_grisha_violin") {
+      setQuestGrishaViolin(Boolean(value));
     }
-    if (name === "quest_grisha_violin_done" && typeof value === "boolean") {
-      setQuestGrishaViolinDone(value);
+    if (name === "quest_grisha_violin_done") {
+      setQuestGrishaViolinDone(Boolean(value));
     }
-    if (name === "quest_kolka_warning" && typeof value === "boolean") {
-      setQuestKolkaWarning(value);
+    if (name === "quest_kolka_warning") {
+      setQuestKolkaWarning(Boolean(value));
+    }
+    // Прогресс квестов рынка (промежуточные этапы)
+    if (name === "viktor_documents_location_known") {
+      setViktorDocumentsLocationKnown(Boolean(value));
+    }
+    if (name === "viktor_documents_found") {
+      setViktorDocumentsFound(Boolean(value));
+    }
+    if (name === "grisha_violin_found") {
+      setGrishaViolinFound(Boolean(value));
+    }
+    // Эксклюзивные улики от NPC (InkList)
+    if (name === "obtained_exclusive_clues") {
+      let items: string[] = [];
+      if (typeof value === "string") {
+        items = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      } else if (value && typeof value === "object") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inkList = value as any;
+        if (typeof inkList.toString === "function") {
+          const str = String(inkList);
+          if (str && str !== "[object Object]") {
+            items = str.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          }
+        }
+        if (items.length === 0 && inkList._items) {
+          items = Object.keys(inkList._items);
+        }
+        if (items.length === 0 && typeof inkList.entries === "function") {
+          for (const [key] of inkList.entries()) {
+            items.push(String(key));
+          }
+        }
+      }
+      setExclusiveClues(prev => {
+        const newClues = new Set(prev);
+        let hasNew = false;
+        items.forEach(item => {
+          const cleanItem = item.includes(".") ? item.split(".").pop()! : item;
+          if (!newClues.has(cleanItem)) {
+            newClues.add(cleanItem);
+            hasNew = true;
+          }
+        });
+        if (hasNew) {
+          investigationHaptic.clueDiscovered();
+        }
+        return newClues;
+      });
+    }
+    
+    // Доверие основных персонажей
+    if (name === "trust_gromov" && typeof value === "number") {
+      setTrustGromov(value);
+    }
+    if (name === "trust_vera" && typeof value === "number") {
+      setTrustVera(value);
+    }
+    if (name === "trust_serafim" && typeof value === "number") {
+      setTrustSerafim(value);
+    }
+    if (name === "trust_tanya" && typeof value === "number") {
+      setTrustTanya(value);
+    }
+    if (name === "trust_astahov" && typeof value === "number") {
+      setTrustAstahov(value);
+    }
+    if (name === "trust_fyodor" && typeof value === "number") {
+      setTrustFyodor(value);
+    }
+
+    // Доверие NPC рынка
+    if (name === "trust_market_semyon" && typeof value === "number") {
+      setTrustMarketSemyon(value);
+    }
+    if (name === "trust_market_zina" && typeof value === "number") {
+      setTrustMarketZina(value);
+    }
+    if (name === "trust_market_mityai" && typeof value === "number") {
+      setTrustMarketMityai(value);
+    }
+    if (name === "trust_market_lyuda" && typeof value === "number") {
+      setTrustMarketLyuda(value);
+    }
+    if (name === "trust_market_masha" && typeof value === "number") {
+      setTrustMarketMasha(value);
+    }
+    if (name === "trust_market_kolka" && typeof value === "number") {
+      setTrustMarketKolka(value);
+    }
+    if (name === "trust_market_grisha" && typeof value === "number") {
+      setTrustMarketGrisha(value);
+    }
+    
+    // Благодарность города
+    if (name === "city_gratitude" && typeof value === "number") {
+      setCityGratitude(value);
+    }
+    
+    // Флаги встреч с NPC рынка
+    if (name === "met_semyon") {
+      setMetMarketSemyon(Boolean(value));
+    }
+    if (name === "met_baba_zina") {
+      setMetMarketZina(Boolean(value));
+    }
+    if (name === "met_ded_mityai") {
+      setMetMarketMityai(Boolean(value));
+    }
+    if (name === "met_lyuda") {
+      setMetMarketLyuda(Boolean(value));
+    }
+    if (name === "met_tetya_masha") {
+      setMetMarketMasha(Boolean(value));
+    }
+    if (name === "met_kolka") {
+      setMetMarketKolka(Boolean(value));
+    }
+    if (name === "met_grisha") {
+      setMetMarketGrisha(Boolean(value));
+    }
+    
+    // Понимание персонажей
+    if (name === "understanding_gromov" && typeof value === "number") {
+      setUnderstandingGromov(value);
+    }
+    if (name === "understanding_vera" && typeof value === "number") {
+      setUnderstandingVera(value);
+    }
+    if (name === "understanding_serafim" && typeof value === "number") {
+      setUnderstandingSerafim(value);
+    }
+    if (name === "understanding_tanya" && typeof value === "number") {
+      setUnderstandingTanya(value);
+    }
+    if (name === "understanding_klava" && typeof value === "number") {
+      setUnderstandingKlava(value);
+    }
+    if (name === "understanding_fyodor" && typeof value === "number") {
+      setUnderstandingFyodor(value);
+    }
+    if (name === "understanding_chernov" && typeof value === "number") {
+      setUnderstandingChernov(value);
+    }
+    if (name === "understanding_astahov" && typeof value === "number") {
+      setUnderstandingAstahov(value);
+    }
+    
+    // Уровень опасности для персонажей
+    if (name === "tanya_danger_level" && typeof value === "number") {
+      setTanyaDangerLevel(value);
+    }
+    if (name === "vera_danger_level" && typeof value === "number") {
+      setVeraDangerLevel(value);
+    }
+    if (name === "serafim_danger_level" && typeof value === "number") {
+      setSerafimDangerLevel(value);
+    }
+    
+    // Отношения (InkList)
+    if (name === "Relationships") {
+      let items: string[] = [];
+      if (typeof value === "string") {
+        items = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      } else if (value && typeof value === "object") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inkList = value as any;
+        if (typeof inkList.toString === "function") {
+          const str = String(inkList);
+          if (str && str !== "[object Object]") {
+            items = str.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          }
+        }
+        if (items.length === 0 && inkList._items) {
+          items = Object.keys(inkList._items);
+        }
+      }
+      setRelationships(new Set(items.map(item => item.includes(".") ? item.split(".").pop()! : item)));
+    }
+    
+    // Флаги рассказанных секретов
+    if (name === "told_gromov_about_vera") {
+      setToldGromovAboutVera(Boolean(value));
+    }
+    if (name === "told_vera_about_cult") {
+      setToldVeraAboutCult(Boolean(value));
+    }
+    if (name === "told_tanya_about_danger") {
+      setToldTanyaAboutDanger(Boolean(value));
+    }
+    if (name === "told_serafim_about_chernov") {
+      setToldSerafimAboutChernov(Boolean(value));
     }
   }, []);
 
@@ -1412,6 +1761,40 @@ export default function InvestigationPage() {
             questGrishaViolin={questGrishaViolin}
             questGrishaViolinDone={questGrishaViolinDone}
             questKolkaWarning={questKolkaWarning}
+            viktorDocumentsLocationKnown={viktorDocumentsLocationKnown}
+            viktorDocumentsFound={viktorDocumentsFound}
+            grishaViolinFound={grishaViolinFound}
+            exclusiveClues={exclusiveClues}
+            marketNpcTrust={{
+              semyon: trustMarketSemyon,
+              zina: trustMarketZina,
+              mityai: trustMarketMityai,
+              lyuda: trustMarketLyuda,
+              masha: trustMarketMasha,
+              kolka: trustMarketKolka,
+              grisha: trustMarketGrisha,
+            }}
+            marketNpcMet={{
+              semyon: metMarketSemyon,
+              zina: metMarketZina,
+              mityai: metMarketMityai,
+              lyuda: metMarketLyuda,
+              masha: metMarketMasha,
+              kolka: metMarketKolka,
+              grisha: metMarketGrisha,
+            }}
+            cityGratitude={cityGratitude}
+            characterStats={{
+              gromov: { trust: trustGromov, understanding: understandingGromov, dangerLevel: 0, toldSecret: toldGromovAboutVera },
+              vera: { trust: trustVera, understanding: understandingVera, dangerLevel: veraDangerLevel, toldSecret: toldVeraAboutCult },
+              serafim: { trust: trustSerafim, understanding: understandingSerafim, dangerLevel: serafimDangerLevel, toldSecret: toldSerafimAboutChernov },
+              tanya: { trust: trustTanya, understanding: understandingTanya, dangerLevel: tanyaDangerLevel, toldSecret: toldTanyaAboutDanger },
+              astahov: { trust: trustAstahov, understanding: understandingAstahov, dangerLevel: 0, toldSecret: false },
+              chernov: { trust: 0, understanding: understandingChernov, dangerLevel: 0, toldSecret: false },
+              klava: { trust: 20, understanding: understandingKlava, dangerLevel: 0, toldSecret: false },
+              fyodor: { trust: trustFyodor, understanding: understandingFyodor, dangerLevel: 0, toldSecret: false },
+            }}
+            relationships={relationships}
             onClose={() => setShowJournalModal(false)}
             onUseItem={handleUseItem}
           />
@@ -1477,15 +1860,15 @@ export default function InvestigationPage() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Информация о персонажах
-const CHARACTERS_INFO: Record<string, { name: string; role: string; emoji: string }> = {
-  gromov: { name: "Степан Громов", role: "Майор милиции", emoji: "👮" },
-  vera: { name: "Вера Холодова", role: "Психиатр", emoji: "👩‍⚕️" },
-  serafim: { name: "Отец Серафим", role: "Священник (бывший геолог)", emoji: "⛪" },
-  tanya: { name: "Таня Зорина", role: "Инженер завода", emoji: "👩‍🔧" },
-  astahov: { name: "Полковник Астахов", role: "КГБ", emoji: "🕵️" },
-  chernov: { name: "Академик Чернов", role: "Лидер культа", emoji: "🎓" },
-  klava: { name: "Клавдия Петровна", role: "Администратор гостиницы", emoji: "🏨" },
-  fyodor: { name: "Фёдор", role: "Бывший геолог", emoji: "🧔" },
+const CHARACTERS_INFO: Record<string, { name: string; role: string; emoji: string; avatar?: string }> = {
+  gromov: { name: "Степан Громов", role: "Майор милиции", emoji: "👮", avatar: "/avatars/gromov.webp" },
+  vera: { name: "Вера Холодова", role: "Психиатр", emoji: "👩‍⚕️", avatar: "/avatars/vera.webp" },
+  serafim: { name: "Отец Серафим", role: "Священник (бывший геолог)", emoji: "⛪", avatar: "/avatars/serafim.webp" },
+  tanya: { name: "Таня Зорина", role: "Инженер завода", emoji: "👩‍🔧", avatar: "/avatars/tanya.webp" },
+  astahov: { name: "Полковник Астахов", role: "КГБ", emoji: "🕵️", avatar: "/avatars/astahov.jpg" },
+  chernov: { name: "Академик Чернов", role: "Лидер культа", emoji: "🎓", avatar: "/avatars/chernov.webp" },
+  klava: { name: "Клавдия Петровна", role: "Администратор гостиницы", emoji: "🏨", avatar: "/avatars/klava.webp" },
+  fyodor: { name: "Фёдор", role: "Бывший геолог", emoji: "🧔", avatar: "/avatars/fyodor.webp" },
 };
 
 // Информация о предметах инвентаря
@@ -1560,6 +1943,15 @@ function JournalModal({
   questGrishaViolin,
   questGrishaViolinDone,
   questKolkaWarning,
+  viktorDocumentsLocationKnown,
+  viktorDocumentsFound,
+  grishaViolinFound,
+  exclusiveClues,
+  marketNpcTrust,
+  marketNpcMet,
+  cityGratitude,
+  characterStats,
+  relationships,
   onClose,
   onUseItem,
 }: {
@@ -1586,13 +1978,43 @@ function JournalModal({
   questGrishaViolin: boolean;
   questGrishaViolinDone: boolean;
   questKolkaWarning: boolean;
+  viktorDocumentsLocationKnown: boolean;
+  viktorDocumentsFound: boolean;
+  grishaViolinFound: boolean;
+  exclusiveClues: Set<string>;
+  marketNpcTrust: {
+    semyon: number;
+    zina: number;
+    mityai: number;
+    lyuda: number;
+    masha: number;
+    kolka: number;
+    grisha: number;
+  };
+  marketNpcMet: {
+    semyon: boolean;
+    zina: boolean;
+    mityai: boolean;
+    lyuda: boolean;
+    masha: boolean;
+    kolka: boolean;
+    grisha: boolean;
+  };
+  cityGratitude: number;
+  characterStats: Record<string, {
+    trust: number;
+    understanding: number;
+    dangerLevel: number;
+    toldSecret: boolean;
+  }>;
+  relationships: Set<string>;
   onClose: () => void;
   onUseItem?: (itemId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"main" | "clues" | "contacts" | "theories" | "inventory" | "sidequests">("main");
 
   const timeNames = ["Утро", "День", "Вечер", "Ночь"];
-  const totalDays = 5;
+  const totalDays = 15;
 
   // Группируем улики по категориям
   const cluesByCategory = {
@@ -2142,6 +2564,72 @@ function JournalModal({
                   )}
                 </div>
               )}
+
+              {/* ═══ ЭКСКЛЮЗИВНЫЕ УЛИКИ ═══ */}
+              {exclusiveClues.size > 0 && (
+                <div className="mt-6">
+                  <div className="text-center space-y-2 mb-4">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="h-px w-8 bg-gradient-to-r from-transparent to-amber-500/50" />
+                      <span className="text-amber-400/80 text-xs">⭐</span>
+                      <div className="h-px w-8 bg-gradient-to-l from-transparent to-amber-500/50" />
+                    </div>
+                    <h4 className="text-sm font-light text-amber-200/90 tracking-[0.15em] uppercase">Эксклюзивные улики</h4>
+                    <p className="text-[10px] text-amber-700/60">Получены благодаря высокому доверию NPC</p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {Array.from(exclusiveClues).map(clueId => {
+                      const info = EXCLUSIVE_CLUES_INFO[clueId];
+                      if (!info) return null;
+                      return (
+                        <div 
+                          key={clueId} 
+                          className="relative rounded-xl overflow-hidden bg-gradient-to-br from-amber-950/30 via-stone-950 to-amber-950/10"
+                        >
+                          <div className="absolute inset-0 rounded-xl border border-amber-500/20" />
+                          <div className="h-0.5 bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600" />
+                          <div className="relative p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-900/50 to-amber-950/50 flex items-center justify-center border border-amber-700/30">
+                                <span className="text-2xl">{info.icon}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="text-sm font-medium text-amber-200">{info.name}</h4>
+                                  <span className="text-amber-400 text-xs">⭐</span>
+                                </div>
+                                <p className="text-xs text-stone-400 mb-2 leading-relaxed">
+                                  {info.description}
+                                </p>
+                                <div className="flex items-center gap-3 text-[10px]">
+                                  <span className="flex items-center gap-1 text-stone-500">
+                                    <span>{info.sourceIcon}</span>
+                                    <span>От: {info.source}</span>
+                                  </span>
+                                  {info.trustRequired > 0 && (
+                                    <>
+                                      <span className="text-stone-700">•</span>
+                                      <span className="text-amber-600/80">
+                                        Доверие {info.trustRequired}+
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="mt-2 px-2 py-1 rounded bg-amber-950/30 border border-amber-900/30 inline-block">
+                                  <span className="text-[10px] text-amber-400/80">
+                                    🎁 {info.reward}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -2168,17 +2656,131 @@ function JournalModal({
                   {Array.from(metCharacters).map(charId => {
                     const char = CHARACTERS_INFO[charId];
                     if (!char) return null;
+                    
+                    const stats = characterStats[charId] || { trust: 0, understanding: 0, dangerLevel: 0, toldSecret: false };
+                    const hasRomance = relationships.has("romantic_tanya") && charId === "tanya";
+                    const wasBetrayed = relationships.has("betrayed_gromov") && charId === "gromov";
+                    const isTrusted = relationships.has("trusted_vera") && charId === "vera";
+                    const dangerLabels = ["Безопасен", "Под наблюдением", "В опасности", "Похищен"];
+                    const dangerColors = ["text-emerald-400", "text-amber-400", "text-orange-400", "text-red-400"];
+                    
                     return (
-                      <div key={charId} className="border border-stone-800 rounded-lg overflow-hidden">
-                        <div className="h-0.5 bg-gradient-to-r from-red-900/50 via-stone-700 to-stone-800" />
-                        <div className="p-3 bg-stone-900/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-lg bg-stone-800 flex items-center justify-center">
-                              <span className="text-2xl">{char.emoji}</span>
+                      <div 
+                        key={charId} 
+                        className={`border rounded-xl overflow-hidden ${
+                          stats.dangerLevel >= 2 
+                            ? "border-red-800/50 bg-red-950/10" 
+                            : hasRomance 
+                              ? "border-pink-800/50 bg-pink-950/10"
+                              : "border-stone-800 bg-stone-900/30"
+                        }`}
+                      >
+                        <div className={`h-0.5 ${
+                          stats.dangerLevel >= 2 
+                            ? "bg-gradient-to-r from-red-600 via-red-400 to-red-600" 
+                            : hasRomance 
+                              ? "bg-gradient-to-r from-pink-600 via-pink-400 to-pink-600"
+                              : "bg-gradient-to-r from-red-900/50 via-stone-700 to-stone-800"
+                        }`} />
+                        <div className="p-3">
+                          <div className="flex items-start gap-3">
+                            {/* Круглая аватарка с индикатором */}
+                            <div className="relative flex-shrink-0">
+                              <div className={`w-14 h-14 rounded-full overflow-hidden ring-2 ${
+                                stats.dangerLevel >= 2 ? "ring-red-500/50" : hasRomance ? "ring-pink-500/50" : "ring-stone-700/50"
+                              }`}>
+                                {char.avatar ? (
+                                  <img
+                                    src={char.avatar}
+                                    alt={char.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-stone-800 flex items-center justify-center">
+                                    <span className="text-2xl">{char.emoji}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Индикатор статуса */}
+                              {hasRomance && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-[10px]">💕</div>
+                              )}
+                              {wasBetrayed && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-red-600 flex items-center justify-center text-[10px]">💔</div>
+                              )}
+                              {isTrusted && !hasRomance && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-[10px]">✓</div>
+                              )}
                             </div>
-                            <div>
-                              <h4 className="text-base font-medium text-stone-200">{char.name}</h4>
-                              <p className="text-xs text-stone-500">{char.role}</p>
+                            
+                            <div className="min-w-0 flex-1">
+                              {/* Имя и роль */}
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="text-sm font-medium text-stone-200">{char.name}</h4>
+                                {stats.toldSecret && <span className="text-amber-500 text-xs" title="Знает секреты">🤫</span>}
+                              </div>
+                              <p className="text-[10px] text-stone-500 mb-2">{char.role}</p>
+                              
+                              {/* Прогресс-бары */}
+                              <div className="space-y-1.5">
+                                {/* Доверие */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-stone-600 w-16">Доверие</span>
+                                  <div className="flex-1 h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full transition-all duration-500 ${
+                                        stats.trust >= 60 ? "bg-emerald-500" : stats.trust >= 30 ? "bg-amber-500" : "bg-red-500"
+                                      }`}
+                                      style={{ width: `${Math.max(0, Math.min(100, stats.trust))}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-[10px] w-6 text-right ${
+                                    stats.trust >= 60 ? "text-emerald-400" : stats.trust >= 30 ? "text-amber-400" : "text-red-400"
+                                  }`}>{stats.trust}</span>
+                                </div>
+                                
+                                {/* Понимание */}
+                                {stats.understanding > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-stone-600 w-16">Понимание</span>
+                                    <div className="flex-1 h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                                      <div 
+                                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                        style={{ width: `${Math.min(100, stats.understanding)}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-[10px] w-6 text-right text-blue-400">{stats.understanding}</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Статус опасности */}
+                              {stats.dangerLevel > 0 && (
+                                <div className="mt-2 flex items-center gap-1.5">
+                                  <span className="text-red-500">⚠️</span>
+                                  <span className={`text-[10px] font-medium ${dangerColors[stats.dangerLevel]}`}>
+                                    {dangerLabels[stats.dangerLevel]}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {/* Особые статусы */}
+                              {(hasRomance || wasBetrayed || isTrusted || stats.toldSecret) && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {hasRomance && (
+                                    <span className="px-1.5 py-0.5 rounded bg-pink-900/30 text-[9px] text-pink-300">Романтика</span>
+                                  )}
+                                  {wasBetrayed && (
+                                    <span className="px-1.5 py-0.5 rounded bg-red-900/30 text-[9px] text-red-300">Предательство</span>
+                                  )}
+                                  {isTrusted && (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-900/30 text-[9px] text-emerald-300">Доверенный</span>
+                                  )}
+                                  {stats.toldSecret && (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-900/30 text-[9px] text-amber-300">Знает правду</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2187,6 +2789,121 @@ function JournalModal({
                   })}
                 </div>
               )}
+
+              {/* ═══ ЖИТЕЛИ РЫНКА ═══ */}
+              {(() => {
+                const marketNpcs = [
+                  { id: "semyon", name: "Семён", role: "Продавец овощей", emoji: "🥕", trust: marketNpcTrust.semyon, met: marketNpcMet.semyon, threshold: 50, hint: "Знает всех в городе" },
+                  { id: "zina", name: "Баба Зина", role: "Травница", emoji: "🌿", trust: marketNpcTrust.zina, met: marketNpcMet.zina, threshold: 40, hint: "Хранит старые секреты" },
+                  { id: "mityai", name: "Дед Митяй", role: "Ветеран", emoji: "🎖️", trust: marketNpcTrust.mityai, met: marketNpcMet.mityai, threshold: 30, hint: "Помнит старые времена" },
+                  { id: "lyuda", name: "Люда", role: "Продавщица мяса", emoji: "🥩", trust: marketNpcTrust.lyuda, met: marketNpcMet.lyuda, threshold: 0, hint: "Заботится о больной матери" },
+                  { id: "masha", name: "Тётя Маша", role: "Торговка тканями", emoji: "🧵", trust: marketNpcTrust.masha, met: marketNpcMet.masha, threshold: 0, hint: "Потеряла мужа" },
+                  { id: "kolka", name: "Колька", role: "Беспризорник", emoji: "👦", trust: marketNpcTrust.kolka, met: marketNpcMet.kolka, threshold: 0, hint: "Видит то, что взрослые не замечают" },
+                  { id: "grisha", name: "Гриша", role: "Бывший учитель музыки", emoji: "🎻", trust: marketNpcTrust.grisha, met: marketNpcMet.grisha, threshold: 0, hint: "Потерял всё" },
+                ];
+
+                // Показываем секцию если встретили хотя бы одного NPC
+                const hasMetAny = marketNpcs.some(npc => npc.met);
+
+                if (!hasMetAny) return null;
+                
+                return (
+                  <div className="mt-6">
+                    <div className="text-center space-y-2 mb-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="h-px w-8 bg-gradient-to-r from-transparent to-emerald-500/50" />
+                        <span className="text-emerald-400/80 text-xs">🏪</span>
+                        <div className="h-px w-8 bg-gradient-to-l from-transparent to-emerald-500/50" />
+                      </div>
+                      <h4 className="text-sm font-light text-emerald-200/90 tracking-[0.15em] uppercase">Жители рынка</h4>
+                      <p className="text-[10px] text-emerald-700/60">Простые люди с непростыми историями</p>
+                    </div>
+                    
+                    {/* Благодарность города */}
+                    {cityGratitude > 0 && (
+                      <div className="mb-4 p-3 rounded-lg border border-emerald-800/30 bg-emerald-950/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-emerald-400/80">🏆 Благодарность города</span>
+                          <span className="text-sm font-medium text-emerald-300">{cityGratitude}</span>
+                        </div>
+                        <div className="h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(cityGratitude, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-stone-500 mt-1">
+                          {cityGratitude >= 50 ? "Вас уважают в городе" : "Помогайте жителям, чтобы заслужить доверие"}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      {marketNpcs.filter(npc => npc.met).map(npc => {
+                        const trustPercent = Math.min(npc.trust, 100);
+                        const hasSpecialAccess = npc.trust >= npc.threshold && npc.threshold > 0;
+                        
+                        return (
+                          <div 
+                            key={npc.id} 
+                            className={`border rounded-lg overflow-hidden ${
+                              hasSpecialAccess 
+                                ? "border-emerald-700/50 bg-emerald-950/20" 
+                                : "border-stone-800 bg-stone-900/30"
+                            }`}
+                          >
+                            <div className={`h-0.5 ${hasSpecialAccess ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" : "bg-stone-800"}`} />
+                            <div className="p-3">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                  hasSpecialAccess ? "bg-emerald-900/50" : "bg-stone-800"
+                                }`}>
+                                  <span className="text-xl">{npc.emoji}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-medium text-stone-200">{npc.name}</h4>
+                                    {hasSpecialAccess && <span className="text-emerald-400 text-xs">★</span>}
+                                  </div>
+                                  <p className="text-[10px] text-stone-500">{npc.role}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className={`text-sm font-medium ${
+                                    hasSpecialAccess ? "text-emerald-400" : "text-stone-400"
+                                  }`}>{npc.trust}</p>
+                                  <p className="text-[10px] text-stone-600">доверие</p>
+                                </div>
+                              </div>
+                              
+                              {/* Progress bar */}
+                              <div className="mt-2 h-1 bg-stone-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    hasSpecialAccess 
+                                      ? "bg-gradient-to-r from-emerald-600 to-emerald-400" 
+                                      : "bg-stone-600"
+                                  }`}
+                                  style={{ width: `${trustPercent}%` }}
+                                />
+                              </div>
+                              
+                              {/* Hint or special access indicator */}
+                              <p className="text-[10px] mt-1.5 text-stone-500">
+                                {hasSpecialAccess 
+                                  ? `✨ Особый доступ разблокирован` 
+                                  : npc.threshold > 0 
+                                    ? `${npc.hint} (${npc.threshold}+ для особых опций)` 
+                                    : npc.hint
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
 
@@ -2500,121 +3217,411 @@ function JournalModal({
                 })()}
 
                 {/* ═══ КВЕСТЫ РЫНКА — Документы Маши ═══ */}
-                {(questMashaDocuments || questMashaDocumentsDone) && (
-                  <div className={`relative rounded-xl overflow-hidden ${questMashaDocumentsDone ? 'bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20' : 'bg-gradient-to-br from-amber-950/40 via-stone-950 to-amber-950/20'}`}>
-                    <div className={`absolute inset-0 rounded-xl border ${questMashaDocumentsDone ? 'border-emerald-700/30' : 'border-amber-700/30'}`} />
-                    <div className="relative p-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${questMashaDocumentsDone ? 'bg-emerald-900/50' : 'bg-amber-900/50'}`}>
-                          <span className="text-lg">📜</span>
+                {(questMashaDocuments || questMashaDocumentsDone) && (() => {
+                  const isDone = questMashaDocumentsDone;
+                  const hasLocation = viktorDocumentsLocationKnown;
+                  const hasDocuments = viktorDocumentsFound;
+                  
+                  // Прогресс: получен квест (25%) → узнал локацию (50%) → нашёл документы (75%) → сдал (100%)
+                  const progress = isDone ? 100 : hasDocuments ? 75 : hasLocation ? 50 : 25;
+                  const currentStep = isDone ? 4 : hasDocuments ? 3 : hasLocation ? 2 : 1;
+                  
+                  return (
+                    <div className={`relative rounded-xl overflow-hidden ${
+                      isDone ? "bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20" :
+                      "bg-gradient-to-br from-amber-950/40 via-stone-950 to-amber-950/20"
+                    }`}>
+                      <div className={`absolute inset-0 rounded-xl border ${
+                        isDone ? "border-emerald-500/30" : "border-amber-500/30"
+                      }`} />
+                      
+                      {/* Декоративная линия сверху */}
+                      <div className={`h-1 ${
+                        isDone ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" :
+                        "bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600"
+                      }`} />
+                      
+                      <div className="p-4">
+                        {/* Заголовок */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              isDone ? "bg-emerald-900/50" : "bg-amber-900/50"
+                            }`}>
+                              <span className="text-xl">{isDone ? "📬" : "📜"}</span>
+                            </div>
+                            <div>
+                              <h4 className={`font-medium ${isDone ? "text-emerald-200" : "text-amber-200"}`}>
+                                Документы Виктора Морозова
+                              </h4>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Побочный квест • {isDone ? "Завершён" : "В процессе"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider ${
+                            isDone ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"
+                          }`}>
+                            {isDone ? "✓ Завершён" : `Этап ${currentStep}/4`}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-sm font-medium text-stone-200">Документы Виктора Морозова</h4>
-                            {questMashaDocumentsDone && <span className="text-emerald-400 text-xs">✓</span>}
+                        
+                        {/* Прогресс-бар */}
+                        <div className="mb-4">
+                          <div className="h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isDone ? "bg-gradient-to-r from-emerald-600 to-emerald-400" :
+                                "bg-gradient-to-r from-amber-600 to-amber-400"
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
                           </div>
-                          <p className="text-xs text-stone-400 mb-2">
-                            {questMashaDocumentsDone 
-                              ? "Документы найдены и переданы тёте Маше" 
-                              : "Найти спрятанные документы мужа тёти Маши"}
+                          <div className="flex justify-between mt-1.5 text-[9px] text-stone-600">
+                            <span>Квест</span>
+                            <span>Локация</span>
+                            <span>Поиск</span>
+                            <span>Сдача</span>
+                          </div>
+                        </div>
+                        
+                        {/* Описание */}
+                        <div className={`p-3 rounded-lg mb-3 ${isDone ? "bg-emerald-950/30" : "bg-amber-950/30"}`}>
+                          <p className="text-xs text-stone-300 leading-relaxed">
+                            {isDone 
+                              ? "Документы Виктора найдены и переданы тёте Маше. Она наконец узнала правду о своём муже."
+                              : "Тётя Маша просит найти спрятанные документы её мужа Виктора. Возможно, Семён Петрович знает, где искать."
+                            }
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
-                            <span>👤 Тётя Маша</span>
-                            <span>•</span>
-                            <span>🛒 Рынок</span>
+                        </div>
+                        
+                        {/* Чеклист */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${true ? "text-emerald-400" : "text-stone-600"}`}>
+                              {true ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${true ? "text-stone-300" : "text-stone-500"}`}>
+                              Получить просьбу от тёти Маши
+                            </span>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${hasLocation || isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {hasLocation || isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${hasLocation || isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Узнать местоположение тайника {!hasLocation && !isDone && "(спросить Семёна)"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${hasDocuments || isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {hasDocuments || isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${hasDocuments || isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Найти документы {!hasDocuments && !isDone && "(водонапорная башня)"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Передать документы тёте Маше
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Квестодатель */}
+                        <div className="mt-3 pt-3 border-t border-stone-800/50 flex items-center gap-2 text-[10px] text-stone-500">
+                          <span>👤 Тётя Маша</span>
+                          <span>•</span>
+                          <span>🛒 Рынок</span>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* ═══ КВЕСТЫ РЫНКА — Лекарство для Люды ═══ */}
-                {(questLyudaMedicine || questLyudaMedicineDone) && (
-                  <div className={`relative rounded-xl overflow-hidden ${questLyudaMedicineDone ? 'bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20' : 'bg-gradient-to-br from-pink-950/40 via-stone-950 to-pink-950/20'}`}>
-                    <div className={`absolute inset-0 rounded-xl border ${questLyudaMedicineDone ? 'border-emerald-700/30' : 'border-pink-700/30'}`} />
-                    <div className="relative p-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${questLyudaMedicineDone ? 'bg-emerald-900/50' : 'bg-pink-900/50'}`}>
-                          <span className="text-lg">💊</span>
+                {(questLyudaMedicine || questLyudaMedicineDone) && (() => {
+                  const isDone = questLyudaMedicineDone;
+                  // Прогресс: получен квест (50%) → передал лекарство (100%)
+                  const progress = isDone ? 100 : 50;
+                  const currentStep = isDone ? 2 : 1;
+                  
+                  return (
+                    <div className={`relative rounded-xl overflow-hidden ${
+                      isDone ? "bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20" :
+                      "bg-gradient-to-br from-pink-950/40 via-stone-950 to-pink-950/20"
+                    }`}>
+                      <div className={`absolute inset-0 rounded-xl border ${
+                        isDone ? "border-emerald-500/30" : "border-pink-500/30"
+                      }`} />
+                      
+                      <div className={`h-1 ${
+                        isDone ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" :
+                        "bg-gradient-to-r from-pink-600 via-pink-400 to-pink-600"
+                      }`} />
+                      
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              isDone ? "bg-emerald-900/50" : "bg-pink-900/50"
+                            }`}>
+                              <span className="text-xl">{isDone ? "💝" : "💊"}</span>
+                            </div>
+                            <div>
+                              <h4 className={`font-medium ${isDone ? "text-emerald-200" : "text-pink-200"}`}>
+                                Лекарство для мамы Люды
+                              </h4>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Побочный квест • {isDone ? "Завершён" : "В процессе"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider ${
+                            isDone ? "bg-emerald-500/20 text-emerald-400" : "bg-pink-500/20 text-pink-400"
+                          }`}>
+                            {isDone ? "✓ Завершён" : `Этап ${currentStep}/2`}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-sm font-medium text-stone-200">Лекарство для мамы Люды</h4>
-                            {questLyudaMedicineDone && <span className="text-emerald-400 text-xs">✓</span>}
+                        
+                        {/* Прогресс-бар */}
+                        <div className="mb-4">
+                          <div className="h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isDone ? "bg-gradient-to-r from-emerald-600 to-emerald-400" :
+                                "bg-gradient-to-r from-pink-600 to-pink-400"
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
                           </div>
-                          <p className="text-xs text-stone-400 mb-2">
-                            {questLyudaMedicineDone 
-                              ? "Церебролизин передан Люде" 
-                              : "Достать Церебролизин (больница или Вера)"}
+                          <div className="flex justify-between mt-1.5 text-[9px] text-stone-600">
+                            <span>Квест</span>
+                            <span>Передача</span>
+                          </div>
+                        </div>
+                        
+                        {/* Описание */}
+                        <div className={`p-3 rounded-lg mb-3 ${isDone ? "bg-emerald-950/30" : "bg-pink-950/30"}`}>
+                          <p className="text-xs text-stone-300 leading-relaxed">
+                            {isDone 
+                              ? "Церебролизин передан Люде. Её мама получит необходимое лечение."
+                              : "Люда просит достать редкое лекарство Церебролизин для больной мамы. Можно поискать в больнице или спросить у медсестры Веры."
+                            }
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
-                            <span>👤 Люда</span>
-                            <span>•</span>
-                            <span>🛒 Рынок</span>
+                        </div>
+                        
+                        {/* Чеклист */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-emerald-400">✓</span>
+                            <span className="text-xs text-stone-300">Узнать о проблеме Люды</span>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Достать Церебролизин {!isDone && "(больница / Вера)"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Передать лекарство Люде
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-stone-800/50 flex items-center gap-2 text-[10px] text-stone-500">
+                          <span>👤 Люда</span>
+                          <span>•</span>
+                          <span>🛒 Рынок</span>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* ═══ КВЕСТЫ РЫНКА — Скрипка Гриши ═══ */}
-                {(questGrishaViolin || questGrishaViolinDone) && (
-                  <div className={`relative rounded-xl overflow-hidden ${questGrishaViolinDone ? 'bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20' : 'bg-gradient-to-br from-violet-950/40 via-stone-950 to-violet-950/20'}`}>
-                    <div className={`absolute inset-0 rounded-xl border ${questGrishaViolinDone ? 'border-emerald-700/30' : 'border-violet-700/30'}`} />
-                    <div className="relative p-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${questGrishaViolinDone ? 'bg-emerald-900/50' : 'bg-violet-900/50'}`}>
-                          <span className="text-lg">🎻</span>
+                {(questGrishaViolin || questGrishaViolinDone) && (() => {
+                  const isDone = questGrishaViolinDone;
+                  const hasViolin = grishaViolinFound;
+                  // Прогресс: получен квест (33%) → нашёл скрипку (66%) → вернул (100%)
+                  const progress = isDone ? 100 : hasViolin ? 66 : 33;
+                  const currentStep = isDone ? 3 : hasViolin ? 2 : 1;
+                  
+                  return (
+                    <div className={`relative rounded-xl overflow-hidden ${
+                      isDone ? "bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20" :
+                      "bg-gradient-to-br from-violet-950/40 via-stone-950 to-violet-950/20"
+                    }`}>
+                      <div className={`absolute inset-0 rounded-xl border ${
+                        isDone ? "border-emerald-500/30" : "border-violet-500/30"
+                      }`} />
+                      
+                      <div className={`h-1 ${
+                        isDone ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" :
+                        "bg-gradient-to-r from-violet-600 via-violet-400 to-violet-600"
+                      }`} />
+                      
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              isDone ? "bg-emerald-900/50" : "bg-violet-900/50"
+                            }`}>
+                              <span className="text-xl">🎻</span>
+                            </div>
+                            <div>
+                              <h4 className={`font-medium ${isDone ? "text-emerald-200" : "text-violet-200"}`}>
+                                Скрипка Гриши
+                              </h4>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Побочный квест • {isDone ? "Завершён" : "В процессе"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider ${
+                            isDone ? "bg-emerald-500/20 text-emerald-400" : "bg-violet-500/20 text-violet-400"
+                          }`}>
+                            {isDone ? "✓ Завершён" : `Этап ${currentStep}/3`}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-sm font-medium text-stone-200">Скрипка Гриши</h4>
-                            {questGrishaViolinDone && <span className="text-emerald-400 text-xs">✓</span>}
+                        
+                        {/* Прогресс-бар */}
+                        <div className="mb-4">
+                          <div className="h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isDone ? "bg-gradient-to-r from-emerald-600 to-emerald-400" :
+                                "bg-gradient-to-r from-violet-600 to-violet-400"
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
                           </div>
-                          <p className="text-xs text-stone-400 mb-2">
-                            {questGrishaViolinDone 
-                              ? "Скрипка возвращена владельцу" 
-                              : "Найти скрипку (комиссионка или дом Астахова)"}
+                          <div className="flex justify-between mt-1.5 text-[9px] text-stone-600">
+                            <span>Квест</span>
+                            <span>Поиск</span>
+                            <span>Возврат</span>
+                          </div>
+                        </div>
+                        
+                        {/* Описание */}
+                        <div className={`p-3 rounded-lg mb-3 ${isDone ? "bg-emerald-950/30" : "bg-violet-950/30"}`}>
+                          <p className="text-xs text-stone-300 leading-relaxed">
+                            {isDone 
+                              ? "Скрипка возвращена Грише. Бывший учитель музыки снова обрёл смысл жизни."
+                              : "Гриша-бродяга — бывший учитель музыки. После ухода жены к Астахову потерял всё, включая любимую скрипку. Она может быть в комиссионке или у Астахова."
+                            }
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
-                            <span>👤 Гриша</span>
-                            <span>•</span>
-                            <span>🛒 Рынок</span>
+                        </div>
+                        
+                        {/* Чеклист */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-emerald-400">✓</span>
+                            <span className="text-xs text-stone-300">Узнать историю Гриши</span>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${hasViolin || isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {hasViolin || isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${hasViolin || isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Найти скрипку {!hasViolin && !isDone && "(комиссионка / дом Астахова)"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm ${isDone ? "text-emerald-400" : "text-stone-600"}`}>
+                              {isDone ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${isDone ? "text-stone-300" : "text-stone-500"}`}>
+                              Вернуть скрипку Грише
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-stone-800/50 flex items-center gap-2 text-[10px] text-stone-500">
+                          <span>👤 Гриша-бродяга</span>
+                          <span>•</span>
+                          <span>🛒 Рынок</span>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* ═══ КВЕСТЫ РЫНКА — Тайна озера (Колька) ═══ */}
-                {questKolkaWarning && (
-                  <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-cyan-950/40 via-stone-950 to-cyan-950/20">
-                    <div className="absolute inset-0 rounded-xl border border-cyan-700/30" />
-                    <div className="relative p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cyan-900/50">
-                          <span className="text-lg">🌊</span>
+                {questKolkaWarning && (() => {
+                  // У этого квеста нет явного завершения — это скорее информация/зацепка
+                  return (
+                    <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-cyan-950/40 via-stone-950 to-cyan-950/20">
+                      <div className="absolute inset-0 rounded-xl border border-cyan-500/30" />
+                      
+                      <div className="h-1 bg-gradient-to-r from-cyan-600 via-cyan-400 to-cyan-600" />
+                      
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cyan-900/50">
+                              <span className="text-xl">🌊</span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-cyan-200">Тайна озера</h4>
+                              <p className="text-[10px] text-stone-500 uppercase tracking-wider">
+                                Зацепка • Активна
+                              </p>
+                            </div>
+                          </div>
+                          <div className="px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider bg-cyan-500/20 text-cyan-400">
+                            ⚠ Опасно
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-sm font-medium text-stone-200">Тайна озера</h4>
-                          </div>
-                          <p className="text-xs text-stone-400 mb-2">
-                            Колька предупредил об опасности и предложил показать озеро ночью
+                        
+                        {/* Описание */}
+                        <div className="p-3 rounded-lg mb-3 bg-cyan-950/30">
+                          <p className="text-xs text-stone-300 leading-relaxed">
+                            Колька-рыбак предупредил об опасности озера и предложил показать его ночью. 
+                            Он знает что-то о странностях, которые там происходят. Будьте осторожны.
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] text-stone-500">
-                            <span>👤 Колька-рыбак</span>
-                            <span>•</span>
-                            <span>🛒 Рынок</span>
+                        </div>
+                        
+                        {/* Информация */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-emerald-400">✓</span>
+                            <span className="text-xs text-stone-300">Получить предупреждение от Кольки</span>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-cyan-400">⚡</span>
+                            <span className="text-xs text-cyan-300/80">
+                              Колька предлагает показать озеро ночью
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Предупреждение */}
+                        <div className="mt-3 p-2 rounded bg-red-950/30 border border-red-900/30">
+                          <p className="text-[10px] text-red-300/80 flex items-center gap-1.5">
+                            <span>⚠️</span>
+                            Не ходите к озеру после заката одни
+                          </p>
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-stone-800/50 flex items-center gap-2 text-[10px] text-stone-500">
+                          <span>👤 Колька-рыбак</span>
+                          <span>•</span>
+                          <span>🛒 Рынок</span>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* ═══ ПУСТОЕ СОСТОЯНИЕ — Современный дизайн ═══ */}
                 {!activeSidequests.has("sq_letters_started") &&

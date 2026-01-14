@@ -11,6 +11,7 @@
 
 VAR extended_mode = false           // true когда игрок выбрал продолжить (дни 6-15)
 VAR extended_intro_played = false   // true после вступления дня 5
+VAR day5_narrative_shown = false    // true после показа расширенного повествования дня 5
 VAR can_trigger_finale = false      // true только на день 15
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -556,16 +556,34 @@ class BackgroundMusic {
     const target = e.target as HTMLAudioElement | null;
     const error = target?.error;
     
+    // Игнорируем ошибки когда src пустой или это URL страницы (нормальная очистка)
+    // Браузер преобразует пустой src в URL текущей страницы
+    const src = target?.src || "";
+    const isEmptyOrPageUrl = !src || 
+      src === "" || 
+      src === window.location.href ||
+      src.startsWith(window.location.origin + "/miniapp") ||
+      !src.match(/\.(mp3|wav|ogg|m4a|aac|flac|webm)(\?.*)?$/i);
+    
+    if (isEmptyOrPageUrl) {
+      return;
+    }
+    
+    // Игнорируем если нет реальной ошибки
+    if (!error || !error.code) {
+      return;
+    }
+    
     console.error("[BackgroundMusic] Audio Error Details:", {
-      errorCode: error?.code,
-      errorMessage: error?.message,
-      audioSrc: target?.src,
+      errorCode: error.code,
+      errorMessage: error.message,
+      audioSrc: src,
       networkState: target?.networkState,  // 0=EMPTY, 1=IDLE, 2=LOADING, 3=NO_SOURCE
       readyState: target?.readyState,      // 0=HAVE_NOTHING, 1=HAVE_METADATA, etc.
     });
     
     // Детальные сообщения об ошибках
-    switch (error?.code) {
+    switch (error.code) {
       case 1: // MEDIA_ERR_ABORTED
         console.error("[BackgroundMusic] Загрузка прервана пользователем");
         break;
@@ -576,7 +594,7 @@ class BackgroundMusic {
         console.error("[BackgroundMusic] Ошибка декодирования аудио");
         break;
       case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-        console.error("[BackgroundMusic] Формат не поддерживается или файл не найден:", target?.src);
+        console.error("[BackgroundMusic] Формат не поддерживается или файл не найден:", src);
         break;
     }
     
