@@ -156,6 +156,11 @@ export const RED_FOREST_VARIABLES = [
   "quest_grisha_violin",
   "quest_grisha_violin_done",
   "quest_kolka_warning",
+  "quest_kolka_has_silver",
+  "quest_kolka_has_fire",
+  "quest_kolka_has_believer",
+  "quest_kolka_lake_visited",
+  "quest_kolka_completed",
   
   // Прогресс квестов рынка (промежуточные этапы)
   "viktor_documents_location_known",

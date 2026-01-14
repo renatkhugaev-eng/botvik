@@ -584,6 +584,11 @@ export default function InvestigationPage() {
   const [questGrishaViolin, setQuestGrishaViolin] = useState(false);
   const [questGrishaViolinDone, setQuestGrishaViolinDone] = useState(false);
   const [questKolkaWarning, setQuestKolkaWarning] = useState(false);
+  const [questKolkaHasSilver, setQuestKolkaHasSilver] = useState(false);
+  const [questKolkaHasFire, setQuestKolkaHasFire] = useState(false);
+  const [questKolkaHasBeliver, setQuestKolkaHasBeliver] = useState(false);
+  const [questKolkaLakeVisited, setQuestKolkaLakeVisited] = useState(false);
+  const [questKolkaCompleted, setQuestKolkaCompleted] = useState(false);
   // Прогресс квестов рынка (промежуточные этапы)
   const [viktorDocumentsLocationKnown, setViktorDocumentsLocationKnown] = useState(false);
   const [viktorDocumentsFound, setViktorDocumentsFound] = useState(false);
@@ -1249,6 +1254,21 @@ export default function InvestigationPage() {
     if (name === "quest_kolka_warning") {
       setQuestKolkaWarning(Boolean(value));
     }
+    if (name === "quest_kolka_has_silver") {
+      setQuestKolkaHasSilver(Boolean(value));
+    }
+    if (name === "quest_kolka_has_fire") {
+      setQuestKolkaHasFire(Boolean(value));
+    }
+    if (name === "quest_kolka_has_believer") {
+      setQuestKolkaHasBeliver(Boolean(value));
+    }
+    if (name === "quest_kolka_lake_visited") {
+      setQuestKolkaLakeVisited(Boolean(value));
+    }
+    if (name === "quest_kolka_completed") {
+      setQuestKolkaCompleted(Boolean(value));
+    }
     // Прогресс квестов рынка (промежуточные этапы)
     if (name === "viktor_documents_location_known") {
       setViktorDocumentsLocationKnown(Boolean(value));
@@ -1761,6 +1781,11 @@ export default function InvestigationPage() {
             questGrishaViolin={questGrishaViolin}
             questGrishaViolinDone={questGrishaViolinDone}
             questKolkaWarning={questKolkaWarning}
+            questKolkaHasSilver={questKolkaHasSilver}
+            questKolkaHasFire={questKolkaHasFire}
+            questKolkaHasBeliver={questKolkaHasBeliver}
+            questKolkaLakeVisited={questKolkaLakeVisited}
+            questKolkaCompleted={questKolkaCompleted}
             viktorDocumentsLocationKnown={viktorDocumentsLocationKnown}
             viktorDocumentsFound={viktorDocumentsFound}
             grishaViolinFound={grishaViolinFound}
@@ -1943,6 +1968,11 @@ function JournalModal({
   questGrishaViolin,
   questGrishaViolinDone,
   questKolkaWarning,
+  questKolkaHasSilver,
+  questKolkaHasFire,
+  questKolkaHasBeliver,
+  questKolkaLakeVisited,
+  questKolkaCompleted,
   viktorDocumentsLocationKnown,
   viktorDocumentsFound,
   grishaViolinFound,
@@ -1978,6 +2008,11 @@ function JournalModal({
   questGrishaViolin: boolean;
   questGrishaViolinDone: boolean;
   questKolkaWarning: boolean;
+  questKolkaHasSilver: boolean;
+  questKolkaHasFire: boolean;
+  questKolkaHasBeliver: boolean;
+  questKolkaLakeVisited: boolean;
+  questKolkaCompleted: boolean;
   viktorDocumentsLocationKnown: boolean;
   viktorDocumentsFound: boolean;
   grishaViolinFound: boolean;
@@ -3558,65 +3593,101 @@ function JournalModal({
 
                 {/* ═══ КВЕСТЫ РЫНКА — Тайна озера (Колька) ═══ */}
                 {questKolkaWarning && (() => {
-                  // У этого квеста нет явного завершения — это скорее информация/зацепка
+                  const isCompleted = questKolkaCompleted;
+                  const itemsCollected = [questKolkaHasSilver, questKolkaHasFire, questKolkaHasBeliver].filter(Boolean).length;
+                  const allItemsReady = questKolkaHasSilver && questKolkaHasFire && questKolkaHasBeliver;
+                  
                   return (
-                    <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-cyan-950/40 via-stone-950 to-cyan-950/20">
-                      <div className="absolute inset-0 rounded-xl border border-cyan-500/30" />
-                      
-                      <div className="h-1 bg-gradient-to-r from-cyan-600 via-cyan-400 to-cyan-600" />
-                      
+                    <div className={`relative rounded-xl overflow-hidden ${isCompleted ? "bg-gradient-to-br from-emerald-950/40 via-stone-950 to-emerald-950/20" : "bg-gradient-to-br from-cyan-950/40 via-stone-950 to-cyan-950/20"}`}>
+                      <div className={`absolute inset-0 rounded-xl border ${isCompleted ? "border-emerald-500/30" : "border-cyan-500/30"}`} />
+
+                      <div className={`h-1 ${isCompleted ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" : "bg-gradient-to-r from-cyan-600 via-cyan-400 to-cyan-600"}`} />
+
                       <div className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cyan-900/50">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isCompleted ? "bg-emerald-900/50" : "bg-cyan-900/50"}`}>
                               <span className="text-xl">🌊</span>
                             </div>
                             <div>
-                              <h4 className="font-medium text-cyan-200">Тайна озера</h4>
+                              <h4 className={`font-medium ${isCompleted ? "text-emerald-200" : "text-cyan-200"}`}>Тайна озера</h4>
                               <p className="text-[10px] text-stone-500 uppercase tracking-wider">
-                                Зацепка • Активна
+                                {isCompleted ? "✅ Завершено" : allItemsReady ? "⚡ Готово к походу" : `В процессе • ${itemsCollected}/3 предметов`}
                               </p>
                             </div>
                           </div>
-                          <div className="px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider bg-cyan-500/20 text-cyan-400">
-                            ⚠ Опасно
-                          </div>
+                          {!isCompleted && (
+                            <div className="px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider bg-cyan-500/20 text-cyan-400">
+                              ⚠ Опасно
+                            </div>
+                          )}
                         </div>
-                        
+
                         {/* Описание */}
-                        <div className="p-3 rounded-lg mb-3 bg-cyan-950/30">
+                        <div className={`p-3 rounded-lg mb-3 ${isCompleted ? "bg-emerald-950/30" : "bg-cyan-950/30"}`}>
                           <p className="text-xs text-stone-300 leading-relaxed">
-                            Колька-рыбак предупредил об опасности озера и предложил показать его ночью. 
-                            Он знает что-то о странностях, которые там происходят. Будьте осторожны.
+                            {isCompleted 
+                              ? "Вы посетили озеро с Колькой и узнали его тайну. То, что вы видели, навсегда изменило ваше понимание происходящего."
+                              : "Колька-рыбак предложил показать озеро ночью в полнолуние. Для похода нужно собрать три вещи."}
                           </p>
                         </div>
                         
-                        {/* Информация */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-emerald-400">✓</span>
-                            <span className="text-xs text-stone-300">Получить предупреждение от Кольки</span>
+                        {/* Чеклист предметов */}
+                        {!isCompleted && (
+                          <div className="space-y-2 mb-3">
+                            <p className="text-[10px] text-stone-500 uppercase tracking-wider mb-2">Что нужно собрать:</p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm ${questKolkaHasSilver ? "text-emerald-400" : "text-stone-600"}`}>
+                                {questKolkaHasSilver ? "✓" : "○"}
+                              </span>
+                              <span className={`text-xs ${questKolkaHasSilver ? "text-stone-300" : "text-stone-500"}`}>
+                                Серебро — попросить крестик у Серафима {!questKolkaHasSilver && "(Церковь)"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm ${questKolkaHasFire ? "text-emerald-400" : "text-stone-600"}`}>
+                                {questKolkaHasFire ? "✓" : "○"}
+                              </span>
+                              <span className={`text-xs ${questKolkaHasFire ? "text-stone-300" : "text-stone-500"}`}>
+                                Огонь — спирт и бинты для факела {!questKolkaHasFire && "(Больница)"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm ${questKolkaHasBeliver ? "text-emerald-400" : "text-stone-600"}`}>
+                                {questKolkaHasBeliver ? "✓" : "○"}
+                              </span>
+                              <span className={`text-xs ${questKolkaHasBeliver ? "text-stone-300" : "text-stone-500"}`}>
+                                Верующий — уговорить Серафима пойти с вами {!questKolkaHasBeliver && "(Церковь, trust≥60)"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-cyan-400">⚡</span>
-                            <span className="text-xs text-cyan-300/80">
-                              Колька предлагает показать озеро ночью
-                            </span>
+                        )}
+                        
+                        {/* Подсказка когда всё готово */}
+                        {allItemsReady && !isCompleted && (
+                          <div className="p-2 rounded bg-emerald-950/30 border border-emerald-900/30 mb-3">
+                            <p className="text-[10px] text-emerald-300/80 flex items-center gap-1.5">
+                              <span>✨</span>
+                              Всё готово! Найдите Кольку на рынке и идите к озеру
+                            </p>
                           </div>
-                        </div>
+                        )}
                         
                         {/* Предупреждение */}
-                        <div className="mt-3 p-2 rounded bg-red-950/30 border border-red-900/30">
-                          <p className="text-[10px] text-red-300/80 flex items-center gap-1.5">
-                            <span>⚠️</span>
-                            Не ходите к озеру после заката одни
-                          </p>
-                        </div>
+                        {!isCompleted && !allItemsReady && (
+                          <div className="p-2 rounded bg-red-950/30 border border-red-900/30">
+                            <p className="text-[10px] text-red-300/80 flex items-center gap-1.5">
+                              <span>⚠️</span>
+                              Не ходите к озеру после заката без подготовки
+                            </p>
+                          </div>
+                        )}
                         
                         <div className="mt-3 pt-3 border-t border-stone-800/50 flex items-center gap-2 text-[10px] text-stone-500">
                           <span>👤 Колька-рыбак</span>
                           <span>•</span>
                           <span>🛒 Рынок</span>
+                          {questKolkaHasBeliver && <><span>•</span><span>⛪ Серафим</span></>}
                         </div>
                       </div>
                     </div>
